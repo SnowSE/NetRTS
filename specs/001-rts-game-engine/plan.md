@@ -243,9 +243,10 @@ tests/
 
 ## Complexity Tracking
 
-> **Fill ONLY if Constitution Check has violations that must be justified**
-
-| Violation | Why Needed | Simpler Alternative Rejected Because |
-|-----------|------------|-------------------------------------|
-| [e.g., 4th project] | [current need] | [why 3 projects insufficient] |
-| [e.g., Repository pattern] | [specific problem] | [why direct DB access insufficient] |
+**No constitutional violations identified.** All design decisions align with project principles:
+- Clean architecture (Domain/Application/Infrastructure) satisfies SOLID and maintainability requirements
+- CQRS with MediatR eliminates controller duplication (DRY principle)
+- TDD-ready with xUnit, NSubstitute, Reqnroll achieving 95% coverage targets
+- .NET Aspire provides comprehensive observability without custom infrastructure
+- JWT authentication with match-scoped authorization ensures security by design
+- Background service tick processing meets performance budgets (<900ms per tick)
