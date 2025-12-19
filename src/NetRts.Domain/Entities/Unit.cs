@@ -49,6 +49,11 @@ public class Unit
     public int AttackDamage { get; private set; }
 
     /// <summary>
+    /// Armor value (reduces incoming damage).
+    /// </summary>
+    public int Armor { get; private set; }
+
+    /// <summary>
     /// Attack range in tiles.
     /// </summary>
     public int AttackRange { get; private set; }
@@ -79,9 +84,19 @@ public class Unit
     public int? TargetEntityId { get; private set; }
 
     /// <summary>
+    /// Target resource deposit for gathering.
+    /// </summary>
+    public int? TargetResourceDepositId { get; private set; }
+
+    /// <summary>
     /// Resources being carried (workers only).
     /// </summary>
     public int ResourcesCarried { get; private set; }
+
+    /// <summary>
+    /// Alias for OwnerId (playerId who owns this unit).
+    /// </summary>
+    public Guid PlayerId => OwnerId;
 
     // EF Core constructor
     private Unit() { }
@@ -100,6 +115,7 @@ public class Unit
         MaxHealthPoints = stats.MaxHealthPoints;
         HealthPoints = stats.MaxHealthPoints;
         AttackDamage = stats.AttackDamage;
+        Armor = 0; // Default armor, increased by upgrades
         AttackRange = stats.AttackRange;
         MovementSpeed = stats.MovementSpeed;
         VisionRange = stats.VisionRange;
@@ -188,10 +204,93 @@ public class Unit
     }
 
     /// <summary>
+    /// Apply upgrade bonuses (damage and armor).
+    /// </summary>
+    public void ApplyUpgrade(int damageBonus, int armorBonus)
+    {
+        AttackDamage += damageBonus;
+        Armor += armorBonus;
+    }
+
+    /// <summary>
     /// Check if target is within attack range.
     /// </summary>
     public bool IsInAttackRange(Position targetPosition)
     {
         return Position.IsWithinRange(targetPosition, AttackRange);
+    }
+
+    /// <summary>
+    /// Get resource cost for this unit type.
+    /// </summary>
+    public static int GetUnitCost(UnitType type) => type switch
+    {
+        UnitType.Worker => 50,
+        UnitType.Soldier => 100,
+        UnitType.Scout => 75,
+        _ => throw new ArgumentException($"Unknown unit type: {type}")
+    };
+
+    /// <summary>
+    /// Get production time in ticks for this unit type.
+    /// </summary>
+    public static int GetProductionTime(UnitType type) => type switch
+    {
+        UnitType.Worker => 10,
+        UnitType.Soldier => 15,
+        UnitType.Scout => 12,
+        _ => throw new ArgumentException($"Unknown unit type: {type}")
+    };
+
+    /// <summary>
+    /// Set target position for movement.
+    /// </summary>
+    public void SetTargetPosition(Position? targetPosition)
+    {
+        TargetPosition = targetPosition;
+    }
+
+    /// <summary>
+    /// Set target entity for attack.
+    /// </summary>
+    public void SetTargetEntity(int targetEntityId)
+    {
+        TargetEntityId = targetEntityId;
+    }
+
+    /// <summary>
+    /// Set target resource deposit for gathering.
+    /// </summary>
+    public void SetTargetResourceDeposit(int depositId)
+    {
+        TargetResourceDepositId = depositId;
+    }
+
+    /// <summary>
+    /// Set unit status.
+    /// </summary>
+    public void SetStatus(UnitStatus status)
+    {
+        CurrentStatus = status;
+    }
+
+    /// <summary>
+    /// Set unit position.
+    /// </summary>
+    public void SetPosition(Position position)
+    {
+        Position = position;
+    }
+
+    /// <summary>
+    /// Add resources to unit (workers gathering).
+    /// </summary>
+    public void AddCarriedResources(int amount)
+    {
+        if (Type != UnitType.Worker)
+        {
+            return;
+        }
+        ResourcesCarried += amount;
     }
 }

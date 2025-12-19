@@ -58,6 +58,11 @@ public class Building
     /// </summary>
     public int VisionRange { get; private set; }
 
+    /// <summary>
+    /// Queue of units being produced (unit type, ticks remaining).
+    /// </summary>
+    public List<ProductionOrder> ProductionQueue { get; private set; } = new();
+
     // EF Core constructor
     private Building() { }
 
@@ -138,4 +143,89 @@ public class Building
         BuildingType.TechLab => 300,
         _ => throw new ArgumentException($"Unknown building type: {type}")
     };
+
+    /// <summary>
+    /// Complete construction immediately (for testing).
+    /// </summary>
+    public void CompleteConstruction()
+    {
+        ConstructionProgress = 100;
+        IsOperational = true;
+    }
+
+    /// <summary>
+    /// Add a unit to the production queue.
+    /// </summary>
+    public void EnqueueProduction(UnitType unitType, int productionTime)
+    {
+        ProductionQueue.Add(new ProductionOrder(unitType, productionTime));
+    }
+
+    /// <summary>
+    /// Process production for one tick. Returns true if a unit was completed.
+    /// </summary>
+    public bool ProcessProduction()
+    {
+        if (!IsOperational || ProductionQueue.Count == 0)
+        {
+            return false;
+        }
+
+        var currentProduction = ProductionQueue[0];
+        currentProduction.DecrementTimer();
+
+        if (currentProduction.IsComplete())
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// Get and remove the completed production from the queue.
+    /// </summary>
+    public UnitType? GetCompletedProduction()
+    {
+        if (ProductionQueue.Count == 0)
+        {
+            return null;
+        }
+
+        var completed = ProductionQueue[0];
+        if (completed.IsComplete())
+        {
+            ProductionQueue.RemoveAt(0);
+            return completed.UnitType;
+        }
+
+        return null;
+    }
+}
+
+/// <summary>
+/// Represents a unit in the building's production queue.
+/// </summary>
+public class ProductionOrder
+{
+    public UnitType UnitType { get; private set; }
+    public int TicksRemaining { get; private set; }
+    public int TotalTicks { get; private set; }
+
+    public ProductionOrder(UnitType unitType, int totalTicks)
+    {
+        UnitType = unitType;
+        TotalTicks = totalTicks;
+        TicksRemaining = totalTicks;
+    }
+
+    public void DecrementTimer()
+    {
+        TicksRemaining = Math.Max(0, TicksRemaining - 1);
+    }
+
+    public bool IsComplete() => TicksRemaining == 0;
+
+    public int GetProgressPercentage() =>
+        TotalTicks > 0 ? (int)((TotalTicks - TicksRemaining) * 100.0 / TotalTicks) : 0;
 }

@@ -10,7 +10,7 @@ public class Upgrade
     public int Id { get; private set; }
     public Guid MatchId { get; private set; }
     public Guid OwnerId { get; private set; }
-    public UpgradeType Type { get; private set; }
+    public UpgradeType UpgradeType { get; private set; }
     public int ResearchProgress { get; private set; }
     public int ResearchTicksRequired { get; private set; }
     public bool IsCompleted { get; private set; }
@@ -23,7 +23,7 @@ public class Upgrade
         Id = id;
         MatchId = matchId;
         OwnerId = ownerId;
-        Type = type;
+        UpgradeType = type;
         ResearchProgress = 0;
         IsCompleted = false;
         (ResourceCost, ResearchTicksRequired) = GetUpgradeDetails(type);
@@ -40,23 +40,36 @@ public class Upgrade
 
     private static (int Cost, int Time) GetUpgradeDetails(UpgradeType type) => type switch
     {
-        UpgradeType.WeaponDamage1 => (200, 30),
-        UpgradeType.WeaponDamage2 => (400, 60),
-        UpgradeType.Armor1 => (200, 30),
-        UpgradeType.Armor2 => (400, 60),
-        UpgradeType.Speed1 => (150, 25),
-        UpgradeType.Speed2 => (300, 50),
+        UpgradeType.MeleeDamage => (200, 30),
+        UpgradeType.MeleeDamage2 => (400, 60),
+        UpgradeType.RangedDamage => (200, 30),
+        UpgradeType.RangedDamage2 => (400, 60),
+        UpgradeType.ArmorUpgrade => (200, 30),
+        UpgradeType.ArmorUpgrade2 => (400, 60),
         _ => throw new ArgumentException($"Unknown upgrade type: {type}")
     };
 
-    public static (int Damage, int Health, int Speed) GetUpgradeEffects(UpgradeType type) => type switch
+    public static int GetUpgradeCost(UpgradeType type)
     {
-        UpgradeType.WeaponDamage1 => (5, 0, 0),
-        UpgradeType.WeaponDamage2 => (10, 0, 0),
-        UpgradeType.Armor1 => (0, 20, 0),
-        UpgradeType.Armor2 => (0, 40, 0),
-        UpgradeType.Speed1 => (0, 0, 1),
-        UpgradeType.Speed2 => (0, 0, 1),
+        return GetUpgradeDetails(type).Cost;
+    }
+
+    public static UpgradeType? GetPrerequisiteUpgrade(UpgradeType type) => type switch
+    {
+        UpgradeType.MeleeDamage2 => UpgradeType.MeleeDamage,
+        UpgradeType.RangedDamage2 => UpgradeType.RangedDamage,
+        UpgradeType.ArmorUpgrade2 => UpgradeType.ArmorUpgrade,
+        _ => null
+    };
+
+    public static (int Damage, int Armor) GetUpgradeEffects(UpgradeType type) => type switch
+    {
+        UpgradeType.MeleeDamage => (5, 0),
+        UpgradeType.MeleeDamage2 => (5, 0),
+        UpgradeType.RangedDamage => (5, 0),
+        UpgradeType.RangedDamage2 => (5, 0),
+        UpgradeType.ArmorUpgrade => (0, 2),
+        UpgradeType.ArmorUpgrade2 => (0, 2),
         _ => throw new ArgumentException($"Unknown upgrade type: {type}")
     };
 }

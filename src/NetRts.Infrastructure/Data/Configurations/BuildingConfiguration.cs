@@ -20,6 +20,16 @@ public class BuildingConfiguration : IEntityTypeConfiguration<Building>
             pos.Property(p => p.Y).HasColumnName("PositionY").IsRequired();
         });
 
+        builder.OwnsMany(b => b.ProductionQueue, pq =>
+        {
+            pq.WithOwner().HasForeignKey("BuildingMatchId", "BuildingId");
+            pq.Property<int>("Id");
+            pq.HasKey("Id");
+            pq.Property(p => p.UnitType).IsRequired().HasConversion<string>();
+            pq.Property(p => p.TicksRemaining).IsRequired();
+            pq.Property(p => p.TotalTicks).IsRequired();
+        });
+
         builder.HasIndex(b => new { b.MatchId, b.OwnerId })
             .HasDatabaseName("IX_Buildings_Match_Owner");
     }
