@@ -1,0 +1,134 @@
+@page "/profile"
+@using NetRts.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>Profile - NetRTS</PageTitle>
+
+<div class="container mt-4">
+    @if (!AuthService.IsAuthenticated || AuthService.CurrentPlayer == null)
+    {
+        <div class="alert alert-warning">
+            <h5>Not Logged In</h5>
+            <p>Please log in to view your profile.</p>
+            <a href="/login" class="btn btn-primary">Login</a>
+        </div>
+    }
+    else
+    {
+        var player = AuthService.CurrentPlayer;
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h4 class="mb-0">
+                            <i class="bi bi-person-circle me-2"></i>
+                            @player.Username
+                            @if (player.IsBot)
+                            {
+                                <span class="badge bg-info ms-2">Bot</span>
+                            }
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <dl class="row mb-0">
+                            <dt class="col-sm-5">Player ID</dt>
+                            <dd class="col-sm-7">
+                                <code>@player.PlayerId.ToString().Substring(0, 8)...</code>
+                            </dd>
+
+                            @if (!string.IsNullOrEmpty(player.Email))
+                            {
+                                <dt class="col-sm-5">Email</dt>
+                                <dd class="col-sm-7">@player.Email</dd>
+                            }
+
+                            <dt class="col-sm-5">Registered</dt>
+                            <dd class="col-sm-7">@player.CreatedAt.ToLocalTime().ToString("g")</dd>
+                        </dl>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="bi bi-bar-chart me-2"></i>
+                            Statistics
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row text-center">
+                            <div class="col-4">
+                                <h2 class="text-primary mb-0">@player.CurrentElo</h2>
+                                <small class="text-muted">ELO Rating</small>
+                            </div>
+                            <div class="col-4">
+                                <h2 class="text-success mb-0">@player.TotalWins</h2>
+                                <small class="text-muted">Wins</small>
+                            </div>
+                            <div class="col-4">
+                                <h2 class="text-info mb-0">@player.TotalMatches</h2>
+                                <small class="text-muted">Matches</small>
+                            </div>
+                        </div>
+                        <hr />
+                        <div class="text-center">
+                            <h4 class="mb-0">
+                                @player.WinRate.ToString("F1")%
+                            </h4>
+                            <small class="text-muted">Win Rate</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <button class="btn btn-outline-primary me-2" @onclick="RefreshProfile" disabled="@isRefreshing">
+                @if (isRefreshing)
+                {
+                    <span class="spinner-border spinner-border-sm me-1"></span>
+                }
+                <i class="bi bi-arrow-clockwise"></i> Refresh
+            </button>
+            <button class="btn btn-outline-danger" @onclick="Logout">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private bool isRefreshing = false;
+
+    protected override void OnInitialized()
+    {
+        if (!AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+        }
+    }
+
+    private async Task RefreshProfile()
+    {
+        isRefreshing = true;
+        try
+        {
+            await AuthService.RefreshProfileAsync();
+        }
+        finally
+        {
+            isRefreshing = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task Logout()
+    {
+        await AuthService.LogoutAsync();
+        Navigation.NavigateTo("/");
+    }
+}

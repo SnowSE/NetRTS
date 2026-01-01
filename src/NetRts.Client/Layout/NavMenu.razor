@@ -1,6 +1,9 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
+@using NetRts.Client.Services
+@inject AuthService AuthService
+
+<div class="top-row ps-3 navbar navbar-dark">
     <div class="container-fluid">
-        <a class="navbar-brand" href="">NetRts.Client</a>
+        <a class="navbar-brand" href="">NetRTS</a>
         <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
             <span class="navbar-toggler-icon"></span>
         </button>
@@ -19,6 +22,35 @@
                 <span class="bi bi-grid-3x3-gap-fill" aria-hidden="true"></span> Game Lobbies
             </NavLink>
         </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="leaderboard">
+                <span class="bi bi-trophy-fill" aria-hidden="true"></span> Leaderboard
+            </NavLink>
+        </div>
+
+        @if (!AuthService.IsAuthenticated)
+        {
+            <hr class="mx-3 my-2" />
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="bi bi-box-arrow-in-right" aria-hidden="true"></span> Login
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="register">
+                    <span class="bi bi-person-plus" aria-hidden="true"></span> Register
+                </NavLink>
+            </div>
+        }
+        else
+        {
+            <hr class="mx-3 my-2" />
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="profile">
+                    <span class="bi bi-person-circle" aria-hidden="true"></span> Profile
+                </NavLink>
+            </div>
+        }
     </nav>
 </div>
 
@@ -30,5 +62,15 @@
     private void ToggleNavMenu()
     {
         collapseNavMenu = !collapseNavMenu;
+    }
+
+    protected override void OnInitialized()
+    {
+        AuthService.OnAuthStateChanged += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        AuthService.OnAuthStateChanged -= StateHasChanged;
     }
 }

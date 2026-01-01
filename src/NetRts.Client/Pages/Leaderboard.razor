@@ -1,0 +1,120 @@
+@page "/leaderboard"
+@using NetRts.Contracts.Responses
+@inject HttpClient Http
+
+<PageTitle>Leaderboard - NetRTS</PageTitle>
+
+<div class="container mt-4">
+    <h1 class="mb-4">
+        <i class="bi bi-trophy me-2"></i>
+        Leaderboard
+    </h1>
+
+    @if (loading)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (players == null || !players.Any())
+    {
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            No players registered yet. Be the first to join!
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 60px;">#</th>
+                            <th>Player</th>
+                            <th class="text-center">ELO</th>
+                            <th class="text-center">Matches</th>
+                            <th class="text-center">Wins</th>
+                            <th class="text-center">Win Rate</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @{ int rank = 1; }
+                        @foreach (var player in players)
+                        {
+                            <tr>
+                                <td>
+                                    @if (rank == 1)
+                                    {
+                                        <span class="badge bg-warning text-dark">🥇 1</span>
+                                    }
+                                    else if (rank == 2)
+                                    {
+                                        <span class="badge bg-secondary">🥈 2</span>
+                                    }
+                                    else if (rank == 3)
+                                    {
+                                        <span class="badge bg-danger">🥉 3</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-muted">@rank</span>
+                                    }
+                                </td>
+                                <td>
+                                    <strong>@player.Username</strong>
+                                    @if (player.IsBot)
+                                    {
+                                        <span class="badge bg-info ms-1">Bot</span>
+                                    }
+                                </td>
+                                <td class="text-center">
+                                    <strong class="text-primary">@player.CurrentElo</strong>
+                                </td>
+                                <td class="text-center">@player.TotalMatches</td>
+                                <td class="text-center text-success">@player.TotalWins</td>
+                                <td class="text-center">@player.WinRate.ToString("F1")%</td>
+                            </tr>
+                            rank++;
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<PlayerResponse>? players;
+    private bool loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLeaderboard();
+    }
+
+    private async Task LoadLeaderboard()
+    {
+        loading = true;
+        try
+        {
+            // For now, we'll fetch all players sorted by ELO
+            // In production, there would be a dedicated leaderboard endpoint
+            var response = await Http.GetAsync("api/v1/players");
+            if (response.IsSuccessStatusCode)
+            {
+                players = await response.Content.ReadFromJsonAsync<List<PlayerResponse>>();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading leaderboard: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+}

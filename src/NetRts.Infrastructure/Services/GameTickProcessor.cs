@@ -19,17 +19,20 @@ public class GameTickProcessor : IGameTickProcessor
     private readonly GameStateCache _gameStateCache;
     private readonly IMatchRepository _matchRepository;
     private readonly ICommandQueueManager _commandQueueManager;
+    private readonly IGameUpdateBroadcaster _gameUpdateBroadcaster;
 
     public GameTickProcessor(
         ILogger<GameTickProcessor> logger,
         GameStateCache gameStateCache,
         IMatchRepository matchRepository,
-        ICommandQueueManager commandQueueManager)
+        ICommandQueueManager commandQueueManager,
+        IGameUpdateBroadcaster gameUpdateBroadcaster)
     {
         _logger = logger;
         _gameStateCache = gameStateCache;
         _matchRepository = matchRepository;
         _commandQueueManager = commandQueueManager;
+        _gameUpdateBroadcaster = gameUpdateBroadcaster;
     }
 
     public async Task ProcessTickAsync(CancellationToken cancellationToken = default)
@@ -82,6 +85,9 @@ public class GameTickProcessor : IGameTickProcessor
 
             _logger.LogInformation("Match {MatchId} ended by time limit - Winner: {WinnerId}",
                 match.Id, match.WinnerId);
+            
+            // Broadcast match ended
+            await _gameUpdateBroadcaster.BroadcastMatchEndedAsync(match.Id, match.WinnerId, cancellationToken);
             return;
         }
 
@@ -98,14 +104,15 @@ public class GameTickProcessor : IGameTickProcessor
         // Update game state cache
         _gameStateCache.AddOrUpdate(match);
 
-        // Diagnostic logging: Check units in cache after tick
-        var cachedUnits = _gameStateCache.GetUnitsForMatch(match.Id);
-        _logger.LogInformation("After tick processing: Cache has {Count} units", cachedUnits.Count);
-        foreach (var u in cachedUnits)
-        {
-            _logger.LogInformation("  Unit {Id}: Position ({X},{Y}), Status: {Status}",
-                u.Id, u.Position.X, u.Position.Y, u.CurrentStatus);
-        }
+        // Broadcast updated game state to all players via SignalR
+        await _gameUpdateBroadcaster.BroadcastGameStateAsync(
+            match.Id, 
+            match.Player1Id, 
+            match.Player2Id, 
+            cancellationToken);
+
+        _logger.LogDebug("Tick {Tick} processed and broadcast for match {MatchId}", 
+            match.CurrentTick, match.Id);
 
         // Periodic snapshot to database (every 10 ticks)
         if (match.CurrentTick % 10 == 0)

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using NetRts.Api.Endpoints;
 using NetRts.Api.Hubs;
+using NetRts.Api.Services;
 using NetRts.Application.Behaviors;
 using NetRts.Application.Interfaces;
 using NetRts.Application.Services;
@@ -57,6 +58,9 @@ builder.Services.AddScoped<IGameTickProcessor, GameTickProcessor>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IGameStateService, GameStateService>();
 builder.Services.AddScoped<ICommandQueueService, CommandQueueService>();
+
+// Add SignalR game update broadcaster (singleton because it uses IHubContext)
+builder.Services.AddSingleton<IGameUpdateBroadcaster, SignalRGameUpdateBroadcaster>();
 
 // Add background services
 builder.Services.AddHostedService<GameTickService>();
@@ -150,10 +154,17 @@ app.MapHealthChecks("/health");
 app.MapGameEndpoints();
 app.MapCommandEndpoints();
 app.MapLobbyEndpoints();
+app.MapPlayerEndpoints();
 app.MapGet("/api", () => "NetRts API is running");
 
 // Fallback to index.html for client-side routing
 app.MapFallbackToFile("index.html");
+
+using (var scope = app.Services.CreateScope())
+{
+    var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    await dbContext.Database.MigrateAsync();
+}
 
 app.Run();
 

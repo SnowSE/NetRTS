@@ -1,0 +1,179 @@
+@page "/auth"
+@page "/login"
+@page "/register"
+@using NetRts.Client.Services
+@inject AuthService AuthService
+@inject NavigationManager Navigation
+
+<PageTitle>@(isRegistering ? "Register" : "Login") - NetRTS</PageTitle>
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-4">
+            <div class="card shadow">
+                <div class="card-header text-center">
+                    <h4 class="mb-0">@(isRegistering ? "Create Account" : "Welcome Back")</h4>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(errorMessage))
+                    {
+                        <div class="alert alert-danger" role="alert">
+                            @errorMessage
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(successMessage))
+                    {
+                        <div class="alert alert-success" role="alert">
+                            @successMessage
+                        </div>
+                    }
+
+                    <EditForm Model="@formModel" OnValidSubmit="HandleSubmit">
+                        <DataAnnotationsValidator />
+
+                        <div class="mb-3">
+                            <label class="form-label">Username</label>
+                            <InputText @bind-Value="formModel.Username" class="form-control" placeholder="Enter username" />
+                            <div class="form-text">3-20 characters, letters, numbers, and underscores only</div>
+                        </div>
+
+                        @if (isRegistering)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Email (optional)</label>
+                                <InputText @bind-Value="formModel.Email" class="form-control" type="email" placeholder="Enter email" />
+                            </div>
+
+                            <div class="mb-3 form-check">
+                                <InputCheckbox @bind-Value="formModel.IsBot" class="form-check-input" id="isBotCheck" />
+                                <label class="form-check-label" for="isBotCheck">
+                                    This is a bot account
+                                </label>
+                            </div>
+                        }
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" disabled="@isLoading">
+                                @if (isLoading)
+                                {
+                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                }
+                                @(isRegistering ? "Create Account" : "Login")
+                            </button>
+                        </div>
+                    </EditForm>
+
+                    <hr />
+
+                    <div class="text-center">
+                        @if (isRegistering)
+                        {
+                            <p class="mb-0">
+                                Already have an account? 
+                                <a href="javascript:void(0)" @onclick="ToggleMode">Login here</a>
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="mb-0">
+                                Don't have an account? 
+                                <a href="javascript:void(0)" @onclick="ToggleMode">Register here</a>
+                            </p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private AuthFormModel formModel = new();
+    private bool isRegistering = false;
+    private bool isLoading = false;
+    private string? errorMessage;
+    private string? successMessage;
+
+    protected override void OnInitialized()
+    {
+        // Check if already authenticated
+        if (AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/lobbies");
+            return;
+        }
+
+        // Determine mode from URL
+        var uri = new Uri(Navigation.Uri);
+        isRegistering = uri.AbsolutePath.Contains("register", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ToggleMode()
+    {
+        isRegistering = !isRegistering;
+        errorMessage = null;
+        successMessage = null;
+    }
+
+    private async Task HandleSubmit()
+    {
+        errorMessage = null;
+        successMessage = null;
+        isLoading = true;
+
+        try
+        {
+            if (string.IsNullOrWhiteSpace(formModel.Username))
+            {
+                errorMessage = "Username is required";
+                return;
+            }
+
+            if (isRegistering)
+            {
+                var (success, error) = await AuthService.RegisterAsync(
+                    formModel.Username, 
+                    formModel.Email, 
+                    formModel.IsBot);
+
+                if (success)
+                {
+                    successMessage = "Account created successfully! Redirecting...";
+                    await Task.Delay(1000);
+                    Navigation.NavigateTo("/lobbies");
+                }
+                else
+                {
+                    errorMessage = error;
+                }
+            }
+            else
+            {
+                var (success, error) = await AuthService.LoginAsync(formModel.Username);
+
+                if (success)
+                {
+                    successMessage = "Login successful! Redirecting...";
+                    await Task.Delay(500);
+                    Navigation.NavigateTo("/lobbies");
+                }
+                else
+                {
+                    errorMessage = error;
+                }
+            }
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private class AuthFormModel
+    {
+        public string Username { get; set; } = string.Empty;
+        public string? Email { get; set; }
+        public bool IsBot { get; set; } = false;
+    }
+}

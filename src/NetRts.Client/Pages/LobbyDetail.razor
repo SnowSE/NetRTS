@@ -1,7 +1,9 @@
 @page "/lobby/{LobbyId:guid}"
+@using NetRts.Client.Services
 @using NetRts.Contracts.Responses
 @using Microsoft.AspNetCore.SignalR.Client
-@inject HttpClient Http
+@inject AuthenticatedHttpClient Http
+@inject AuthService AuthService
 @inject NavigationManager Navigation
 @implements IAsyncDisposable
 
@@ -143,7 +145,7 @@
     private bool isHost = false;
     private bool isStarting = false;
     private bool showSettingsForm = false;
-    private Guid playerId;
+    private Guid playerId => AuthService.PlayerId;
 
     private int editMapWidth;
     private int editMapHeight;
@@ -154,8 +156,11 @@
 
     protected override async Task OnInitializedAsync()
     {
-        // Get or create player ID
-        playerId = Guid.NewGuid(); // In a real app, this would come from authentication
+        if (!AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
 
         await LoadLobby();
         await JoinLobbyIfNeeded();
@@ -188,11 +193,7 @@
         {
             try
             {
-                var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/lobbies/{LobbyId}/join");
-                request.Headers.Add("X-Test-Player-Id", playerId.ToString());
-                request.Content = JsonContent.Create(new { });
-
-                var response = await Http.SendAsync(request);
+                var response = await Http.PostAsJsonAsync($"api/v1/lobbies/{LobbyId}/join", new { });
                 if (response.IsSuccessStatusCode)
                 {
                     await LoadLobby();
@@ -263,11 +264,7 @@
         isStarting = true;
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/lobbies/{LobbyId}/start");
-            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
-            request.Content = JsonContent.Create(new { });
-
-            var response = await Http.SendAsync(request);
+            var response = await Http.PostAsJsonAsync($"api/v1/lobbies/{LobbyId}/start", new { });
             if (response.IsSuccessStatusCode)
             {
                 var result = await response.Content.ReadFromJsonAsync<StartMatchResponse>();
@@ -291,11 +288,7 @@
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/lobbies/{LobbyId}/leave");
-            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
-            request.Content = JsonContent.Create(new { });
-
-            await Http.SendAsync(request);
+            await Http.PostAsJsonAsync($"api/v1/lobbies/{LobbyId}/leave", new { });
             Navigation.NavigateTo("/lobbies");
         }
         catch (Exception ex)
@@ -308,9 +301,7 @@
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Put, $"api/v1/lobbies/{LobbyId}/settings");
-            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
-            request.Content = JsonContent.Create(new
+            var response = await Http.PutAsJsonAsync($"api/v1/lobbies/{LobbyId}/settings", new
             {
                 MapWidth = editMapWidth,
                 MapHeight = editMapHeight,
@@ -318,7 +309,6 @@
                 StartingResources = editStartingResources
             });
 
-            var response = await Http.SendAsync(request);
             if (response.IsSuccessStatusCode)
             {
                 await LoadLobby();

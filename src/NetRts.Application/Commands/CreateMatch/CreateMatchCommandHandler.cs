@@ -54,6 +54,9 @@ public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Gui
             tickIntervalMs: 1000);
 
         var match = new Match(player1Id, player2Id, settings);
+        
+        // Start the match so the tick processor will process it
+        match.Start();
 
         // Generate starting positions (opposite corners)
         var player1SpawnPosition = new Position(10, 10);
@@ -125,22 +128,30 @@ public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Gui
             }
         }
 
-        // Place 4-6 resource deposits on map
+        // Place 4-6 resource deposits on map - spread around the map for accessibility
         var resourceDeposits = new List<ResourceDeposit>();
-        int resourceDepositCount = _random.Next(4, 7); // 4-6 deposits
-
-        for (int i = 0; i < resourceDepositCount; i++)
+        
+        // Place deposits in strategic locations - near both bases and in the middle
+        var depositPositions = new[]
         {
-            var resourcePosition = new Position(
-                _random.Next(20, 80),
-                _random.Next(20, 80));
+            new Position(20, 20),   // Near player 1 base
+            new Position(80, 80),   // Near player 2 base
+            new Position(50, 50),   // Center of map
+            new Position(30, 70),   // Middle-left
+            new Position(70, 30),   // Middle-right
+        };
 
+        for (int i = 0; i < depositPositions.Length; i++)
+        {
             resourceDeposits.Add(new ResourceDeposit(
                 id: i + 1,
                 matchId: match.Id,
-                position: resourcePosition,
+                position: depositPositions[i],
                 initialCapacity: 5000));
         }
+
+        // Initialize empty upgrades list
+        var upgrades = new List<Upgrade>();
 
         // Store initialized match state in cache
         _gameStateCache.SetMatch(match.Id, match);
@@ -148,6 +159,7 @@ public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Gui
         _gameStateCache.SetBuildingsForMatch(match.Id, buildings);
         _gameStateCache.SetMapTilesForMatch(match.Id, mapTiles);
         _gameStateCache.SetResourceDepositsForMatch(match.Id, resourceDeposits);
+        _gameStateCache.SetUpgradesForMatch(match.Id, upgrades);
 
         // Persist match metadata to database
         await _matchRepository.AddAsync(match, cancellationToken);

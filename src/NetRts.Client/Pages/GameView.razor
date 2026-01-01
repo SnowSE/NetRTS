@@ -1,8 +1,12 @@
 @page "/game/{MatchId:guid}"
+@layout NetRts.Client.Layout.EmptyLayout
+@using NetRts.Client.Services
 @using NetRts.Contracts.Responses
 @using Microsoft.AspNetCore.SignalR.Client
-@inject HttpClient Http
+@inject AuthenticatedHttpClient Http
+@inject AuthService AuthService
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 @implements IAsyncDisposable
 
 <PageTitle>Game - Match @MatchId.ToString().Substring(0, 8)</PageTitle>
@@ -60,8 +64,8 @@
         </div>
 
         <div class="game-content">
-            <div class="map-container">
-                <div class="game-map" style="width: @(gameState.MapWidth * cellSize)px; height: @(gameState.MapHeight * cellSize)px;">
+            <div class="map-container" id="mapContainer">
+                <div class="game-map" id="gameMap" style="width: @(gameState.MapWidth * cellSize)px; height: @(gameState.MapHeight * cellSize)px;">
                     @for (int y = 0; y < gameState.MapHeight; y++)
                     {
                         for (int x = 0; x < gameState.MapWidth; x++)
@@ -76,38 +80,58 @@
                         }
                     }
 
-                    @foreach (var building in gameState.Buildings)
+                    @* Render resource deposits *@
+                    @foreach (var resource in gameState.ResourceDeposits)
                     {
-                        var isVisible = IsPositionVisible(building.Position.X, building.Position.Y);
-                        if (isVisible)
-                        {
-                            <div class="building @GetOwnerClass(building.PlayerId) @(selectedBuildingId == building.BuildingId ? "selected" : "")"
-                                 style="left: @(building.Position.X * cellSize)px; top: @(building.Position.Y * cellSize)px; width: @(cellSize * 2)px; height: @(cellSize * 2)px;"
-                                 @onclick="() => SelectBuilding(building.BuildingId)"
-                                 title="@building.BuildingType (@building.Health/@building.MaxHealth HP)">
-                                <span class="building-icon">@GetBuildingIcon(building.BuildingType)</span>
-                            </div>
-                        }
+                        <div class="resource-deposit @(resource.IsDepleted ? "depleted" : "")"
+                             style="left: @(resource.Position.X * cellSize)px; top: @(resource.Position.Y * cellSize)px; width: @(cellSize)px; height: @(cellSize)px;"
+                             title="Resources: @resource.RemainingCapacity remaining">
+                            <span class="resource-icon">💎</span>
+                        </div>
                     }
 
+                    @* Render all buildings - API already filters to only visible ones *@
+                    @foreach (var building in gameState.Buildings)
+                    {
+                        <div class="building @GetOwnerClass(building.PlayerId) @(selectedBuildingId == building.BuildingId ? "selected" : "") @(!building.IsConstructed ? "under-construction" : "")"
+                             style="left: @(building.Position.X * cellSize)px; top: @(building.Position.Y * cellSize)px; width: @(cellSize * 2)px; height: @(cellSize * 2)px;"
+                             @onclick="() => SelectBuilding(building.BuildingId)"
+                             @onclick:stopPropagation="true"
+                             title="@building.BuildingType (@building.Health/@building.MaxHealth HP) @(!building.IsConstructed ? $"- {building.ConstructionProgress}% built" : "")">
+                            <span class="building-icon">@GetBuildingIcon(building.BuildingType)</span>
+                            @if (!building.IsConstructed)
+                            {
+                                <div class="construction-progress" style="width: @(building.ConstructionProgress)%;"></div>
+                            }
+                        </div>
+                    }
+
+                    @* Render all units - API already filters to only visible ones *@
                     @foreach (var unit in gameState.Units)
                     {
-                        var isVisible = IsPositionVisible(unit.Position.X, unit.Position.Y);
-                        if (isVisible)
-                        {
-                            <div class="unit @GetOwnerClass(unit.PlayerId) @(selectedUnitIds.Contains(unit.UnitId) ? "selected" : "")"
-                                 style="left: @(unit.Position.X * cellSize)px; top: @(unit.Position.Y * cellSize)px; width: @(cellSize)px; height: @(cellSize)px;"
-                                 @onclick="() => SelectUnit(unit.UnitId)"
-                                 @onclick:preventDefault="true"
-                                 title="@unit.UnitType (@unit.Health/@unit.MaxHealth HP)">
-                                <span class="unit-icon">@GetUnitIcon(unit.UnitType)</span>
-                            </div>
-                        }
+                        <div class="unit @GetOwnerClass(unit.PlayerId) @(selectedUnitIds.Contains(unit.UnitId) ? "selected" : "")"
+                             style="left: @(unit.Position.X * cellSize)px; top: @(unit.Position.Y * cellSize)px; width: @(cellSize)px; height: @(cellSize)px;"
+                             @onclick="() => SelectUnit(unit.UnitId)"
+                             @onclick:stopPropagation="true"
+                             title="@unit.UnitType (@unit.Health/@unit.MaxHealth HP) - @unit.CurrentState">
+                            <span class="unit-icon">@GetUnitIcon(unit.UnitType)</span>
+                        </div>
                     }
                 </div>
             </div>
 
             <div class="side-panel">
+                @* Command Mode Indicator *@
+                @if (commandMode != CommandMode.None)
+                {
+                    <div class="alert alert-warning mb-3">
+                        <strong>@commandMode Mode</strong>
+                        <p class="mb-1"><small>Click on the map to @GetCommandModeInstruction()</small></p>
+                        <button class="btn btn-sm btn-outline-dark" @onclick="CancelCommand">Cancel</button>
+                    </div>
+                }
+
+                @* Selected Units Panel *@
                 @if (selectedUnitIds.Any())
                 {
                     var units = GetMyUnits().Where(u => selectedUnitIds.Contains(u.UnitId)).ToList();
@@ -119,60 +143,156 @@
                             @if (units.Count == 1)
                             {
                                 var unit = units[0];
-                                <p><strong>Type:</strong> @unit.UnitType</p>
-                                <p><strong>Health:</strong> @unit.Health / @unit.MaxHealth</p>
-                                <p><strong>Position:</strong> (@unit.Position.X, @unit.Position.Y)</p>
+                                <p class="mb-1"><strong>Type:</strong> @unit.UnitType</p>
+                                <p class="mb-1"><strong>Health:</strong> @unit.Health / @unit.MaxHealth</p>
+                                <p class="mb-1"><strong>Position:</strong> (@unit.Position.X, @unit.Position.Y)</p>
+                                <p class="mb-1"><strong>Status:</strong> @unit.CurrentState</p>
+                                @if (unit.CarriedResources > 0)
+                                {
+                                    <p class="mb-1"><strong>Carrying:</strong> @unit.CarriedResources resources</p>
+                                }
                             }
                             else
                             {
-                                <p>Multiple units selected</p>
+                                <p>@units.Count units selected</p>
+                                <ul class="small mb-0">
+                                    @foreach (var grp in units.GroupBy(u => u.UnitType))
+                                    {
+                                        <li>@grp.Count() x @grp.Key</li>
+                                    }
+                                </ul>
                             }
-                            <div class="d-grid gap-2 mt-3">
-                                <button class="btn btn-sm btn-primary" @onclick="EnableMoveMode" disabled="@(commandMode == CommandMode.Move)">
+                            <hr />
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-sm btn-primary" @onclick="EnableMoveMode">
                                     <i class="bi bi-cursor"></i> Move
                                 </button>
-                                <button class="btn btn-sm btn-secondary" @onclick="ClearSelection">
-                                    <i class="bi bi-x-circle"></i> Clear
+                                <button class="btn btn-sm btn-danger" @onclick="EnableAttackMode">
+                                    <i class="bi bi-crosshair"></i> Attack
+                                </button>
+                                @if (units.Any(u => u.UnitType == "Worker"))
+                                {
+                                    <button class="btn btn-sm btn-success" @onclick="EnableGatherMode">
+                                        <i class="bi bi-gem"></i> Gather Resources
+                                    </button>
+                                    <div class="dropdown mt-2">
+                                        <button class="btn btn-sm btn-warning w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                            <i class="bi bi-hammer"></i> Build...
+                                        </button>
+                                        <ul class="dropdown-menu dropdown-menu-dark w-100">
+                                            <li><a class="dropdown-item" href="#" @onclick="EnableBuildBarracks" @onclick:preventDefault>Barracks (100)</a></li>
+                                            <li><a class="dropdown-item" href="#" @onclick="EnableBuildResourceDepot" @onclick:preventDefault>Resource Depot (75)</a></li>
+                                        </ul>
+                                    </div>
+                                }
+                                <button class="btn btn-sm btn-outline-secondary" @onclick="ClearSelection">
+                                    <i class="bi bi-x-circle"></i> Clear Selection
                                 </button>
                             </div>
-                            @if (commandMode != CommandMode.None)
-                            {
-                                <div class="alert alert-info mt-3 mb-0 py-2">
-                                    <small>Click on the map to @commandMode.ToString().ToLower()</small>
-                                </div>
-                            }
                         </div>
                     </div>
                 }
+                @* Selected Building Panel *@
                 else if (selectedBuildingId.HasValue)
                 {
                     var building = gameState.Buildings.FirstOrDefault(b => b.BuildingId == selectedBuildingId);
-                    if (building != null)
+                    if (building != null && building.PlayerId == playerId)
                     {
                         <div class="card">
                             <div class="card-header">
                                 <h6 class="mb-0">@building.BuildingType</h6>
                             </div>
                             <div class="card-body">
-                                <p><strong>Health:</strong> @building.Health / @building.MaxHealth</p>
-                                <p><strong>Construction:</strong> @building.ConstructionProgress%</p>
-                                <p><strong>Position:</strong> (@building.Position.X, @building.Position.Y)</p>
-                                <button class="btn btn-sm btn-secondary w-100 mt-2" @onclick="ClearSelection">
-                                    <i class="bi bi-x-circle"></i> Clear
+                                <p class="mb-1"><strong>Health:</strong> @building.Health / @building.MaxHealth</p>
+                                <p class="mb-1"><strong>Position:</strong> (@building.Position.X, @building.Position.Y)</p>
+                                @if (!building.IsConstructed)
+                                {
+                                    <p class="mb-1"><strong>Construction:</strong> @building.ConstructionProgress%</p>
+                                    <div class="progress mb-2">
+                                        <div class="progress-bar" style="width: @(building.ConstructionProgress)%"></div>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <p class="mb-1 text-success"><strong>Status:</strong> Operational</p>
+                                    
+                                    @if (building.IsTraining)
+                                    {
+                                        <p class="mb-1"><strong>Training:</strong> @building.TrainingUnitType (@building.TrainingProgress%)</p>
+                                        <div class="progress mb-2">
+                                            <div class="progress-bar bg-info" style="width: @(building.TrainingProgress)%"></div>
+                                        </div>
+                                    }
+                                    
+                                    <hr />
+                                    <p class="small text-muted mb-2">Production:</p>
+                                    <div class="d-grid gap-2">
+                                        @if (building.BuildingType == "CommandCenter")
+                                        {
+                                            <button class="btn btn-sm btn-primary" @onclick="@(() => ProduceWorker(building.BuildingId))" disabled="@(gameState.PlayerResources < 50)">
+                                                👷 Train Worker (50)
+                                            </button>
+                                        }
+                                        else if (building.BuildingType == "Barracks")
+                                        {
+                                            <button class="btn btn-sm btn-danger" @onclick="@(() => ProduceSoldier(building.BuildingId))" disabled="@(gameState.PlayerResources < 75)">
+                                                ⚔️ Train Soldier (75)
+                                            </button>
+                                            <button class="btn btn-sm btn-info" @onclick="@(() => ProduceScout(building.BuildingId))" disabled="@(gameState.PlayerResources < 50)">
+                                                👁️ Train Scout (50)
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                                <hr />
+                                <button class="btn btn-sm btn-outline-secondary w-100" @onclick="ClearSelection">
+                                    <i class="bi bi-x-circle"></i> Clear Selection
+                                </button>
+                            </div>
+                        </div>
+                    }
+                    else if (building != null)
+                    {
+                        <div class="card">
+                            <div class="card-header bg-danger">
+                                <h6 class="mb-0">Enemy @building.BuildingType</h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-1"><strong>Health:</strong> @building.Health / @building.MaxHealth</p>
+                                <p class="mb-1"><strong>Position:</strong> (@building.Position.X, @building.Position.Y)</p>
+                                <button class="btn btn-sm btn-outline-secondary w-100 mt-2" @onclick="ClearSelection">
+                                    <i class="bi bi-x-circle"></i> Clear Selection
                                 </button>
                             </div>
                         </div>
                     }
                 }
+                @* No Selection - Show Quick Actions *@
                 else
                 {
                     <div class="card">
-                        <div class="card-body text-center text-muted">
-                            <p>Select a unit or building</p>
+                        <div class="card-header">
+                            <h6 class="mb-0">Quick Actions</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">Click on your units or buildings to select them and issue commands.</p>
+                            <hr />
+                            <div class="d-grid gap-2">
+                                <button class="btn btn-sm btn-outline-primary" @onclick="SelectAllWorkers">
+                                    👷 Select All Workers (@GetMyUnits().Count(u => u.UnitType == "Worker"))
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger" @onclick="SelectAllCombatUnits">
+                                    ⚔️ Select Combat Units (@GetMyUnits().Count(u => u.UnitType != "Worker"))
+                                </button>
+                                <button class="btn btn-sm btn-outline-info" @onclick="CenterOnBase">
+                                    🏰 Center on Base
+                                </button>
+                            </div>
                         </div>
                     </div>
                 }
 
+                @* Score Card *@
                 <div class="card mt-3">
                     <div class="card-header">
                         <h6 class="mb-0">My Score</h6>
@@ -184,6 +304,7 @@
                     </div>
                 </div>
 
+                @* Game Info Card *@
                 <div class="card mt-3">
                     <div class="card-header">
                         <h6 class="mb-0">Game Info</h6>
@@ -209,12 +330,14 @@
         background: #1a1a1a;
         display: flex;
         flex-direction: column;
+        z-index: 9999;
     }
 
     .game-header {
         background: #2d3748;
         color: white;
         box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        z-index: 10000;
     }
 
     .stat-card {
@@ -271,6 +394,23 @@
         cursor: default !important;
     }
 
+    .resource-deposit {
+        position: absolute;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 215, 0, 0.3);
+        border: 2px solid gold;
+        border-radius: 50%;
+        font-size: 0.7rem;
+        z-index: 5;
+    }
+
+    .resource-deposit.depleted {
+        opacity: 0.3;
+        border-color: gray;
+    }
+
     .unit {
         position: absolute;
         border: 2px solid;
@@ -281,6 +421,7 @@
         cursor: pointer;
         transition: all 0.2s;
         font-size: 0.8rem;
+        z-index: 10;
     }
 
     .unit:hover {
@@ -302,6 +443,7 @@
         cursor: pointer;
         transition: all 0.2s;
         font-size: 1.5rem;
+        z-index: 8;
     }
 
     .building:hover {
@@ -311,6 +453,19 @@
     .building.selected {
         box-shadow: 0 0 15px rgba(255,255,255,0.8);
         transform: scale(1.1);
+    }
+
+    .building.under-construction {
+        opacity: 0.7;
+    }
+
+    .construction-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 4px;
+        background: #4ade80;
+        border-radius: 0 0 0.25rem 0.25rem;
     }
 
     .player-self {
@@ -339,12 +494,15 @@
         background: #1a202c;
         color: white;
         border: none;
-        margin-bottom: 1rem;
     }
 
     .side-panel .card-header {
         background: #2d3748;
         border-bottom: 1px solid #4a5568;
+    }
+
+    .side-panel .dropdown-menu-dark {
+        background: #1a202c;
     }
 
     .loading-overlay {
@@ -367,37 +525,48 @@
     private GameStateResponse? gameState;
     private HubConnection? hubConnection;
     private bool isConnected = false;
-    private Guid playerId;
+    private Guid playerId => AuthService.PlayerId;
     private int cellSize = 24;
     private HashSet<int> selectedUnitIds = new();
     private int? selectedBuildingId = null;
     private CommandMode commandMode = CommandMode.None;
+    private string? buildingTypeToBuild = null;
 
     private enum CommandMode
     {
         None,
-        Move
+        Move,
+        Attack,
+        Gather,
+        Build
     }
 
     protected override async Task OnInitializedAsync()
     {
-        playerId = Guid.NewGuid();
+        if (!AuthService.IsAuthenticated)
+        {
+            Navigation.NavigateTo("/login");
+            return;
+        }
+
         await LoadGameState();
         await InitializeSignalR();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && gameState != null)
+        {
+            // Auto-scroll to player's base/units on first load
+            await ScrollToPlayerBase();
+        }
     }
 
     private async Task LoadGameState()
     {
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, $"api/v1/matches/{MatchId}/state");
-            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
-            var response = await Http.SendAsync(request);
-
-            if (response.IsSuccessStatusCode)
-            {
-                gameState = await response.Content.ReadFromJsonAsync<GameStateResponse>();
-            }
+            gameState = await Http.GetFromJsonAsync<GameStateResponse>($"api/v1/matches/{MatchId}/state");
         }
         catch (Exception ex)
         {
@@ -414,7 +583,16 @@
 
         hubConnection.On<GameStateResponse>("GameStateUpdate", async (state) =>
         {
+            Console.WriteLine($"Received GameStateUpdate - Tick: {state.CurrentTick}, Units: {state.Units.Count}");
             gameState = state;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On("MatchEnded", async (object matchEndedEvent) =>
+        {
+            Console.WriteLine("Match ended!");
+            // Refresh game state to get final results
+            await LoadGameState();
             await InvokeAsync(StateHasChanged);
         });
 
@@ -428,7 +606,8 @@
         hubConnection.Reconnected += async connectionId =>
         {
             isConnected = true;
-            await hubConnection.SendAsync("SubscribeToMatch", MatchId);
+            // Re-subscribe with player ID for personalized updates
+            await hubConnection.SendAsync("SubscribeToMatchAsPlayer", MatchId, playerId);
             await InvokeAsync(StateHasChanged);
         };
 
@@ -442,8 +621,10 @@
         try
         {
             await hubConnection.StartAsync();
-            await hubConnection.SendAsync("SubscribeToMatch", MatchId);
+            // Subscribe with player ID to get personalized fog-of-war updates
+            await hubConnection.SendAsync("SubscribeToMatchAsPlayer", MatchId, playerId);
             isConnected = true;
+            Console.WriteLine($"SignalR connected and subscribed to match {MatchId} as player {playerId}");
         }
         catch (Exception ex)
         {
@@ -451,34 +632,117 @@
         }
     }
 
+    private async Task ScrollToPlayerBase()
+    {
+        // Find the player's command center or first unit
+        var commandCenter = GetMyBuildings().FirstOrDefault(b => b.BuildingType == "CommandCenter");
+        var firstUnit = GetMyUnits().FirstOrDefault();
+        
+        int scrollX = 0;
+        int scrollY = 0;
+
+        if (commandCenter != null)
+        {
+            scrollX = (commandCenter.Position.X * cellSize) - 400; // Center in viewport
+            scrollY = (commandCenter.Position.Y * cellSize) - 300;
+        }
+        else if (firstUnit != null)
+        {
+            scrollX = (firstUnit.Position.X * cellSize) - 400;
+            scrollY = (firstUnit.Position.Y * cellSize) - 300;
+        }
+
+        // Ensure scroll values are non-negative
+        scrollX = Math.Max(0, scrollX);
+        scrollY = Math.Max(0, scrollY);
+
+        await JS.InvokeVoidAsync("scrollMapTo", scrollX, scrollY);
+    }
+
     private async Task HandleCellClick(int x, int y)
     {
         if (commandMode == CommandMode.None || !selectedUnitIds.Any())
+        {
+            // If clicking on fog of war, ignore
             return;
+        }
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/matches/{MatchId}/commands");
-            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
-            request.Content = JsonContent.Create(new
+            var command = commandMode switch
+            {
+                CommandMode.Move => new
+                {
+                    CommandType = "Move",
+                    UnitIds = selectedUnitIds.ToArray(),
+                    TargetPosition = new { X = x, Y = y },
+                    BuildingType = (string?)null,
+                    TargetId = (int?)null
+                },
+                CommandMode.Attack => new
+                {
+                    CommandType = "AttackMove",
+                    UnitIds = selectedUnitIds.ToArray(),
+                    TargetPosition = new { X = x, Y = y },
+                    BuildingType = (string?)null,
+                    TargetId = (int?)null
+                },
+                CommandMode.Gather => new
+                {
+                    CommandType = "Gather",
+                    UnitIds = selectedUnitIds.ToArray(),
+                    TargetPosition = new { X = x, Y = y },
+                    BuildingType = (string?)null,
+                    TargetId = (int?)null
+                },
+                CommandMode.Build => new
+                {
+                    CommandType = "Build",
+                    UnitIds = selectedUnitIds.ToArray(),
+                    TargetPosition = new { X = x, Y = y },
+                    BuildingType = buildingTypeToBuild,
+                    TargetId = (int?)null
+                },
+                _ => (object?)null
+            };
+
+            if (command != null)
+            {
+                await Http.PostAsJsonAsync($"api/v1/matches/{MatchId}/commands", new
+                {
+                    Commands = new[] { command }
+                });
+            }
+
+            commandMode = CommandMode.None;
+            buildingTypeToBuild = null;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error issuing command: {ex.Message}");
+        }
+    }
+
+    private async Task ProduceUnit(int buildingId, string unitType)
+    {
+        try
+        {
+            await Http.PostAsJsonAsync($"api/v1/matches/{MatchId}/commands", new
             {
                 Commands = new[]
                 {
                     new
                     {
-                        CommandType = "Move",
-                        UnitIds = selectedUnitIds.ToArray(),
-                        TargetPosition = new { X = x, Y = y }
+                        CommandType = "Produce",
+                        BuildingId = buildingId,
+                        UnitType = unitType
                     }
                 }
             });
-
-            await Http.SendAsync(request);
-            commandMode = CommandMode.None;
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"Error issuing command: {ex.Message}");
+            Console.WriteLine($"Error issuing produce command: {ex.Message}");
         }
     }
 
@@ -493,12 +757,50 @@
             selectedUnitIds.Add(unitId);
         }
         selectedBuildingId = null;
+        commandMode = CommandMode.None;
     }
 
     private void SelectBuilding(int buildingId)
     {
         selectedBuildingId = buildingId;
         selectedUnitIds.Clear();
+        commandMode = CommandMode.None;
+    }
+
+    private void SelectAllWorkers()
+    {
+        selectedUnitIds = GetMyUnits()
+            .Where(u => u.UnitType == "Worker")
+            .Select(u => u.UnitId)
+            .ToHashSet();
+        selectedBuildingId = null;
+        commandMode = CommandMode.None;
+    }
+
+    private void SelectAllCombatUnits()
+    {
+        selectedUnitIds = GetMyUnits()
+            .Where(u => u.UnitType != "Worker")
+            .Select(u => u.UnitId)
+            .ToHashSet();
+        selectedBuildingId = null;
+        commandMode = CommandMode.None;
+    }
+
+    private async Task CenterOnBase()
+    {
+        var commandCenter = GetMyBuildings().FirstOrDefault(b => b.BuildingType == "CommandCenter");
+        if (commandCenter != null)
+        {
+            SelectBuilding(commandCenter.BuildingId);
+            
+            int scrollX = (commandCenter.Position.X * cellSize) - 400;
+            int scrollY = (commandCenter.Position.Y * cellSize) - 300;
+            scrollX = Math.Max(0, scrollX);
+            scrollY = Math.Max(0, scrollY);
+            
+            await JS.InvokeVoidAsync("scrollMapTo", scrollX, scrollY);
+        }
     }
 
     private void ClearSelection()
@@ -506,9 +808,39 @@
         selectedUnitIds.Clear();
         selectedBuildingId = null;
         commandMode = CommandMode.None;
+        buildingTypeToBuild = null;
+    }
+
+    private void CancelCommand()
+    {
+        commandMode = CommandMode.None;
+        buildingTypeToBuild = null;
     }
 
     private void EnableMoveMode() => commandMode = CommandMode.Move;
+    private void EnableAttackMode() => commandMode = CommandMode.Attack;
+    private void EnableGatherMode() => commandMode = CommandMode.Gather;
+    private void EnableBuildMode(string buildingType)
+    {
+        commandMode = CommandMode.Build;
+        buildingTypeToBuild = buildingType;
+    }
+
+    private void EnableBuildBarracks() => EnableBuildMode("Barracks");
+    private void EnableBuildResourceDepot() => EnableBuildMode("ResourceDepot");
+
+    private Task ProduceWorker(int buildingId) => ProduceUnit(buildingId, "Worker");
+    private Task ProduceSoldier(int buildingId) => ProduceUnit(buildingId, "Soldier");
+    private Task ProduceScout(int buildingId) => ProduceUnit(buildingId, "Scout");
+
+    private string GetCommandModeInstruction() => commandMode switch
+    {
+        CommandMode.Move => "move units to that location",
+        CommandMode.Attack => "attack-move to that location",
+        CommandMode.Gather => "gather resources at that location",
+        CommandMode.Build => $"build a {buildingTypeToBuild} at that location",
+        _ => ""
+    };
 
     private void ExitGame()
     {
@@ -550,7 +882,7 @@
             "Worker" => "👷",
             "Soldier" => "⚔️",
             "Scout" => "👁️",
-            _ => "?"
+            _ => "?",
         };
     }
 
@@ -561,7 +893,7 @@
             "CommandCenter" => "🏰",
             "Barracks" => "🏛️",
             "ResourceDepot" => "🏪",
-            _ => "🏗️"
+            _ => "🏗️",
         };
     }
 
@@ -570,9 +902,10 @@
         return gameState?.MatchStatus switch
         {
             "InProgress" => "bg-success",
+            "Active" => "bg-success",
             "Completed" => "bg-info",
             "Cancelled" => "bg-secondary",
-            _ => "bg-warning"
+            _ => "bg-warning",
         };
     }
 
