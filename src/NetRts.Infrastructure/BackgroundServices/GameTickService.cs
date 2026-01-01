@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using NetRts.Application.Services;
@@ -10,15 +11,15 @@ namespace NetRts.Infrastructure.BackgroundServices;
 public class GameTickService : BackgroundService
 {
     private readonly ILogger<GameTickService> _logger;
-    private readonly IGameTickProcessor _tickProcessor;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly TimeSpan _tickInterval;
 
     public GameTickService(
-        ILogger<GameTickService> _logger,
-        IGameTickProcessor tickProcessor)
+        ILogger<GameTickService> logger,
+        IServiceScopeFactory scopeFactory)
     {
-        this._logger = _logger;
-        _tickProcessor = tickProcessor;
+        _logger = logger;
+        _scopeFactory = scopeFactory;
         _tickInterval = TimeSpan.FromSeconds(1); // 1-second ticks
     }
 
@@ -32,7 +33,9 @@ public class GameTickService : BackgroundService
         {
             try
             {
-                await _tickProcessor.ProcessTickAsync(stoppingToken);
+                using var scope = _scopeFactory.CreateScope();
+                var tickProcessor = scope.ServiceProvider.GetRequiredService<IGameTickProcessor>();
+                await tickProcessor.ProcessTickAsync(stoppingToken);
             }
             catch (Exception ex)
             {

@@ -165,18 +165,19 @@ public class Match
 
         CurrentTick++;
 
-        // Check time limit victory
-        if (CurrentTick >= MaxTicksPerMatch)
-        {
-            EndMatchByTimeLimit();
-        }
+        // Note: Time limit check is now handled by GameTickProcessor
+        // which has access to units and buildings for final scoring
     }
 
     /// <summary>
-    /// End match due to time limit.
+    /// End match due to time limit. Caller must provide final unit and building counts.
     /// </summary>
-    private void EndMatchByTimeLimit()
+    public void EndMatchByTimeLimit(int player1Units, int player1Buildings, int player2Units, int player2Buildings)
     {
+        // Update final scores with remaining units and buildings
+        Player1Score = Player1Score.WithUnitsRemaining(player1Units).WithBuildingsRemaining(player1Buildings);
+        Player2Score = Player2Score.WithUnitsRemaining(player2Units).WithBuildingsRemaining(player2Buildings);
+
         var player1Total = Player1Score.TotalScore;
         var player2Total = Player2Score.TotalScore;
 
@@ -217,10 +218,20 @@ public class Match
         if (playerId == Player1Id)
         {
             Player1Resources = Math.Max(0, Player1Resources + amount);
+            // Only update score for positive amounts (resources gathered, not spent)
+            if (amount > 0)
+            {
+                Player1Score = Player1Score.WithResourcesGathered(amount);
+            }
         }
         else if (playerId == Player2Id)
         {
             Player2Resources = Math.Max(0, Player2Resources + amount);
+            // Only update score for positive amounts (resources gathered, not spent)
+            if (amount > 0)
+            {
+                Player2Score = Player2Score.WithResourcesGathered(amount);
+            }
         }
     }
 
@@ -231,6 +242,42 @@ public class Match
     {
         if (playerId == Player1Id) return Player1Resources;
         if (playerId == Player2Id) return Player2Resources;
+        throw new ArgumentException($"Player {playerId} is not in this match.");
+    }
+
+    /// <summary>
+    /// Get score for a specific player.
+    /// </summary>
+    public Score GetPlayerScore(Guid playerId)
+    {
+        if (playerId == Player1Id) return Player1Score;
+        if (playerId == Player2Id) return Player2Score;
+        throw new ArgumentException($"Player {playerId} is not in this match.");
+    }
+
+    /// <summary>
+    /// Deduct resources from a player. Returns true if successful, false if insufficient resources.
+    /// </summary>
+    public bool DeductResources(Guid playerId, int amount)
+    {
+        if (amount < 0)
+        {
+            throw new ArgumentException("Amount must be non-negative");
+        }
+
+        if (playerId == Player1Id)
+        {
+            if (Player1Resources < amount) return false;
+            Player1Resources -= amount;
+            return true;
+        }
+        else if (playerId == Player2Id)
+        {
+            if (Player2Resources < amount) return false;
+            Player2Resources -= amount;
+            return true;
+        }
+
         throw new ArgumentException($"Player {playerId} is not in this match.");
     }
 

@@ -14,6 +14,7 @@ public class GameStateCache : IGameStateCache
     private readonly ConcurrentDictionary<Guid, List<Building>> _buildings = new();
     private readonly ConcurrentDictionary<Guid, List<ResourceDeposit>> _resourceDeposits = new();
     private readonly ConcurrentDictionary<Guid, List<MapTile>> _mapTiles = new();
+    private readonly ConcurrentDictionary<Guid, List<Upgrade>> _upgrades = new();
 
     public void AddOrUpdate(Match match)
     {
@@ -73,6 +74,16 @@ public class GameStateCache : IGameStateCache
         _mapTiles[matchId] = tiles;
     }
 
+    public List<Upgrade> GetUpgradesForMatch(Guid matchId)
+    {
+        return _upgrades.TryGetValue(matchId, out var upgrades) ? upgrades : new List<Upgrade>();
+    }
+
+    public void SetUpgradesForMatch(Guid matchId, List<Upgrade> upgrades)
+    {
+        _upgrades[matchId] = upgrades;
+    }
+
     public List<Match> GetAll()
     {
         return _matches.Values.ToList();
@@ -85,6 +96,7 @@ public class GameStateCache : IGameStateCache
         _buildings.TryRemove(matchId, out _);
         _resourceDeposits.TryRemove(matchId, out _);
         _mapTiles.TryRemove(matchId, out _);
+        _upgrades.TryRemove(matchId, out _);
     }
 
     public bool Contains(Guid matchId)

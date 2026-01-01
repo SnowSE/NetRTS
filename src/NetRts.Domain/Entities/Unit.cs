@@ -194,4 +194,54 @@ public class Unit
     {
         return Position.IsWithinRange(targetPosition, AttackRange);
     }
+
+    /// <summary>
+    /// Set the unit's status.
+    /// </summary>
+    public void SetStatus(UnitStatus status)
+    {
+        CurrentStatus = status;
+    }
+
+    /// <summary>
+    /// Set the target entity for this unit.
+    /// </summary>
+    public void SetTargetEntity(int? targetId)
+    {
+        TargetEntityId = targetId;
+    }
+
+    /// <summary>
+    /// Collect resources (workers only).
+    /// </summary>
+    public void CollectResources(int amount)
+    {
+        if (Type != UnitType.Worker)
+        {
+            throw new InvalidOperationException("Only workers can collect resources.");
+        }
+        ResourcesCarried += amount;
+    }
+
+    /// <summary>
+    /// Get resource cost for this unit type.
+    /// </summary>
+    public static int GetUnitCost(UnitType type) => type switch
+    {
+        UnitType.Worker => 50,
+        UnitType.Soldier => 100,
+        UnitType.Scout => 75,
+        _ => throw new ArgumentException($"Unknown unit type: {type}")
+    };
+
+    /// <summary>
+    /// Get production time in ticks for this unit type.
+    /// </summary>
+    public static int GetProductionTime(UnitType type) => type switch
+    {
+        UnitType.Worker => 5,
+        UnitType.Soldier => 10,
+        UnitType.Scout => 7,
+        _ => throw new ArgumentException($"Unknown unit type: {type}")
+    };
 }

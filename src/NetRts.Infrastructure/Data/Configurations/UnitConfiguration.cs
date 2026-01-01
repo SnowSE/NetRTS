@@ -42,6 +42,12 @@ public class UnitConfiguration : IEntityTypeConfiguration<Unit>
             .IsRequired()
             .HasConversion<string>();
 
+        // Relationship to Match
+        builder.HasOne<Match>()
+            .WithMany(m => m.Units)
+            .HasForeignKey(u => u.MatchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Indexes for performance
         builder.HasIndex(u => new { u.MatchId, u.OwnerId })
             .HasDatabaseName("IX_Units_Match_Owner");

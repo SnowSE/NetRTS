@@ -1,4 +1,6 @@
 using System.Net.Http.Headers;
+using Microsoft.Extensions.DependencyInjection;
+using NetRts.Application.Services;
 using NetRts.Contracts.Responses;
 
 namespace NetRts.ContractTests.Support;
@@ -13,6 +15,9 @@ public class TestContext
     public string Player2Token { get; set; } = string.Empty;
     public HttpResponseMessage? LastResponse { get; set; }
     public GameStateResponse? GameState { get; set; }
+    public string? LastResponseBody { get; set; }
+    public System.Net.HttpStatusCode LastStatusCode { get; set; }
+    public IServiceProvider ServiceProvider { get; set; } = null!;
 
     public void SetAuthToken(string token)
     {
@@ -23,5 +28,28 @@ public class TestContext
     public void ClearAuth()
     {
         HttpClient.DefaultRequestHeaders.Authorization = null;
+    }
+
+    /// <summary>
+    /// Gets the current command queue size for a player
+    /// </summary>
+    public async Task<int> GetQueueSizeAsync(Guid playerId)
+    {
+        using var scope = ServiceProvider.CreateScope();
+        var queueManager = scope.ServiceProvider.GetRequiredService<ICommandQueueManager>();
+        return await queueManager.GetQueueSizeAsync(MatchId, playerId);
+    }
+
+    /// <summary>
+    /// Manually triggers game tick processing for testing purposes.
+    /// This bypasses the background service and directly invokes the tick processor.
+    /// </summary>
+    public async Task ProcessGameTickAsync()
+    {
+        using var scope = ServiceProvider.CreateScope();
+        var tickProcessor = scope.ServiceProvider.GetRequiredService<IGameTickProcessor>();
+
+        // Process the tick for the specific match
+        await tickProcessor.ProcessMatchTickAsync(MatchId, CancellationToken.None);
     }
 }

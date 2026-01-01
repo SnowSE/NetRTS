@@ -26,8 +26,8 @@ namespace NetRts.ContractTests.Features
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Game State Retrieval", ("  As a bot developer\n  I want to retrieve the current game state\n  So that my bot" +
-                " can make strategic decisions based on visible information"), global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Game State Retrieval", "  As a bot developer\r\n  I want to retrieve the current game state\r\n  So that my b" +
+                "ot can make strategic decisions based on visible information", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
         
         private Xunit.Abstractions.ITestOutputHelper _testOutputHelper;
         

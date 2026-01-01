@@ -58,6 +58,11 @@ public class Building
     /// </summary>
     public int VisionRange { get; private set; }
 
+    /// <summary>
+    /// Queue of units currently being produced.
+    /// </summary>
+    public List<ProductionOrder> ProductionQueue { get; private set; } = new();
+
     // EF Core constructor
     private Building() { }
 
@@ -138,4 +143,39 @@ public class Building
         BuildingType.TechLab => 300,
         _ => throw new ArgumentException($"Unknown building type: {type}")
     };
+
+    /// <summary>
+    /// Add a unit to the production queue.
+    /// </summary>
+    public void QueueProduction(UnitType unitType)
+    {
+        if (!IsOperational)
+        {
+            throw new InvalidOperationException("Cannot produce units from a building under construction");
+        }
+
+        ProductionQueue.Add(new ProductionOrder(unitType));
+    }
+
+    /// <summary>
+    /// Process production queue. Returns completed unit type if production finished, null otherwise.
+    /// </summary>
+    public UnitType? ProcessProduction()
+    {
+        if (!IsOperational || ProductionQueue.Count == 0)
+        {
+            return null;
+        }
+
+        var currentOrder = ProductionQueue[0];
+        if (currentOrder.AdvanceProduction())
+        {
+            // Production complete
+            var unitType = currentOrder.UnitType;
+            ProductionQueue.RemoveAt(0);
+            return unitType;
+        }
+
+        return null;
+    }
 }

@@ -1,0 +1,209 @@
+@page "/lobbies"
+@using NetRts.Contracts.Responses
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<PageTitle>Lobbies</PageTitle>
+
+<div class="container mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Game Lobbies</h1>
+        <button class="btn btn-primary" @onclick="ShowCreateLobby">
+            <i class="bi bi-plus-circle"></i> Create Lobby
+        </button>
+    </div>
+
+    @if (showCreateForm)
+    {
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5>Create New Lobby</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label class="form-label">Lobby Name</label>
+                    <input type="text" class="form-control" @bind="newLobbyName" />
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Map Width</label>
+                        <input type="number" class="form-control" @bind="mapWidth" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Map Height</label>
+                        <input type="number" class="form-control" @bind="mapHeight" />
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Max Ticks</label>
+                        <input type="number" class="form-control" @bind="maxTicks" />
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Starting Resources</label>
+                        <input type="number" class="form-control" @bind="startingResources" />
+                    </div>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-success" @onclick="CreateLobby" disabled="@isCreating">
+                        @if (isCreating)
+                        {
+                            <span class="spinner-border spinner-border-sm me-2"></span>
+                        }
+                        Create
+                    </button>
+                    <button class="btn btn-secondary" @onclick="() => showCreateForm = false">Cancel</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if (loading)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (lobbies == null || !lobbies.Any())
+    {
+        <div class="alert alert-info">
+            No lobbies available. Create one to start playing!
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var lobby in lobbies)
+            {
+                <div class="col-md-6 col-lg-4 mb-3">
+                    <div class="card h-100">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">@lobby.Name</h5>
+                            <span class="badge @GetStatusBadgeClass(lobby.Status)">@lobby.Status</span>
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-2">
+                                <strong>Players:</strong> @lobby.CurrentPlayerCount / @lobby.MaxPlayers
+                            </p>
+                            <p class="mb-2">
+                                <strong>Map:</strong> @lobby.Settings.MapWidth x @lobby.Settings.MapHeight
+                            </p>
+                            <p class="mb-2">
+                                <strong>Host:</strong> @lobby.HostPlayerId.ToString().Substring(0, 8)...
+                            </p>
+                            <div class="mt-3">
+                                @if (lobby.Status == "Open" || lobby.Status == "Full")
+                                {
+                                    <button class="btn btn-primary w-100" @onclick="() => JoinLobby(lobby.Id)">
+                                        Join Lobby
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-secondary w-100" disabled>
+                                        Lobby Closed
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                        <div class="card-footer text-muted small">
+                            Created @lobby.CreatedAt.ToLocalTime().ToString("g")
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private List<LobbyResponse>? lobbies;
+    private bool loading = true;
+    private bool showCreateForm = false;
+    private bool isCreating = false;
+    private string newLobbyName = "My Lobby";
+    private int mapWidth = 100;
+    private int mapHeight = 100;
+    private int maxTicks = 1800;
+    private int startingResources = 500;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadLobbies();
+    }
+
+    private async Task LoadLobbies()
+    {
+        loading = true;
+        try
+        {
+            lobbies = await Http.GetFromJsonAsync<List<LobbyResponse>>("api/v1/lobbies");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading lobbies: {ex.Message}");
+        }
+        finally
+        {
+            loading = false;
+        }
+    }
+
+    private void ShowCreateLobby()
+    {
+        showCreateForm = !showCreateForm;
+    }
+
+    private async Task CreateLobby()
+    {
+        isCreating = true;
+        try
+        {
+            var request = new
+            {
+                Name = newLobbyName,
+                MapWidth = mapWidth,
+                MapHeight = mapHeight,
+                MaxTicks = maxTicks,
+                StartingResources = startingResources
+            };
+
+            var response = await Http.PostAsJsonAsync("api/v1/lobbies", request);
+            if (response.IsSuccessStatusCode)
+            {
+                var lobby = await response.Content.ReadFromJsonAsync<LobbyResponse>();
+                if (lobby != null)
+                {
+                    Navigation.NavigateTo($"/lobby/{lobby.Id}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error creating lobby: {ex.Message}");
+        }
+        finally
+        {
+            isCreating = false;
+        }
+    }
+
+    private void JoinLobby(Guid lobbyId)
+    {
+        Navigation.NavigateTo($"/lobby/{lobbyId}");
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Open" => "bg-success",
+            "Full" => "bg-warning",
+            "Starting" => "bg-info",
+            "Closed" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+}

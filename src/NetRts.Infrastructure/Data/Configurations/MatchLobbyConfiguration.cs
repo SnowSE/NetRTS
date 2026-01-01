@@ -26,7 +26,17 @@ public class MatchLobbyConfiguration : IEntityTypeConfiguration<MatchLobby>
             settings.Property(s => s.StartingResources).HasColumnName("StartingResources");
         });
 
-        builder.Navigation(l => l.Players).UsePropertyAccessMode(PropertyAccessMode.Field);
+        var playersNavigation = builder.Metadata.FindNavigation(nameof(MatchLobby.Players));
+        if (playersNavigation != null)
+        {
+            playersNavigation.SetPropertyAccessMode(PropertyAccessMode.Field);
+            playersNavigation.SetField("_players");
+        }
+
+        builder.HasMany(l => l.Players)
+            .WithOne()
+            .HasForeignKey(lp => lp.LobbyId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(l => l.Status).HasDatabaseName("IX_Lobbies_Status");
     }

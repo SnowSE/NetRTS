@@ -23,6 +23,12 @@ public class MapTileConfiguration : IEntityTypeConfiguration<MapTile>
             pos.Property(p => p.Y).HasColumnName("PositionY").IsRequired();
         });
 
+        // Relationship to Match
+        builder.HasOne<Match>()
+            .WithMany(m => m.MapTiles)
+            .HasForeignKey(t => t.MatchId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Basic indices for performance
         builder.HasIndex(t => t.MatchId)
             .HasDatabaseName("IX_MapTiles_Match");

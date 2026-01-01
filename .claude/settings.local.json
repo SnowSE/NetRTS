@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.specify/scripts/bash/check-prerequisites.sh:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet test:*)",
+      "Bash(bash:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(dotnet sln:*)",
+      "Bash(if [ -d \"D:/NetRTS/specs/001-rts-game-engine/checklists\" ])",
+      "Bash(then find \"D:/NetRTS/specs/001-rts-game-engine/checklists\" -name \"*.md\" -type f)",
+      "Bash(else echo \"No checklists directory\")",
+      "Bash(fi)",
+      "Bash(dotnet ef migrations add:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

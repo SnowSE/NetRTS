@@ -12,10 +12,10 @@ public class UpgradeConfiguration : IEntityTypeConfiguration<Upgrade>
         builder.HasKey(u => new { u.MatchId, u.Id });
 
         builder.Property(u => u.Type).IsRequired().HasConversion<string>();
-        builder.Property(u => u.OwnerId).IsRequired();
-        builder.Property(u => u.IsCompleted).IsRequired();
+        builder.Property(u => u.PlayerId).IsRequired();
+        builder.Property(u => u.IsComplete).IsRequired();
 
-        builder.HasIndex(u => new { u.MatchId, u.OwnerId })
-            .HasDatabaseName("IX_Upgrades_Match_Owner");
+        builder.HasIndex(u => new { u.MatchId, u.PlayerId })
+            .HasDatabaseName("IX_Upgrades_Match_Player");
     }
 }

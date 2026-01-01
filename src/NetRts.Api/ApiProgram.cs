@@ -17,10 +17,15 @@ using NetRts.Infrastructure.Services;
 var builder = WebApplication.CreateBuilder(args);
 
 // Add database context
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseNpgsql(
-        builder.Configuration.GetConnectionString("DefaultConnection") ??
-        "Host=localhost;Database=netrts;Username=postgres;Password=dev"));
+if (builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(options =>
+        options.UseInMemoryDatabase("TestDb"));
+}
+else
+{
+    builder.AddNpgsqlDbContext<ApplicationDbContext>("netrtsdb");
+}
 
 builder.Services.AddScoped<IApplicationDbContext>(provider =>
     provider.GetRequiredService<ApplicationDbContext>());
@@ -50,6 +55,8 @@ builder.Services.AddScoped<IFogOfWarCalculator, FogOfWarCalculator>();
 builder.Services.AddScoped<IScoringService, ScoringService>();
 builder.Services.AddScoped<IGameTickProcessor, GameTickProcessor>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
+builder.Services.AddScoped<IGameStateService, GameStateService>();
+builder.Services.AddScoped<ICommandQueueService, CommandQueueService>();
 
 // Add background services
 builder.Services.AddHostedService<GameTickService>();
@@ -71,6 +78,20 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidateLifetime = true,
             ClockSkew = TimeSpan.Zero
         };
+
+        // In Testing environment, log authentication failures for debugging
+        if (builder.Environment.IsEnvironment("Testing"))
+        {
+            options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+            {
+                OnAuthenticationFailed = context =>
+                {
+                    var logger = context.HttpContext.RequestServices.GetRequiredService<ILogger<Program>>();
+                    logger.LogWarning("Authentication failed: {Exception}", context.Exception.Message);
+                    return Task.CompletedTask;
+                }
+            };
+        }
     });
 
 builder.Services.AddAuthorization();
@@ -94,8 +115,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddEndpointsApiExplorer();
 
 // Add health checks
-builder.Services.AddHealthChecks()
-    .AddDbContextCheck<ApplicationDbContext>();
+builder.Services.AddHealthChecks();
 
 var app = builder.Build();
 
@@ -107,9 +127,15 @@ if (app.Environment.IsDevelopment())
     {
         options.SwaggerEndpoint("/openapi/v1.json", "NetRts API v1");
     });
+    app.UseWebAssemblyDebugging();
 }
 
 app.UseHttpsRedirection();
+
+// Serve Blazor static files
+app.UseBlazorFrameworkFiles();
+app.UseStaticFiles();
+
 app.UseCors();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -122,6 +148,14 @@ app.MapHealthChecks("/health");
 
 // Map API endpoints
 app.MapGameEndpoints();
-app.MapGet("/", () => "NetRts API is running");
+app.MapCommandEndpoints();
+app.MapLobbyEndpoints();
+app.MapGet("/api", () => "NetRts API is running");
+
+// Fallback to index.html for client-side routing
+app.MapFallbackToFile("index.html");
 
 app.Run();
+
+// Make Program accessible to tests
+public partial class Program { }

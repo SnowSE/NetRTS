@@ -21,4 +21,7 @@ public interface IGameStateCache
 
     List<MapTile> GetMapTilesForMatch(Guid matchId);
     void SetMapTilesForMatch(Guid matchId, List<MapTile> tiles);
+
+    List<Upgrade> GetUpgradesForMatch(Guid matchId);
+    void SetUpgradesForMatch(Guid matchId, List<Upgrade> upgrades);
 }

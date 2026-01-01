@@ -1,0 +1,365 @@
+@page "/lobby/{LobbyId:guid}"
+@using NetRts.Contracts.Responses
+@using Microsoft.AspNetCore.SignalR.Client
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@implements IAsyncDisposable
+
+<PageTitle>Lobby - @(lobby?.Name ?? "Loading...")</PageTitle>
+
+<div class="container mt-4">
+    @if (lobby == null)
+    {
+        <div class="text-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            <div class="col-md-8">
+                <div class="card mb-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3>@lobby.Name</h3>
+                        <span class="badge @GetStatusBadgeClass(lobby.Status) fs-6">@lobby.Status</span>
+                    </div>
+                    <div class="card-body">
+                        <h5>Players (@lobby.CurrentPlayerCount/@lobby.MaxPlayers)</h5>
+                        <div class="list-group mb-3">
+                            @foreach (var player in lobby.Players)
+                            {
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>Slot @player.Slot:</strong> @player.PlayerId.ToString().Substring(0, 8)...
+                                        @if (player.PlayerId == lobby.HostPlayerId)
+                                        {
+                                            <span class="badge bg-warning text-dark ms-2">Host</span>
+                                        }
+                                    </div>
+                                    <small class="text-muted">Joined @player.JoinedAt.ToLocalTime().ToString("t")</small>
+                                </div>
+                            }
+                        </div>
+
+                        @if (isHost)
+                        {
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-success" @onclick="StartMatch" disabled="@(!CanStart || isStarting)">
+                                    @if (isStarting)
+                                    {
+                                        <span class="spinner-border spinner-border-sm me-2"></span>
+                                    }
+                                    Start Match
+                                </button>
+                                <button class="btn btn-danger" @onclick="LeaveLobby">Leave & Close Lobby</button>
+                            </div>
+                            @if (!CanStart)
+                            {
+                                <div class="alert alert-warning mt-3">
+                                    Waiting for all players to join...
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <button class="btn btn-danger" @onclick="LeaveLobby">Leave Lobby</button>
+                            <div class="alert alert-info mt-3">
+                                Waiting for host to start the match...
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">Settings</h5>
+                        @if (isHost && !showSettingsForm)
+                        {
+                            <button class="btn btn-sm btn-outline-primary" @onclick="() => showSettingsForm = true">
+                                Edit
+                            </button>
+                        }
+                    </div>
+                    <div class="card-body">
+                        @if (showSettingsForm && isHost)
+                        {
+                            <div class="mb-3">
+                                <label class="form-label">Map Width</label>
+                                <input type="number" class="form-control" @bind="editMapWidth" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Map Height</label>
+                                <input type="number" class="form-control" @bind="editMapHeight" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Max Ticks</label>
+                                <input type="number" class="form-control" @bind="editMaxTicks" />
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Starting Resources</label>
+                                <input type="number" class="form-control" @bind="editStartingResources" />
+                            </div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-success" @onclick="SaveSettings">Save</button>
+                                <button class="btn btn-sm btn-secondary" @onclick="CancelEditSettings">Cancel</button>
+                            </div>
+                        }
+                        else
+                        {
+                            <p><strong>Map Size:</strong> @lobby.Settings.MapWidth x @lobby.Settings.MapHeight</p>
+                            <p><strong>Max Ticks:</strong> @lobby.Settings.MaxTicks</p>
+                            <p><strong>Starting Resources:</strong> @lobby.Settings.StartingResources</p>
+                        }
+                    </div>
+                </div>
+
+                <div class="card mt-3">
+                    <div class="card-header">
+                        <h5 class="mb-0">Connection</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex align-items-center gap-2">
+                            <div class="@(isConnected ? "bg-success" : "bg-danger") rounded-circle" style="width: 12px; height: 12px;"></div>
+                            <span>@(isConnected ? "Connected" : "Disconnected")</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter]
+    public Guid LobbyId { get; set; }
+
+    private LobbyResponse? lobby;
+    private HubConnection? hubConnection;
+    private bool isConnected = false;
+    private bool isHost = false;
+    private bool isStarting = false;
+    private bool showSettingsForm = false;
+    private Guid playerId;
+
+    private int editMapWidth;
+    private int editMapHeight;
+    private int editMaxTicks;
+    private int editStartingResources;
+
+    private bool CanStart => lobby?.CurrentPlayerCount == lobby?.MaxPlayers;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Get or create player ID
+        playerId = Guid.NewGuid(); // In a real app, this would come from authentication
+
+        await LoadLobby();
+        await JoinLobbyIfNeeded();
+        await InitializeSignalR();
+    }
+
+    private async Task LoadLobby()
+    {
+        try
+        {
+            lobby = await Http.GetFromJsonAsync<LobbyResponse>($"api/v1/lobbies/{LobbyId}");
+            if (lobby != null)
+            {
+                isHost = lobby.HostPlayerId == playerId;
+                editMapWidth = lobby.Settings.MapWidth;
+                editMapHeight = lobby.Settings.MapHeight;
+                editMaxTicks = lobby.Settings.MaxTicks;
+                editStartingResources = lobby.Settings.StartingResources;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading lobby: {ex.Message}");
+        }
+    }
+
+    private async Task JoinLobbyIfNeeded()
+    {
+        if (lobby != null && !lobby.Players.Any(p => p.PlayerId == playerId))
+        {
+            try
+            {
+                var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/lobbies/{LobbyId}/join");
+                request.Headers.Add("X-Test-Player-Id", playerId.ToString());
+                request.Content = JsonContent.Create(new { });
+
+                var response = await Http.SendAsync(request);
+                if (response.IsSuccessStatusCode)
+                {
+                    await LoadLobby();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error joining lobby: {ex.Message}");
+            }
+        }
+    }
+
+    private async Task InitializeSignalR()
+    {
+        hubConnection = new HubConnectionBuilder()
+            .WithUrl(Navigation.ToAbsoluteUri("/hubs/game"))
+            .WithAutomaticReconnect()
+            .Build();
+
+        hubConnection.On<LobbyResponse>("LobbyUpdated", async (updatedLobby) =>
+        {
+            lobby = updatedLobby;
+            await InvokeAsync(StateHasChanged);
+        });
+
+        hubConnection.On<Guid>("MatchStarted", (matchId) =>
+        {
+            Navigation.NavigateTo($"/game/{matchId}");
+        });
+
+        hubConnection.Reconnecting += error =>
+        {
+            isConnected = false;
+            InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        };
+
+        hubConnection.Reconnected += connectionId =>
+        {
+            isConnected = true;
+            InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        };
+
+        hubConnection.Closed += error =>
+        {
+            isConnected = false;
+            InvokeAsync(StateHasChanged);
+            return Task.CompletedTask;
+        };
+
+        try
+        {
+            await hubConnection.StartAsync();
+            await hubConnection.SendAsync("SubscribeToLobby", LobbyId);
+            isConnected = true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error connecting to SignalR: {ex.Message}");
+        }
+    }
+
+    private async Task StartMatch()
+    {
+        if (!isHost || !CanStart) return;
+
+        isStarting = true;
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/lobbies/{LobbyId}/start");
+            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
+            request.Content = JsonContent.Create(new { });
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<StartMatchResponse>();
+                if (result != null)
+                {
+                    Navigation.NavigateTo($"/game/{result.MatchId}");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error starting match: {ex.Message}");
+        }
+        finally
+        {
+            isStarting = false;
+        }
+    }
+
+    private async Task LeaveLobby()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, $"api/v1/lobbies/{LobbyId}/leave");
+            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
+            request.Content = JsonContent.Create(new { });
+
+            await Http.SendAsync(request);
+            Navigation.NavigateTo("/lobbies");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error leaving lobby: {ex.Message}");
+        }
+    }
+
+    private async Task SaveSettings()
+    {
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Put, $"api/v1/lobbies/{LobbyId}/settings");
+            request.Headers.Add("X-Test-Player-Id", playerId.ToString());
+            request.Content = JsonContent.Create(new
+            {
+                MapWidth = editMapWidth,
+                MapHeight = editMapHeight,
+                MaxTicks = editMaxTicks,
+                StartingResources = editStartingResources
+            });
+
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadLobby();
+                showSettingsForm = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error saving settings: {ex.Message}");
+        }
+    }
+
+    private void CancelEditSettings()
+    {
+        showSettingsForm = false;
+        if (lobby != null)
+        {
+            editMapWidth = lobby.Settings.MapWidth;
+            editMapHeight = lobby.Settings.MapHeight;
+            editMaxTicks = lobby.Settings.MaxTicks;
+            editStartingResources = lobby.Settings.StartingResources;
+        }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Open" => "bg-success",
+            "Full" => "bg-warning text-dark",
+            "Starting" => "bg-info",
+            "Closed" => "bg-secondary",
+            _ => "bg-secondary"
+        };
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection != null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

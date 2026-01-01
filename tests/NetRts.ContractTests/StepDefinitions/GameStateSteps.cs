@@ -113,10 +113,20 @@ public class GameStateSteps
     public async Task WhenPlayerRequestsGameState(int playerNumber)
     {
         var token = playerNumber == 1 ? _context.Player1Token : _context.Player2Token;
+        var playerId = playerNumber == 1 ? _context.Player1Id : _context.Player2Id;
+
         _context.SetAuthToken(token);
+
+        // Also send player ID as header for testing (until JWT is fixed)
+        _context.HttpClient.DefaultRequestHeaders.Remove("X-Test-Player-Id");
+        _context.HttpClient.DefaultRequestHeaders.Add("X-Test-Player-Id", playerId.ToString());
 
         _context.LastResponse = await _context.HttpClient.GetAsync(
             $"/api/v1/matches/{_context.MatchId}/state");
+
+        // Capture response details for debugging
+        _context.LastStatusCode = _context.LastResponse.StatusCode;
+        _context.LastResponseBody = await _context.LastResponse.Content.ReadAsStringAsync();
 
         if (_context.LastResponse.IsSuccessStatusCode)
         {
@@ -137,7 +147,7 @@ public class GameStateSteps
     [Then(@"the response includes their starting units")]
     public void ThenTheResponseIncludesTheirStartingUnits()
     {
-        _context.GameState.Should().NotBeNull();
+        _context.GameState.Should().NotBeNull($"Status: {_context.LastStatusCode}, Body: {_context.LastResponseBody}");
         _context.GameState!.Units.Should().NotBeEmpty();
         _context.GameState.Units.Should().OnlyContain(u => u.PlayerId == _context.Player1Id);
     }
@@ -257,6 +267,7 @@ public class GameStateSteps
             issuer: "NetRts",
             audience: "NetRts-Clients",
             claims: claims,
+            notBefore: DateTime.UtcNow.AddSeconds(-5), // Add 5 second buffer for clock skew
             expires: DateTime.UtcNow.AddHours(1),
             signingCredentials: credentials);
 
