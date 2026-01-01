@@ -119,6 +119,18 @@ public class Match
     public IReadOnlyList<ResourceDeposit> ResourceDeposits => _resourceDeposits.AsReadOnly();
     public IReadOnlyList<Upgrade> Upgrades => _upgrades.AsReadOnly();
 
+    /// <summary>
+    /// Get players with their upgrades for validation purposes.
+    /// </summary>
+    public IEnumerable<MatchPlayerState> Players
+    {
+        get
+        {
+            yield return new MatchPlayerState(Player1Id, _upgrades.Where(u => u.OwnerId == Player1Id).ToList());
+            yield return new MatchPlayerState(Player2Id, _upgrades.Where(u => u.OwnerId == Player2Id).ToList());
+        }
+    }
+
     // EF Core constructor
     private Match() { }
 
@@ -246,6 +258,21 @@ public class Match
     }
 
     /// <summary>
+    /// Set player resources to a specific amount.
+    /// </summary>
+    public void SetPlayerResources(Guid playerId, int amount)
+    {
+        if (playerId == Player1Id)
+        {
+            Player1Resources = Math.Max(0, amount);
+        }
+        else if (playerId == Player2Id)
+        {
+            Player2Resources = Math.Max(0, amount);
+        }
+    }
+
+    /// <summary>
     /// Get score for a specific player.
     /// </summary>
     public Score GetPlayerScore(Guid playerId)
@@ -321,4 +348,25 @@ public class Match
         if (playerId == Player2Id) return Player1Id;
         throw new ArgumentException($"Player {playerId} is not in this match.");
     }
+
+    /// <summary>
+    /// Add an upgrade to the match for a specific player.
+    /// </summary>
+    public void AddUpgrade(Upgrade upgrade)
+    {
+        _upgrades.Add(upgrade);
+    }
+
+    /// <summary>
+    /// Get upgrades for a specific player.
+    /// </summary>
+    public IEnumerable<Upgrade> GetPlayerUpgrades(Guid playerId)
+    {
+        return _upgrades.Where(u => u.OwnerId == playerId);
+    }
 }
+
+/// <summary>
+/// Represents player state within a match for validation purposes.
+/// </summary>
+public record MatchPlayerState(Guid PlayerId, IReadOnlyList<Upgrade> Upgrades);

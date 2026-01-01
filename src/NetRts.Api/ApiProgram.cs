@@ -6,6 +6,7 @@ using Microsoft.IdentityModel.Tokens;
 using NetRts.Api.Endpoints;
 using NetRts.Api.Hubs;
 using NetRts.Api.Services;
+using NetRts.Api.Middleware;
 using NetRts.Application.Behaviors;
 using NetRts.Application.Interfaces;
 using NetRts.Application.Services;
@@ -14,8 +15,23 @@ using NetRts.Infrastructure.Caching;
 using NetRts.Infrastructure.Data;
 using NetRts.Infrastructure.Repositories;
 using NetRts.Infrastructure.Services;
+using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Configure Serilog for structured logging
+builder.Host.UseSerilog((context, configuration) =>
+{
+    configuration
+        .ReadFrom.Configuration(context.Configuration)
+        .Enrich.FromLogContext()
+        .Enrich.WithProperty("Application", "NetRts.Api")
+        .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}")
+        .WriteTo.File(
+            path: "logs/netrts-.log",
+            rollingInterval: RollingInterval.Day,
+            outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj} {Properties:j}{NewLine}{Exception}");
+});
 
 // Add database context
 if (builder.Environment.IsEnvironment("Testing"))
@@ -54,7 +70,7 @@ builder.Services.AddSingleton<IGameStateCache>(sp => sp.GetRequiredService<GameS
 builder.Services.AddSingleton<ICommandQueueManager, CommandQueueManager>();
 builder.Services.AddScoped<IFogOfWarCalculator, FogOfWarCalculator>();
 builder.Services.AddScoped<IScoringService, ScoringService>();
-builder.Services.AddScoped<IGameTickProcessor, GameTickProcessor>();
+builder.Services.AddSingleton<IGameTickProcessor, GameTickProcessor>();
 builder.Services.AddScoped<IJwtTokenService, JwtTokenService>();
 builder.Services.AddScoped<IGameStateService, GameStateService>();
 builder.Services.AddScoped<ICommandQueueService, CommandQueueService>();
@@ -64,6 +80,7 @@ builder.Services.AddSingleton<IGameUpdateBroadcaster, SignalRGameUpdateBroadcast
 
 // Add background services
 builder.Services.AddHostedService<GameTickService>();
+builder.Services.AddHostedService<MatchSnapshotService>();
 
 // Add JWT authentication
 var jwtSecret = builder.Configuration["JwtSettings:SecretKey"] ??
@@ -124,6 +141,8 @@ builder.Services.AddHealthChecks();
 var app = builder.Build();
 
 // Configure middleware pipeline
+app.UseExceptionHandlingMiddleware();
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
@@ -142,7 +161,9 @@ app.UseStaticFiles();
 
 app.UseCors();
 app.UseAuthentication();
+app.UseAuthenticationMiddleware();
 app.UseAuthorization();
+app.UseRateLimitingMiddleware();
 
 // Map SignalR hub
 app.MapHub<GameHub>("/hubs/game");

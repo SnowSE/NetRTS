@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using NetRts.Application.Interfaces;
 using NetRts.Application.Services;
@@ -17,7 +18,7 @@ public class GameTickProcessor : IGameTickProcessor
 
     private readonly ILogger<GameTickProcessor> _logger;
     private readonly GameStateCache _gameStateCache;
-    private readonly IMatchRepository _matchRepository;
+    private readonly IServiceScopeFactory _serviceScopeFactory;
     private readonly ICommandQueueManager _commandQueueManager;
     private readonly IGameUpdateBroadcaster _gameUpdateBroadcaster;
 
@@ -30,7 +31,7 @@ public class GameTickProcessor : IGameTickProcessor
     {
         _logger = logger;
         _gameStateCache = gameStateCache;
-        _matchRepository = matchRepository;
+        _serviceScopeFactory = serviceScopeFactory;
         _commandQueueManager = commandQueueManager;
         _gameUpdateBroadcaster = gameUpdateBroadcaster;
     }
@@ -117,7 +118,9 @@ public class GameTickProcessor : IGameTickProcessor
         // Periodic snapshot to database (every 10 ticks)
         if (match.CurrentTick % 10 == 0)
         {
-            await _matchRepository.UpdateAsync(match, cancellationToken);
+            using var scope = _serviceScopeFactory.CreateScope();
+            var matchRepository = scope.ServiceProvider.GetRequiredService<IMatchRepository>();
+            await matchRepository.UpdateAsync(match, cancellationToken);
         }
     }
 
@@ -130,7 +133,7 @@ public class GameTickProcessor : IGameTickProcessor
         var commands = await _commandQueueManager.DequeueCommandsAsync(
             match.Id,
             playerId,
-            match.CommandsPerTick);
+            100); // Max commands per tick
 
         // Get game entities from cache
         var units = _gameStateCache.GetUnitsForMatch(match.Id);

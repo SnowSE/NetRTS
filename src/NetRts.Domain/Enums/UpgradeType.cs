@@ -6,32 +6,32 @@ namespace NetRts.Domain.Enums;
 public enum UpgradeType
 {
     /// <summary>
-    /// Weapon Damage Level 1 - increases unit attack damage by 5.
+    /// Melee Damage Level 1 - increases melee unit attack damage by 5.
     /// </summary>
-    WeaponDamage1,
+    MeleeDamage,
 
     /// <summary>
-    /// Weapon Damage Level 2 - increases unit attack damage by additional 5 (requires WeaponDamage1).
+    /// Melee Damage Level 2 - increases melee unit attack damage by additional 5 (requires MeleeDamage).
     /// </summary>
-    WeaponDamage2,
+    MeleeDamage2,
 
     /// <summary>
-    /// Armor Level 1 - increases unit health by 20.
+    /// Ranged Damage Level 1 - increases ranged unit attack damage by 5.
     /// </summary>
-    Armor1,
+    RangedDamage,
 
     /// <summary>
-    /// Armor Level 2 - increases unit health by additional 20 (requires Armor1).
+    /// Ranged Damage Level 2 - increases ranged unit attack damage by additional 5 (requires RangedDamage).
     /// </summary>
-    Armor2,
+    RangedDamage2,
 
     /// <summary>
-    /// Speed Level 1 - increases unit movement speed by 1 tile/tick.
+    /// Armor Upgrade - increases unit armor by 2.
     /// </summary>
-    Speed1,
+    ArmorUpgrade,
 
     /// <summary>
-    /// Speed Level 2 - increases unit movement speed by additional 1 tile/tick (requires Speed1).
+    /// Armor Upgrade Level 2 - increases unit armor by additional 2 (requires ArmorUpgrade).
     /// </summary>
-    Speed2
+    ArmorUpgrade2
 }

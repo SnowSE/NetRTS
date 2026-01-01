@@ -1,8 +1,6 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Aspire.AppHost.Sdk/13.1.0">
 
-  <Sdk Name="Aspire.AppHost.Sdk" Version="13.1.0" />
-
-  <ItemGroup>
+<ItemGroup>
     <ProjectReference Include="..\NetRts.Api\NetRts.Api.csproj" />
     <ProjectReference Include="..\NetRts.Client\NetRts.Client.csproj" />
   </ItemGroup>

@@ -14,6 +14,7 @@ public class TestContext
     public string Player1Token { get; set; } = string.Empty;
     public string Player2Token { get; set; } = string.Empty;
     public HttpResponseMessage? LastResponse { get; set; }
+    public QueueCommandsResponse? LastCommandResponse { get; set; }
     public GameStateResponse? GameState { get; set; }
     public string? LastResponseBody { get; set; }
     public System.Net.HttpStatusCode LastStatusCode { get; set; }

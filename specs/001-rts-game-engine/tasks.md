@@ -98,73 +98,73 @@
 
 ### EF Core Configurations
 
-- [ ] T056 [P] Create PlayerConfiguration in src/NetRts.Infrastructure/Data/Configurations/PlayerConfiguration.cs with indexes
-- [ ] T057 [P] Create MatchConfiguration in src/NetRts.Infrastructure/Data/Configurations/MatchConfiguration.cs with complex type mappings
-- [ ] T058 [P] Create UnitConfiguration with Position value object conversion and indexes
-- [ ] T059 [P] Create BuildingConfiguration with Position value object conversion
-- [ ] T060 [P] Create CommandConfiguration with index on (MatchId, PlayerId, Status)
-- [ ] T061 [P] Create MatchLobbyConfiguration for lobby entity
-- [ ] T062 [P] Create PlayerScoreConfiguration with index on TotalScore DESC
+- [X] T056 [P] Create PlayerConfiguration in src/NetRts.Infrastructure/Data/Configurations/PlayerConfiguration.cs with indexes
+- [X] T057 [P] Create MatchConfiguration in src/NetRts.Infrastructure/Data/Configurations/MatchConfiguration.cs with complex type mappings
+- [X] T058 [P] Create UnitConfiguration with Position value object conversion and indexes
+- [X] T059 [P] Create BuildingConfiguration with Position value object conversion
+- [X] T060 [P] Create CommandConfiguration with index on (MatchId, PlayerId, Status)
+- [X] T061 [P] Create MatchLobbyConfiguration for lobby entity
+- [X] T062 [P] Create PlayerScoreConfiguration with index on TotalScore DESC
 
 ### Authentication & Authorization
 
-- [ ] T063 Create IJwtTokenService interface in src/NetRts.Application/Interfaces/IJwtTokenService.cs
-- [ ] T064 Implement JwtTokenService in src/NetRts.Infrastructure/Services/JwtTokenService.cs with GenerateToken and ValidateToken methods
-- [ ] T065 Configure JWT authentication in src/NetRts.Api/Program.cs with bearer token validation
-- [ ] T066 [P] Create AuthorizationPolicies static class in src/NetRts.Api/Authorization/Policies.cs for match participation
-- [ ] T067 Create authentication middleware to extract player ID from JWT claims in src/NetRts.Api/Middleware/AuthenticationMiddleware.cs
+- [X] T063 Create IJwtTokenService interface in src/NetRts.Application/Interfaces/IJwtTokenService.cs
+- [X] T064 Implement JwtTokenService in src/NetRts.Infrastructure/Services/JwtTokenService.cs with GenerateToken and ValidateToken methods
+- [X] T065 Configure JWT authentication in src/NetRts.Api/Program.cs with bearer token validation
+- [X] T066 [P] Create AuthorizationPolicies static class in src/NetRts.Api/Authorization/Policies.cs for match participation
+- [X] T067 Create authentication middleware to extract player ID from JWT claims in src/NetRts.Api/Middleware/AuthenticationMiddleware.cs
 
 ### MediatR & CQRS Foundation
 
-- [ ] T068 Configure MediatR in src/NetRts.Application/ with assembly scanning for handlers
-- [ ] T069 [P] Create MediatR pipeline behavior for validation in src/NetRts.Application/Behaviors/ValidationBehavior.cs using FluentValidation
-- [ ] T070 [P] Create MediatR pipeline behavior for logging in src/NetRts.Application/Behaviors/LoggingBehavior.cs with structured logging
-- [ ] T071 [P] Create base ICommand and IQuery interfaces in src/NetRts.Application/Abstractions/
+- [X] T068 Configure MediatR in src/NetRts.Application/ with assembly scanning for handlers
+- [X] T069 [P] Create MediatR pipeline behavior for validation in src/NetRts.Application/Behaviors/ValidationBehavior.cs using FluentValidation
+- [X] T070 [P] Create MediatR pipeline behavior for logging in src/NetRts.Application/Behaviors/LoggingBehavior.cs with structured logging
+- [X] T071 [P] Create base ICommand and IQuery interfaces in src/NetRts.Application/Abstractions/
 
 ### Repository Interfaces
 
-- [ ] T072 [P] Create IPlayerRepository in src/NetRts.Application/Interfaces/IPlayerRepository.cs
-- [ ] T073 [P] Create IMatchRepository in src/NetRts.Application/Interfaces/IMatchRepository.cs
-- [ ] T074 [P] Create IMatchLobbyRepository in src/NetRts.Application/Interfaces/IMatchLobbyRepository.cs
-- [ ] T075 [P] Create ILeaderboardRepository in src/NetRts.Application/Interfaces/ILeaderboardRepository.cs
+- [X] T072 [P] Create IPlayerRepository in src/NetRts.Application/Interfaces/IPlayerRepository.cs
+- [X] T073 [P] Create IMatchRepository in src/NetRts.Application/Interfaces/IMatchRepository.cs
+- [X] T074 [P] Create IMatchLobbyRepository in src/NetRts.Application/Interfaces/IMatchLobbyRepository.cs
+- [X] T075 [P] Create ILeaderboardRepository in src/NetRts.Application/Interfaces/ILeaderboardRepository.cs
 
 ### Repository Implementations
 
-- [ ] T076 [P] Implement PlayerRepository in src/NetRts.Infrastructure/Repositories/PlayerRepository.cs
-- [ ] T077 [P] Implement MatchRepository in src/NetRts.Infrastructure/Repositories/MatchRepository.cs with include logic for entities
-- [ ] T078 [P] Implement MatchLobbyRepository in src/NetRts.Infrastructure/Repositories/MatchLobbyRepository.cs
-- [ ] T079 [P] Implement LeaderboardRepository in src/NetRts.Infrastructure/Repositories/LeaderboardRepository.cs with sorted queries
+- [X] T076 [P] Implement PlayerRepository in src/NetRts.Infrastructure/Repositories/PlayerRepository.cs
+- [X] T077 [P] Implement MatchRepository in src/NetRts.Infrastructure/Repositories/MatchRepository.cs with include logic for entities
+- [X] T078 [P] Implement MatchLobbyRepository in src/NetRts.Infrastructure/Repositories/MatchLobbyRepository.cs
+- [X] T079 [P] Implement LeaderboardRepository in src/NetRts.Infrastructure/Repositories/LeaderboardRepository.cs with sorted queries
 
 ### Core Application Services
 
-- [ ] T080 Create IGameTickProcessor interface in src/NetRts.Application/Services/IGameTickProcessor.cs
-- [ ] T081 Create IFogOfWarCalculator interface in src/NetRts.Application/Services/IFogOfWarCalculator.cs
-- [ ] T082 Create ICommandQueueManager interface in src/NetRts.Application/Services/ICommandQueueManager.cs
-- [ ] T083 Create IScoringService interface in src/NetRts.Application/Services/IScoringService.cs
-- [ ] T084 Implement QuadTree spatial index in src/NetRts.Infrastructure/Spatial/QuadTree.cs for vision calculation
-- [ ] T085 Implement FogOfWarCalculator in src/NetRts.Infrastructure/Services/FogOfWarCalculator.cs using QuadTree
-- [ ] T086 Implement GameStateCache in src/NetRts.Infrastructure/Caching/GameStateCache.cs using ConcurrentDictionary for in-memory match state
-- [ ] T087 Implement CommandQueueManager in src/NetRts.Infrastructure/Services/CommandQueueManager.cs with ConcurrentQueue per player
+- [X] T080 Create IGameTickProcessor interface in src/NetRts.Application/Services/IGameTickProcessor.cs
+- [X] T081 Create IFogOfWarCalculator interface in src/NetRts.Application/Services/IFogOfWarCalculator.cs
+- [X] T082 Create ICommandQueueManager interface in src/NetRts.Application/Services/ICommandQueueManager.cs
+- [X] T083 Create IScoringService interface in src/NetRts.Application/Services/IScoringService.cs
+- [X] T084 Implement QuadTree spatial index in src/NetRts.Infrastructure/Spatial/QuadTree.cs for vision calculation
+- [X] T085 Implement FogOfWarCalculator in src/NetRts.Infrastructure/Services/FogOfWarCalculator.cs using QuadTree
+- [X] T086 Implement GameStateCache in src/NetRts.Infrastructure/Caching/GameStateCache.cs using ConcurrentDictionary for in-memory match state
+- [X] T087 Implement CommandQueueManager in src/NetRts.Infrastructure/Services/CommandQueueManager.cs with ConcurrentQueue per player
 
 ### Background Services
 
-- [ ] T088 Implement GameTickService in src/NetRts.Infrastructure/BackgroundServices/GameTickService.cs using PeriodicTimer (1-second intervals)
-- [ ] T089 [P] Implement MatchSnapshotService in src/NetRts.Infrastructure/BackgroundServices/MatchSnapshotService.cs for periodic state snapshots every 10 ticks
-- [ ] T090 Register background services in src/NetRts.Api/Program.cs as hosted services
+- [X] T088 Implement GameTickService in src/NetRts.Infrastructure/BackgroundServices/GameTickService.cs using PeriodicTimer (1-second intervals)
+- [X] T089 [P] Implement MatchSnapshotService in src/NetRts.Infrastructure/BackgroundServices/MatchSnapshotService.cs for periodic state snapshots every 10 ticks
+- [X] T090 Register background services in src/NetRts.Api/Program.cs as hosted services
 
 ### API Infrastructure
 
-- [ ] T091 Create global exception handling middleware in src/NetRts.Api/Middleware/ExceptionHandlingMiddleware.cs returning RFC 7807 Problem Details
-- [ ] T092 [P] Create rate limiting middleware in src/NetRts.Api/Middleware/RateLimitingMiddleware.cs (10 req/sec for commands)
-- [ ] T093 [P] Configure Serilog structured logging in src/NetRts.Api/Program.cs with JSON formatting and correlation IDs
-- [ ] T094 Configure OpenAPI/Swagger generation in src/NetRts.Api/Program.cs with JWT authentication support
-- [ ] T095 Configure health checks in src/NetRts.Api/Program.cs for database and game tick processor
+- [X] T091 Create global exception handling middleware in src/NetRts.Api/Middleware/ExceptionHandlingMiddleware.cs returning RFC 7807 Problem Details
+- [X] T092 [P] Create rate limiting middleware in src/NetRts.Api/Middleware/RateLimitingMiddleware.cs (10 req/sec for commands)
+- [X] T093 [P] Configure Serilog structured logging in src/NetRts.Api/Program.cs with JSON formatting and correlation IDs
+- [X] T094 Configure OpenAPI/Swagger generation in src/NetRts.Api/Program.cs with JWT authentication support
+- [X] T095 Configure health checks in src/NetRts.Api/Program.cs for database and game tick processor
 
 ### SignalR Hub
 
-- [ ] T096 Create GameHub in src/NetRts.Api/Hubs/GameHub.cs with SubscribeToMatch and UnsubscribeFromMatch methods
-- [ ] T097 Configure SignalR in src/NetRts.Api/Program.cs with WebSocket support and CORS
-- [ ] T098 [P] Create IGameHubClient interface in src/NetRts.Contracts/Events/ for typed hub client methods
+- [X] T096 Create GameHub in src/NetRts.Api/Hubs/GameHub.cs with SubscribeToMatch and UnsubscribeFromMatch methods
+- [X] T097 Configure SignalR in src/NetRts.Api/Program.cs with WebSocket support and CORS
+- [X] T098 [P] Create IGameHubClient interface in src/NetRts.Contracts/Events/ for typed hub client methods
 
 **Checkpoint**: Foundation ready - user story implementation can now begin in parallel
 
@@ -196,9 +196,9 @@
 
 ### CQRS Handlers for User Story 1
 
-- [X] T109 [US1] Create GetGameStateQuery in src/NetRts.Application/Queries/GetGameState/GetGameStateQuery.cs with MatchId and PlayerId (Replaced with IGameStateService - no MediatR)
-- [X] T110 [US1] Create GetGameStateQueryValidator in src/NetRts.Application/Queries/GetGameState/GetGameStateQueryValidator.cs using FluentValidation (Validation in service layer)
-- [X] T111 [US1] Implement GetGameStateQueryHandler in src/NetRts.Application/Queries/GetGameState/GetGameStateQueryHandler.cs (Implemented as GameStateService)
+- [X] T109 [US1] Create GetGameStateQuery in src/NetRts.Application/Queries/GetGameState/GetGameStateQuery.cs with MatchId and PlayerId
+- [X] T110 [US1] Create GetGameStateQueryValidator in src/NetRts.Application/Queries/GetGameState/GetGameStateQueryValidator.cs using FluentValidation
+- [X] T111 [US1] Implement GetGameStateQueryHandler in src/NetRts.Application/Queries/GetGameState/GetGameStateQueryHandler.cs
 - [X] T112 [US1] In handler: Retrieve match from GameStateCache, apply fog of war filtering using FogOfWarCalculator, map to GameStateResponse
 
 ### API Endpoint for User Story 1
@@ -221,11 +221,11 @@
 
 ### Unit Tests for User Story 1
 
-- [ ] T125 [P] [US1] Write unit test for GetGameStateQueryHandler in tests/NetRts.UnitTests/Application/Queries/GetGameStateQueryHandlerTests.cs
-- [ ] T126 [P] [US1] Write unit test for FogOfWarCalculator verifying vision range filtering in tests/NetRts.UnitTests/Infrastructure/Services/FogOfWarCalculatorTests.cs
-- [ ] T127 [P] [US1] Write unit test for QuadTree spatial queries in tests/NetRts.UnitTests/Infrastructure/Spatial/QuadTreeTests.cs
+- [X] T125 [P] [US1] Write unit test for GetGameStateQueryHandler in tests/NetRts.UnitTests/Application/Queries/GetGameStateQueryHandlerTests.cs
+- [X] T126 [P] [US1] Write unit test for FogOfWarCalculator verifying vision range filtering in tests/NetRts.UnitTests/Infrastructure/Services/FogOfWarCalculatorTests.cs
+- [X] T127 [P] [US1] Write unit test for QuadTree spatial queries in tests/NetRts.UnitTests/Infrastructure/Spatial/QuadTreeTests.cs
 
-**Checkpoint**: At this point, User Story 1 should be fully functional and testable independently. Bots can connect and see the game world with fog of war.
+**Checkpoint**: ✅ User Story 1 is now fully functional and testable independently. Bots can connect and see the game world with fog of war.
 
 ---
 
@@ -250,33 +250,33 @@
 
 ### CQRS Handlers for User Story 2
 
-- [ ] T135 [US2] Create QueueCommandsCommand in src/NetRts.Application/Commands/QueueCommands/QueueCommandsCommand.cs
-- [ ] T136 [US2] Create QueueCommandsCommandValidator in src/NetRts.Application/Commands/QueueCommands/QueueCommandsCommandValidator.cs
-- [ ] T137 [US2] Validate unit ownership, target coordinates within bounds, target existence
-- [ ] T138 [US2] Implement QueueCommandsCommandHandler in src/NetRts.Application/Commands/QueueCommands/QueueCommandsCommandHandler.cs
-- [ ] T139 [US2] In handler: Add commands to CommandQueueManager for player, enforce queue size limit (500), return success/failure breakdown
+- [X] T135 [US2] Create QueueCommandsCommand in src/NetRts.Application/Commands/QueueCommands/QueueCommandsCommand.cs
+- [X] T136 [US2] Create QueueCommandsCommandValidator in src/NetRts.Application/Commands/QueueCommands/QueueCommandsCommandValidator.cs
+- [X] T137 [US2] Validate unit ownership, target coordinates within bounds, target existence
+- [X] T138 [US2] Implement QueueCommandsCommandHandler in src/NetRts.Application/Commands/QueueCommands/QueueCommandsCommandHandler.cs
+- [X] T139 [US2] In handler: Add commands to CommandQueueManager for player, enforce queue size limit (500), return success/failure breakdown
 
 ### API Endpoint for User Story 2
 
-- [ ] T140 [US2] Implement POST /api/v1/matches/{matchId}/commands endpoint in src/NetRts.Api/Endpoints/CommandEndpoints.cs
-- [ ] T141 [US2] Add authorization and rate limiting (10 requests/second per player)
+- [X] T140 [US2] Implement POST /api/v1/matches/{matchId}/commands endpoint in src/NetRts.Api/Endpoints/CommandEndpoints.cs
+- [X] T141 [US2] Add authorization and rate limiting (10 requests/second per player)
 
 ### Game Tick Processing for User Story 2
 
-- [ ] T142 [US2] Implement ProcessCommandsForTick in GameTickService that dequeues up to 100 commands per player
-- [ ] T143 [US2] Implement ExecuteMoveCommand in GameTickService: Update unit position, set status to Moving
-- [ ] T144 [US2] Implement ExecuteAttackCommand in GameTickService: Apply damage if in range, set status to Attacking
-- [ ] T145 [US2] Implement ExecuteGatherCommand in GameTickService: Move to deposit, collect resources, set status to Gathering
-- [ ] T146 [US2] Handle command conflicts: Most recent command for same unit overrides previous
-- [ ] T147 [US2] Update unit positions based on movement speed per tick (e.g., 2 tiles for workers)
-- [ ] T148 [US2] Increment resources for gathering workers (10 resources per tick)
-- [ ] T149 [US2] Update Match.CurrentTick after processing all commands
+- [X] T142 [US2] Implement ProcessCommandsForTick in GameTickService that dequeues up to 100 commands per player
+- [X] T143 [US2] Implement ExecuteMoveCommand in GameTickService: Update unit position, set status to Moving
+- [X] T144 [US2] Implement ExecuteAttackCommand in GameTickService: Apply damage if in range, set status to Attacking
+- [X] T145 [US2] Implement ExecuteGatherCommand in GameTickService: Move to deposit, collect resources, set status to Gathering
+- [X] T146 [US2] Handle command conflicts: Most recent command for same unit overrides previous
+- [X] T147 [US2] Update unit positions based on movement speed per tick (e.g., 2 tiles for workers)
+- [X] T148 [US2] Increment resources for gathering workers (10 resources per tick)
+- [X] T149 [US2] Update Match.CurrentTick after processing all commands
 
 ### Unit Tests for User Story 2
 
-- [ ] T150 [P] [US2] Write unit test for QueueCommandsCommandHandler in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandHandlerTests.cs
-- [ ] T151 [P] [US2] Write unit test for CommandQueueManager FIFO processing in tests/NetRts.UnitTests/Infrastructure/Services/CommandQueueManagerTests.cs
-- [ ] T152 [P] [US2] Write unit test for GameTickService command execution in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
+- [X] T150 [P] [US2] Write unit test for QueueCommandsCommandHandler in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandHandlerTests.cs
+- [X] T151 [P] [US2] Write unit test for CommandQueueManager FIFO processing in tests/NetRts.UnitTests/Infrastructure/Services/CommandQueueManagerTests.cs
+- [X] T152 [P] [US2] Write unit test for GameTickService command execution in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
 
 **Checkpoint**: At this point, User Stories 1 AND 2 should both work independently. Bots can see the game and control their units.
 
@@ -290,45 +290,45 @@
 
 ### Reqnroll BDD Tests for User Story 3
 
-- [ ] T153 [P] [US3] Create Gherkin feature file tests/NetRts.ContractTests/Features/BuildingProduction.feature with construction and production scenarios
-- [ ] T154 [US3] Implement step definitions for "Given player has workers with sufficient resources" in tests/NetRts.ContractTests/StepDefinitions/BuildingProductionSteps.cs
-- [ ] T155 [P] [US3] Implement step definitions for "When they queue command to build barracks" with HTTP POST
-- [ ] T156 [P] [US3] Implement step definitions for "Then workers construct building" verifying construction progress over ticks
-- [ ] T157 [P] [US3] Implement step definitions for "When they queue production of soldier" and verify unit spawns
+- [X] T153 [P] [US3] Create Gherkin feature file tests/NetRts.ContractTests/Features/BuildingProduction.feature with construction and production scenarios
+- [X] T154 [US3] Implement step definitions for "Given player has workers with sufficient resources" in tests/NetRts.ContractTests/StepDefinitions/BuildingProductionSteps.cs
+- [X] T155 [P] [US3] Implement step definitions for "When they queue command to build barracks" with HTTP POST
+- [X] T156 [P] [US3] Implement step definitions for "Then workers construct building" verifying construction progress over ticks
+- [X] T157 [P] [US3] Implement step definitions for "When they queue production of soldier" and verify unit spawns
 
 ### DTOs for User Story 3
 
-- [ ] T158 [P] [US3] Add Build command type to CommandDto with buildingType and targetPosition fields
-- [ ] T159 [P] [US3] Add Produce command type to CommandDto with buildingId and unitType fields
-- [ ] T160 [P] [US3] Create ProductionOrderDto in src/NetRts.Contracts/Responses/ProductionOrderDto.cs for building production queues
+- [X] T158 [P] [US3] Add Build command type to CommandDto with buildingType and targetPosition fields
+- [X] T159 [P] [US3] Add Produce command type to CommandDto with buildingId and unitType fields
+- [X] T160 [P] [US3] Create ProductionOrderDto in src/NetRts.Contracts/Responses/ProductionOrderDto.cs for building production queues
 
 ### CQRS and Validation for User Story 3
 
-- [ ] T161 [US3] Extend QueueCommandsCommandValidator to validate Build commands: tile unoccupied, within bounds, sufficient resources
-- [ ] T162 [US3] Extend QueueCommandsCommandValidator to validate Produce commands: building operational, sufficient resources
+- [X] T161 [US3] Extend QueueCommandsCommandValidator to validate Build commands: tile unoccupied, within bounds, sufficient resources
+- [X] T162 [US3] Extend QueueCommandsCommandValidator to validate Produce commands: building operational, sufficient resources
 
 ### Game Tick Processing for User Story 3
 
-- [ ] T163 [US3] Implement ExecuteBuildCommand in GameTickService: Deduct resources, create building with ConstructionProgress = 0
-- [ ] T164 [US3] Implement ProcessBuildingConstruction in GameTickService: Increment ConstructionProgress each tick until 100%
-- [ ] T165 [US3] Set Building.IsOperational = true when ConstructionProgress reaches 100%
-- [ ] T166 [US3] Implement ExecuteProduceCommand in GameTickService: Deduct resources, add to building ProductionQueue
-- [ ] T167 [US3] Implement ProcessUnitProduction in GameTickService: Decrement production timer, spawn unit when complete
-- [ ] T168 [US3] Spawn produced units adjacent to building at first available tile
-- [ ] T169 [US3] Update player resource totals when deducting build/production costs
+- [X] T163 [US3] Implement ExecuteBuildCommand in GameTickService: Deduct resources, create building with ConstructionProgress = 0
+- [X] T164 [US3] Implement ProcessBuildingConstruction in GameTickService: Increment ConstructionProgress each tick until 100%
+- [X] T165 [US3] Set Building.IsOperational = true when ConstructionProgress reaches 100%
+- [X] T166 [US3] Implement ExecuteProduceCommand in GameTickService: Deduct resources, add to building ProductionQueue
+- [X] T167 [US3] Implement ProcessUnitProduction in GameTickService: Decrement production timer, spawn unit when complete
+- [X] T168 [US3] Spawn produced units adjacent to building at first available tile
+- [X] T169 [US3] Update player resource totals when deducting build/production costs
 
 ### Domain Logic for User Story 3
 
-- [ ] T170 [P] [US3] Add static GetBuildingCost method to Building entity returning cost per building type
-- [ ] T171 [P] [US3] Add static GetConstructionTime method to Building entity returning ticks per building type
-- [ ] T172 [P] [US3] Add static GetUnitCost method to Unit entity returning cost per unit type
-- [ ] T173 [P] [US3] Add static GetProductionTime method to Unit entity returning ticks per unit type
+- [X] T170 [P] [US3] Add static GetBuildingCost method to Building entity returning cost per building type
+- [X] T171 [P] [US3] Add static GetConstructionTime method to Building entity returning ticks per building type
+- [X] T172 [P] [US3] Add static GetUnitCost method to Unit entity returning cost per unit type
+- [X] T173 [P] [US3] Add static GetProductionTime method to Unit entity returning ticks per unit type
 
 ### Unit Tests for User Story 3
 
-- [ ] T174 [P] [US3] Write unit test for Build command validation in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandValidatorTests.cs
-- [ ] T175 [P] [US3] Write unit test for building construction progression in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
-- [ ] T176 [P] [US3] Write unit test for unit production and spawning in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
+- [X] T174 [P] [US3] Write unit test for Build command validation in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandValidatorTests.cs
+- [X] T175 [P] [US3] Write unit test for building construction progression in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
+- [X] T176 [P] [US3] Write unit test for unit production and spawning in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
 
 **Checkpoint**: At this point, User Stories 1, 2, AND 3 should all work independently. Bots can build economy and produce units.
 

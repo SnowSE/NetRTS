@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using NetRts.Application.Services;
 using NetRts.Contracts.Requests;
@@ -74,7 +75,7 @@ public static class CommandEndpoints
                 if (systemErrors.Any(e => e.ErrorCode == "UNAUTHORIZED" || e.ErrorCode == "MATCH_NOT_ACTIVE"))
                 {
                     return Results.Forbid();
-                }
+            }
                 if (systemErrors.Any(e => e.ErrorCode == "QUEUE_FULL"))
                 {
                     return Results.StatusCode(StatusCodes.Status429TooManyRequests);
@@ -99,7 +100,7 @@ public static class CommandEndpoints
             return Results.Ok(response);
         }
         catch (UnauthorizedAccessException)
-        {
+            {
             return Results.Forbid();
         }
         catch (Exception ex)
