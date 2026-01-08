@@ -26,8 +26,8 @@ namespace NetRts.ContractTests.Features
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Unit Command Queue", "  As a bot developer\r\n  I want to queue movement and resource gathering commands " +
-                "for my units\r\n  So that my bot can control units and execute strategies", global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Unit Command Queue", ("  As a bot developer\r\n  I want to queue movement and resource gathering commands " +
+                "for my units\r\n  So that my bot can control units and execute strategies"), global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
         
         private Xunit.Abstractions.ITestOutputHelper _testOutputHelper;
         

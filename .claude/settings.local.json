@@ -11,7 +11,8 @@
       "Bash(then find \"D:/NetRTS/specs/001-rts-game-engine/checklists\" -name \"*.md\" -type f)",
       "Bash(else echo \"No checklists directory\")",
       "Bash(fi)",
-      "Bash(dotnet ef migrations add:*)"
+      "Bash(dotnet ef migrations add:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "ask": []

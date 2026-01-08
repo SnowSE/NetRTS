@@ -349,26 +349,26 @@
 
 ### DTOs for User Story 4
 
-- [ ] T181 [P] [US4] Add Research command type to CommandDto with buildingId and upgradeType fields
-- [ ] T182 [P] [US4] Create UpgradeDto in src/NetRts.Contracts/Responses/UpgradeDto.cs with progress and effects
+- [X] T181 [P] [US4] Add Research command type to CommandDto with buildingId and upgradeType fields
+- [X] T182 [P] [US4] Create UpgradeDto in src/NetRts.Contracts/Responses/UpgradeDto.cs with progress and effects
 
 ### CQRS and Validation for User Story 4
 
-- [ ] T183 [US4] Extend QueueCommandsCommandValidator to validate Research commands: building is TechLab, prerequisites met, sufficient resources
+- [X] T183 [US4] Extend QueueCommandsCommandValidator to validate Research commands: building is TechLab, prerequisites met, sufficient resources
 
 ### Game Tick Processing for User Story 4
 
-- [ ] T184 [US4] Implement ExecuteResearchCommand in GameTickService: Deduct resources, create Upgrade entity with ResearchProgress = 0
-- [ ] T185 [US4] Implement ProcessUpgradeResearch in GameTickService: Increment ResearchProgress each tick until 100%
-- [ ] T186 [US4] When upgrade completes: Apply effects to all existing units of owner (e.g., +5 AttackDamage for WeaponDamage1)
-- [ ] T187 [US4] Modify unit creation logic to apply active upgrades to newly produced units
-- [ ] T188 [US4] Enforce upgrade prerequisites: Check player's completed upgrades before allowing tier 2 research
+- [X] T184 [US4] Implement ExecuteResearchCommand in GameTickService: Deduct resources, create Upgrade entity with ResearchProgress = 0
+- [X] T185 [US4] Implement ProcessUpgradeResearch in GameTickService: Increment ResearchProgress each tick until 100%
+- [X] T186 [US4] When upgrade completes: Apply effects to all existing units of owner (e.g., +5 AttackDamage for WeaponDamage1)
+- [X] T187 [US4] Modify unit creation logic to apply active upgrades to newly produced units
+- [X] T188 [US4] Enforce upgrade prerequisites: Check player's completed upgrades before allowing tier 2 research
 
 ### Domain Logic for User Story 4
 
-- [ ] T189 [P] [US4] Add static GetUpgradeCost method to Upgrade entity returning cost per upgrade type
-- [ ] T190 [P] [US4] Add static GetResearchTime method to Upgrade entity returning ticks per upgrade type
-- [ ] T191 [P] [US4] Add static GetUpgradeEffects method to Upgrade entity returning stat modifications per type
+- [X] T189 [P] [US4] Add static GetUpgradeCost method to Upgrade entity returning cost per upgrade type
+- [X] T190 [P] [US4] Add static GetResearchTime method to Upgrade entity returning ticks per upgrade type
+- [X] T191 [P] [US4] Add static GetUpgradeEffects method to Upgrade entity returning stat modifications per type
 
 ### Unit Tests for User Story 4
 
@@ -395,33 +395,33 @@
 
 ### DTOs for User Story 5
 
-- [ ] T199 [P] [US5] Create MatchResultResponse DTO in src/NetRts.Contracts/Responses/MatchResultResponse.cs with winner, scores, duration
-- [ ] T200 [P] [US5] Create PlayerMatchResult DTO with final score breakdown
+- [X] T199 [P] [US5] Create MatchResultResponse DTO in src/NetRts.Contracts/Responses/MatchResultResponse.cs with winner, scores, duration
+- [X] T200 [P] [US5] Create PlayerMatchResult DTO with final score breakdown
 
 ### CQRS Handlers for User Story 5
 
-- [ ] T201 [US5] Create GetMatchResultQuery in src/NetRts.Application/Queries/GetMatchResult/GetMatchResultQuery.cs
-- [ ] T202 [US5] Implement GetMatchResultQueryHandler returning match results if status is Completed
+- [X] T201 [US5] Create GetMatchResultQuery in src/NetRts.Application/Queries/GetMatchResult/GetMatchResultQuery.cs
+- [X] T202 [US5] Implement GetMatchResultQueryHandler returning match results if status is Completed
 
 ### Scoring Implementation
 
-- [ ] T203 [US5] Implement IScoringService in src/NetRts.Infrastructure/Services/ScoringService.cs
-- [ ] T204 [US5] In ScoringService: Calculate units destroyed points (10 per unit)
-- [ ] T205 [US5] Calculate buildings destroyed points (50 per building)
-- [ ] T206 [US5] Calculate resources gathered points (1 per 10 resources)
-- [ ] T207 [US5] Calculate units remaining points (5 per unit alive)
-- [ ] T208 [US5] Calculate buildings remaining points (25 per building standing)
-- [ ] T209 [US5] Implement CalculateTotalScore summing all score components
+- [X] T203 [US5] Implement IScoringService in src/NetRts.Infrastructure/Services/ScoringService.cs
+- [X] T204 [US5] In ScoringService: Calculate units destroyed points (10 per unit)
+- [X] T205 [US5] Calculate buildings destroyed points (50 per building)
+- [X] T206 [US5] Calculate resources gathered points (1 per 10 resources)
+- [X] T207 [US5] Calculate units remaining points (5 per unit alive)
+- [X] T208 [US5] Calculate buildings remaining points (25 per building standing)
+- [X] T209 [US5] Implement CalculateTotalScore summing all score components
 
 ### Victory Condition Detection
 
-- [ ] T210 [US5] In GameTickService: Check after each tick if player's Command Center destroyed (elimination victory)
-- [ ] T211 [US5] Check if Match.CurrentTick >= Match.MaxTicksPerMatch (time limit victory)
-- [ ] T212 [US5] When victory condition met: Set Match.Status = Completed, Match.EndedAt = DateTime.UtcNow
-- [ ] T213 [US5] Determine winner: If elimination, winner is player with Command Center; if time limit, winner is player with higher total score
-- [ ] T214 [US5] Set Match.WinnerId to winner's player ID
-- [ ] T215 [US5] Persist completed match to database with final scores
-- [ ] T216 [US5] Stop processing ticks for completed matches
+- [X] T210 [US5] In GameTickService: Check after each tick if player's Command Center destroyed (elimination victory)
+- [X] T211 [US5] Check if Match.CurrentTick >= Match.MaxTicksPerMatch (time limit victory)
+- [X] T212 [US5] When victory condition met: Set Match.Status = Completed, Match.EndedAt = DateTime.UtcNow
+- [X] T213 [US5] Determine winner: If elimination, winner is player with Command Center; if time limit, winner is player with higher total score
+- [X] T214 [US5] Set Match.WinnerId to winner's player ID
+- [X] T215 [US5] Persist completed match to database with final scores
+- [X] T216 [US5] Stop processing ticks for completed matches
 
 ### API Endpoint for User Story 5
 

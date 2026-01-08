@@ -126,8 +126,8 @@ public class Match
     {
         get
         {
-            yield return new MatchPlayerState(Player1Id, _upgrades.Where(u => u.OwnerId == Player1Id).ToList());
-            yield return new MatchPlayerState(Player2Id, _upgrades.Where(u => u.OwnerId == Player2Id).ToList());
+            yield return new MatchPlayerState(Player1Id, _upgrades.Where(u => u.PlayerId == Player1Id).ToList());
+            yield return new MatchPlayerState(Player2Id, _upgrades.Where(u => u.PlayerId == Player2Id).ToList());
         }
     }
 
@@ -362,7 +362,7 @@ public class Match
     /// </summary>
     public IEnumerable<Upgrade> GetPlayerUpgrades(Guid playerId)
     {
-        return _upgrades.Where(u => u.OwnerId == playerId);
+        return _upgrades.Where(u => u.PlayerId == playerId);
     }
 }
 

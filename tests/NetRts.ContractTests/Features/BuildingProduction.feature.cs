@@ -26,8 +26,8 @@ namespace NetRts.ContractTests.Features
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Building Construction and Unit Production", ("  As a bot player\n  I want to construct buildings and produce units\n  So that I c" +
-                "an expand my base and build an army"), global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Building Construction and Unit Production", ("  As a bot player\r\n  I want to construct buildings and produce units\r\n  So that I" +
+                " can expand my base and build an army"), global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
         
         private Xunit.Abstractions.ITestOutputHelper _testOutputHelper;
         

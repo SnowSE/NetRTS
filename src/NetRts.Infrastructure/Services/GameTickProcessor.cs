@@ -18,7 +18,7 @@ public class GameTickProcessor : IGameTickProcessor
 
     private readonly ILogger<GameTickProcessor> _logger;
     private readonly GameStateCache _gameStateCache;
-    private readonly IServiceScopeFactory _serviceScopeFactory;
+    private readonly IMatchRepository _matchRepository;
     private readonly ICommandQueueManager _commandQueueManager;
     private readonly IGameUpdateBroadcaster _gameUpdateBroadcaster;
 
@@ -31,7 +31,7 @@ public class GameTickProcessor : IGameTickProcessor
     {
         _logger = logger;
         _gameStateCache = gameStateCache;
-        _serviceScopeFactory = serviceScopeFactory;
+        _matchRepository = matchRepository;
         _commandQueueManager = commandQueueManager;
         _gameUpdateBroadcaster = gameUpdateBroadcaster;
     }
@@ -118,9 +118,7 @@ public class GameTickProcessor : IGameTickProcessor
         // Periodic snapshot to database (every 10 ticks)
         if (match.CurrentTick % 10 == 0)
         {
-            using var scope = _serviceScopeFactory.CreateScope();
-            var matchRepository = scope.ServiceProvider.GetRequiredService<IMatchRepository>();
-            await matchRepository.UpdateAsync(match, cancellationToken);
+            await _matchRepository.UpdateAsync(match, cancellationToken);
         }
     }
 
@@ -547,6 +545,17 @@ public class GameTickProcessor : IGameTickProcessor
                             ownerId: building.OwnerId,
                             type: completedUnitType.Value,
                             position: spawnPosition);
+
+                        // Apply all completed upgrades to the newly created unit
+                        var completedUpgrades = _gameStateCache.GetUpgradesForMatch(match.Id)
+                            .Where(u => u.PlayerId == building.OwnerId && u.IsComplete)
+                            .ToList();
+
+                        foreach (var upgrade in completedUpgrades)
+                        {
+                            var (damageBonus, healthBonus, speedBonus) = Upgrade.GetUpgradeEffects(upgrade.Type);
+                            newUnit.ApplyUpgrade(damageBonus, healthBonus, speedBonus);
+                        }
 
                         units.Add(newUnit);
                     }

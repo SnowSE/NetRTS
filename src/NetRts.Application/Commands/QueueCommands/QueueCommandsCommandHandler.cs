@@ -26,10 +26,11 @@ public class QueueCommandsCommandHandler : IRequestHandler<QueueCommandsCommand,
     {
         var queuedCount = 0;
         var failedCount = 0;
-        var failures = new List<string>();
+        var errors = new List<Contracts.Responses.CommandValidationError>();
 
-        foreach (var commandDto in request.Commands)
+        for (int i = 0; i < request.Commands.Length; i++)
         {
+            var commandDto = request.Commands[i];
             try
             {
                 // Map DTO to domain command entity
@@ -45,13 +46,23 @@ public class QueueCommandsCommandHandler : IRequestHandler<QueueCommandsCommand,
                 else
                 {
                     failedCount++;
-                    failures.Add($"Command queue is full (max {MaxQueueSize})");
+                    errors.Add(new Contracts.Responses.CommandValidationError
+                    {
+                        CommandIndex = i,
+                        ErrorMessage = $"Command queue is full (max {MaxQueueSize})",
+                        ErrorCode = "QUEUE_FULL"
+                    });
                 }
             }
             catch (Exception ex)
             {
                 failedCount++;
-                failures.Add($"Failed to queue command: {ex.Message}");
+                errors.Add(new Contracts.Responses.CommandValidationError
+                {
+                    CommandIndex = i,
+                    ErrorMessage = $"Failed to queue command: {ex.Message}",
+                    ErrorCode = "QUEUE_ERROR"
+                });
             }
         }
 
@@ -59,7 +70,7 @@ public class QueueCommandsCommandHandler : IRequestHandler<QueueCommandsCommand,
         {
             QueuedCount = queuedCount,
             FailedCount = failedCount,
-            Failures = failures.Count > 0 ? failures : null
+            Errors = errors
         };
     }
 
@@ -68,7 +79,7 @@ public class QueueCommandsCommandHandler : IRequestHandler<QueueCommandsCommand,
         Guid matchId,
         Guid playerId)
     {
-        var commandType = Enum.Parse<CommandType>(dto.Type, ignoreCase: true);
+        var commandType = Enum.Parse<CommandType>(dto.CommandType, ignoreCase: true);
 
         var command = new Command(
             id: Guid.NewGuid().GetHashCode(),
@@ -96,9 +107,9 @@ public class QueueCommandsCommandHandler : IRequestHandler<QueueCommandsCommand,
         }
 
         // Set target resource deposit for Gather commands
-        if (dto.TargetResourceDepositId.HasValue)
+        if (dto.TargetResourceId.HasValue)
         {
-            command.SetTargetResourceDeposit(dto.TargetResourceDepositId.Value);
+            command.SetTargetResourceDeposit(dto.TargetResourceId.Value);
         }
 
         // Set building type for Build commands
@@ -109,9 +120,9 @@ public class QueueCommandsCommandHandler : IRequestHandler<QueueCommandsCommand,
         }
 
         // Set building ID for Produce/Research commands
-        if (dto.BuildingId.HasValue)
+        if (dto.TargetBuildingId.HasValue)
         {
-            command.SetTargetBuilding(dto.BuildingId.Value);
+            command.SetTargetBuilding(dto.TargetBuildingId.Value);
         }
 
         // Set unit type for Produce commands

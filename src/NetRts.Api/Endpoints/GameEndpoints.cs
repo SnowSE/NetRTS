@@ -26,6 +26,15 @@ public static class GameEndpoints
             .Produces(StatusCodes.Status401Unauthorized)
             .Produces(StatusCodes.Status403Forbidden)
             .Produces(StatusCodes.Status404NotFound);
+
+        group.MapGet("/{matchId:guid}/result", GetMatchResult)
+            .AllowAnonymous() // TODO: Remove after fixing JWT
+            .WithName("GetMatchResult")
+            .WithSummary("Retrieve final match results")
+            .WithDescription("Returns the final results of a completed match including winner, scores, and duration")
+            .Produces<MatchResultResponse>(StatusCodes.Status200OK)
+            .Produces(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status404NotFound);
     }
 
     private static async Task<IResult> GetGameState(
@@ -75,6 +84,44 @@ public static class GameEndpoints
         {
             return Results.Problem(
                 title: "Error retrieving game state",
+                detail: ex.Message,
+                statusCode: StatusCodes.Status500InternalServerError);
+        }
+    }
+
+    private static async Task<IResult> GetMatchResult(
+        Guid matchId,
+        MediatR.IMediator mediator,
+        CancellationToken cancellationToken)
+    {
+        try
+        {
+            var query = new Application.Queries.GetMatchResult.GetMatchResultQuery(matchId);
+            var result = await mediator.Send(query, cancellationToken);
+            return Results.Ok(result);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not completed"))
+        {
+            return Results.Conflict(new
+            {
+                title = "Match not completed",
+                detail = ex.Message,
+                matchId = matchId
+            });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            return Results.NotFound(new
+            {
+                title = "Match not found",
+                detail = ex.Message,
+                matchId = matchId
+            });
+        }
+        catch (Exception ex)
+        {
+            return Results.Problem(
+                title: "Error retrieving match result",
                 detail: ex.Message,
                 statusCode: StatusCodes.Status500InternalServerError);
         }

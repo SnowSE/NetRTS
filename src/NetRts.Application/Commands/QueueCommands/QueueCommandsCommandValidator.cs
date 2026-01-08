@@ -32,14 +32,14 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
         RuleForEach(x => x.Commands)
             .ChildRules(command =>
             {
-                command.RuleFor(c => c.Type)
+                command.RuleFor(c => c.CommandType)
                     .NotEmpty()
                     .WithMessage("Command type is required")
                     .Must(type => Enum.TryParse<CommandType>(type, true, out _))
                     .WithMessage("Invalid command type");
 
                 // Move command validation
-                command.When(c => c.Type.Equals("Move", StringComparison.OrdinalIgnoreCase), () =>
+                command.When(c => c.CommandType.Equals("Move", StringComparison.OrdinalIgnoreCase), () =>
                 {
                     command.RuleFor(c => c.UnitIds)
                         .NotEmpty()
@@ -61,7 +61,7 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                 });
 
                 // Attack command validation
-                command.When(c => c.Type.Equals("Attack", StringComparison.OrdinalIgnoreCase), () =>
+                command.When(c => c.CommandType.Equals("Attack", StringComparison.OrdinalIgnoreCase), () =>
                 {
                     command.RuleFor(c => c.UnitIds)
                         .NotEmpty()
@@ -74,20 +74,20 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                 });
 
                 // Gather command validation
-                command.When(c => c.Type.Equals("Gather", StringComparison.OrdinalIgnoreCase), () =>
+                command.When(c => c.CommandType.Equals("Gather", StringComparison.OrdinalIgnoreCase), () =>
                 {
                     command.RuleFor(c => c.UnitIds)
                         .NotEmpty()
                         .WithMessage("Unit IDs are required for Gather command");
 
-                    command.RuleFor(c => c.TargetResourceDepositId)
+                    command.RuleFor(c => c.TargetResourceId)
                         .NotNull()
                         .GreaterThan(0)
                         .WithMessage("Target resource deposit ID is required for Gather command");
                 });
 
                 // Build command validation
-                command.When(c => c.Type.Equals("Build", StringComparison.OrdinalIgnoreCase), () =>
+                command.When(c => c.CommandType.Equals("Build", StringComparison.OrdinalIgnoreCase), () =>
                 {
                     command.RuleFor(c => c.UnitIds)
                         .NotEmpty()
@@ -105,9 +105,9 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                 });
 
                 // Produce command validation
-                command.When(c => c.Type.Equals("Produce", StringComparison.OrdinalIgnoreCase), () =>
+                command.When(c => c.CommandType.Equals("Produce", StringComparison.OrdinalIgnoreCase), () =>
                 {
-                    command.RuleFor(c => c.BuildingId)
+                    command.RuleFor(c => c.TargetBuildingId)
                         .NotNull()
                         .GreaterThan(0)
                         .WithMessage("Building ID is required for Produce command");
@@ -120,9 +120,9 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                 });
 
                 // Research command validation
-                command.When(c => c.Type.Equals("Research", StringComparison.OrdinalIgnoreCase), () =>
+                command.When(c => c.CommandType.Equals("Research", StringComparison.OrdinalIgnoreCase), () =>
                 {
-                    command.RuleFor(c => c.BuildingId)
+                    command.RuleFor(c => c.TargetBuildingId)
                         .NotNull()
                         .GreaterThan(0)
                         .WithMessage("Building ID is required for Research command");
@@ -178,7 +178,7 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                     }
 
                     // Validate target unit exists for attack commands
-                    if (cmd.Type.Equals("Attack", StringComparison.OrdinalIgnoreCase) && cmd.TargetUnitId.HasValue)
+                    if (cmd.CommandType.Equals("Attack", StringComparison.OrdinalIgnoreCase) && cmd.TargetUnitId.HasValue)
                     {
                         var targetUnit = units.FirstOrDefault(u => u.Id == cmd.TargetUnitId.Value);
                         if (targetUnit == null)
@@ -188,37 +188,37 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                     }
 
                     // Validate resource deposit exists for gather commands
-                    if (cmd.Type.Equals("Gather", StringComparison.OrdinalIgnoreCase) && cmd.TargetResourceDepositId.HasValue)
+                    if (cmd.CommandType.Equals("Gather", StringComparison.OrdinalIgnoreCase) && cmd.TargetResourceId.HasValue)
                     {
-                        var deposit = resourceDeposits.FirstOrDefault(r => r.Id == cmd.TargetResourceDepositId.Value);
+                        var deposit = resourceDeposits.FirstOrDefault(r => r.Id == cmd.TargetResourceId.Value);
                         if (deposit == null)
                         {
-                            context.AddFailure($"Resource deposit {cmd.TargetResourceDepositId} not found");
+                            context.AddFailure($"Resource deposit {cmd.TargetResourceId} not found");
                         }
                     }
 
                     // Validate building ownership for produce/research commands
-                    if ((cmd.Type.Equals("Produce", StringComparison.OrdinalIgnoreCase) ||
-                         cmd.Type.Equals("Research", StringComparison.OrdinalIgnoreCase)) &&
-                        cmd.BuildingId.HasValue)
+                    if ((cmd.CommandType.Equals("Produce", StringComparison.OrdinalIgnoreCase) ||
+                         cmd.CommandType.Equals("Research", StringComparison.OrdinalIgnoreCase)) &&
+                        cmd.TargetBuildingId.HasValue)
                     {
-                        var building = buildings.FirstOrDefault(b => b.Id == cmd.BuildingId.Value);
+                        var building = buildings.FirstOrDefault(b => b.Id == cmd.TargetBuildingId.Value);
                         if (building == null)
                         {
-                            context.AddFailure($"Building {cmd.BuildingId} not found");
+                            context.AddFailure($"Building {cmd.TargetBuildingId} not found");
                         }
                         else if (building.OwnerId != command.PlayerId)
                         {
-                            context.AddFailure($"Building {cmd.BuildingId} is not owned by player");
+                            context.AddFailure($"Building {cmd.TargetBuildingId} is not owned by player");
                         }
                         else if (!building.IsOperational)
                         {
-                            context.AddFailure($"Building {cmd.BuildingId} is not operational yet");
+                            context.AddFailure($"Building {cmd.TargetBuildingId} is not operational yet");
                         }
                     }
 
                     // Validate build command: tile unoccupied, within bounds, sufficient resources
-                    if (cmd.Type.Equals("Build", StringComparison.OrdinalIgnoreCase) && cmd.TargetPosition != null)
+                    if (cmd.CommandType.Equals("Build", StringComparison.OrdinalIgnoreCase) && cmd.TargetPosition != null)
                     {
                         var targetX = cmd.TargetPosition.X;
                         var targetY = cmd.TargetPosition.Y;
@@ -251,7 +251,7 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                     }
 
                     // Validate produce command: sufficient resources
-                    if (cmd.Type.Equals("Produce", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(cmd.UnitType))
+                    if (cmd.CommandType.Equals("Produce", StringComparison.OrdinalIgnoreCase) && !string.IsNullOrEmpty(cmd.UnitType))
                     {
                         if (Enum.TryParse<UnitType>(cmd.UnitType, true, out var unitType))
                         {
@@ -265,15 +265,15 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                     }
 
                     // Validate research command: building is TechLab, sufficient resources, prerequisites
-                    if (cmd.Type.Equals("Research", StringComparison.OrdinalIgnoreCase) && cmd.BuildingId.HasValue)
+                    if (cmd.CommandType.Equals("Research", StringComparison.OrdinalIgnoreCase) && cmd.TargetBuildingId.HasValue)
                     {
-                        var building = buildings.FirstOrDefault(b => b.Id == cmd.BuildingId.Value);
+                        var building = buildings.FirstOrDefault(b => b.Id == cmd.TargetBuildingId.Value);
                         if (building != null)
                         {
                             // Verify building is a TechLab
                             if (building.Type != BuildingType.TechLab)
                             {
-                                context.AddFailure($"Building {cmd.BuildingId} is not a TechLab. Research can only be performed at TechLab buildings.");
+                                context.AddFailure($"Building {cmd.TargetBuildingId} is not a TechLab. Research can only be performed at TechLab buildings.");
                             }
 
                             // Check sufficient resources and prerequisites
@@ -288,19 +288,11 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                                 }
 
                                 // Validate prerequisites
-                                var prerequisite = NetRts.Domain.Entities.Upgrade.GetPrerequisiteUpgrade(upgradeType);
-                                if (prerequisite.HasValue)
+                                var playerUpgrades = match.GetPlayerUpgrades(command.PlayerId).ToList();
+                                var prerequisitesMet = NetRts.Domain.Entities.Upgrade.CheckPrerequisites(upgradeType, playerUpgrades);
+                                if (!prerequisitesMet)
                                 {
-                                    var player = match.Players.FirstOrDefault(p => p.PlayerId == command.PlayerId);
-                                    if (player != null)
-                                    {
-                                        var hasPrerequisite = player.Upgrades.Any(u =>
-                                            u.UpgradeType == prerequisite.Value && u.IsCompleted);
-                                        if (!hasPrerequisite)
-                                        {
-                                            context.AddFailure($"Prerequisite upgrade {prerequisite.Value} must be completed before researching {cmd.UpgradeType}");
-                                        }
-                                    }
+                                    context.AddFailure($"Prerequisites not met for {cmd.UpgradeType}");
                                 }
                             }
                         }
