@@ -20,7 +20,7 @@ public class CommandQueueManagerTests
         // Arrange
         var matchId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
-        var command = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Move, 0);
+        var command = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Move, 0);
 
         // Act
         var result = await _manager.EnqueueCommandAsync(command, 100);
@@ -42,12 +42,12 @@ public class CommandQueueManagerTests
         // Fill the queue
         for (int i = 0; i < maxQueueSize; i++)
         {
-            var command = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Move, 0);
+            var command = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Move, 0);
             await _manager.EnqueueCommandAsync(command, maxQueueSize);
         }
 
         // Try to add one more
-        var extraCommand = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Move, 0);
+        var extraCommand = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Move, 0);
 
         // Act
         var result = await _manager.EnqueueCommandAsync(extraCommand, maxQueueSize);
@@ -65,9 +65,9 @@ public class CommandQueueManagerTests
         var matchId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
 
-        var command1 = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Move, 0);
-        var command2 = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Gather, 0);
-        var command3 = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Attack, 0);
+        var command1 = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Move, 0);
+        var command2 = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Gather, 0);
+        var command3 = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Attack, 0);
 
         await _manager.EnqueueCommandAsync(command1, 100);
         await _manager.EnqueueCommandAsync(command2, 100);
@@ -92,7 +92,7 @@ public class CommandQueueManagerTests
 
         for (int i = 0; i < 10; i++)
         {
-            var command = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Move, 0);
+            var command = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Move, 0);
             await _manager.EnqueueCommandAsync(command, 100);
         }
 
@@ -128,7 +128,7 @@ public class CommandQueueManagerTests
 
         for (int i = 0; i < 7; i++)
         {
-            var command = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Move, 0);
+            var command = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Move, 0);
             await _manager.EnqueueCommandAsync(command, 100);
         }
 
@@ -163,9 +163,9 @@ public class CommandQueueManagerTests
 
         // Add commands for both players
         await _manager.EnqueueCommandAsync(
-            new Command(Guid.NewGuid(), matchId, player1Id, CommandType.Move, 0), 100);
+            new Command(DateTime.UtcNow.Ticks, matchId, player1Id, CommandType.Move, 0), 100);
         await _manager.EnqueueCommandAsync(
-            new Command(Guid.NewGuid(), matchId, player2Id, CommandType.Move, 0), 100);
+            new Command(DateTime.UtcNow.Ticks, matchId, player2Id, CommandType.Move, 0), 100);
 
         // Act
         await _manager.ClearMatchCommandsAsync(matchId);
@@ -184,10 +184,10 @@ public class CommandQueueManagerTests
         var matchId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
 
-        var command1 = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Move, 0);
-        var command2 = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Gather, 0);
-        var command3 = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Attack, 0);
-        var command4 = new Command(Guid.NewGuid(), matchId, playerId, CommandType.Build, 0);
+        var command1 = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Move, 0);
+        var command2 = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Gather, 0);
+        var command3 = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Attack, 0);
+        var command4 = new Command(DateTime.UtcNow.Ticks, matchId, playerId, CommandType.Build, 0);
 
         // Enqueue 3 commands
         await _manager.EnqueueCommandAsync(command1, 100);
@@ -221,8 +221,8 @@ public class CommandQueueManagerTests
         var player1Id = Guid.NewGuid();
         var player2Id = Guid.NewGuid();
 
-        var player1Command = new Command(Guid.NewGuid(), matchId, player1Id, CommandType.Move, 0);
-        var player2Command = new Command(Guid.NewGuid(), matchId, player2Id, CommandType.Gather, 0);
+        var player1Command = new Command(DateTime.UtcNow.Ticks, matchId, player1Id, CommandType.Move, 0);
+        var player2Command = new Command(DateTime.UtcNow.Ticks, matchId, player2Id, CommandType.Gather, 0);
 
         await _manager.EnqueueCommandAsync(player1Command, 100);
         await _manager.EnqueueCommandAsync(player2Command, 100);
@@ -247,8 +247,8 @@ public class CommandQueueManagerTests
         var match2Id = Guid.NewGuid();
         var playerId = Guid.NewGuid();
 
-        var match1Command = new Command(Guid.NewGuid(), match1Id, playerId, CommandType.Move, 0);
-        var match2Command = new Command(Guid.NewGuid(), match2Id, playerId, CommandType.Gather, 0);
+        var match1Command = new Command(DateTime.UtcNow.Ticks, match1Id, playerId, CommandType.Move, 0);
+        var match2Command = new Command(DateTime.UtcNow.Ticks, match2Id, playerId, CommandType.Gather, 0);
 
         await _manager.EnqueueCommandAsync(match1Command, 100);
         await _manager.EnqueueCommandAsync(match2Command, 100);

@@ -369,4 +369,4 @@ public class Match
 /// <summary>
 /// Represents player state within a match for validation purposes.
 /// </summary>
-public record MatchPlayerState(Guid PlayerId, IReadOnlyList<Upgrade> Upgrades);
+public record MatchPlayerState(Guid PlayerId, List<Upgrade> Upgrades);

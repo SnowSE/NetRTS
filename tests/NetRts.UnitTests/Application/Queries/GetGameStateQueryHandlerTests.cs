@@ -6,6 +6,7 @@ using NetRts.Application.Services;
 using NetRts.Domain.Entities;
 using NetRts.Domain.Enums;
 using NetRts.Domain.ValueObjects;
+using NetRts.Infrastructure.Caching;
 
 namespace NetRts.UnitTests.Application.Queries;
 
@@ -28,12 +29,12 @@ public class GetGameStateQueryHandlerTests
     public async Task Handle_WithValidMatch_ReturnsGameStateResponse()
     {
         // Arrange
-        var matchId = Guid.NewGuid();
         var player1Id = Guid.NewGuid();
         var player2Id = Guid.NewGuid();
 
         var settings = new GameSettings(100, 100, 1800, 1000);
         var match = new Match(player1Id, player2Id, settings);
+        var matchId = match.Id;
 
         var units = new List<Unit>
         {
@@ -89,13 +90,13 @@ public class GetGameStateQueryHandlerTests
     public async Task Handle_WithNonParticipant_ThrowsUnauthorizedAccessException()
     {
         // Arrange
-        var matchId = Guid.NewGuid();
         var player1Id = Guid.NewGuid();
         var player2Id = Guid.NewGuid();
         var nonParticipantId = Guid.NewGuid();
 
         var settings = new GameSettings(100, 100, 1800, 1000);
         var match = new Match(player1Id, player2Id, settings);
+        var matchId = match.Id;
 
         _gameStateCache.GetMatch(matchId).Returns(match);
 
@@ -128,12 +129,12 @@ public class GetGameStateQueryHandlerTests
     public async Task Handle_OnlyReturnsUnitsVisibleToPlayer()
     {
         // Arrange
-        var matchId = Guid.NewGuid();
         var player1Id = Guid.NewGuid();
         var player2Id = Guid.NewGuid();
 
         var settings = new GameSettings(100, 100, 1800, 1000);
         var match = new Match(player1Id, player2Id, settings);
+        var matchId = match.Id;
 
         var units = new List<Unit>
         {

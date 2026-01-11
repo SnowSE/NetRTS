@@ -120,9 +120,10 @@ public class QueueCommandsCommandHandler : IRequestHandler<QueueCommandsCommand,
         }
 
         // Set building ID for Produce/Research commands
-        if (dto.TargetBuildingId.HasValue)
+        var buildingId = dto.BuildingId ?? dto.TargetBuildingId;
+        if (buildingId.HasValue)
         {
-            command.SetTargetBuilding(dto.TargetBuildingId.Value);
+            command.SetTargetBuilding(buildingId.Value);
         }
 
         // Set unit type for Produce commands

@@ -4,9 +4,11 @@ using NSubstitute;
 using NetRts.Application.Commands.QueueCommands;
 using NetRts.Application.Interfaces;
 using NetRts.Contracts.Requests;
+using NetRts.Contracts.Responses;
 using NetRts.Domain.Entities;
 using NetRts.Domain.Enums;
 using NetRts.Domain.ValueObjects;
+using NetRts.Infrastructure.Caching;
 
 namespace NetRts.UnitTests.Application.Commands;
 
@@ -52,7 +54,7 @@ public class QueueCommandsCommandValidatorTests
             {
                 new CommandDto
                 {
-                    Type = "Build",
+                    CommandType = "Build",
                     UnitIds = new[] { 1 },
                     BuildingType = "Barracks",
                     TargetPosition = new PositionDto { X = 30, Y = 30 }
@@ -101,7 +103,7 @@ public class QueueCommandsCommandValidatorTests
             {
                 new CommandDto
                 {
-                    Type = "Build",
+                    CommandType = "Build",
                     UnitIds = new[] { 1 },
                     BuildingType = "Barracks",
                     TargetPosition = new PositionDto { X = 30, Y = 30 }
@@ -112,8 +114,8 @@ public class QueueCommandsCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("*occupied*");
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("Tile at position (30,30) is already occupied by a building");
     }
 
     [Fact]
@@ -147,7 +149,7 @@ public class QueueCommandsCommandValidatorTests
             {
                 new CommandDto
                 {
-                    Type = "Build",
+                    CommandType = "Build",
                     UnitIds = new[] { 1 },
                     BuildingType = "Barracks",
                     TargetPosition = new PositionDto { X = 30, Y = 30 }
@@ -158,8 +160,8 @@ public class QueueCommandsCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("*Insufficient resources*");
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("Insufficient resources to build Barracks. Required: 200, Available: 50");
     }
 
     [Fact]
@@ -191,7 +193,7 @@ public class QueueCommandsCommandValidatorTests
             {
                 new CommandDto
                 {
-                    Type = "Build",
+                    CommandType = "Build",
                     UnitIds = new[] { 1 },
                     BuildingType = "Barracks",
                     TargetPosition = new PositionDto { X = 300, Y = 300 } // Out of bounds
@@ -202,8 +204,8 @@ public class QueueCommandsCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("*out of bounds*");
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("Build position (300,300) is out of bounds");
     }
 
     [Fact]
@@ -219,7 +221,7 @@ public class QueueCommandsCommandValidatorTests
         match.SetPlayerResources(player1Id, 200);
 
         var barracks = new Building(1, matchId, player1Id, BuildingType.Barracks, new Position(30, 30));
-        barracks.CompleteConstruction();
+        barracks.AdvanceConstruction(100);
 
         var buildings = new List<Building> { barracks };
 
@@ -235,7 +237,7 @@ public class QueueCommandsCommandValidatorTests
             {
                 new CommandDto
                 {
-                    Type = "Produce",
+                    CommandType = "Produce",
                     BuildingId = barracks.Id,
                     UnitType = "Soldier"
                 }
@@ -261,7 +263,7 @@ public class QueueCommandsCommandValidatorTests
         match.SetPlayerResources(player1Id, 20); // Not enough for Soldier (costs 100)
 
         var barracks = new Building(1, matchId, player1Id, BuildingType.Barracks, new Position(30, 30));
-        barracks.CompleteConstruction();
+        barracks.AdvanceConstruction(100);
 
         var buildings = new List<Building> { barracks };
 
@@ -277,7 +279,7 @@ public class QueueCommandsCommandValidatorTests
             {
                 new CommandDto
                 {
-                    Type = "Produce",
+                    CommandType = "Produce",
                     BuildingId = barracks.Id,
                     UnitType = "Soldier"
                 }
@@ -287,8 +289,8 @@ public class QueueCommandsCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("*Insufficient resources*");
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("Insufficient resources to produce Soldier. Required: 100, Available: 20");
     }
 
     [Fact]
@@ -320,7 +322,7 @@ public class QueueCommandsCommandValidatorTests
             {
                 new CommandDto
                 {
-                    Type = "Produce",
+                    CommandType = "Produce",
                     BuildingId = barracks.Id,
                     UnitType = "Soldier"
                 }
@@ -330,7 +332,7 @@ public class QueueCommandsCommandValidatorTests
         var result = _validator.TestValidate(command);
 
         // Assert
-        result.ShouldHaveValidationErrorFor(x => x)
-            .WithErrorMessage("*not operational*");
+        result.ShouldHaveAnyValidationError()
+            .WithErrorMessage("Building 1 is not operational yet");
     }
 }

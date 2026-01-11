@@ -407,6 +407,9 @@ namespace NetRts.Infrastructure.Data.Migrations
                     b.Property<int>("Id")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Armor")
+                        .HasColumnType("integer");
+
                     b.Property<int>("AttackDamage")
                         .HasColumnType("integer");
 
@@ -433,6 +436,9 @@ namespace NetRts.Infrastructure.Data.Migrations
                         .HasColumnType("integer");
 
                     b.Property<int?>("TargetEntityId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TargetResourceDepositId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Type")

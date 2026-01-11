@@ -89,8 +89,9 @@ public class BuildingProductionSteps
         var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
 
         var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
-        var existingBuilding = new Building(999, _context.MatchId, _context.Player2Id, BuildingType.Barracks, new Position(x, y));
-        existingBuilding.CompleteConstruction();
+        var nextId = buildings.Select(b => b.Id).DefaultIfEmpty(0).Max() + 1;
+        var existingBuilding = new Building(nextId, _context.MatchId, _context.Player2Id, BuildingType.Barracks, new Position(x, y));
+        existingBuilding.AdvanceConstruction(100);
         buildings.Add(existingBuilding);
         gameStateCache.SetBuildingsForMatch(_context.MatchId, buildings);
 
@@ -109,10 +110,11 @@ public class BuildingProductionSteps
         gameStateCache.AddOrUpdate(match);
 
         // Create operational barracks
-        var barracks = new Building(1, _context.MatchId, _context.Player1Id, BuildingType.Barracks, new Position(x, y));
-        barracks.CompleteConstruction();
-
         var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
+        var nextId = buildings.Select(b => b.Id).DefaultIfEmpty(0).Max() + 1;
+        var barracks = new Building(nextId, _context.MatchId, _context.Player1Id, BuildingType.Barracks, new Position(x, y));
+        barracks.AdvanceConstruction(100);
+
         buildings.Add(barracks);
         gameStateCache.SetBuildingsForMatch(_context.MatchId, buildings);
 
@@ -127,10 +129,11 @@ public class BuildingProductionSteps
         var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
         var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
 
-        var barracks = new Building(1, _context.MatchId, _context.Player1Id, BuildingType.Barracks, new Position(x, y));
+        var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
+        var nextId = buildings.Select(b => b.Id).DefaultIfEmpty(0).Max() + 1;
+        var barracks = new Building(nextId, _context.MatchId, _context.Player1Id, BuildingType.Barracks, new Position(x, y));
         // Don't complete construction - leave it at 0%
 
-        var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
         buildings.Add(barracks);
         gameStateCache.SetBuildingsForMatch(_context.MatchId, buildings);
 
@@ -143,10 +146,11 @@ public class BuildingProductionSteps
         var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
         var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
 
-        var commandCenter = new Building(2, _context.MatchId, _context.Player1Id, BuildingType.CommandCenter, new Position(x, y));
-        commandCenter.CompleteConstruction();
-
         var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
+        var nextId = buildings.Select(b => b.Id).DefaultIfEmpty(0).Max() + 1;
+        var commandCenter = new Building(nextId, _context.MatchId, _context.Player1Id, BuildingType.CommandCenter, new Position(x, y));
+        commandCenter.AdvanceConstruction(100);
+
         buildings.Add(commandCenter);
         gameStateCache.SetBuildingsForMatch(_context.MatchId, buildings);
 
@@ -162,16 +166,14 @@ public class BuildingProductionSteps
     [Given(@"player 1 has queued a produce command for a Soldier")]
     public async Task GivenPlayer1HasQueuedAProduceCommandForASoldier()
     {
-        var barracksId = (Guid)_scenarioContext["BarracksId"];
+        var barracksId = (int)_scenarioContext["BarracksId"];
         await WhenPlayer1QueuesAProduceCommandForASoldierFromTheBarracks();
     }
 
     [When(@"player 1 queues a build command for a Barracks at position \((\d+),(\d+)\)")]
     public async Task WhenPlayer1QueuesABuildCommandForABarracksAtPosition(int x, int y)
     {
-        var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _context.Player1Token);
+        _context.SetAuthToken(_context.Player1Token, _context.Player1Id);
 
         var request = new QueueCommandsRequest
         {
@@ -179,7 +181,7 @@ public class BuildingProductionSteps
             {
                 new CommandDto
                 {
-                    Type = "Build",
+                    CommandType = "Build",
                     UnitIds = new[] { 1, 2, 3 }, // Workers doing the building
                     BuildingType = "Barracks",
                     TargetPosition = new PositionDto { X = x, Y = y }
@@ -187,7 +189,7 @@ public class BuildingProductionSteps
             }
         };
 
-        var response = await client.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
+        var response = await _context.HttpClient.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
         _context.LastResponse = response;
 
         if (response.IsSuccessStatusCode)
@@ -201,11 +203,9 @@ public class BuildingProductionSteps
     [When(@"player 1 queues a produce command for a Soldier from the barracks")]
     public async Task WhenPlayer1QueuesAProduceCommandForASoldierFromTheBarracks()
     {
-        var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _context.Player1Token);
+        _context.SetAuthToken(_context.Player1Token, _context.Player1Id);
 
-        var barracksId = (Guid)_scenarioContext["BarracksId"];
+        var barracksId = (int)_scenarioContext["BarracksId"];
 
         var request = new QueueCommandsRequest
         {
@@ -213,14 +213,14 @@ public class BuildingProductionSteps
             {
                 new CommandDto
                 {
-                    Type = "Produce",
+                    CommandType = "Produce",
                     BuildingId = barracksId,
                     UnitType = "Soldier"
                 }
             }
         };
 
-        var response = await client.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
+        var response = await _context.HttpClient.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
         _context.LastResponse = response;
 
         if (response.IsSuccessStatusCode)
@@ -232,18 +232,16 @@ public class BuildingProductionSteps
     [When(@"player 1 queues production for (\d+) Soldiers")]
     public async Task WhenPlayer1QueuesProductionForSoldiers(int count)
     {
-        var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _context.Player1Token);
+        _context.SetAuthToken(_context.Player1Token, _context.Player1Id);
 
-        var barracksId = (Guid)_scenarioContext["BarracksId"];
+        var barracksId = (int)_scenarioContext["BarracksId"];
 
         var commands = new List<CommandDto>();
         for (int i = 0; i < count; i++)
         {
             commands.Add(new CommandDto
             {
-                Type = "Produce",
+                CommandType = "Produce",
                 BuildingId = barracksId,
                 UnitType = "Soldier"
             });
@@ -251,7 +249,7 @@ public class BuildingProductionSteps
 
         var request = new QueueCommandsRequest { Commands = commands.ToArray() };
 
-        var response = await client.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
+        var response = await _context.HttpClient.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
         _context.LastResponse = response;
 
         if (response.IsSuccessStatusCode)
@@ -271,11 +269,9 @@ public class BuildingProductionSteps
     [When(@"player 1 queues a Worker from the CommandCenter")]
     public async Task WhenPlayer1QueuesAWorkerFromTheCommandCenter()
     {
-        var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
-        var client = factory.CreateClient();
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _context.Player1Token);
+        _context.SetAuthToken(_context.Player1Token, _context.Player1Id);
 
-        var commandCenterId = (Guid)_scenarioContext["CommandCenterId"];
+        var commandCenterId = (int)_scenarioContext["CommandCenterId"];
 
         var request = new QueueCommandsRequest
         {
@@ -283,14 +279,14 @@ public class BuildingProductionSteps
             {
                 new CommandDto
                 {
-                    Type = "Produce",
+                    CommandType = "Produce",
                     BuildingId = commandCenterId,
                     UnitType = "Worker"
                 }
             }
         };
 
-        var response = await client.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
+        var response = await _context.HttpClient.PostAsJsonAsync($"/api/v1/matches/{_context.MatchId}/commands", request);
         _context.LastResponse = response;
     }
 
@@ -361,16 +357,26 @@ public class BuildingProductionSteps
         var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
         var tickProcessor = factory.Services.GetRequiredService<IGameTickProcessor>();
 
-        var barracksId = (Guid)_scenarioContext["BarracksId"];
+        var barracksId = (int)_scenarioContext["BarracksId"];
+        
+        // If we are in the "multiple buildings" scenario, we might expect multiple units
+        int expectedIncrease = _scenarioContext.ContainsKey("ExpectedProductionCount") ? (int)_scenarioContext["ExpectedProductionCount"] : 1;
+        // For the "multiple buildings" scenario, we expect 2 units (Soldier + Worker)
+        if (_scenarioContext.StepContext.StepInfo.Text.Contains("both buildings produce units simultaneously") || 
+            _scenarioContext.ContainsKey("CommandCenterId"))
+        {
+            expectedIncrease = 2;
+        }
+
         var initialUnitCount = gameStateCache.GetUnitsForMatch(_context.MatchId).Count;
 
-        // Keep processing ticks until a new unit spawns
+        // Keep processing ticks until units spawn
         for (int i = 0; i < 100; i++)
         {
             await tickProcessor.ProcessTickAsync();
 
             var currentUnitCount = gameStateCache.GetUnitsForMatch(_context.MatchId).Count;
-            if (currentUnitCount > initialUnitCount)
+            if (currentUnitCount >= initialUnitCount + expectedIncrease)
             {
                 break;
             }
@@ -380,13 +386,34 @@ public class BuildingProductionSteps
     [When(@"the first production completes")]
     public async Task WhenTheFirstProductionCompletes()
     {
-        await WhenProductionTimerReachesZero();
+        await WaitUntilUnitsSpawn(1);
     }
 
     [When(@"the second production completes")]
     public async Task WhenTheSecondProductionCompletes()
     {
-        await WhenProductionTimerReachesZero();
+        await WaitUntilUnitsSpawn(1);
+    }
+
+    private async Task WaitUntilUnitsSpawn(int expectedIncrease)
+    {
+        var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
+        var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
+        var tickProcessor = factory.Services.GetRequiredService<IGameTickProcessor>();
+
+        var initialUnitCount = gameStateCache.GetUnitsForMatch(_context.MatchId).Count;
+
+        // Keep processing ticks until units spawn
+        for (int i = 0; i < 100; i++)
+        {
+            await tickProcessor.ProcessTickAsync();
+
+            var currentUnitCount = gameStateCache.GetUnitsForMatch(_context.MatchId).Count;
+            if (currentUnitCount >= initialUnitCount + expectedIncrease)
+            {
+                break;
+            }
+        }
     }
 
     [Then(@"a building is created at position \((\d+),(\d+)\) with 0% construction progress")]
@@ -451,7 +478,7 @@ public class BuildingProductionSteps
         var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
         var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
 
-        var barracksId = (Guid)_scenarioContext["BarracksId"];
+        var barracksId = (int)_scenarioContext["BarracksId"];
         var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
         var barracks = buildings.FirstOrDefault(b => b.Id == barracksId);
 
@@ -473,6 +500,8 @@ public class BuildingProductionSteps
     }
 
     [Then(@"a new Soldier unit spawns adjacent to the barracks")]
+    [Then(@"a Soldier spawns adjacent to the barracks")]
+    [Then(@"the Soldier spawns near the Barracks")]
     public void ThenANewSoldierUnitSpawnsAdjacentToTheBarracks()
     {
         var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
@@ -480,11 +509,19 @@ public class BuildingProductionSteps
 
         var barracksPosition = (Position)_scenarioContext["BarracksPosition"];
         var units = gameStateCache.GetUnitsForMatch(_context.MatchId);
+        
+        // Debug logging
+        Console.WriteLine($"Units in match {_context.MatchId}: {units.Count}");
+        foreach (var u in units)
+        {
+            Console.WriteLine($"Unit ID: {u.Id}, Type: {u.Type}, Owner: {u.OwnerId}, Position: {u.Position}");
+        }
+
         var soldier = units.FirstOrDefault(u => u.Type == UnitType.Soldier);
 
-        soldier.Should().NotBeNull();
+        soldier.Should().NotBeNull("A soldier unit should have spawned");
         var distance = soldier!.Position.DistanceTo(barracksPosition);
-        distance.Should().BeLessThanOrEqualTo(2.0); // Adjacent means within 1-2 tiles
+        distance.Should().BeLessThanOrEqualTo(2.0, $"Soldier at {soldier.Position} should be adjacent to barracks at {barracksPosition}");
     }
 
     [Then(@"the unit belongs to player 1")]
@@ -511,21 +548,21 @@ public class BuildingProductionSteps
     public async Task ThenTheErrorIndicatesTheTileIsOccupied()
     {
         var content = await _context.LastResponse!.Content.ReadAsStringAsync();
-        content.Should().Contain("occupied", StringComparison.OrdinalIgnoreCase);
+        content.Should().ContainEquivalentOf("occupied");
     }
 
     [Then(@"the error indicates insufficient resources")]
     public async Task ThenTheErrorIndicatesInsufficientResources()
     {
         var content = await _context.LastResponse!.Content.ReadAsStringAsync();
-        content.Should().Contain("insufficient resources", StringComparison.OrdinalIgnoreCase);
+        content.Should().ContainEquivalentOf("insufficient resources");
     }
 
     [Then(@"the error indicates the building is not operational")]
     public async Task ThenTheErrorIndicatesTheBuildingIsNotOperational()
     {
         var content = await _context.LastResponse!.Content.ReadAsStringAsync();
-        content.Should().Contain("not operational", StringComparison.OrdinalIgnoreCase);
+        content.Should().ContainEquivalentOf("not operational");
     }
 
     [Then(@"all 3 production orders are added to the queue")]
@@ -534,7 +571,7 @@ public class BuildingProductionSteps
         var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
         var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
 
-        var barracksId = (Guid)_scenarioContext["BarracksId"];
+        var barracksId = (int)_scenarioContext["BarracksId"];
         var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
         var barracks = buildings.FirstOrDefault(b => b.Id == barracksId);
 
@@ -542,13 +579,13 @@ public class BuildingProductionSteps
         barracks!.ProductionQueue.Should().HaveCount(3);
     }
 
-    [Then(@"(\d+) production orders remain in the queue")]
+    [Then(@"(\d+) production orders? remain(?:s)? in the queue")]
     public void ThenProductionOrdersRemainInTheQueue(int expectedCount)
     {
         var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
         var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
 
-        var barracksId = (Guid)_scenarioContext["BarracksId"];
+        var barracksId = (int)_scenarioContext["BarracksId"];
         var buildings = gameStateCache.GetBuildingsForMatch(_context.MatchId);
         var barracks = buildings.FirstOrDefault(b => b.Id == barracksId);
 
@@ -573,21 +610,6 @@ public class BuildingProductionSteps
     {
         // Verify both production orders were accepted
         _context.LastResponse!.IsSuccessStatusCode.Should().BeTrue();
-    }
-
-    [Then(@"the Soldier spawns near the Barracks")]
-    public void ThenTheSoldierSpawnsNearTheBarracks()
-    {
-        var factory = _scenarioContext.ScenarioContainer.Resolve<ApiWebApplicationFactory>();
-        var gameStateCache = factory.Services.GetRequiredService<GameStateCache>();
-
-        var barracksPosition = (Position)_scenarioContext["BarracksPosition"];
-        var units = gameStateCache.GetUnitsForMatch(_context.MatchId);
-        var soldier = units.FirstOrDefault(u => u.Type == UnitType.Soldier);
-
-        soldier.Should().NotBeNull();
-        var distance = soldier!.Position.DistanceTo(barracksPosition);
-        distance.Should().BeLessThanOrEqualTo(2.0);
     }
 
     [Then(@"the Worker spawns near the CommandCenter")]

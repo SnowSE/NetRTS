@@ -1,10 +1,13 @@
 using FluentAssertions;
 using NSubstitute;
 using NetRts.Application.Commands.QueueCommands;
+using NetRts.Application.Interfaces;
 using NetRts.Application.Services;
 using NetRts.Contracts.Requests;
+using NetRts.Contracts.Responses;
 using NetRts.Domain.Entities;
 using NetRts.Domain.Enums;
+using NetRts.Domain.ValueObjects;
 
 namespace NetRts.UnitTests.Application.Commands;
 
@@ -27,7 +30,7 @@ public class QueueCommandsCommandHandlerTests
         var playerId = Guid.NewGuid();
         var commandDto = new CommandDto
         {
-            Type = "Move",
+            CommandType = "Move",
             UnitIds = new[] { 1, 2, 3 },
             TargetPosition = new PositionDto { X = 50, Y = 50 }
         };
@@ -46,7 +49,7 @@ public class QueueCommandsCommandHandlerTests
         result.Should().NotBeNull();
         result.QueuedCount.Should().Be(1);
         result.FailedCount.Should().Be(0);
-        result.Failures.Should().BeNull();
+        result.Errors.Should().BeEmpty();
 
         await _commandQueueManager.Received(1).EnqueueCommandAsync(
             Arg.Is<Command>(c => c.Type == CommandType.Move),
@@ -59,12 +62,12 @@ public class QueueCommandsCommandHandlerTests
         // Arrange
         var matchId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
-        var resourceDepositId = Guid.NewGuid();
+        var resourceDepositId = 1;
         var commandDto = new CommandDto
         {
-            Type = "Gather",
+            CommandType = "Gather",
             UnitIds = new[] { 1 },
-            TargetResourceDepositId = resourceDepositId
+            TargetResourceId = resourceDepositId
         };
 
         Command? capturedCommand = null;
@@ -91,10 +94,10 @@ public class QueueCommandsCommandHandlerTests
         // Arrange
         var matchId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
-        var targetUnitId = Guid.NewGuid();
+        var targetUnitId = 4;
         var commandDto = new CommandDto
         {
-            Type = "Attack",
+            CommandType = "Attack",
             UnitIds = new[] { 1, 2 },
             TargetUnitId = targetUnitId
         };
@@ -125,7 +128,7 @@ public class QueueCommandsCommandHandlerTests
         var playerId = Guid.NewGuid();
         var commandDto = new CommandDto
         {
-            Type = "Move",
+            CommandType = "Move",
             UnitIds = new[] { 1 },
             TargetPosition = new PositionDto { X = 50, Y = 50 }
         };
@@ -143,7 +146,7 @@ public class QueueCommandsCommandHandlerTests
         // Assert
         result.QueuedCount.Should().Be(0);
         result.FailedCount.Should().Be(1);
-        result.Failures.Should().Contain("Command queue is full (max 500)");
+        result.Errors.Should().Contain(e => e.ErrorMessage.Contains("Command queue is full"));
     }
 
     [Fact]
@@ -156,21 +159,21 @@ public class QueueCommandsCommandHandlerTests
         {
             new CommandDto
             {
-                Type = "Move",
+                CommandType = "Move",
                 UnitIds = new[] { 1 },
                 TargetPosition = new PositionDto { X = 50, Y = 50 }
             },
             new CommandDto
             {
-                Type = "Gather",
+                CommandType = "Gather",
                 UnitIds = new[] { 2 },
-                TargetResourceDepositId = Guid.NewGuid()
+                TargetResourceId = 1
             },
             new CommandDto
             {
-                Type = "Attack",
+                CommandType = "Attack",
                 UnitIds = new[] { 3 },
-                TargetUnitId = Guid.NewGuid()
+                TargetUnitId = 4
             }
         };
 
@@ -203,13 +206,13 @@ public class QueueCommandsCommandHandlerTests
         {
             new CommandDto
             {
-                Type = "Move",
+                CommandType = "Move",
                 UnitIds = new[] { 1 },
                 TargetPosition = new PositionDto { X = 50, Y = 50 }
             },
             new CommandDto
             {
-                Type = "Move",
+                CommandType = "Move",
                 UnitIds = new[] { 2 },
                 TargetPosition = new PositionDto { X = 60, Y = 60 }
             }
@@ -229,8 +232,8 @@ public class QueueCommandsCommandHandlerTests
         // Assert
         result.QueuedCount.Should().Be(1);
         result.FailedCount.Should().Be(1);
-        result.Failures.Should().NotBeNull();
-        result.Failures.Should().HaveCount(1);
+        result.Errors.Should().NotBeNull();
+        result.Errors.Should().HaveCount(1);
     }
 
     [Fact]
@@ -241,7 +244,7 @@ public class QueueCommandsCommandHandlerTests
         var playerId = Guid.NewGuid();
         var commandDto = new CommandDto
         {
-            Type = "Build",
+            CommandType = "Build",
             UnitIds = new[] { 1 },
             BuildingType = "Barracks",
             TargetPosition = new PositionDto { X = 30, Y = 30 }
@@ -271,10 +274,10 @@ public class QueueCommandsCommandHandlerTests
         // Arrange
         var matchId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
-        var buildingId = Guid.NewGuid();
+        var buildingId = 1;
         var commandDto = new CommandDto
         {
-            Type = "Produce",
+            CommandType = "Produce",
             BuildingId = buildingId,
             UnitType = "Soldier"
         };
@@ -294,7 +297,7 @@ public class QueueCommandsCommandHandlerTests
         capturedCommand.Should().NotBeNull();
         capturedCommand!.Type.Should().Be(CommandType.Produce);
         capturedCommand.UnitType.Should().Be(UnitType.Soldier);
-        capturedCommand.BuildingId.Should().Be(buildingId);
+        capturedCommand.TargetBuildingId.Should().Be(buildingId);
     }
 
     [Fact]
@@ -303,12 +306,12 @@ public class QueueCommandsCommandHandlerTests
         // Arrange
         var matchId = Guid.NewGuid();
         var playerId = Guid.NewGuid();
-        var buildingId = Guid.NewGuid();
+        var buildingId = 1;
         var commandDto = new CommandDto
         {
-            Type = "Research",
+            CommandType = "Research",
             BuildingId = buildingId,
-            UpgradeType = "MeleeDamage"
+            UpgradeType = "WeaponDamage1"
         };
 
         Command? capturedCommand = null;
@@ -325,7 +328,7 @@ public class QueueCommandsCommandHandlerTests
         // Assert
         capturedCommand.Should().NotBeNull();
         capturedCommand!.Type.Should().Be(CommandType.Research);
-        capturedCommand.UpgradeType.Should().Be(UpgradeType.MeleeDamage);
-        capturedCommand.BuildingId.Should().Be(buildingId);
+        capturedCommand.UpgradeType.Should().Be(UpgradeType.WeaponDamage1);
+        capturedCommand.TargetBuildingId.Should().Be(buildingId);
     }
 }

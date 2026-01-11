@@ -342,10 +342,10 @@
 
 ### Reqnroll BDD Tests for User Story 4
 
-- [ ] T177 [P] [US4] Create Gherkin feature file tests/NetRts.ContractTests/Features/Upgrades.feature with research scenarios
-- [ ] T178 [US4] Implement step definitions for "Given player has tech building and resources" in tests/NetRts.ContractTests/StepDefinitions/UpgradesSteps.cs
-- [ ] T179 [P] [US4] Implement step definitions for "When they queue research command" with HTTP POST
-- [ ] T180 [P] [US4] Implement step definitions for "Then upgrade completes and units have increased damage"
+- [X] T177 [P] [US4] Create Gherkin feature file tests/NetRts.ContractTests/Features/Upgrades.feature with research scenarios
+- [X] T178 [US4] Implement step definitions for "Given player has tech building and resources" in tests/NetRts.ContractTests/StepDefinitions/UpgradesSteps.cs
+- [X] T179 [P] [US4] Implement step definitions for "When they queue research command" with HTTP POST
+- [X] T180 [P] [US4] Implement step definitions for "Then upgrade completes and units have increased damage"
 
 ### DTOs for User Story 4
 
@@ -372,9 +372,9 @@
 
 ### Unit Tests for User Story 4
 
-- [ ] T192 [P] [US4] Write unit test for Research command validation in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandValidatorTests.cs
-- [ ] T193 [P] [US4] Write unit test for upgrade progression and effect application in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
-- [ ] T194 [P] [US4] Write unit test for prerequisite enforcement in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandValidatorTests.cs
+- [X] T192 [P] [US4] Write unit test for Research command validation in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandValidatorTests.cs
+- [X] T193 [P] [US4] Write unit test for upgrade progression and effect application in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
+- [X] T194 [P] [US4] Write unit test for prerequisite enforcement in tests/NetRts.UnitTests/Application/Commands/QueueCommandsCommandValidatorTests.cs
 
 **Checkpoint**: At this point, User Stories 1-4 should all work independently. Bots can upgrade their armies.
 
@@ -388,10 +388,10 @@
 
 ### Reqnroll BDD Tests for User Story 5
 
-- [ ] T195 [P] [US5] Create Gherkin feature file tests/NetRts.ContractTests/Features/MatchScoring.feature with victory scenarios
-- [ ] T196 [US5] Implement step definitions for "Given player destroys all opponent units" in tests/NetRts.ContractTests/StepDefinitions/MatchScoringSteps.cs
-- [ ] T197 [P] [US5] Implement step definitions for "When match processes this state" verifying match ends
-- [ ] T198 [P] [US5] Implement step definitions for "Then player is declared winner with score"
+- [X] T195 [P] [US5] Create Gherkin feature file tests/NetRts.ContractTests/Features/MatchScoring.feature with victory scenarios
+- [X] T196 [US5] Implement step definitions for "Given player destroys all opponent units" in tests/NetRts.ContractTests/StepDefinitions/MatchScoringSteps.cs
+- [X] T197 [P] [US5] Implement step definitions for "When match processes this state" verifying match ends
+- [X] T198 [P] [US5] Implement step definitions for "Then player is declared winner with score"
 
 ### DTOs for User Story 5
 
@@ -425,14 +425,14 @@
 
 ### API Endpoint for User Story 5
 
-- [ ] T217 [US5] Implement GET /api/v1/matches/{matchId}/result endpoint in src/NetRts.Api/Endpoints/GameEndpoints.cs
-- [ ] T218 [US5] Return 409 Conflict if match status is not Completed
+- [X] T217 [US5] Implement GET /api/v1/matches/{matchId}/result endpoint in src/NetRts.Api/Endpoints/GameEndpoints.cs
+- [X] T218 [US5] Return 409 Conflict if match status is not Completed
 
 ### Unit Tests for User Story 5
 
-- [ ] T219 [P] [US5] Write unit test for ScoringService calculations in tests/NetRts.UnitTests/Infrastructure/Services/ScoringServiceTests.cs
-- [ ] T220 [P] [US5] Write unit test for victory condition detection in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
-- [ ] T221 [P] [US5] Write unit test for GetMatchResultQueryHandler in tests/NetRts.UnitTests/Application/Queries/GetMatchResultQueryHandlerTests.cs
+- [X] T219 [P] [US5] Write unit test for ScoringService calculations in tests/NetRts.UnitTests/Infrastructure/Services/ScoringServiceTests.cs
+- [X] T220 [P] [US5] Write unit test for victory condition detection in tests/NetRts.UnitTests/Infrastructure/BackgroundServices/GameTickServiceTests.cs
+- [X] T221 [P] [US5] Write unit test for GetMatchResultQueryHandler in tests/NetRts.UnitTests/Application/Queries/GetMatchResultQueryHandlerTests.cs
 
 **Checkpoint**: All user stories should now be independently functional. Complete matches from start to finish with clear winners.
 
@@ -444,41 +444,41 @@
 
 ### Reqnroll BDD Tests for Lobby
 
-- [ ] T222 [P] Create Gherkin feature file tests/NetRts.ContractTests/Features/Lobby.feature with lobby creation and join scenarios
-- [ ] T223 Implement step definitions for lobby operations in tests/NetRts.ContractTests/StepDefinitions/LobbySteps.cs
+- [X] T222 [P] Create Gherkin feature file tests/NetRts.ContractTests/Features/Lobby.feature with lobby creation and join scenarios
+- [X] T223 Implement step definitions for lobby operations in tests/NetRts.ContractTests/StepDefinitions/LobbySteps.cs
 
 ### DTOs for Lobby
 
-- [ ] T224 [P] Create CreateLobbyRequest DTO in src/NetRts.Contracts/Requests/CreateLobbyRequest.cs
-- [ ] T225 [P] Create LobbyResponse DTO in src/NetRts.Contracts/Responses/LobbyResponse.cs
-- [ ] T226 [P] Create LobbyListResponse DTO with pagination
+- [X] T224 [P] Create CreateLobbyRequest DTO in src/NetRts.Contracts/Requests/CreateLobbyRequest.cs
+- [X] T225 [P] Create LobbyResponse DTO in src/NetRts.Contracts/Responses/LobbyResponse.cs
+- [X] T226 [P] Create LobbyListResponse DTO with pagination
 
 ### CQRS Handlers for Lobby
 
-- [ ] T227 Create CreateLobbyCommand in src/NetRts.Application/Commands/CreateLobby/CreateLobbyCommand.cs
-- [ ] T228 Implement CreateLobbyCommandHandler creating MatchLobby entity with host settings
-- [ ] T229 Create JoinLobbyCommand in src/NetRts.Application/Commands/JoinLobby/JoinLobbyCommand.cs
-- [ ] T230 Implement JoinLobbyCommandHandler adding player to lobby, checking capacity (max 2)
-- [ ] T231 Create StartMatchCommand in src/NetRts.Application/Commands/StartMatch/StartMatchCommand.cs (host only)
-- [ ] T232 Implement StartMatchCommandHandler triggering match creation from lobby settings
-- [ ] T233 Create GetLobbiesQuery in src/NetRts.Application/Queries/GetLobbies/GetLobbiesQuery.cs
-- [ ] T234 Implement GetLobbiesQueryHandler returning paginated open lobbies
-- [ ] T235 Create UpdateLobbySettingsCommand for host to modify game settings before start
+- [X] T227 Create CreateLobbyCommand in src/NetRts.Application/Commands/CreateLobby/CreateLobbyCommand.cs
+- [X] T228 Implement CreateLobbyCommandHandler creating MatchLobby entity with host settings
+- [X] T229 Create JoinLobbyCommand in src/NetRts.Application/Commands/JoinLobby/JoinLobbyCommand.cs
+- [X] T230 Implement JoinLobbyCommandHandler adding player to lobby, checking capacity (max 2)
+- [X] T231 Create StartMatchCommand in src/NetRts.Application/Commands/StartMatch/StartMatchCommand.cs (host only)
+- [X] T232 Implement StartMatchCommandHandler triggering match creation from lobby settings
+- [X] T233 Create GetLobbiesQuery in src/NetRts.Application/Queries/GetLobbies/GetLobbiesQuery.cs
+- [X] T234 Implement GetLobbiesQueryHandler returning paginated open lobbies
+- [X] T235 Create UpdateLobbySettingsCommand for host to modify game settings before start
 
 ### API Endpoints for Lobby
 
-- [ ] T236 Implement POST /api/v1/lobbies endpoint in src/NetRts.Api/Endpoints/LobbyEndpoints.cs
-- [ ] T237 Implement GET /api/v1/lobbies endpoint with pagination
-- [ ] T238 Implement GET /api/v1/lobbies/{lobbyId} endpoint
-- [ ] T239 Implement POST /api/v1/lobbies/{lobbyId}/join endpoint
-- [ ] T240 Implement POST /api/v1/lobbies/{lobbyId}/leave endpoint
-- [ ] T241 Implement PUT /api/v1/lobbies/{lobbyId}/settings endpoint (host only)
-- [ ] T242 Implement POST /api/v1/lobbies/{lobbyId}/start endpoint (host only)
+- [X] T236 Implement POST /api/v1/lobbies endpoint in src/NetRts.Api/Endpoints/LobbyEndpoints.cs
+- [X] T237 Implement GET /api/v1/lobbies endpoint with pagination
+- [X] T238 Implement GET /api/v1/lobbies/{lobbyId} endpoint
+- [X] T239 Implement POST /api/v1/lobbies/{lobbyId}/join endpoint
+- [X] T240 Implement POST /api/v1/lobbies/{lobbyId}/leave endpoint
+- [X] T241 Implement PUT /api/v1/lobbies/{lobbyId}/settings endpoint (host only)
+- [X] T242 Implement POST /api/v1/lobbies/{lobbyId}/start endpoint (host only)
 
 ### Unit Tests for Lobby
 
-- [ ] T243 [P] Write unit test for CreateLobbyCommandHandler in tests/NetRts.UnitTests/Application/Commands/CreateLobbyCommandHandlerTests.cs
-- [ ] T244 [P] Write unit test for JoinLobbyCommandHandler capacity checks in tests/NetRts.UnitTests/Application/Commands/JoinLobbyCommandHandlerTests.cs
+- [X] T243 [P] Write unit test for CreateLobbyCommandHandler in tests/NetRts.UnitTests/Application/Commands/CreateLobbyCommandHandlerTests.cs
+- [X] T244 [P] Write unit test for JoinLobbyCommandHandler capacity checks in tests/NetRts.UnitTests/Application/Commands/JoinLobbyCommandHandlerTests.cs
 
 ---
 
@@ -488,32 +488,32 @@
 
 ### DTOs for Leaderboard
 
-- [ ] T245 [P] Create LeaderboardResponse DTO in src/NetRts.Contracts/Responses/LeaderboardResponse.cs
-- [ ] T246 [P] Create PlayerScoreDto with rank, username, total score, matches played, win rate
+- [X] T245 [P] Create LeaderboardResponse DTO in src/NetRts.Contracts/Responses/LeaderboardResponse.cs
+- [X] T246 [P] Create PlayerScoreDto with rank, username, total score, matches played, win rate
 
 ### CQRS Handlers for Leaderboard
 
-- [ ] T247 Create GetLeaderboardQuery in src/NetRts.Application/Queries/GetLeaderboard/GetLeaderboardQuery.cs
-- [ ] T248 Implement GetLeaderboardQueryHandler returning sorted player scores with pagination
-- [ ] T249 Create UpdateLeaderboardCommand triggered after match completion
-- [ ] T250 Implement UpdateLeaderboardCommandHandler recalculating scores, updating PlayerScore entities
+- [X] T247 Create GetLeaderboardQuery in src/NetRts.Application/Queries/GetLeaderboard/GetLeaderboardQuery.cs
+- [X] T248 Implement GetLeaderboardQueryHandler returning sorted player scores with pagination
+- [X] T249 Create UpdateLeaderboardCommand triggered after match completion
+- [X] T250 Implement UpdateLeaderboardCommandHandler recalculating scores, updating PlayerScore entities
 
 ### API Endpoints for Leaderboard
 
-- [ ] T251 Implement GET /api/v1/leaderboard endpoint in src/NetRts.Api/Endpoints/LeaderboardEndpoints.cs
-- [ ] T252 Implement GET /api/v1/leaderboard/player/{playerId} endpoint for individual stats
+- [X] T251 Implement GET /api/v1/leaderboard endpoint in src/NetRts.Api/Endpoints/LeaderboardEndpoints.cs
+- [X] T252 Implement GET /api/v1/leaderboard/player/{playerId} endpoint for individual stats
 
 ### Leaderboard Update Logic
 
-- [ ] T253 In GameTickService: When match completes, trigger UpdateLeaderboardCommand
-- [ ] T254 Increment Player.TotalMatches and Player.TotalWins for winner
-- [ ] T255 Update PlayerScore.TotalScore by adding match score
-- [ ] T256 Recalculate PlayerScore.WinRate and PlayerScore.AverageScore
+- [X] T253 In GameTickService: When match completes, trigger UpdateLeaderboardCommand
+- [X] T254 Increment Player.TotalMatches and Player.TotalWins for winner
+- [X] T255 Update PlayerScore.TotalScore by adding match score
+- [X] T256 Recalculate PlayerScore.WinRate and PlayerScore.AverageScore
 
 ### Unit Tests for Leaderboard
 
-- [ ] T257 [P] Write unit test for GetLeaderboardQueryHandler sorting in tests/NetRts.UnitTests/Application/Queries/GetLeaderboardQueryHandlerTests.cs
-- [ ] T258 [P] Write unit test for UpdateLeaderboardCommandHandler in tests/NetRts.UnitTests/Application/Commands/UpdateLeaderboardCommandHandlerTests.cs
+- [X] T257 [P] Write unit test for GetLeaderboardQueryHandler sorting in tests/NetRts.UnitTests/Application/Queries/GetLeaderboardQueryHandlerTests.cs
+- [X] T258 [P] Write unit test for UpdateLeaderboardCommandHandler in tests/NetRts.UnitTests/Application/Commands/UpdateLeaderboardCommandHandlerTests.cs
 
 ---
 
@@ -523,24 +523,24 @@
 
 ### DTOs for Player Management
 
-- [ ] T259 [P] Create RegisterPlayerRequest DTO in src/NetRts.Contracts/Requests/RegisterPlayerRequest.cs
-- [ ] T260 [P] Create PlayerResponse DTO with token in src/NetRts.Contracts/Responses/PlayerResponse.cs
+- [X] T259 [P] Create RegisterPlayerRequest DTO in src/NetRts.Contracts/Requests/RegisterPlayerRequest.cs
+- [X] T260 [P] Create PlayerResponse DTO with token in src/NetRts.Contracts/Responses/PlayerResponse.cs
 
 ### CQRS Handlers for Player Management
 
-- [ ] T261 Create RegisterPlayerCommand in src/NetRts.Application/Commands/RegisterPlayer/RegisterPlayerCommand.cs
-- [ ] T262 Implement RegisterPlayerCommandHandler creating Player entity, generating JWT token
-- [ ] T263 Create GetPlayerProfileQuery in src/NetRts.Application/Queries/GetPlayerProfile/GetPlayerProfileQuery.cs
-- [ ] T264 Implement GetPlayerProfileQueryHandler returning player stats
+- [X] T261 Create RegisterPlayerCommand in src/NetRts.Application/Commands/RegisterPlayer/RegisterPlayerCommand.cs
+- [X] T262 Implement RegisterPlayerCommandHandler creating Player entity, generating JWT token
+- [X] T263 Create GetPlayerProfileQuery in src/NetRts.Application/Queries/GetPlayerProfile/GetPlayerProfileQuery.cs
+- [X] T264 Implement GetPlayerProfileQueryHandler returning player stats
 
 ### API Endpoints for Player Management
 
-- [ ] T265 Implement POST /api/v1/players endpoint (registration) in src/NetRts.Api/Endpoints/PlayerEndpoints.cs
-- [ ] T266 Implement GET /api/v1/players/me endpoint (current player profile)
+- [X] T265 Implement POST /api/v1/players endpoint (registration) in src/NetRts.Api/Endpoints/PlayerEndpoints.cs
+- [X] T266 Implement GET /api/v1/players/me endpoint (current player profile)
 
 ### Unit Tests for Player Management
 
-- [ ] T267 [P] Write unit test for RegisterPlayerCommandHandler username uniqueness in tests/NetRts.UnitTests/Application/Commands/RegisterPlayerCommandHandlerTests.cs
+- [X] T267 [P] Write unit test for RegisterPlayerCommandHandler username uniqueness in tests/NetRts.UnitTests/Application/Commands/RegisterPlayerCommandHandlerTests.cs
 
 ---
 
@@ -550,18 +550,18 @@
 
 ### SignalR Implementation
 
-- [ ] T268 Extend GameHub with OnGameStateUpdated event broadcast in src/NetRts.Api/Hubs/GameHub.cs
-- [ ] T269 Extend GameHub with OnMatchEnded event broadcast
-- [ ] T270 [P] Extend GameHub with OnLobbyPlayerJoined and OnLobbyPlayerLeft events
-- [ ] T271 In GameTickService: After processing tick, broadcast game state to match group via GameHub
-- [ ] T272 In StartMatchCommandHandler: Broadcast OnMatchStarted event to lobby group
-- [ ] T273 In victory detection: Broadcast OnMatchEnded event to match group with result
+- [X] T268 Extend GameHub with OnGameStateUpdated event broadcast in src/NetRts.Api/Hubs/GameHub.cs
+- [X] T269 Extend GameHub with OnMatchEnded event broadcast
+- [X] T270 [P] Extend GameHub with OnLobbyPlayerJoined and OnLobbyPlayerLeft events
+- [X] T271 In GameTickService: After processing tick, broadcast game state to match group via GameHub
+- [X] T272 In StartMatchCommandHandler: Broadcast OnMatchStarted event to lobby group
+- [X] T273 In victory detection: Broadcast OnMatchEnded event to match group with result
 
 ### DTOs for SignalR Events
 
-- [ ] T274 [P] Create GameStateUpdatedEvent in src/NetRts.Contracts/Events/GameStateUpdatedEvent.cs
-- [ ] T275 [P] Create MatchEndedEvent in src/NetRts.Contracts/Events/MatchEndedEvent.cs
-- [ ] T276 [P] Create LobbyPlayerJoinedEvent and LobbyPlayerLeftEvent
+- [X] T274 [P] Create GameStateUpdatedEvent in src/NetRts.Contracts/Events/GameStateUpdatedEvent.cs
+- [X] T275 [P] Create MatchEndedEvent in src/NetRts.Contracts/Events/MatchEndedEvent.cs
+- [X] T276 [P] Create LobbyPlayerJoinedEvent and LobbyPlayerLeftEvent
 
 ---
 
@@ -571,34 +571,34 @@
 
 ### Client Infrastructure
 
-- [ ] T277 Configure HttpClient with base address and JWT authentication in src/NetRts.Client/Program.cs
-- [ ] T278 Configure SignalR HubConnection for GameHub in src/NetRts.Client/Services/GameHubClient.cs
-- [ ] T279 Create GameApiClient service in src/NetRts.Client/Services/GameApiClient.cs wrapping HTTP calls
+- [X] T277 Configure HttpClient with base address and JWT authentication in src/NetRts.Client/Program.cs
+- [X] T278 Configure SignalR HubConnection for GameHub in src/NetRts.Client/Services/GameHubClient.cs
+- [X] T279 Create GameApiClient service in src/NetRts.Client/Services/GameApiClient.cs wrapping HTTP calls
 
 ### Client Pages
 
-- [ ] T280 [P] Create Lobby.razor page in src/NetRts.Client/Pages/Lobby.razor with lobby list and create lobby form
-- [ ] T281 [P] Create GameView.razor page in src/NetRts.Client/Pages/GameView.razor with map rendering and command panel
-- [ ] T282 [P] Create Leaderboard.razor page in src/NetRts.Client/Pages/Leaderboard.razor with ranked player list
+- [X] T280 [P] Create Lobby.razor page in src/NetRts.Client/Pages/Lobby.razor with lobby list and create lobby form
+- [X] T281 [P] Create GameView.razor page in src/NetRts.Client/Pages/GameView.razor with map rendering and command panel
+- [X] T282 [P] Create Leaderboard.razor page in src/NetRts.Client/Pages/Leaderboard.razor with ranked player list
 
 ### Client Components
 
-- [ ] T283 [P] Create MapRenderer component in src/NetRts.Client/Components/MapRenderer.razor rendering tiles, units, buildings
-- [ ] T284 [P] Create UnitCard component in src/NetRts.Client/Components/UnitCard.razor displaying unit details
-- [ ] T285 [P] Create CommandPanel component in src/NetRts.Client/Components/CommandPanel.razor with buttons for move, attack, build, produce
-- [ ] T286 [P] Create ResourceDisplay component showing current resources and score
+- [X] T283 [P] Create MapRenderer component in src/NetRts.Client/Components/MapRenderer.razor rendering tiles, units, buildings
+- [X] T284 [P] Create UnitCard component in src/NetRts.Client/Components/UnitCard.razor displaying unit details
+- [X] T285 [P] Create CommandPanel component in src/NetRts.Client/Components/CommandPanel.razor with buttons for move, attack, build, produce
+- [X] T286 [P] Create ResourceDisplay component showing current resources and score
 
 ### Client State Management
 
-- [ ] T287 Subscribe to SignalR GameStateUpdated events in GameView.razor and update UI
-- [ ] T288 Implement click-to-select units and right-click-to-command UX in MapRenderer
-- [ ] T289 Implement lobby refresh and auto-update when players join via SignalR
+- [X] T287 Subscribe to SignalR GameStateUpdated events in GameView.razor and update UI
+- [X] T288 Implement click-to-select units and right-click-to-command UX in MapRenderer
+- [X] T289 Implement lobby refresh and auto-update when players join via SignalR
 
 ### Client Styling
 
-- [ ] T290 [P] Apply accessible design system with WCAG 2.1 AA contrast ratios in src/NetRts.Client/wwwroot/css/app.css
-- [ ] T291 [P] Add keyboard navigation support for all interactive elements
-- [ ] T292 [P] Add loading skeleton screens for async operations
+- [X] T290 [P] Apply accessible design system with WCAG 2.1 AA contrast ratios in src/NetRts.Client/wwwroot/css/app.css
+- [X] T291 [P] Add keyboard navigation support for all interactive elements
+- [X] T292 [P] Add loading skeleton screens for async operations
 
 ---
 
@@ -606,21 +606,21 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T293 [P] Write XML documentation comments for all public APIs in Domain, Application, Contracts
-- [ ] T294 [P] Configure code coverage reporting with Coverlet in Directory.Build.props targeting 80% minimum
-- [ ] T295 Run end-to-end test simulating complete match from lobby to winner in tests/NetRts.EndToEndTests/MatchSimulationTests.cs
-- [ ] T296 [P] Add rate limiting configuration to appsettings.json with configurable limits per endpoint
-- [ ] T297 [P] Add CORS configuration in src/NetRts.Api/Program.cs for Blazor client origin
-- [ ] T298 Create Docker Compose file for local development with API, Client, PostgreSQL services
-- [ ] T299 [P] Create Kubernetes manifests in k8s/ directory for production deployment
-- [ ] T300 [P] Configure Application Insights telemetry for production in ServiceDefaults
-- [ ] T301 Create README.md at repository root with quickstart instructions
-- [ ] T302 [P] Create CONTRIBUTING.md with TDD workflow and PR guidelines
-- [ ] T303 [P] Create ADR (Architecture Decision Record) for QuadTree spatial indexing decision in docs/adr/0001-spatial-indexing.md
-- [ ] T304 Validate quickstart.md by running example commands and updating with actual outputs
-- [ ] T305 [P] Set up GitHub Actions CI pipeline running tests, linting, and coverage reporting
-- [ ] T306 [P] Configure Dependabot for automated dependency updates
-- [ ] T307 Run security audit with dotnet list package --vulnerable and address findings
+- [X] T293 [P] Write XML documentation comments for all public APIs in Domain, Application, Contracts
+- [X] T294 [P] Configure code coverage reporting with Coverlet in Directory.Build.props targeting 80% minimum
+- [X] T295 [X] Run end-to-end test simulating complete match from lobby to winner in tests/NetRts.EndToEndTests/MatchSimulationTests.cs
+- [X] T296 [P] Add rate limiting configuration to appsettings.json with configurable limits per endpoint
+- [X] T297 [P] Add CORS configuration in src/NetRts.Api/Program.cs for Blazor client origin
+- [X] T298 Create Docker Compose file for local development with API, Client, PostgreSQL services
+- [X] T299 [P] Create Kubernetes manifests in k8s/ directory for production deployment
+- [X] T300 [P] Configure Application Insights telemetry for production in ServiceDefaults
+- [X] T301 Create README.md at repository root with quickstart instructions
+- [X] T302 [P] Create CONTRIBUTING.md with TDD workflow and PR guidelines
+- [X] T303 [P] Create ADR (Architecture Decision Record) for QuadTree spatial indexing decision in docs/adr/0001-spatial-indexing.md
+- [X] T304 Validate quickstart.md by running example commands and updating with actual outputs
+- [X] T305 [P] Set up GitHub Actions CI pipeline running tests, linting, and coverage reporting
+- [X] T306 [P] Configure Dependabot for automated dependency updates
+- [X] T307 Run security audit with dotnet list package --vulnerable and address findings
 
 ---
 

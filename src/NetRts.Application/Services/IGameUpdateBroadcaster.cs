@@ -24,4 +24,19 @@ public interface IGameUpdateBroadcaster
     /// <param name="winnerId">The winner's player identifier</param>
     /// <param name="cancellationToken">Cancellation token</param>
     Task BroadcastMatchEndedAsync(Guid matchId, Guid? winnerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Broadcasts an event when a player joins a lobby.
+    /// </summary>
+    Task BroadcastLobbyPlayerJoinedAsync(Guid lobbyId, Guid playerId, string username, int slot, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Broadcasts an event when a player leaves a lobby.
+    /// </summary>
+    Task BroadcastLobbyPlayerLeftAsync(Guid lobbyId, Guid playerId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Broadcasts an event when a match is started from a lobby.
+    /// </summary>
+    Task BroadcastMatchStartedAsync(Guid lobbyId, Guid matchId, CancellationToken cancellationToken = default);
 }

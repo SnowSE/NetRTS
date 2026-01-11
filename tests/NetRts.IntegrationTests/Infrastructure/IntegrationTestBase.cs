@@ -31,6 +31,7 @@ public abstract class IntegrationTestBase : IAsyncLifetime
         services.AddDbContext<ApplicationDbContext>(options =>
         {
             options.UseNpgsql(_postgresContainer.GetConnectionString());
+            options.ConfigureWarnings(w => w.Ignore(Microsoft.EntityFrameworkCore.Diagnostics.RelationalEventId.PendingModelChangesWarning));
         });
 
         // Add other required services

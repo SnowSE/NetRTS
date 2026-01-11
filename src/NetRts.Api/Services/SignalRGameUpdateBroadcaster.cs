@@ -89,4 +89,43 @@ public class SignalRGameUpdateBroadcaster : IGameUpdateBroadcaster
             _logger.LogError(ex, "Error broadcasting match ended for match {MatchId}", matchId);
         }
     }
+
+    public async Task BroadcastLobbyPlayerJoinedAsync(Guid lobbyId, Guid playerId, string username, int slot, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _hubContext.Clients.Group($"lobby-{lobbyId}")
+                .SendAsync("LobbyPlayerJoined", new { LobbyId = lobbyId, PlayerId = playerId, Username = username, Slot = slot }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting lobby player joined for lobby {LobbyId}", lobbyId);
+        }
+    }
+
+    public async Task BroadcastLobbyPlayerLeftAsync(Guid lobbyId, Guid playerId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _hubContext.Clients.Group($"lobby-{lobbyId}")
+                .SendAsync("LobbyPlayerLeft", new { LobbyId = lobbyId, PlayerId = playerId }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting lobby player left for lobby {LobbyId}", lobbyId);
+        }
+    }
+
+    public async Task BroadcastMatchStartedAsync(Guid lobbyId, Guid matchId, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _hubContext.Clients.Group($"lobby-{lobbyId}")
+                .SendAsync("MatchStarted", new { LobbyId = lobbyId, MatchId = matchId }, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error broadcasting match started for lobby {LobbyId}", lobbyId);
+        }
+    }
 }

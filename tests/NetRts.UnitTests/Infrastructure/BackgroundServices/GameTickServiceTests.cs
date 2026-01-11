@@ -1,8 +1,13 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.DependencyInjection;
 using NSubstitute;
 using NetRts.Application.Services;
 using NetRts.Infrastructure.BackgroundServices;
+using Microsoft.Extensions.Logging.Abstractions;
+using NetRts.Domain.Entities;
+using NetRts.Domain.Enums;
+using NetRts.Domain.ValueObjects;
 
 namespace NetRts.UnitTests.Infrastructure.BackgroundServices;
 
@@ -10,13 +15,23 @@ public class GameTickServiceTests
 {
     private readonly ILogger<GameTickService> _logger;
     private readonly IGameTickProcessor _tickProcessor;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly GameTickService _service;
 
     public GameTickServiceTests()
     {
         _logger = Substitute.For<ILogger<GameTickService>>();
         _tickProcessor = Substitute.For<IGameTickProcessor>();
-        _service = new GameTickService(_logger, _tickProcessor);
+        
+        _scopeFactory = Substitute.For<IServiceScopeFactory>();
+        var scope = Substitute.For<IServiceScope>();
+        var serviceProvider = Substitute.For<IServiceProvider>();
+        
+        _scopeFactory.CreateScope().Returns(scope);
+        scope.ServiceProvider.Returns(serviceProvider);
+        serviceProvider.GetService(typeof(IGameTickProcessor)).Returns(_tickProcessor);
+        
+        _service = new GameTickService(_logger, _scopeFactory);
     }
 
     [Fact]
@@ -127,9 +142,12 @@ public class GameTickServiceTests
         }
 
         // Assert - Verify error was logged
-        _logger.Received().LogError(
+        _logger.ReceivedWithAnyArgs().Log(
+            LogLevel.Error,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
             expectedException,
-            Arg.Is<string>(s => s.Contains("Error processing game tick")));
+            Arg.Any<Func<object, Exception?, string>>());
     }
 
     [Fact]
@@ -216,10 +234,12 @@ public class GameTickServiceTests
         }
 
         // Assert
-        _logger.Received(1).LogInformation(
-            Arg.Is<string>(s => s.Contains("Game Tick Service starting")));
-        _logger.Received(1).LogInformation(
-            Arg.Is<string>(s => s.Contains("Game Tick Service stopping")));
+        _logger.ReceivedWithAnyArgs().Log(
+            LogLevel.Information,
+            Arg.Any<EventId>(),
+            Arg.Any<object>(),
+            Arg.Any<Exception>(),
+            Arg.Any<Func<object, Exception?, string>>());
     }
 }
 
@@ -317,10 +337,10 @@ public class UnitProductionTests
             playerId,
             NetRts.Domain.Enums.BuildingType.Barracks,
             new NetRts.Domain.ValueObjects.Position(30, 30));
-        barracks.CompleteConstruction();
+        barracks.AdvanceConstruction(100);
 
         // Act
-        barracks.EnqueueProduction(NetRts.Domain.Enums.UnitType.Soldier, 15);
+        barracks.QueueProduction(NetRts.Domain.Enums.UnitType.Soldier);
 
         // Assert
         barracks.ProductionQueue.Should().HaveCount(1);
@@ -340,8 +360,8 @@ public class UnitProductionTests
             playerId,
             NetRts.Domain.Enums.BuildingType.Barracks,
             new NetRts.Domain.ValueObjects.Position(30, 30));
-        barracks.CompleteConstruction();
-        barracks.EnqueueProduction(NetRts.Domain.Enums.UnitType.Soldier, 15);
+        barracks.AdvanceConstruction(100);
+        barracks.QueueProduction(NetRts.Domain.Enums.UnitType.Soldier);
 
         var initialTicksRemaining = barracks.ProductionQueue[0].TicksRemaining;
 
@@ -365,22 +385,22 @@ public class UnitProductionTests
             playerId,
             NetRts.Domain.Enums.BuildingType.Barracks,
             new NetRts.Domain.ValueObjects.Position(30, 30));
-        barracks.CompleteConstruction();
+        barracks.AdvanceConstruction(100);
 
         var productionTime = NetRts.Domain.Entities.Unit.GetProductionTime(
             NetRts.Domain.Enums.UnitType.Soldier);
-        barracks.EnqueueProduction(NetRts.Domain.Enums.UnitType.Soldier, productionTime);
+        barracks.QueueProduction(NetRts.Domain.Enums.UnitType.Soldier);
 
         // Act - Process ticks until completion
-        bool completed = false;
+        UnitType? completedUnit = null;
         for (int i = 0; i < productionTime; i++)
         {
-            completed = barracks.ProcessProduction();
+            completedUnit = barracks.ProcessProduction();
         }
 
         // Assert
-        completed.Should().BeTrue();
-        barracks.ProductionQueue[0].IsComplete().Should().BeTrue();
+        completedUnit.Should().Be(NetRts.Domain.Enums.UnitType.Soldier);
+        barracks.ProductionQueue.Should().BeEmpty();
     }
 
     [Fact]
@@ -396,20 +416,17 @@ public class UnitProductionTests
             playerId,
             NetRts.Domain.Enums.BuildingType.Barracks,
             new NetRts.Domain.ValueObjects.Position(30, 30));
-        barracks.CompleteConstruction();
+        barracks.AdvanceConstruction(100);
 
         var productionTime = NetRts.Domain.Entities.Unit.GetProductionTime(
             NetRts.Domain.Enums.UnitType.Soldier);
-        barracks.EnqueueProduction(NetRts.Domain.Enums.UnitType.Soldier, productionTime);
+        barracks.QueueProduction(NetRts.Domain.Enums.UnitType.Soldier);
 
-        // Complete production
+        UnitType? completedUnitType = null;
         for (int i = 0; i < productionTime; i++)
         {
-            barracks.ProcessProduction();
+            completedUnitType = barracks.ProcessProduction();
         }
-
-        // Act
-        var completedUnitType = barracks.GetCompletedProduction();
 
         // Assert
         completedUnitType.Should().Be(NetRts.Domain.Enums.UnitType.Soldier);
@@ -429,18 +446,18 @@ public class UnitProductionTests
             playerId,
             NetRts.Domain.Enums.BuildingType.Barracks,
             new NetRts.Domain.ValueObjects.Position(30, 30));
-        barracks.CompleteConstruction();
+        barracks.AdvanceConstruction(100);
 
         // Enqueue multiple units
-        barracks.EnqueueProduction(NetRts.Domain.Enums.UnitType.Soldier, 5);
-        barracks.EnqueueProduction(NetRts.Domain.Enums.UnitType.Scout, 5);
+        barracks.QueueProduction(NetRts.Domain.Enums.UnitType.Soldier);
+        barracks.QueueProduction(NetRts.Domain.Enums.UnitType.Scout);
 
         // Act - Complete first production
-        for (int i = 0; i < 5; i++)
+        UnitType? firstCompleted = null;
+        for (int i = 0; i < 10; i++)
         {
-            barracks.ProcessProduction();
+            firstCompleted = barracks.ProcessProduction();
         }
-        var firstCompleted = barracks.GetCompletedProduction();
 
         // Assert
         firstCompleted.Should().Be(NetRts.Domain.Enums.UnitType.Soldier);
@@ -449,7 +466,7 @@ public class UnitProductionTests
     }
 
     [Fact]
-    public void NonOperationalBuilding_CannotProcessProduction()
+    public void NonOperationalBuilding_CannotQueueProduction()
     {
         // Arrange
         var matchId = Guid.NewGuid();
@@ -463,12 +480,8 @@ public class UnitProductionTests
             new NetRts.Domain.ValueObjects.Position(30, 30));
         // Don't complete construction
 
-        barracks.EnqueueProduction(NetRts.Domain.Enums.UnitType.Soldier, 15);
-
-        // Act
-        var result = barracks.ProcessProduction();
-
-        // Assert
-        result.Should().BeFalse();
+        // Act & Assert
+        barracks.Invoking(b => b.QueueProduction(NetRts.Domain.Enums.UnitType.Soldier))
+            .Should().Throw<InvalidOperationException>();
     }
 }

@@ -9,6 +9,7 @@ public class TestContext
 {
     public HttpClient HttpClient { get; set; } = null!;
     public Guid MatchId { get; set; }
+    public Guid LobbyId { get; set; }
     public Guid Player1Id { get; set; }
     public Guid Player2Id { get; set; }
     public string Player1Token { get; set; } = string.Empty;
@@ -20,15 +21,22 @@ public class TestContext
     public System.Net.HttpStatusCode LastStatusCode { get; set; }
     public IServiceProvider ServiceProvider { get; set; } = null!;
 
-    public void SetAuthToken(string token)
+    public void SetAuthToken(string token, Guid? playerId = null)
     {
         HttpClient.DefaultRequestHeaders.Authorization =
             new AuthenticationHeaderValue("Bearer", token);
+
+        if (playerId.HasValue)
+        {
+            HttpClient.DefaultRequestHeaders.Remove("X-Test-Player-Id");
+            HttpClient.DefaultRequestHeaders.Add("X-Test-Player-Id", playerId.Value.ToString());
+        }
     }
 
     public void ClearAuth()
     {
         HttpClient.DefaultRequestHeaders.Authorization = null;
+        HttpClient.DefaultRequestHeaders.Remove("X-Test-Player-Id");
     }
 
     /// <summary>

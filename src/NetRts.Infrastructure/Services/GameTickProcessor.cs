@@ -1,11 +1,15 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using MediatR;
 using NetRts.Application.Interfaces;
 using NetRts.Application.Services;
 using NetRts.Domain.Entities;
 using NetRts.Domain.Enums;
 using NetRts.Domain.ValueObjects;
 using NetRts.Infrastructure.Caching;
+
+using DomainMatch = NetRts.Domain.Entities.Match;
+using Unit = NetRts.Domain.Entities.Unit;
 
 namespace NetRts.Infrastructure.Services;
 
@@ -18,22 +22,22 @@ public class GameTickProcessor : IGameTickProcessor
 
     private readonly ILogger<GameTickProcessor> _logger;
     private readonly GameStateCache _gameStateCache;
-    private readonly IMatchRepository _matchRepository;
     private readonly ICommandQueueManager _commandQueueManager;
     private readonly IGameUpdateBroadcaster _gameUpdateBroadcaster;
+    private readonly IServiceScopeFactory _scopeFactory;
 
     public GameTickProcessor(
         ILogger<GameTickProcessor> logger,
         GameStateCache gameStateCache,
-        IMatchRepository matchRepository,
         ICommandQueueManager commandQueueManager,
-        IGameUpdateBroadcaster gameUpdateBroadcaster)
+        IGameUpdateBroadcaster gameUpdateBroadcaster,
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _gameStateCache = gameStateCache;
-        _matchRepository = matchRepository;
         _commandQueueManager = commandQueueManager;
         _gameUpdateBroadcaster = gameUpdateBroadcaster;
+        _scopeFactory = scopeFactory;
     }
 
     public async Task ProcessTickAsync(CancellationToken cancellationToken = default)
@@ -65,13 +69,18 @@ public class GameTickProcessor : IGameTickProcessor
             return;
         }
 
+        using var scope = _scopeFactory.CreateScope();
+        var matchRepository = scope.ServiceProvider.GetRequiredService<IMatchRepository>();
+        var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+
         // Advance tick
         match.AdvanceTick();
+
+        var units = _gameStateCache.GetUnitsForMatch(match.Id);
 
         // Check for time limit - end match if reached
         if (match.CurrentTick >= match.MaxTicksPerMatch)
         {
-            var units = _gameStateCache.GetUnitsForMatch(match.Id);
             var buildings = _gameStateCache.GetBuildingsForMatch(match.Id);
 
             var player1Units = units.Count(u => u.OwnerId == match.Player1Id && !u.IsDestroyed());
@@ -82,7 +91,7 @@ public class GameTickProcessor : IGameTickProcessor
             match.EndMatchByTimeLimit(player1Units, player1Buildings, player2Units, player2Buildings);
 
             _gameStateCache.AddOrUpdate(match);
-            await _matchRepository.UpdateAsync(match, cancellationToken);
+            await matchRepository.UpdateAsync(match, cancellationToken);
 
             _logger.LogInformation("Match {MatchId} ended by time limit - Winner: {WinnerId}",
                 match.Id, match.WinnerId);
@@ -92,15 +101,21 @@ public class GameTickProcessor : IGameTickProcessor
             return;
         }
 
+        // Process building construction and production
+        await ProcessBuildingsAsync(match, cancellationToken);
+
+        // Process unit movement
+        ProcessUnitMovement(match, units);
+
         // Process commands for each player
         await ProcessPlayerCommands(match, match.Player1Id, cancellationToken);
         await ProcessPlayerCommands(match, match.Player2Id, cancellationToken);
 
-        // Process building construction and production
-        await ProcessBuildingsAsync(match, cancellationToken);
-
         // Process upgrade research
         await ProcessUpgradesAsync(match, cancellationToken);
+
+        // Update units in cache (in case they moved or were added)
+        _gameStateCache.SetUnitsForMatch(match.Id, units);
 
         // Update game state cache
         _gameStateCache.AddOrUpdate(match);
@@ -115,10 +130,34 @@ public class GameTickProcessor : IGameTickProcessor
         _logger.LogDebug("Tick {Tick} processed and broadcast for match {MatchId}", 
             match.CurrentTick, match.Id);
 
-        // Periodic snapshot to database (every 10 ticks)
-        if (match.CurrentTick % 10 == 0)
+        // Periodic snapshot to database (every 10 ticks or if completed)
+        if (match.CurrentTick % 10 == 0 || match.Status == MatchStatus.Completed)
         {
-            await _matchRepository.UpdateAsync(match, cancellationToken);
+            await matchRepository.UpdateAsync(match, cancellationToken);
+            
+            if (match.Status == MatchStatus.Completed)
+            {
+                await mediator.Send(new Application.Commands.UpdateLeaderboard.UpdateLeaderboardCommand(match.Id), cancellationToken);
+            }
+        }
+    }
+
+    private void ProcessUnitMovement(Match match, List<Unit> units)
+    {
+        foreach (var unit in units.Where(u => u.TargetPosition != null && !u.IsDestroyed()))
+        {
+            var targetPos = unit.TargetPosition!;
+            var movementSpeed = unit.Type == UnitType.Worker ? WorkerMovementSpeed : SoldierMovementSpeed;
+
+            var newPosition = MoveToward(unit.Position, targetPos, movementSpeed);
+            unit.MoveTo(newPosition);
+
+            if (newPosition.Equals(targetPos))
+            {
+                unit.SetTargetPosition(null);
+                unit.SetStatus(UnitStatus.Idle);
+                _logger.LogDebug("Unit {UnitId} reached target {TargetPos}", unit.Id, targetPos);
+            }
         }
     }
 
@@ -149,7 +188,7 @@ public class GameTickProcessor : IGameTickProcessor
                         break;
 
                     case CommandType.Attack:
-                        ExecuteAttackCommand(command, match, units);
+                        ExecuteAttackCommand(command, match, units, buildings);
                         break;
 
                     case CommandType.Gather:
@@ -232,30 +271,14 @@ public class GameTickProcessor : IGameTickProcessor
             // Calculate movement speed based on unit type
             var movementSpeed = unit.Type == UnitType.Worker ? WorkerMovementSpeed : SoldierMovementSpeed;
 
-            // Move toward target
-            var newPosition = MoveToward(currentPos, targetPos, movementSpeed);
-            _logger.LogInformation("Calculated new position: ({X},{Y}), MovementSpeed: {Speed}",
-                newPosition.X, newPosition.Y, movementSpeed);
-
-            unit.MoveTo(newPosition);
-            _logger.LogInformation("After MoveTo: Unit position is now ({X},{Y}), status: {Status}",
-                unit.Position.X, unit.Position.Y, unit.CurrentStatus);
-
-            // Update status
-            if (newPosition.X == targetPos.X && newPosition.Y == targetPos.Y)
-            {
-                unit.SetStatus(UnitStatus.Idle); // Reached destination
-                _logger.LogInformation("Unit {UnitId} reached destination at ({X},{Y})", unitId, newPosition.X, newPosition.Y);
-            }
-            else
-            {
-                unit.SetStatus(UnitStatus.Moving);
-                _logger.LogInformation("Unit {UnitId} moving to ({X},{Y}), status: Moving", unitId, newPosition.X, newPosition.Y);
-            }
+            // Set persistent target
+            unit.SetTargetPosition(targetPos);
+            
+            _logger.LogInformation("Unit {UnitId} target set to {TargetPos}", unitId, targetPos);
         }
     }
 
-    private void ExecuteAttackCommand(Command command, Match match, List<Unit> units)
+    private void ExecuteAttackCommand(Command command, Match match, List<Unit> units, List<Building> buildings)
     {
         if (command.TargetEntityId == null)
         {
@@ -264,9 +287,11 @@ public class GameTickProcessor : IGameTickProcessor
         }
 
         var targetUnit = units.FirstOrDefault(u => u.Id == command.TargetEntityId.Value);
-        if (targetUnit == null)
+        var targetBuilding = buildings.FirstOrDefault(b => b.Id == command.TargetEntityId.Value);
+
+        if (targetUnit == null && targetBuilding == null)
         {
-            command.MarkFailed("Target unit not found", 0);
+            command.MarkFailed("Target not found", 0);
             return;
         }
 
@@ -275,40 +300,73 @@ public class GameTickProcessor : IGameTickProcessor
             var unit = units.FirstOrDefault(u => u.Id == unitId);
             if (unit == null) continue;
 
+            var targetPosition = targetUnit?.Position ?? targetBuilding!.Position;
+
             // Check if in attack range
-            var distance = unit.Position.DistanceTo(targetUnit.Position);
+            var distance = unit.Position.DistanceTo(targetPosition);
 
             if (distance <= AttackRange)
             {
                 // In range - attack
                 unit.SetStatus(UnitStatus.Attacking);
-                unit.SetTargetEntity(targetUnit.Id);
+                unit.SetTargetEntity(command.TargetEntityId.Value);
 
                 // Apply damage
                 var damage = unit.AttackDamage;
-                targetUnit.TakeDamage(damage);
-
-                // If target destroyed, set unit back to idle and update score
-                if (targetUnit.HealthPoints <= 0)
+                
+                if (targetUnit != null)
                 {
-                    unit.SetStatus(UnitStatus.Idle);
-                    unit.SetTargetEntity(null);
+                    targetUnit.TakeDamage(damage);
 
-                    // Update attacker's score for destroying enemy unit
-                    var attackerId = unit.OwnerId;
-                    var currentScore = match.GetPlayerScore(attackerId);
-                    var newScore = currentScore.WithUnitsDestroyed(1);
-                    match.UpdateScore(attackerId, newScore);
+                    // If target destroyed, set unit back to idle and update score
+                    if (targetUnit.HealthPoints <= 0)
+                    {
+                        unit.SetStatus(UnitStatus.Idle);
+                        unit.SetTargetEntity(null);
+
+                        // Update attacker's score for destroying enemy unit
+                        var attackerId = unit.OwnerId;
+                        var currentScore = match.GetPlayerScore(attackerId);
+                        var newScore = currentScore.WithUnitsDestroyed(1);
+                        match.UpdateScore(attackerId, newScore);
+                    }
+                }
+                else if (targetBuilding != null)
+                {
+                    targetBuilding.TakeDamage(damage);
+
+                    // If target destroyed, set unit back to idle and update score
+                    if (targetBuilding.HealthPoints <= 0)
+                    {
+                        unit.SetStatus(UnitStatus.Idle);
+                        unit.SetTargetEntity(null);
+
+                        // Update attacker's score for destroying building
+                        var attackerId = unit.OwnerId;
+                        var currentScore = match.GetPlayerScore(attackerId);
+                        var newScore = currentScore.WithBuildingsDestroyed(1);
+                        match.UpdateScore(attackerId, newScore);
+
+                        // If it was a Command Center, end match
+                        if (targetBuilding.Type == BuildingType.CommandCenter)
+                        {
+                            match.EndMatchByElimination(targetBuilding.OwnerId);
+                            _logger.LogInformation("Match {MatchId} ended by elimination via AttackCommand - Player {PlayerId} lost their Command Center",
+                                match.Id, targetBuilding.OwnerId);
+                            
+                            // Broadcaster will be called at end of tick
+                        }
+                    }
                 }
             }
             else
             {
                 // Not in range - move toward target
                 var movementSpeed = unit.Type == UnitType.Worker ? WorkerMovementSpeed : SoldierMovementSpeed;
-                var newPosition = MoveToward(unit.Position, targetUnit.Position, movementSpeed);
+                var newPosition = MoveToward(unit.Position, targetPosition, movementSpeed);
                 unit.MoveTo(newPosition);
                 unit.SetStatus(UnitStatus.Moving);
-                unit.SetTargetEntity(targetUnit.Id);
+                unit.SetTargetEntity(command.TargetEntityId.Value);
             }
         }
     }
@@ -583,6 +641,9 @@ public class GameTickProcessor : IGameTickProcessor
                 match.EndMatchByElimination(building.OwnerId);
                 _logger.LogInformation("Match {MatchId} ended by elimination - Player {PlayerId} lost their Command Center",
                     match.Id, building.OwnerId);
+                
+                // Broadcast match ended
+                await _gameUpdateBroadcaster.BroadcastMatchEndedAsync(match.Id, match.WinnerId, cancellationToken);
             }
         }
 

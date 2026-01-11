@@ -1,8 +1,10 @@
 using MediatR;
 using NetRts.Application.Interfaces;
+using NetRts.Application.Services;
 using NetRts.Domain.Entities;
 using NetRts.Domain.Enums;
 using NetRts.Domain.ValueObjects;
+using NetRts.Contracts.Responses;
 using DomainUnit = NetRts.Domain.Entities.Unit;
 using DomainBuilding = NetRts.Domain.Entities.Building;
 
@@ -11,24 +13,27 @@ namespace NetRts.Application.Commands.CreateMatch;
 /// <summary>
 /// Handler for CreateMatchCommand that initializes a new match with starting entities.
 /// </summary>
-public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Guid>
+public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, StartMatchResponse>
 {
     private readonly IMatchLobbyRepository _lobbyRepository;
     private readonly IMatchRepository _matchRepository;
     private readonly IGameStateCache _gameStateCache;
+    private readonly IGameUpdateBroadcaster _broadcaster;
     private readonly Random _random = new();
 
     public CreateMatchCommandHandler(
         IMatchLobbyRepository lobbyRepository,
         IMatchRepository matchRepository,
-        IGameStateCache gameStateCache)
+        IGameStateCache gameStateCache,
+        IGameUpdateBroadcaster broadcaster)
     {
         _lobbyRepository = lobbyRepository;
         _matchRepository = matchRepository;
         _gameStateCache = gameStateCache;
+        _broadcaster = broadcaster;
     }
 
-    public async Task<Guid> Handle(CreateMatchCommand request, CancellationToken cancellationToken)
+    public async Task<StartMatchResponse> Handle(CreateMatchCommand request, CancellationToken cancellationToken)
     {
         // Get lobby and validate it has 2 players
         var lobby = await _lobbyRepository.GetByIdAsync(request.LobbyId, cancellationToken);
@@ -43,21 +48,21 @@ public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Gui
             throw new InvalidOperationException($"Lobby must have exactly 2 players, but has {lobbyPlayers.Count}");
         }
 
-        // Create match with default settings
+        if (lobby.HostPlayerId != request.PlayerId)
+        {
+            throw new UnauthorizedAccessException("Only the host can start the match");
+        }
+
+        // Create match with settings from lobby
         var player1Id = lobbyPlayers[0].PlayerId;
         var player2Id = lobbyPlayers[1].PlayerId;
 
-        var settings = new GameSettings(
-            mapWidth: 100,
-            mapHeight: 100,
-            maxTicks: 1800,
-            tickIntervalMs: 1000);
-
-        var match = new Match(player1Id, player2Id, settings);
+        var match = new Match(player1Id, player2Id, lobby.GameSettings);
         
         // Start the match so the tick processor will process it
         match.Start();
 
+        // ... existing code ...
         // Generate starting positions (opposite corners)
         var player1SpawnPosition = new Position(10, 10);
         var player2SpawnPosition = new Position(90, 90);
@@ -115,11 +120,11 @@ public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Gui
         building2.AdvanceConstruction(100); // Mark as fully constructed
         buildings.Add(building2);
 
-        // Generate map tiles (100x100 grid, all passable)
+        // Generate map tiles
         var mapTiles = new List<MapTile>();
-        for (int x = 0; x < settings.MapWidth; x++)
+        for (int x = 0; x < match.MapWidth; x++)
         {
-            for (int y = 0; y < settings.MapHeight; y++)
+            for (int y = 0; y < match.MapHeight; y++)
             {
                 mapTiles.Add(new MapTile(
                     matchId: match.Id,
@@ -128,17 +133,15 @@ public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Gui
             }
         }
 
-        // Place 4-6 resource deposits on map - spread around the map for accessibility
+        // Place resource deposits
         var resourceDeposits = new List<ResourceDeposit>();
-        
-        // Place deposits in strategic locations - near both bases and in the middle
         var depositPositions = new[]
         {
-            new Position(20, 20),   // Near player 1 base
-            new Position(80, 80),   // Near player 2 base
-            new Position(50, 50),   // Center of map
-            new Position(30, 70),   // Middle-left
-            new Position(70, 30),   // Middle-right
+            new Position(20, 20),
+            new Position(80, 80),
+            new Position(50, 50),
+            new Position(30, 70),
+            new Position(70, 30),
         };
 
         for (int i = 0; i < depositPositions.Length; i++)
@@ -164,6 +167,18 @@ public class CreateMatchCommandHandler : IRequestHandler<CreateMatchCommand, Gui
         // Persist match metadata to database
         await _matchRepository.AddAsync(match, cancellationToken);
 
-        return match.Id;
+        // Close the lobby
+        lobby.Close();
+        await _lobbyRepository.UpdateAsync(lobby, cancellationToken);
+
+        // Broadcast match started to lobby group
+        await _broadcaster.BroadcastMatchStartedAsync(request.LobbyId, match.Id, cancellationToken);
+
+        return new StartMatchResponse
+        {
+            MatchId = match.Id,
+            Player1Id = player1Id,
+            Player2Id = player2Id
+        };
     }
 }

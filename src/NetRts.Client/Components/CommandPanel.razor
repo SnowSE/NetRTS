@@ -1,0 +1,79 @@
+@using NetRts.Contracts.Responses
+
+<div class="command-panel p-3 bg-dark text-light border-top">
+    @if (SelectedUnits.Any())
+    {
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            <button class="btn btn-primary" @onclick="() => OnCommandSelected.InvokeAsync(CommandType.Move)">
+                <i class="bi bi-cursor"></i> Move
+            </button>
+            <button class="btn btn-danger" @onclick="() => OnCommandSelected.InvokeAsync(CommandType.Attack)">
+                <i class="bi bi-crosshair"></i> Attack
+            </button>
+            @if (SelectedUnits.Any(u => u.UnitType == "Worker"))
+            {
+                <button class="btn btn-success" @onclick="() => OnCommandSelected.InvokeAsync(CommandType.Gather)">
+                    <i class="bi bi-gem"></i> Gather
+                </button>
+                <div class="dropdown d-inline-block">
+                    <button class="btn btn-warning dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                        <i class="bi bi-hammer"></i> Build
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li><a class="dropdown-item" href="#" @onclick='() => OnBuildSelected.InvokeAsync("Barracks")'>Barracks (200)</a></li>
+                        <li><a class="dropdown-item" href="#" @onclick='() => OnBuildSelected.InvokeAsync("ResourceDepot")'>Resource Depot (150)</a></li>
+                        <li><a class="dropdown-item" href="#" @onclick='() => OnBuildSelected.InvokeAsync("TechLab")'>Tech Lab (300)</a></li>
+                    </ul>
+                </div>
+            }
+        </div>
+    }
+    else if (SelectedBuilding != null)
+    {
+        <div class="d-flex flex-wrap gap-2 mb-3">
+            @if (SelectedBuilding.BuildingType == "CommandCenter" && SelectedBuilding.IsConstructed)
+            {
+                <button class="btn btn-primary" @onclick='() => OnProduceSelected.InvokeAsync("Worker")' disabled="@(Resources < 50)">
+                    Train Worker (50)
+                </button>
+            }
+            else if (SelectedBuilding.BuildingType == "Barracks" && SelectedBuilding.IsConstructed)
+            {
+                <button class="btn btn-danger" @onclick='() => OnProduceSelected.InvokeAsync("Soldier")' disabled="@(Resources < 100)">
+                    Train Soldier (100)
+                </button>
+                <button class="btn btn-info" @onclick='() => OnProduceSelected.InvokeAsync("Scout")' disabled="@(Resources < 75)">
+                    Train Scout (75)
+                </button>
+            }
+            else if (SelectedBuilding.BuildingType == "TechLab" && SelectedBuilding.IsConstructed)
+            {
+                <button class="btn btn-warning" @onclick='() => OnResearchSelected.InvokeAsync("WeaponDamage1")' disabled="@(Resources < 200)">
+                    Research Weapon Damage I (200)
+                </button>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="text-muted">Select units or buildings to see available commands.</div>
+    }
+</div>
+
+@code {
+    [Parameter] public IEnumerable<UnitDto> SelectedUnits { get; set; } = Enumerable.Empty<UnitDto>();
+    [Parameter] public BuildingDto? SelectedBuilding { get; set; }
+    [Parameter] public int Resources { get; set; }
+    
+    [Parameter] public EventCallback<CommandType> OnCommandSelected { get; set; }
+    [Parameter] public EventCallback<string> OnBuildSelected { get; set; }
+    [Parameter] public EventCallback<string> OnProduceSelected { get; set; }
+    [Parameter] public EventCallback<string> OnResearchSelected { get; set; }
+
+    public enum CommandType
+    {
+        Move,
+        Attack,
+        Gather
+    }
+}

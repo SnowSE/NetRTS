@@ -1,0 +1,102 @@
+@using NetRts.Contracts.Responses
+@inject IJSRuntime JS
+
+<div class="map-container" id="mapContainer">
+    <div class="game-map" id="gameMap" style="width: @(MapWidth * CellSize)px; height: @(MapHeight * CellSize)px;">
+        @for (int y = 0; y < MapHeight; y++)
+        {
+            for (int x = 0; x < MapWidth; x++)
+            {
+                var posX = x;
+                var posY = y;
+                var isVisible = IsPositionVisible(x, y);
+                <div class="map-cell @(isVisible ? "" : "fog-of-war")"
+                     style="left: @(x * CellSize)px; top: @(y * CellSize)px; width: @(CellSize)px; height: @(CellSize)px;"
+                     @onclick="() => OnCellClick.InvokeAsync((posX, posY))">
+                </div>
+            }
+        }
+
+        @* Render resource deposits *@
+        @foreach (var resource in ResourceDeposits)
+        {
+            <div class="resource-deposit @(resource.RemainingCapacity <= 0 ? "depleted" : "")"
+                 style="left: @(resource.Position.X * CellSize)px; top: @(resource.Position.Y * CellSize)px; width: @(CellSize)px; height: @(CellSize)px;"
+                 title="Resources: @resource.RemainingCapacity remaining">
+                <span class="resource-icon">💎</span>
+            </div>
+        }
+
+        @* Render buildings *@
+        @foreach (var building in Buildings)
+        {
+            <div class="building @GetOwnerClass(building.PlayerId) @(SelectedBuildingId == building.BuildingId ? "selected" : "") @(!building.IsConstructed ? "under-construction" : "")"
+                 style="left: @(building.Position.X * CellSize)px; top: @(building.Position.Y * CellSize)px; width: @(CellSize * 2)px; height: @(CellSize * 2)px;"
+                 @onclick="() => OnBuildingClick.InvokeAsync(building.BuildingId)"
+                 @onclick:stopPropagation="true">
+                <span class="building-icon">@GetBuildingIcon(building.BuildingType)</span>
+                @if (!building.IsConstructed)
+                {
+                    <div class="construction-progress" style="width: @(building.ConstructionProgress)%;"></div>
+                }
+            </div>
+        }
+
+        @* Render units *@
+        @foreach (var unit in Units)
+        {
+            <div class="unit @GetOwnerClass(unit.PlayerId) @(SelectedUnitIds.Contains(unit.UnitId) ? "selected" : "")"
+                 style="left: @(unit.Position.X * CellSize)px; top: @(unit.Position.Y * CellSize)px; width: @(CellSize)px; height: @(CellSize)px;"
+                 @onclick="() => OnUnitClick.InvokeAsync(unit.UnitId)"
+                 @onclick:stopPropagation="true">
+                <span class="unit-icon">@GetUnitIcon(unit.UnitType)</span>
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public int MapWidth { get; set; }
+    [Parameter] public int MapHeight { get; set; }
+    [Parameter] public int CellSize { get; set; } = 24;
+    [Parameter] public Guid PlayerId { get; set; }
+    [Parameter] public IEnumerable<UnitDto> Units { get; set; } = Enumerable.Empty<UnitDto>();
+    [Parameter] public IEnumerable<BuildingDto> Buildings { get; set; } = Enumerable.Empty<BuildingDto>();
+    [Parameter] public IEnumerable<ResourceDepositDto> ResourceDeposits { get; set; } = Enumerable.Empty<ResourceDepositDto>();
+    [Parameter] public IEnumerable<MapTileDto> VisibleTiles { get; set; } = Enumerable.Empty<MapTileDto>();
+    [Parameter] public HashSet<int> SelectedUnitIds { get; set; } = new();
+    [Parameter] public int? SelectedBuildingId { get; set; }
+    
+    [Parameter] public EventCallback<(int X, int Y)> OnCellClick { get; set; }
+    [Parameter] public EventCallback<int> OnUnitClick { get; set; }
+    [Parameter] public EventCallback<int> OnBuildingClick { get; set; }
+
+    private bool IsPositionVisible(int x, int y)
+    {
+        return VisibleTiles.Any(t => t.Position.X == x && t.Position.Y == y);
+    }
+
+    private string GetOwnerClass(Guid ownerId)
+    {
+        if (ownerId == PlayerId) return "player-self";
+        if (ownerId == Guid.Empty) return "player-neutral";
+        return "player-enemy";
+    }
+
+    private string GetUnitIcon(string type) => type switch
+    {
+        "Worker" => "👷",
+        "Soldier" => "⚔️",
+        "Scout" => "👁️",
+        _ => "?",
+    };
+
+    private string GetBuildingIcon(string type) => type switch
+    {
+        "CommandCenter" => "🏰",
+        "Barracks" => "🏛️",
+        "ResourceDepot" => "🏪",
+        "TechLab" => "🔬",
+        _ => "🏗️",
+    };
+}

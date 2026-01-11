@@ -27,6 +27,16 @@ builder.Services.AddScoped<AuthService>();
 // Register an authenticated HttpClient wrapper service for pages that need auth headers
 builder.Services.AddScoped<AuthenticatedHttpClient>();
 
+// Register Game API client
+builder.Services.AddScoped<GameApiClient>();
+
+// Register Game Hub client
+builder.Services.AddScoped(sp => 
+{
+    var baseAddress = builder.HostEnvironment.BaseAddress;
+    return new GameHubClient($"{baseAddress}hubs/game");
+});
+
 var host = builder.Build();
 
 // Initialize auth state from local storage

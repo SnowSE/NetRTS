@@ -49,10 +49,10 @@ public class ExceptionHandlingMiddleware
             },
             UnauthorizedAccessException => new ProblemDetails
             {
-                Status = (int)HttpStatusCode.Unauthorized,
-                Title = "Unauthorized",
+                Status = (int)HttpStatusCode.Forbidden,
+                Title = "Forbidden",
                 Detail = exception.Message,
-                Type = "https://tools.ietf.org/html/rfc7235#section-3.1",
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.3",
                 Instance = context.Request.Path
             },
             KeyNotFoundException => new ProblemDetails
@@ -65,10 +65,10 @@ public class ExceptionHandlingMiddleware
             },
             InvalidOperationException => new ProblemDetails
             {
-                Status = (int)HttpStatusCode.Conflict,
-                Title = "Operation Conflict",
+                Status = (int)HttpStatusCode.BadRequest,
+                Title = "Business Rule Violation",
                 Detail = exception.Message,
-                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.8",
+                Type = "https://tools.ietf.org/html/rfc7231#section-6.5.1",
                 Instance = context.Request.Path
             },
             _ => new ProblemDetails

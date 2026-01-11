@@ -19,22 +19,21 @@ namespace NetRts.ContractTests.Features
     
     [System.CodeDom.Compiler.GeneratedCodeAttribute("Reqnroll", "2.0.0.0")]
     [System.Runtime.CompilerServices.CompilerGeneratedAttribute()]
-    public partial class ResearchUpgradesFeature : object, Xunit.IClassFixture<ResearchUpgradesFeature.FixtureData>, Xunit.IAsyncLifetime
+    public partial class UpgradesFeature : object, Xunit.IClassFixture<UpgradesFeature.FixtureData>, Xunit.IAsyncLifetime
     {
         
         private global::Reqnroll.ITestRunner testRunner;
         
         private static string[] featureTags = ((string[])(null));
         
-        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Research Upgrades", ("  As a bot player\r\n  I want to research upgrades at tech buildings\r\n  So that I c" +
-                "an enhance my units and buildings"), global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
+        private static global::Reqnroll.FeatureInfo featureInfo = new global::Reqnroll.FeatureInfo(new System.Globalization.CultureInfo("en-US"), "Features", "Upgrades", null, global::Reqnroll.ProgrammingLanguage.CSharp, featureTags);
         
         private Xunit.Abstractions.ITestOutputHelper _testOutputHelper;
         
 #line 1 "Upgrades.feature"
 #line hidden
         
-        public ResearchUpgradesFeature(ResearchUpgradesFeature.FixtureData fixtureData, Xunit.Abstractions.ITestOutputHelper testOutputHelper)
+        public UpgradesFeature(UpgradesFeature.FixtureData fixtureData, Xunit.Abstractions.ITestOutputHelper testOutputHelper)
         {
             this._testOutputHelper = testOutputHelper;
         }
@@ -83,18 +82,6 @@ namespace NetRts.ContractTests.Features
             await testRunner.CollectScenarioErrorsAsync();
         }
         
-        public virtual async System.Threading.Tasks.Task FeatureBackgroundAsync()
-        {
-#line 6
-  #line hidden
-#line 7
-    await testRunner.GivenAsync("a match exists with two players", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 8
-    await testRunner.AndAsync("player 1 is authenticated", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-        }
-        
         async System.Threading.Tasks.Task Xunit.IAsyncLifetime.InitializeAsync()
         {
             await this.TestInitializeAsync();
@@ -105,15 +92,15 @@ namespace NetRts.ContractTests.Features
             await this.TestTearDownAsync();
         }
         
-        [Xunit.SkippableFactAttribute(DisplayName="Bot queues research command at TechLab")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Bot queues research command at TechLab")]
-        public async System.Threading.Tasks.Task BotQueuesResearchCommandAtTechLab()
+        [Xunit.SkippableFactAttribute(DisplayName="Player researches an upgrade successfully")]
+        [Xunit.TraitAttribute("FeatureTitle", "Upgrades")]
+        [Xunit.TraitAttribute("Description", "Player researches an upgrade successfully")]
+        public async System.Threading.Tasks.Task PlayerResearchesAnUpgradeSuccessfully()
         {
             string[] tagsOfScenario = ((string[])(null));
             System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Bot queues research command at TechLab", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 10
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Player researches an upgrade successfully", null, tagsOfScenario, argumentsOfScenario, featureTags);
+#line 3
   this.ScenarioInitialize(scenarioInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -123,34 +110,76 @@ namespace NetRts.ContractTests.Features
             else
             {
                 await this.ScenarioStartAsync();
+#line 4
+    await testRunner.GivenAsync("a new match has started with two players", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line hidden
+#line 5
+    await testRunner.AndAsync("player 1 has an operational \"TechLab\" at position (20, 20) with 500 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
 #line 6
-  await this.FeatureBackgroundAsync();
+    await testRunner.WhenAsync(("player 1 queues a \"Research\" command for upgrade \"WeaponDamage1\" at building with" +
+                        " ID 1"), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 11
-    await testRunner.GivenAsync("player 1 has an operational TechLab at position (40,40) with 500 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
+#line 7
+    await testRunner.AndAsync("the game progresses for 30 ticks", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
+#line 8
+    await testRunner.ThenAsync("player 1 has the \"WeaponDamage1\" upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 9
+    await testRunner.AndAsync("player 1 has 400 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 10
+    await testRunner.AndAsync("new \"Soldier\" units for player 1 have 20 attack damage", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+            }
+            await this.ScenarioCleanupAsync();
+        }
+        
+        [Xunit.SkippableFactAttribute(DisplayName="Player attempts to research an upgrade without enough resources")]
+        [Xunit.TraitAttribute("FeatureTitle", "Upgrades")]
+        [Xunit.TraitAttribute("Description", "Player attempts to research an upgrade without enough resources")]
+        public async System.Threading.Tasks.Task PlayerAttemptsToResearchAnUpgradeWithoutEnoughResources()
+        {
+            string[] tagsOfScenario = ((string[])(null));
+            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Player attempts to research an upgrade without enough resources", null, tagsOfScenario, argumentsOfScenario, featureTags);
 #line 12
-    await testRunner.WhenAsync("player 1 queues a research command for MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+  this.ScenarioInitialize(scenarioInfo);
 #line hidden
+            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
+            {
+                testRunner.SkipScenario();
+            }
+            else
+            {
+                await this.ScenarioStartAsync();
 #line 13
-    await testRunner.ThenAsync("the command is accepted and queued", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.GivenAsync("a new match has started with two players", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 14
-    await testRunner.AndAsync("the response indicates 1 command queued", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("player 1 has an operational \"TechLab\" at position (20, 20) with 50 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+#line hidden
+#line 15
+    await testRunner.WhenAsync(("player 1 queues a \"Research\" command for upgrade \"WeaponDamage1\" at building with" +
+                        " ID 1"), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 16
+    await testRunner.ThenAsync("the command fails with \"Insufficient resources\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
         }
         
-        [Xunit.SkippableFactAttribute(DisplayName="Research progresses over multiple ticks")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Research progresses over multiple ticks")]
-        public async System.Threading.Tasks.Task ResearchProgressesOverMultipleTicks()
+        [Xunit.SkippableFactAttribute(DisplayName="Player attempts to research a tier 2 upgrade without the prerequisite")]
+        [Xunit.TraitAttribute("FeatureTitle", "Upgrades")]
+        [Xunit.TraitAttribute("Description", "Player attempts to research a tier 2 upgrade without the prerequisite")]
+        public async System.Threading.Tasks.Task PlayerAttemptsToResearchATier2UpgradeWithoutThePrerequisite()
         {
             string[] tagsOfScenario = ((string[])(null));
             System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Research progresses over multiple ticks", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 16
+            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Player attempts to research a tier 2 upgrade without the prerequisite", null, tagsOfScenario, argumentsOfScenario, featureTags);
+#line 18
   this.ScenarioInitialize(scenarioInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -160,340 +189,18 @@ namespace NetRts.ContractTests.Features
             else
             {
                 await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 17
-    await testRunner.GivenAsync("player 1 has an operational TechLab at position (40,40) with 500 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 18
-    await testRunner.AndAsync("player 1 has queued research for MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
 #line 19
-    await testRunner.WhenAsync("the research command is executed", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.GivenAsync("a new match has started with two players", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
 #line 20
-    await testRunner.ThenAsync("an upgrade is created with 0% research progress", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.AndAsync("player 1 has an operational \"TechLab\" at position (20, 20) with 1000 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 21
-    await testRunner.AndAsync("player 1\'s resources are decreased by the upgrade cost", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.WhenAsync(("player 1 queues a \"Research\" command for upgrade \"WeaponDamage2\" at building with" +
+                        " ID 1"), ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 22
-    await testRunner.WhenAsync("10 game ticks pass", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 23
-    await testRunner.ThenAsync("the upgrade research progress increases", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 24
-    await testRunner.WhenAsync("the upgrade reaches 100% research progress", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 25
-    await testRunner.ThenAsync("the upgrade is marked as completed", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Completed upgrade applies to existing units")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Completed upgrade applies to existing units")]
-        public async System.Threading.Tasks.Task CompletedUpgradeAppliesToExistingUnits()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Completed upgrade applies to existing units", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 27
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 28
-    await testRunner.GivenAsync("player 1 has an operational TechLab at position (40,40) with 500 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 29
-    await testRunner.AndAsync("player 1 has soldier units at position (20,20)", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 30
-    await testRunner.AndAsync("player 1 has completed the MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 31
-    await testRunner.ThenAsync("all soldier units have increased attack damage", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Newly produced units receive active upgrades")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Newly produced units receive active upgrades")]
-        public async System.Threading.Tasks.Task NewlyProducedUnitsReceiveActiveUpgrades()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Newly produced units receive active upgrades", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 33
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 34
-    await testRunner.GivenAsync("player 1 has an operational Barracks at position (30,30)", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 35
-    await testRunner.AndAsync("player 1 has completed the MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 36
-    await testRunner.AndAsync("player 1 has 200 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 37
-    await testRunner.WhenAsync("player 1 produces a new Soldier unit", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 38
-    await testRunner.ThenAsync("the new unit spawns with upgraded attack damage", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Cannot research without TechLab")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Cannot research without TechLab")]
-        public async System.Threading.Tasks.Task CannotResearchWithoutTechLab()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Cannot research without TechLab", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 40
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 41
-    await testRunner.GivenAsync("player 1 has an operational Barracks at position (30,30) with 500 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 42
-    await testRunner.WhenAsync("player 1 queues a research command for MeleeDamage upgrade from the barracks", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 43
-    await testRunner.ThenAsync("the command is rejected due to validation failure", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 44
-    await testRunner.AndAsync("the error indicates building is not a TechLab", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Cannot research without sufficient resources")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Cannot research without sufficient resources")]
-        public async System.Threading.Tasks.Task CannotResearchWithoutSufficientResources()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Cannot research without sufficient resources", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 46
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 47
-    await testRunner.GivenAsync("player 1 has an operational TechLab at position (40,40) with 50 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 48
-    await testRunner.WhenAsync("player 1 queues a research command for MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 49
-    await testRunner.ThenAsync("the command is rejected due to validation failure", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 50
-    await testRunner.AndAsync("the error indicates insufficient resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Cannot research non-operational building")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Cannot research non-operational building")]
-        public async System.Threading.Tasks.Task CannotResearchNon_OperationalBuilding()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Cannot research non-operational building", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 52
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 53
-    await testRunner.GivenAsync("player 1 has a TechLab under construction at position (40,40)", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 54
-    await testRunner.WhenAsync("player 1 queues a research command for MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 55
-    await testRunner.ThenAsync("the command is rejected due to validation failure", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 56
-    await testRunner.AndAsync("the error indicates the building is not operational", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Tier 2 upgrade requires prerequisite")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Tier 2 upgrade requires prerequisite")]
-        public async System.Threading.Tasks.Task Tier2UpgradeRequiresPrerequisite()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Tier 2 upgrade requires prerequisite", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 58
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 59
-    await testRunner.GivenAsync("player 1 has an operational TechLab at position (40,40) with 1000 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 60
-    await testRunner.WhenAsync("player 1 queues research for RangedDamage2 without RangedDamage1", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 61
-    await testRunner.ThenAsync("the command is rejected due to validation failure", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 62
-    await testRunner.AndAsync("the error indicates prerequisite upgrade not completed", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Multiple upgrade types can be researched")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Multiple upgrade types can be researched")]
-        public async System.Threading.Tasks.Task MultipleUpgradeTypesCanBeResearched()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Multiple upgrade types can be researched", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 64
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 65
-    await testRunner.GivenAsync("player 1 has an operational TechLab at position (40,40) with 1500 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 66
-    await testRunner.WhenAsync("player 1 researches MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 67
-    await testRunner.AndAsync("player 1 researches ArmorUpgrade upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 68
-    await testRunner.ThenAsync("both upgrades are completed", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
-#line 69
-    await testRunner.AndAsync("units have both increased damage and armor", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-            }
-            await this.ScenarioCleanupAsync();
-        }
-        
-        [Xunit.SkippableFactAttribute(DisplayName="Upgrade effects stack with multiple tiers")]
-        [Xunit.TraitAttribute("FeatureTitle", "Research Upgrades")]
-        [Xunit.TraitAttribute("Description", "Upgrade effects stack with multiple tiers")]
-        public async System.Threading.Tasks.Task UpgradeEffectsStackWithMultipleTiers()
-        {
-            string[] tagsOfScenario = ((string[])(null));
-            System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
-            global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Upgrade effects stack with multiple tiers", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 71
-  this.ScenarioInitialize(scenarioInfo);
-#line hidden
-            if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
-            {
-                testRunner.SkipScenario();
-            }
-            else
-            {
-                await this.ScenarioStartAsync();
-#line 6
-  await this.FeatureBackgroundAsync();
-#line hidden
-#line 72
-    await testRunner.GivenAsync("player 1 has an operational TechLab at position (40,40) with 2000 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
-#line hidden
-#line 73
-    await testRunner.AndAsync("player 1 has soldier units at position (20,20)", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 74
-    await testRunner.WhenAsync("player 1 completes MeleeDamage upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
-#line hidden
-#line 75
-    await testRunner.AndAsync("player 1 completes MeleeDamage2 upgrade", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
-#line hidden
-#line 76
-    await testRunner.ThenAsync("soldier units have attack damage increased by both tiers", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.ThenAsync("the command fails with \"Prerequisites not met\"", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
             }
             await this.ScenarioCleanupAsync();
@@ -506,12 +213,12 @@ namespace NetRts.ContractTests.Features
             
             async System.Threading.Tasks.Task Xunit.IAsyncLifetime.InitializeAsync()
             {
-                await ResearchUpgradesFeature.FeatureSetupAsync();
+                await UpgradesFeature.FeatureSetupAsync();
             }
             
             async System.Threading.Tasks.Task Xunit.IAsyncLifetime.DisposeAsync()
             {
-                await ResearchUpgradesFeature.FeatureTearDownAsync();
+                await UpgradesFeature.FeatureTearDownAsync();
             }
         }
     }

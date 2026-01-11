@@ -69,6 +69,7 @@ Feature: Building Construction and Unit Production
   Scenario: Building production queue processes FIFO
     Given player 1 has an operational Barracks at position (30,30) with 600 resources
     When player 1 queues production for 3 Soldiers
+    And the produce command is executed
     Then all 3 production orders are added to the queue
     When the first production completes
     Then a Soldier spawns adjacent to the barracks
@@ -83,6 +84,8 @@ Feature: Building Construction and Unit Production
     And player 1 has 1000 resources
     When player 1 queues a Soldier from the Barracks
     And player 1 queues a Worker from the CommandCenter
+    And the produce command is executed
     Then both buildings produce units simultaneously
-    And the Soldier spawns near the Barracks
+    When production timer reaches zero
+    Then the Soldier spawns near the Barracks
     And the Worker spawns near the CommandCenter

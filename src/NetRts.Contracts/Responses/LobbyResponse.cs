@@ -27,4 +27,7 @@ public class GameSettingsDto
     public int MapHeight { get; set; }
     public int MaxTicks { get; set; }
     public int StartingResources { get; set; }
+    public int TickIntervalMs { get; set; }
+    public int CommandQueueSize { get; set; }
+    public int CommandsPerTick { get; set; }
 }

@@ -39,17 +39,20 @@ public class MultiplayerLobbyTests : IClassFixture<CustomWebApplicationFactory>,
     {
         // Arrange
         var playerId = Guid.NewGuid();
-        var request = new CreateLobbyRequest
+        var createRequest = new CreateLobbyRequest 
         {
             Name = "Test Lobby",
-            MapWidth = 100,
-            MapHeight = 100,
-            MaxTicks = 1800,
-            StartingResources = 500
+            Settings = new GameSettingsDto
+            {
+                MapWidth = 100,
+                MapHeight = 100,
+                MaxTicks = 1800,
+                StartingResources = 500
+            }
         };
 
         // Act
-        var response = await PostAsJsonWithPlayer($"/api/v1/lobbies", request, playerId);
+        var response = await PostAsJsonWithPlayer("/api/v1/lobbies", createRequest, playerId);
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.Created);
@@ -78,11 +81,11 @@ public class MultiplayerLobbyTests : IClassFixture<CustomWebApplicationFactory>,
 
         // Assert
         response.StatusCode.Should().Be(HttpStatusCode.OK);
-        var lobbies = await response.Content.ReadFromJsonAsync<List<LobbyResponse>>();
-        lobbies.Should().NotBeNull();
-        lobbies!.Count.Should().BeGreaterThanOrEqualTo(2);
-        lobbies.Should().Contain(l => l.Name == "Lobby 1");
-        lobbies.Should().Contain(l => l.Name == "Lobby 2");
+        var lobbyList = await response.Content.ReadFromJsonAsync<LobbyListResponse>();
+        lobbyList.Should().NotBeNull();
+        lobbyList!.Lobbies.Count.Should().BeGreaterThanOrEqualTo(2);
+        lobbyList.Lobbies.Should().Contain(l => l.Name == "Lobby 1");
+        lobbyList.Lobbies.Should().Contain(l => l.Name == "Lobby 2");
     }
 
     [Fact]
@@ -315,10 +318,13 @@ public class MultiplayerLobbyTests : IClassFixture<CustomWebApplicationFactory>,
             new CreateLobbyRequest
             {
                 Name = "Full Flow Test",
-                MapWidth = 100,
-                MapHeight = 100,
-                MaxTicks = 1800,
-                StartingResources = 500
+                Settings = new GameSettingsDto
+                {
+                    MapWidth = 100,
+                    MapHeight = 100,
+                    MaxTicks = 1800,
+                    StartingResources = 500
+                }
             }, player1Id);
 
         createResponse.StatusCode.Should().Be(HttpStatusCode.Created);

@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: netrts-config
+data:
+  ASPNETCORE_ENVIRONMENT: "Production"
+  GameSettings__DefaultMapWidth: "100"
+  GameSettings__DefaultMapHeight: "100"
+  GameSettings__DefaultMaxTicks: "1800"
+  GameSettings__DefaultTickIntervalMs: "1000"
+  GameSettings__DefaultCommandQueueSize: "500"
+  GameSettings__DefaultCommandsPerTick: "100"
+  GameSettings__DefaultStartingResources: "500"
+  GameSettings__SnapshotIntervalTicks: "10"

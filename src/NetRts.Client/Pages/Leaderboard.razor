@@ -18,7 +18,7 @@
             </div>
         </div>
     }
-    else if (players == null || !players.Any())
+    else if (leaderboard == null || !leaderboard.Entries.Any())
     {
         <div class="alert alert-info">
             <i class="bi bi-info-circle me-2"></i>
@@ -32,52 +32,46 @@
                 <table class="table table-hover mb-0">
                     <thead class="table-dark">
                         <tr>
-                            <th style="width: 60px;">#</th>
+                            <th style="width: 60px;">Rank</th>
                             <th>Player</th>
-                            <th class="text-center">ELO</th>
+                            <th class="text-center">Score</th>
                             <th class="text-center">Matches</th>
                             <th class="text-center">Wins</th>
                             <th class="text-center">Win Rate</th>
                         </tr>
                     </thead>
                     <tbody>
-                        @{ int rank = 1; }
-                        @foreach (var player in players)
+                        @foreach (var entry in leaderboard.Entries)
                         {
                             <tr>
                                 <td>
-                                    @if (rank == 1)
+                                    @if (entry.Rank == 1)
                                     {
                                         <span class="badge bg-warning text-dark">🥇 1</span>
                                     }
-                                    else if (rank == 2)
+                                    else if (entry.Rank == 2)
                                     {
                                         <span class="badge bg-secondary">🥈 2</span>
                                     }
-                                    else if (rank == 3)
+                                    else if (entry.Rank == 3)
                                     {
                                         <span class="badge bg-danger">🥉 3</span>
                                     }
                                     else
                                     {
-                                        <span class="text-muted">@rank</span>
+                                        <span class="text-muted">@entry.Rank</span>
                                     }
                                 </td>
                                 <td>
-                                    <strong>@player.Username</strong>
-                                    @if (player.IsBot)
-                                    {
-                                        <span class="badge bg-info ms-1">Bot</span>
-                                    }
+                                    <strong>@entry.Username</strong>
                                 </td>
                                 <td class="text-center">
-                                    <strong class="text-primary">@player.CurrentElo</strong>
+                                    <strong class="text-primary">@entry.TotalScore</strong>
                                 </td>
-                                <td class="text-center">@player.TotalMatches</td>
-                                <td class="text-center text-success">@player.TotalWins</td>
-                                <td class="text-center">@player.WinRate.ToString("F1")%</td>
+                                <td class="text-center">@entry.MatchesPlayed</td>
+                                <td class="text-center text-success">@entry.TotalWins</td>
+                                <td class="text-center">@entry.WinRate.ToString("P1")</td>
                             </tr>
-                            rank++;
                         }
                     </tbody>
                 </table>
@@ -87,7 +81,7 @@
 </div>
 
 @code {
-    private List<PlayerResponse>? players;
+    private LeaderboardResponse? leaderboard;
     private bool loading = true;
 
     protected override async Task OnInitializedAsync()
@@ -100,12 +94,10 @@
         loading = true;
         try
         {
-            // For now, we'll fetch all players sorted by ELO
-            // In production, there would be a dedicated leaderboard endpoint
-            var response = await Http.GetAsync("api/v1/players");
+            var response = await Http.GetAsync("api/v1/leaderboard");
             if (response.IsSuccessStatusCode)
             {
-                players = await response.Content.ReadFromJsonAsync<List<PlayerResponse>>();
+                leaderboard = await response.Content.ReadFromJsonAsync<LeaderboardResponse>();
             }
         }
         catch (Exception ex)

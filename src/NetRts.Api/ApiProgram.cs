@@ -79,8 +79,11 @@ builder.Services.AddScoped<ICommandQueueService, CommandQueueService>();
 builder.Services.AddSingleton<IGameUpdateBroadcaster, SignalRGameUpdateBroadcaster>();
 
 // Add background services
-builder.Services.AddHostedService<GameTickService>();
-builder.Services.AddHostedService<MatchSnapshotService>();
+if (!builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddHostedService<GameTickService>();
+    builder.Services.AddHostedService<MatchSnapshotService>();
+}
 
 // Add JWT authentication
 var jwtSecret = builder.Configuration["JwtSettings:SecretKey"] ??
@@ -176,6 +179,7 @@ app.MapGameEndpoints();
 app.MapCommandEndpoints();
 app.MapLobbyEndpoints();
 app.MapPlayerEndpoints();
+app.MapLeaderboardEndpoints();
 app.MapGet("/api", () => "NetRts API is running");
 
 // Fallback to index.html for client-side routing
@@ -184,7 +188,14 @@ app.MapFallbackToFile("index.html");
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await dbContext.Database.MigrateAsync();
+    if (dbContext.Database.IsRelational())
+    {
+        await dbContext.Database.MigrateAsync();
+    }
+    else
+    {
+        await dbContext.Database.EnsureCreatedAsync();
+    }
 }
 
 app.Run();

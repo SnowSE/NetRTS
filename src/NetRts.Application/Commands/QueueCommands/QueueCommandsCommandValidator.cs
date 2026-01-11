@@ -107,7 +107,7 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                 // Produce command validation
                 command.When(c => c.CommandType.Equals("Produce", StringComparison.OrdinalIgnoreCase), () =>
                 {
-                    command.RuleFor(c => c.TargetBuildingId)
+                    command.RuleFor(c => c.BuildingId ?? c.TargetBuildingId)
                         .NotNull()
                         .GreaterThan(0)
                         .WithMessage("Building ID is required for Produce command");
@@ -122,7 +122,7 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                 // Research command validation
                 command.When(c => c.CommandType.Equals("Research", StringComparison.OrdinalIgnoreCase), () =>
                 {
-                    command.RuleFor(c => c.TargetBuildingId)
+                    command.RuleFor(c => c.BuildingId ?? c.TargetBuildingId)
                         .NotNull()
                         .GreaterThan(0)
                         .WithMessage("Building ID is required for Research command");
@@ -197,25 +197,23 @@ public class QueueCommandsCommandValidator : AbstractValidator<QueueCommandsComm
                         }
                     }
 
-                    // Validate building ownership for produce/research commands
-                    if ((cmd.CommandType.Equals("Produce", StringComparison.OrdinalIgnoreCase) ||
-                         cmd.CommandType.Equals("Research", StringComparison.OrdinalIgnoreCase)) &&
-                        cmd.TargetBuildingId.HasValue)
-                    {
-                        var building = buildings.FirstOrDefault(b => b.Id == cmd.TargetBuildingId.Value);
-                        if (building == null)
+                        var buildingSourceId = cmd.BuildingId ?? cmd.TargetBuildingId;
+                        if (buildingSourceId.HasValue)
                         {
-                            context.AddFailure($"Building {cmd.TargetBuildingId} not found");
+                            var building = buildings.FirstOrDefault(b => b.Id == buildingSourceId.Value);
+                            if (building == null)
+                            {
+                                context.AddFailure($"Building {buildingSourceId} not found");
+                            }
+                            else if (building.OwnerId != command.PlayerId)
+                            {
+                                context.AddFailure($"Building {buildingSourceId} is not owned by player");
+                            }
+                            else if (!building.IsOperational)
+                            {
+                                context.AddFailure($"Building {buildingSourceId} is not operational yet");
+                            }
                         }
-                        else if (building.OwnerId != command.PlayerId)
-                        {
-                            context.AddFailure($"Building {cmd.TargetBuildingId} is not owned by player");
-                        }
-                        else if (!building.IsOperational)
-                        {
-                            context.AddFailure($"Building {cmd.TargetBuildingId} is not operational yet");
-                        }
-                    }
 
                     // Validate build command: tile unoccupied, within bounds, sufficient resources
                     if (cmd.CommandType.Equals("Build", StringComparison.OrdinalIgnoreCase) && cmd.TargetPosition != null)

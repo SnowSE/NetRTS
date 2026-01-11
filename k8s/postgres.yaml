@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: netrts-db
+spec:
+  ports:
+  - port: 5432
+    targetPort: 5432
+  selector:
+    app: netrts-db
+  clusterIP: None
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: netrts-db
+spec:
+  serviceName: "netrts-db"
+  replicas: 1
+  selector:
+    matchLabels:
+      app: netrts-db
+  template:
+    metadata:
+      labels:
+        app: netrts-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:16-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "netrts"
+        - name: POSTGRES_USER
+          value: "postgres"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: netrts-secrets
+              key: POSTGRES_PASSWORD
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "postgres"]
+          initialDelaySeconds: 5
+          periodSeconds: 10
+        livenessProbe:
+          exec:
+            command: ["pg_isready", "-U", "postgres"]
+          initialDelaySeconds: 10
+          periodSeconds: 20
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi

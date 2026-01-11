@@ -170,31 +170,53 @@ public class UnitCommandsSteps
         _context.HttpClient.DefaultRequestHeaders.Remove("X-Test-Player-Id");
         _context.HttpClient.DefaultRequestHeaders.Add("X-Test-Player-Id", _context.Player1Id.ToString());
 
-        var request = new QueueCommandsRequest
-        {
-            Commands = new[]
-            {
-                new CommandDto
+                var request = new QueueCommandsRequest
+
                 {
-                    CommandType = "Move",
-                    UnitIds = new[] { _workerUnitId },
-                    TargetPosition = new PositionDto { X = x, Y = y }
+
+                    Commands = new[]
+
+                    {
+
+                        new CommandDto
+
+                        {                    CommandType = "Move",
+
+                            UnitIds = new[] { _workerUnitId },
+
+                            TargetPosition = new PositionDto { X = x, Y = y }
+
+                        }
+
+                    }
+
+                };
+
+        
+
+                _context.LastResponse = await _context.HttpClient.PostAsJsonAsync(
+
+                    $"/api/v1/matches/{_context.MatchId}/commands", request);
+
+        
+
+                _context.LastStatusCode = _context.LastResponse.StatusCode;
+
+                _context.LastResponseBody = await _context.LastResponse.Content.ReadAsStringAsync();
+
+        
+
+                if (_context.LastResponse.IsSuccessStatusCode)
+
+                {
+
+                    _context.LastCommandResponse = await _context.LastResponse.Content
+
+                        .ReadFromJsonAsync<QueueCommandsResponse>();
+
                 }
+
             }
-        };
-
-        _context.LastResponse = await _context.HttpClient.PostAsJsonAsync(
-            $"/api/v1/matches/{_context.MatchId}/commands", request);
-
-        _context.LastStatusCode = _context.LastResponse.StatusCode;
-        _context.LastResponseBody = await _context.LastResponse.Content.ReadAsStringAsync();
-
-        if (_context.LastResponse.IsSuccessStatusCode)
-        {
-            _commandResponse = await _context.LastResponse.Content
-                .ReadFromJsonAsync<QueueCommandsResponse>();
-        }
-    }
 
     [When(@"player 1 queues a gather command targeting the resource deposit")]
     public async Task WhenPlayer1QueuesAGatherCommandTargetingTheResourceDeposit()
@@ -224,7 +246,7 @@ public class UnitCommandsSteps
 
         if (_context.LastResponse.IsSuccessStatusCode)
         {
-            _commandResponse = await _context.LastResponse.Content
+            _context.LastCommandResponse = await _context.LastResponse.Content
                 .ReadFromJsonAsync<QueueCommandsResponse>();
         }
     }
@@ -257,7 +279,7 @@ public class UnitCommandsSteps
 
         if (_context.LastResponse.IsSuccessStatusCode)
         {
-            _commandResponse = await _context.LastResponse.Content
+            _context.LastCommandResponse = await _context.LastResponse.Content
                 .ReadFromJsonAsync<QueueCommandsResponse>();
         }
     }
@@ -300,8 +322,8 @@ public class UnitCommandsSteps
     {
         _context.LastResponse.Should().NotBeNull();
         _context.LastResponse!.StatusCode.Should().Be(HttpStatusCode.OK);
-        _commandResponse.Should().NotBeNull();
-        _commandResponse!.QueuedCount.Should().BeGreaterThan(0);
+        _context.LastCommandResponse.Should().NotBeNull();
+        _context.LastCommandResponse!.QueuedCount.Should().BeGreaterThan(0);
     }
 
     [Then(@"after the next game tick the worker has moved toward \((\d+),(\d+)\)")]

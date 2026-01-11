@@ -1,0 +1,30 @@
+@using NetRts.Contracts.Responses
+
+<div class="card unit-card mb-2">
+    <div class="card-header py-1 px-2 d-flex justify-content-between align-items-center">
+        <span class="fw-bold">@Unit.UnitType #@Unit.UnitId</span>
+        <span class="badge @GetHealthBadgeClass()">@Unit.Health / @Unit.MaxHealth HP</span>
+    </div>
+    <div class="card-body p-2 small">
+        <div class="row g-0">
+            <div class="col-6">Status: @Unit.CurrentState</div>
+            <div class="col-6 text-end">Pos: (@Unit.Position.X, @Unit.Position.Y)</div>
+        </div>
+        @if (Unit.CarriedResources > 0)
+        {
+            <div class="mt-1 text-success fw-bold">Carrying: @Unit.CarriedResources</div>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public UnitDto Unit { get; set; } = null!;
+
+    private string GetHealthBadgeClass()
+    {
+        var ratio = (double)Unit.Health / Unit.MaxHealth;
+        if (ratio > 0.7) return "bg-success";
+        if (ratio > 0.3) return "bg-warning text-dark";
+        return "bg-danger";
+    }
+}

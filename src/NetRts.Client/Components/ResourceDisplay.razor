@@ -1,0 +1,31 @@
+@using NetRts.Contracts.Responses
+
+<div class="resource-display d-flex gap-3 align-items-center">
+    <div class="resource-item" title="Current Resources">
+        <span class="resource-icon">💎</span>
+        <span class="resource-value">@Resources</span>
+    </div>
+    <div class="score-item" title="Total Score">
+        <span class="score-label">Score:</span>
+        <span class="score-value">@Score.TotalScore</span>
+    </div>
+</div>
+
+<style>
+    .resource-display {
+        background: rgba(0,0,0,0.5);
+        padding: 0.5rem 1rem;
+        border-radius: 2rem;
+        color: white;
+        font-family: 'Courier New', Courier, monospace;
+    }
+    .resource-icon { margin-right: 0.25rem; }
+    .resource-value { font-weight: bold; font-size: 1.2rem; color: #ffd700; }
+    .score-label { opacity: 0.8; margin-right: 0.25rem; }
+    .score-value { font-weight: bold; color: #4ade80; }
+</style>
+
+@code {
+    [Parameter] public int Resources { get; set; }
+    [Parameter] public ScoreDto Score { get; set; } = null!;
+}

@@ -62,11 +62,11 @@ public class QuadTreeTests
     public void Insert_MultipleItems_AllCanBeQueried()
     {
         // Arrange
-        var quadTree = new QuadTree<int>(100, 100);
+        var quadTree = new QuadTree<string>(100, 100);
 
         for (int i = 0; i < 50; i++)
         {
-            quadTree.Insert(new Position(i, i), i);
+            quadTree.Insert(new Position(i, i), i.ToString());
         }
 
         // Act
@@ -74,7 +74,7 @@ public class QuadTreeTests
 
         // Assert
         results.Should().NotBeEmpty();
-        results.Should().Contain(r => r.Item2 == 25);
+        results.Should().Contain(r => r.Item2 == "25");
     }
 
     [Fact]
@@ -148,7 +148,7 @@ public class QuadTreeTests
     public void QueryRange_PerformanceWithManyItems_CompletesQuickly()
     {
         // Arrange
-        var quadTree = new QuadTree<int>(200, 200);
+        var quadTree = new QuadTree<string>(200, 200);
         var random = new Random(42); // Seed for reproducibility
 
         // Insert 1000 items
@@ -156,7 +156,7 @@ public class QuadTreeTests
         {
             var x = random.Next(0, 200);
             var y = random.Next(0, 200);
-            quadTree.Insert(new Position(x, y), i);
+            quadTree.Insert(new Position(x, y), i.ToString());
         }
 
         // Act
@@ -173,12 +173,12 @@ public class QuadTreeTests
     public void Insert_ForcesSubdivision_MaintainsCorrectStructure()
     {
         // Arrange
-        var quadTree = new QuadTree<int>(100, 100, maxDepth: 8, maxItems: 4);
+        var quadTree = new QuadTree<string>(100, 100, maxDepth: 8, maxItems: 4);
 
         // Insert more than maxItems in same area to force subdivision
         for (int i = 0; i < 10; i++)
         {
-            quadTree.Insert(new Position(50, 50 + i), i);
+            quadTree.Insert(new Position(50, 50 + i), i.ToString());
         }
 
         // Act
@@ -186,8 +186,8 @@ public class QuadTreeTests
 
         // Assert - Should still find items correctly after subdivision
         results.Should().NotBeEmpty();
-        results.Should().Contain(r => r.Item2 == 0);
-        results.Should().Contain(r => r.Item2 == 2);
-        results.Should().Contain(r => r.Item2 == 4);
+        results.Should().Contain(r => r.Item2 == "0");
+        results.Should().Contain(r => r.Item2 == "2");
+        results.Should().Contain(r => r.Item2 == "4");
     }
 }

@@ -1,57 +1,18 @@
 namespace NetRts.Contracts.Responses;
 
 /// <summary>
-/// Response DTO for player registration and profile.
+/// Response after player registration or profile retrieval.
 /// </summary>
 public class PlayerResponse
 {
-    /// <summary>
-    /// Unique player identifier.
-    /// </summary>
-    public Guid PlayerId { get; set; }
-
-    /// <summary>
-    /// Display name.
-    /// </summary>
-    public string Username { get; set; } = string.Empty;
-
-    /// <summary>
-    /// Contact email (optional).
-    /// </summary>
-    public string? Email { get; set; }
-
-    /// <summary>
-    /// Whether this player is a bot.
-    /// </summary>
-    public bool IsBot { get; set; }
-
-    /// <summary>
-    /// JWT token for authentication (only included on registration).
-    /// </summary>
-    public string? Token { get; set; }
-
-    /// <summary>
-    /// Registration timestamp.
-    /// </summary>
-    public DateTime CreatedAt { get; set; }
-
-    /// <summary>
-    /// Total matches played.
-    /// </summary>
-    public int TotalMatches { get; set; }
-
-    /// <summary>
-    /// Total matches won.
-    /// </summary>
-    public int TotalWins { get; set; }
-
-    /// <summary>
-    /// Current Elo rating.
-    /// </summary>
-    public int CurrentElo { get; set; }
-
-    /// <summary>
-    /// Win rate as percentage.
-    /// </summary>
-    public decimal WinRate { get; set; }
+    public Guid PlayerId { get; init; }
+    public string Username { get; init; } = string.Empty;
+    public string? Email { get; init; }
+    public bool IsBot { get; init; }
+    public int CurrentElo { get; init; }
+    public decimal WinRate { get; init; }
+    public string? Token { get; init; } // Only provided after registration/login
+    public int TotalMatches { get; init; }
+    public int TotalWins { get; init; }
+    public DateTime CreatedAt { get; init; }
 }

@@ -41,6 +41,12 @@ public class MatchResultResponse
     public PlayerMatchResult Player2Result { get; set; } = new();
 
     /// <summary>
+    /// Helper property to get both player results as a collection.
+    /// </summary>
+    [System.Text.Json.Serialization.JsonIgnore]
+    public IEnumerable<PlayerMatchResult> PlayerResults => new[] { Player1Result, Player2Result };
+
+    /// <summary>
     /// Reason for match end (e.g., "TimeLimit", "Elimination", "Resignation").
     /// </summary>
     public string EndReason { get; set; } = string.Empty;

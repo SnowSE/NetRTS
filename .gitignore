@@ -157,7 +157,6 @@ BenchmarkDotNet.Artifacts/
 .aspire/
 
 # Docker
-.dockerignore
 docker-compose.override.yml
 
 # Temporary files

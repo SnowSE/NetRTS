@@ -159,23 +159,31 @@ public class CommandQueueService : ICommandQueueService
             return ValidationResult.Failure(index, "INVALID_COMMAND_TYPE", $"Invalid command type: {dto.CommandType}");
         }
 
-        // Validate unit ownership
-        if (dto.UnitIds == null || dto.UnitIds.Length == 0)
-        {
-            return ValidationResult.Failure(index, "NO_UNITS_SPECIFIED", "No units specified for command");
-        }
+        // Validate unit ownership for unit-based commands
+        bool needsUnits = commandType == CommandType.Move || 
+                          commandType == CommandType.Attack || 
+                          commandType == CommandType.Gather || 
+                          commandType == CommandType.Build;
 
-        foreach (var unitId in dto.UnitIds)
+        if (needsUnits)
         {
-            var unit = units.FirstOrDefault(u => u.Id == unitId && u.MatchId == matchId);
-            if (unit == null)
+            if (dto.UnitIds == null || dto.UnitIds.Length == 0)
             {
-                return ValidationResult.Failure(index, "UNIT_NOT_FOUND", $"Unit {unitId} not found");
+                return ValidationResult.Failure(index, "NO_UNITS_SPECIFIED", "No units specified for command");
             }
 
-            if (unit.OwnerId != playerId)
+            foreach (var unitId in dto.UnitIds)
             {
-                return ValidationResult.Failure(index, "UNAUTHORIZED_UNIT", $"Unit {unitId} does not belong to player");
+                var unit = units.FirstOrDefault(u => u.Id == unitId && u.MatchId == matchId);
+                if (unit == null)
+                {
+                    return ValidationResult.Failure(index, "UNIT_NOT_FOUND", $"Unit {unitId} not found");
+                }
+
+                if (unit.OwnerId != playerId)
+                {
+                    return ValidationResult.Failure(index, "UNAUTHORIZED_UNIT", $"Unit {unitId} does not belong to player");
+                }
             }
         }
 
@@ -256,19 +264,20 @@ public class CommandQueueService : ICommandQueueService
                 var buildCost = Building.GetBuildingCost(buildingType);
                 if (match.GetPlayerResources(playerId) < buildCost)
                 {
-                    return ValidationResult.Failure(index, "INSUFFICIENT_RESOURCES", $"Need {buildCost} resources to build {buildingType}");
+                    return ValidationResult.Failure(index, "INSUFFICIENT_RESOURCES", $"Insufficient resources to build {buildingType}. Required: {buildCost}");
                 }
                 break;
 
             case CommandType.Produce:
-                if (dto.TargetBuildingId == null)
+                var produceBuildingId = dto.BuildingId ?? dto.TargetBuildingId;
+                if (produceBuildingId == null)
                 {
                     return ValidationResult.Failure(index, "MISSING_TARGET_BUILDING", "Produce command requires target building");
                 }
-                var productionBuilding = buildings.FirstOrDefault(b => b.Id == dto.TargetBuildingId.Value && b.MatchId == matchId);
+                var productionBuilding = buildings.FirstOrDefault(b => b.Id == produceBuildingId.Value && b.MatchId == matchId);
                 if (productionBuilding == null)
                 {
-                    return ValidationResult.Failure(index, "BUILDING_NOT_FOUND", $"Building {dto.TargetBuildingId} not found");
+                    return ValidationResult.Failure(index, "BUILDING_NOT_FOUND", $"Building {produceBuildingId} not found");
                 }
                 if (productionBuilding.OwnerId != playerId)
                 {
@@ -276,7 +285,7 @@ public class CommandQueueService : ICommandQueueService
                 }
                 if (!productionBuilding.IsOperational)
                 {
-                    return ValidationResult.Failure(index, "BUILDING_NOT_OPERATIONAL", "Building is still under construction");
+                    return ValidationResult.Failure(index, "BUILDING_NOT_OPERATIONAL", "Building is not operational (still under construction)");
                 }
                 if (string.IsNullOrEmpty(dto.UnitType))
                 {
@@ -290,19 +299,20 @@ public class CommandQueueService : ICommandQueueService
                 var productionCost = Unit.GetUnitCost(produceUnitType);
                 if (match.GetPlayerResources(playerId) < productionCost)
                 {
-                    return ValidationResult.Failure(index, "INSUFFICIENT_RESOURCES", $"Need {productionCost} resources to produce {produceUnitType}");
+                    return ValidationResult.Failure(index, "INSUFFICIENT_RESOURCES", $"Insufficient resources to produce {produceUnitType}. Required: {productionCost}");
                 }
                 break;
 
             case CommandType.Research:
-                if (dto.TargetBuildingId == null)
+                var researchBuildingId = dto.BuildingId ?? dto.TargetBuildingId;
+                if (researchBuildingId == null)
                 {
                     return ValidationResult.Failure(index, "MISSING_TARGET_BUILDING", "Research command requires target building");
                 }
-                var researchBuilding = buildings.FirstOrDefault(b => b.Id == dto.TargetBuildingId.Value && b.MatchId == matchId);
+                var researchBuilding = buildings.FirstOrDefault(b => b.Id == researchBuildingId.Value && b.MatchId == matchId);
                 if (researchBuilding == null)
                 {
-                    return ValidationResult.Failure(index, "BUILDING_NOT_FOUND", $"Building {dto.TargetBuildingId} not found");
+                    return ValidationResult.Failure(index, "BUILDING_NOT_FOUND", $"Building {researchBuildingId} not found");
                 }
                 if (researchBuilding.OwnerId != playerId)
                 {
@@ -310,7 +320,7 @@ public class CommandQueueService : ICommandQueueService
                 }
                 if (!researchBuilding.IsOperational)
                 {
-                    return ValidationResult.Failure(index, "BUILDING_NOT_OPERATIONAL", "Building is still under construction");
+                    return ValidationResult.Failure(index, "BUILDING_NOT_OPERATIONAL", "Building is not operational (still under construction)");
                 }
                 if (researchBuilding.Type != BuildingType.TechLab)
                 {
@@ -344,7 +354,7 @@ public class CommandQueueService : ICommandQueueService
                 var upgradeCost = Upgrade.GetUpgradeCost(upgradeType);
                 if (match.GetPlayerResources(playerId) < upgradeCost)
                 {
-                    return ValidationResult.Failure(index, "INSUFFICIENT_RESOURCES", $"Need {upgradeCost} resources to research {upgradeType}");
+                    return ValidationResult.Failure(index, "INSUFFICIENT_RESOURCES", $"Insufficient resources to research {upgradeType}. Required: {upgradeCost}");
                 }
                 break;
         }
@@ -374,13 +384,18 @@ public class CommandQueueService : ICommandQueueService
             command.SetTargetPosition(new Position(dto.TargetPosition.X, dto.TargetPosition.Y));
         }
 
-        if (dto.TargetUnitId.HasValue || dto.TargetBuildingId.HasValue)
+        if (dto.BuildingId.HasValue || dto.TargetBuildingId.HasValue)
         {
-            var targetEntityId = dto.TargetUnitId ?? dto.TargetBuildingId ?? 0;
-            if (targetEntityId > 0)
+            var buildingId = dto.BuildingId ?? dto.TargetBuildingId ?? 0;
+            if (buildingId > 0)
             {
-                command.SetTargetEntity(targetEntityId);
+                command.SetTargetBuilding(buildingId);
             }
+        }
+
+        if (dto.TargetUnitId.HasValue)
+        {
+            command.SetTargetEntity(dto.TargetUnitId.Value);
         }
 
         if (dto.TargetResourceId.HasValue)

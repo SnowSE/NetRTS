@@ -13,9 +13,19 @@ public class CommandDto
     public string CommandType { get; set; } = string.Empty;
 
     /// <summary>
+    /// Alias for CommandType to support various test clients.
+    /// </summary>
+    public string Type { get => CommandType; set => CommandType = value; }
+
+    /// <summary>
     /// IDs of units that should execute this command.
     /// </summary>
     public int[] UnitIds { get; set; } = Array.Empty<int>();
+
+    /// <summary>
+    /// Building ID for Produce or Research commands.
+    /// </summary>
+    public int? BuildingId { get; set; }
 
     /// <summary>
     /// Target position for Move commands.

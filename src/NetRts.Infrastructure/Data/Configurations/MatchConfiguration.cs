@@ -58,6 +58,9 @@ public class MatchConfiguration : IEntityTypeConfiguration<Match>
         builder.Property(m => m.Player1Resources).IsRequired();
         builder.Property(m => m.Player2Resources).IsRequired();
 
+        // Helper properties to ignore
+        builder.Ignore(m => m.Players);
+
         // Game state snapshot
         builder.Property(m => m.GameStateSnapshot);
 

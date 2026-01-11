@@ -462,24 +462,27 @@ namespace NetRts.ContractTests.Features
     await testRunner.WhenAsync("player 1 queues production for 3 Soldiers", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 72
-    await testRunner.ThenAsync("all 3 production orders are added to the queue", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.AndAsync("the produce command is executed", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 73
-    await testRunner.WhenAsync("the first production completes", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.ThenAsync("all 3 production orders are added to the queue", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 74
-    await testRunner.ThenAsync("a Soldier spawns adjacent to the barracks", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.WhenAsync("the first production completes", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 75
-    await testRunner.AndAsync("2 production orders remain in the queue", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.ThenAsync("a Soldier spawns adjacent to the barracks", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
 #line hidden
 #line 76
-    await testRunner.WhenAsync("the second production completes", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+    await testRunner.AndAsync("2 production orders remain in the queue", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 77
-    await testRunner.ThenAsync("another Soldier spawns", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+    await testRunner.WhenAsync("the second production completes", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
 #line 78
+    await testRunner.ThenAsync("another Soldier spawns", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 79
     await testRunner.AndAsync("1 production order remains in the queue", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }
@@ -494,7 +497,7 @@ namespace NetRts.ContractTests.Features
             string[] tagsOfScenario = ((string[])(null));
             System.Collections.Specialized.OrderedDictionary argumentsOfScenario = new System.Collections.Specialized.OrderedDictionary();
             global::Reqnroll.ScenarioInfo scenarioInfo = new global::Reqnroll.ScenarioInfo("Multiple buildings produce independently", null, tagsOfScenario, argumentsOfScenario, featureTags);
-#line 80
+#line 81
   this.ScenarioInitialize(scenarioInfo);
 #line hidden
             if ((global::Reqnroll.TagHelper.ContainsIgnoreTag(scenarioInfo.CombinedTags) || global::Reqnroll.TagHelper.ContainsIgnoreTag(featureTags)))
@@ -507,28 +510,34 @@ namespace NetRts.ContractTests.Features
 #line 6
   await this.FeatureBackgroundAsync();
 #line hidden
-#line 81
+#line 82
     await testRunner.GivenAsync("player 1 has an operational Barracks at position (30,30)", ((string)(null)), ((global::Reqnroll.Table)(null)), "Given ");
 #line hidden
-#line 82
+#line 83
     await testRunner.AndAsync("player 1 has an operational CommandCenter at position (10,10)", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 83
+#line 84
     await testRunner.AndAsync("player 1 has 1000 resources", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 84
+#line 85
     await testRunner.WhenAsync("player 1 queues a Soldier from the Barracks", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
 #line hidden
-#line 85
+#line 86
     await testRunner.AndAsync("player 1 queues a Worker from the CommandCenter", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
-#line 86
-    await testRunner.ThenAsync("both buildings produce units simultaneously", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
-#line hidden
 #line 87
-    await testRunner.AndAsync("the Soldier spawns near the Barracks", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
+    await testRunner.AndAsync("the produce command is executed", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
 #line 88
+    await testRunner.ThenAsync("both buildings produce units simultaneously", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 89
+    await testRunner.WhenAsync("production timer reaches zero", ((string)(null)), ((global::Reqnroll.Table)(null)), "When ");
+#line hidden
+#line 90
+    await testRunner.ThenAsync("the Soldier spawns near the Barracks", ((string)(null)), ((global::Reqnroll.Table)(null)), "Then ");
+#line hidden
+#line 91
     await testRunner.AndAsync("the Worker spawns near the CommandCenter", ((string)(null)), ((global::Reqnroll.Table)(null)), "And ");
 #line hidden
             }

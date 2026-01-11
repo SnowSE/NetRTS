@@ -30,6 +30,11 @@
     <IsPackable>false</IsPackable>
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <!-- Coverage Settings -->
+    <CollectCoverage>true</CollectCoverage>
+    <CoverletOutputFormat>opencover,cobertura</CoverletOutputFormat>
+    <Threshold>80</Threshold>
+    <ExcludeByFile>**/Migrations/*.cs</ExcludeByFile>
   </PropertyGroup>
 
   <!-- Package Metadata (for libraries) -->

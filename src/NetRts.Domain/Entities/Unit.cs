@@ -135,6 +135,18 @@ public class Unit
     public bool IsDestroyed() => HealthPoints <= 0;
 
     /// <summary>
+    /// Set the target position for movement.
+    /// </summary>
+    public void SetTargetPosition(Position? position)
+    {
+        TargetPosition = position;
+        if (position != null)
+        {
+            CurrentStatus = UnitStatus.Moving;
+        }
+    }
+
+    /// <summary>
     /// Move to a new position.
     /// </summary>
     public void MoveTo(Position newPosition)
