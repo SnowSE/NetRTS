@@ -2,12 +2,12 @@ name: CI
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, '0*-*' ]
   pull_request:
     branches: [ main ]
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
 
     steps:
@@ -18,16 +18,21 @@ jobs:
       with:
         dotnet-version: 10.0.x
 
-    - name: Restore dependencies
-      run: dotnet restore
+    - name: Restore
+      run: dotnet restore NetRts.sln
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build NetRts.sln --no-restore --configuration Release
 
     - name: Test
-      run: dotnet test --no-build --configuration Release --collect:"XPlat Code Coverage"
+      run: dotnet test --solution NetRts.sln --no-build --configuration Release
 
-    - name: Upload coverage reports to Codecov
-      uses: codecov/codecov-action@v5
+  python-sample:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}
+        python-version: '3.12'
+    - name: Byte-compile sample bot
+      run: python -m py_compile samples/python/bot.py

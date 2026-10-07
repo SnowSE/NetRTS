@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Wire contract (JSON DTOs) shared by the NetRts server, bot SDK and bots.</Description>
+  </PropertyGroup>
+
+</Project>

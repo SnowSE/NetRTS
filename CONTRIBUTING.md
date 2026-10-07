@@ -1,38 +1,35 @@
-# Contributing to NetRTS
+# Contributing to NetRts
 
-Thank you for your interest in contributing to NetRTS! This project follows strict architectural and testing guidelines.
+## Ground rules
 
-## Development Workflow
+- **Game behaviour lives in `NetRts.Engine` and must stay deterministic.** No clocks, no
+  `System.Random`, no iteration over unordered collections, explicit tie-breaks. If you add state,
+  include it in `StateHash()` so the replay test keeps you honest.
+- **Balance numbers live in `GameRules`** and reach bots through `GET /api/v1/rules`. Update
+  `docs/bot-guide.md` when you change them.
+- **The wire contract lives in `NetRts.Protocol`.** Changing a field name breaks every bot in every
+  language; add fields rather than renaming, and bump the API version for breaking changes.
+- **The server stays thin.** Anything that touches a `GameSimulation` goes through `MatchHost` so it
+  happens under the match lock.
 
-We follow a **Test-First Development (TDD)** approach.
+## Tests
 
-1.  **Define Requirements**: Understand the feature or bug you are working on.
-2.  **Write Tests**: Write BDD scenarios (Gherkin) in `tests/NetRts.ContractTests` and unit tests in `tests/NetRts.UnitTests`.
-3.  **Ensure Failure**: Run the tests and ensure they fail.
-4.  **Implement**: Write the minimum amount of code required to make the tests pass.
-5.  **Refactor**: Clean up the code while ensuring tests remain green.
+Write the test first where you can.
 
-## Architecture
+- Rules and mechanics → `tests/NetRts.Engine.Tests`. Use `TestGames.New()` and the internal hooks in
+  `GameSimulation.Testing.cs` to stage exact scenarios.
+- API behaviour → `tests/NetRts.Server.Tests` (real HTTP pipeline, isolated SQLite file, manual
+  ticks via `MatchHost.Advance`).
+- If you change the house bots or balance, run `FullMatchTests` and make sure matches still end
+  decisively.
 
-We use **Clean Architecture** with the following layers:
+```bash
+dotnet build
+dotnet test
+```
 
-- **Domain**: Core entities, value objects, and business rules. No dependencies.
-- **Application**: CQRS handlers (MediatR), interfaces, and application services.
-- **Infrastructure**: Persistence (EF Core), background services, and external integrations.
-- **Api**: Minimal APIs, SignalR hubs, and middleware.
-- **Client**: Blazor WebAssembly frontend.
-- **Contracts**: Shared DTOs and event models.
+## Pull requests
 
-## Coding Standards
-
-- Use C# 12 features (primary constructors, collection expressions, etc.).
-- Adhere to the `.editorconfig` rules.
-- Add XML documentation to all public members.
-- Use structured logging with Serilog.
-
-## Pull Request Process
-
-1.  Create a new branch for your feature or fix.
-2.  Ensure all tests pass locally (`dotnet test`).
-3.  Submit a PR with a clear description of the changes.
-4.  Maintain high test coverage (minimum 80%).
+1. Branch from `main`.
+2. `dotnet build` must be warning-free (warnings are errors) and `dotnet test` green.
+3. Describe user-visible changes (API, rules, balance) in the PR.

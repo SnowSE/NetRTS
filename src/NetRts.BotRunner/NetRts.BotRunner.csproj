@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>netrts-bot</AssemblyName>
+    <RootNamespace>NetRts.BotRunner</RootNamespace>
+    <Description>Command-line runner: registers a bot, creates/joins a match and plays it with a built-in strategy.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetRts.Bots\NetRts.Bots.csproj" />
+  </ItemGroup>
+
+</Project>

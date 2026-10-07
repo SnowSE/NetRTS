@@ -323,3 +323,8 @@ logs/
 # OS generated files
 .DS_Store
 Thumbs.db
+
+# Local SQLite databases created by the server
+*.db
+*.db-shm
+*.db-wal

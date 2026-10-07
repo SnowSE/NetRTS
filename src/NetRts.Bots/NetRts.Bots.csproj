@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>NetRts bot SDK (HTTP client + runner loop) and the reference/house bot strategies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetRts.Protocol\NetRts.Protocol.csproj" />
+  </ItemGroup>
+
+</Project>
