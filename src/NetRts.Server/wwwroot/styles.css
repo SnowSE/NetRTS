@@ -177,6 +177,7 @@ main {
   padding: clamp(16px, 3vw, 32px);
 }
 main:focus { outline: none; }
+main.wide { max-width: none; }
 
 .foot {
   border-top: 1px solid var(--line);
@@ -454,7 +455,7 @@ pre.snippet {
 
 .arena {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  grid-template-columns: minmax(0, 1fr) clamp(300px, 22vw, 400px);
   gap: 24px;
   align-items: start;
 }
@@ -636,3 +637,24 @@ pre.snippet {
 }
 .theme-toggle:hover { color: var(--ink); border-color: var(--muted); }
 .theme-toggle svg { width: 16px; height: 16px; }
+
+/* Map zoom controls */
+.map-controls {
+  position: absolute; top: 14px; right: 14px; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+  padding: 4px; border: 1px solid var(--line); border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--panel) 88%, transparent);
+  backdrop-filter: blur(4px);
+}
+.map-controls button {
+  font: inherit; font-size: 0.85rem; line-height: 1; color: var(--ink);
+  min-width: 30px; height: 30px; padding: 0 9px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s); cursor: pointer;
+}
+.map-controls button:hover { border-color: var(--muted); }
+.map-controls button[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; font-weight: 600; }
+.map-controls .zoom-level { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem; }
+@media (max-width: 560px) {
+  .map-controls { top: 8px; right: 8px; }
+  .map-controls #follow { font-size: 0.78rem; }
+}

@@ -13,6 +13,8 @@ function route() {
   document.querySelectorAll('.topbar nav a[href^="#"]').forEach((a) => {
     if (m) a.removeAttribute('aria-current'); else a.setAttribute('aria-current', 'page');
   });
+  // The battle view uses the whole screen; the home page keeps a readable width.
+  main.classList.toggle('wide', Boolean(m));
   if (m) {
     teardown = mountSpectate(main, m[1]);
   } else {

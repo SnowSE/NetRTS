@@ -27,12 +27,19 @@ export function mountSpectate(root, matchId) {
           <ul class="legend" aria-label="Map key">${legendItems()}</ul>
         </div>
         <div class="map-frame" id="frame">
-          <canvas id="map" tabindex="0" role="img" aria-label="Battle map. Use the arrow keys to inspect tiles."
+          <canvas id="map" tabindex="0" role="img" aria-label="Battle map. Use the arrow keys to inspect tiles, plus and minus to zoom."
             aria-describedby="tooltip"></canvas>
+          <div class="map-controls" role="toolbar" aria-label="Map view">
+            <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+            <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
+            <button type="button" id="zoom-fit" title="Show the whole map (0)">Fit</button>
+            <button type="button" id="follow" aria-pressed="false" title="Keep the camera on the biggest fight (F)">Follow the fight</button>
+            <span class="zoom-level" id="zoom-level" aria-live="polite">1×</span>
+          </div>
           <div class="tooltip" id="tooltip" role="status" hidden></div>
           <div class="overlay-msg" id="overlay"><div><strong>Loading map…</strong></div></div>
         </div>
-        <p class="small muted" style="margin:0">Hover the map, or focus it and use the arrow keys, to inspect a tile.</p>
+        <p class="small muted" style="margin:0">Scroll or pinch to zoom in on a battle, drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
       </div>
       <aside class="side" aria-label="Players and events">
         <section aria-labelledby="players-h">
@@ -125,7 +132,73 @@ export function mountSpectate(root, matchId) {
     tooltip.style.top = `${top}px`;
   }
 
-  canvas.addEventListener('mousemove', (e) => inspect(view.tileAt(e.offsetX, e.offsetY), { x: e.offsetX, y: e.offsetY }));
+  // ---------- zoom & pan
+  const zoomLabel = $('zoom-level'), followBtn = $('follow');
+  view.onCameraChange = () => {
+    zoomLabel.textContent = `${view.zoom >= 10 ? Math.round(view.zoom) : Math.round(view.zoom * 10) / 10}×`;
+    followBtn.setAttribute('aria-pressed', String(view.follow));
+    canvas.style.cursor = view.zoom > 1 ? 'grab' : 'crosshair';
+    canvas.style.touchAction = view.zoom > 1 ? 'none' : 'pan-y';
+    queueMicrotask(() => refreshTooltip()); // defined further down
+  };
+  view.onCameraChange(view);
+  $('zoom-in').addEventListener('click', () => view.zoomCentre(1.5));
+  $('zoom-out').addEventListener('click', () => view.zoomCentre(1 / 1.5));
+  $('zoom-fit').addEventListener('click', () => view.resetView());
+  followBtn.addEventListener('click', () => view.setFollow(!view.follow));
+
+  canvas.addEventListener('wheel', (e) => {
+    // At full view, scrolling down keeps scrolling the page; otherwise the wheel zooms the map.
+    if (view.zoom <= 1 && e.deltaY > 0) return;
+    e.preventDefault();
+    view.zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)), e.offsetX, e.offsetY);
+  }, { passive: false });
+  canvas.addEventListener('dblclick', (e) => view.zoomAt(2, e.offsetX, e.offsetY));
+
+  // One pointer drags the view; two pinch-zoom around their midpoint.
+  const pointers = new Map();
+  let dragged = false, pinch = null;
+  const local = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+  canvas.addEventListener('pointerdown', (e) => {
+    pointers.set(e.pointerId, local(e));
+    dragged = false;
+    if (pointers.size === 2) {
+      const [a, b] = [...pointers.values()];
+      pinch = { dist: Math.hypot(a.x - b.x, a.y - b.y) };
+    }
+    if (view.zoom > 1 || pointers.size === 2) canvas.setPointerCapture(e.pointerId);
+  });
+  canvas.addEventListener('pointermove', (e) => {
+    const prev = pointers.get(e.pointerId);
+    if (!prev) return;
+    const p = local(e);
+    pointers.set(e.pointerId, p);
+    if (pointers.size === 2 && pinch) {
+      const [a, b] = [...pointers.values()];
+      const dist = Math.hypot(a.x - b.x, a.y - b.y);
+      if (pinch.dist > 0) view.zoomAt(dist / pinch.dist, (a.x + b.x) / 2, (a.y + b.y) / 2);
+      pinch.dist = dist;
+      dragged = true;
+    } else if (pointers.size === 1 && view.zoom > 1) {
+      if (!dragged && Math.hypot(p.x - prev.x, p.y - prev.y) < 3) return;
+      dragged = true;
+      canvas.style.cursor = 'grabbing';
+      inspect(null);
+      view.panBy(p.x - prev.x, p.y - prev.y);
+    }
+  });
+  const release = (e) => {
+    pointers.delete(e.pointerId);
+    if (pointers.size < 2) pinch = null;
+    if (pointers.size === 0) canvas.style.cursor = view.zoom > 1 ? 'grab' : 'crosshair';
+  };
+  canvas.addEventListener('pointerup', release);
+  canvas.addEventListener('pointercancel', release);
+
+  canvas.addEventListener('mousemove', (e) => {
+    if (pointers.size && dragged) return;
+    inspect(view.tileAt(e.offsetX, e.offsetY), { x: e.offsetX, y: e.offsetY });
+  });
   canvas.addEventListener('mouseleave', () => inspect(null));
   canvas.addEventListener('blur', () => inspect(null));
   canvas.addEventListener('focus', () => {
@@ -135,6 +208,10 @@ export function mountSpectate(root, matchId) {
     if (!view.map) return;
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (e.key === 'Escape') { inspect(null); return; }
+    if (e.key === '+' || e.key === '=') { view.zoomCentre(1.5); return; }
+    if (e.key === '-' || e.key === '_') { view.zoomCentre(1 / 1.5); return; }
+    if (e.key === '0') { view.resetView(); return; }
+    if (e.key === 'f' || e.key === 'F') { view.setFollow(!view.follow); return; }
     if (!d) return;
     e.preventDefault();
     const step = e.shiftKey ? 8 : 1;
