@@ -153,7 +153,7 @@ export function mountSpectate(root, matchId) {
     e.preventDefault();
     view.zoomAt(Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : 0.0018)), e.offsetX, e.offsetY);
   }, { passive: false });
-  canvas.addEventListener('dblclick', (e) => view.zoomAt(2, e.offsetX, e.offsetY));
+  canvas.addEventListener('dblclick', (e) => view.zoomTo(2, e.offsetX, e.offsetY));
 
   // One pointer drags the view; two pinch-zoom around their midpoint.
   const pointers = new Map();

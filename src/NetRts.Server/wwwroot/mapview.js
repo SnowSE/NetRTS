@@ -149,6 +149,19 @@ export class MapView {
     this.onCameraChange?.(this);
   }
 
+  /** Zoom by factor and centre the view on the world point under (cssX, cssY). */
+  zoomTo(factor, cssX, cssY) {
+    if (!this.map) return;
+    const scale = this.canvas.width / this.canvas.getBoundingClientRect().width;
+    const target = this.screenToWorld(cssX * scale, cssY * scale);
+    this.zoom = Math.min(this.maxZoom, Math.max(1, this.zoom * factor));
+    this.cam = this.zoom === 1 ? { x: this.map.width / 2, y: this.map.height / 2 } : target;
+    if (this.follow) this.setFollow(false);
+    this.clampCamera();
+    this.dirty = true;
+    this.onCameraChange?.(this);
+  }
+
   zoomCentre(factor) {
     const r = this.canvas.getBoundingClientRect();
     this.zoomAt(factor, r.width / 2, r.height / 2);
@@ -197,7 +210,7 @@ export class MapView {
 
   glide() {
     if (!this.camGoal || !this.cam) return false;
-    const k = reducedMotion() ? 1 : 0.12;
+    const k = reducedMotion() ? 1 : 0.05;
     const dx = this.camGoal.x - this.cam.x, dy = this.camGoal.y - this.cam.y;
     if (Math.abs(dx) < 0.02 && Math.abs(dy) < 0.02) return false;
     this.cam = { x: this.cam.x + dx * k, y: this.cam.y + dy * k };
@@ -292,7 +305,12 @@ export class MapView {
       });
     }
     this.anim = next;
-    if (this.follow) this.camGoal = this.hotspot() || this.camGoal;
+    if (this.follow) {
+      // Only re-aim when the fight has really moved, so the camera doesn't jitter between skirmishes.
+      const spot = this.hotspot();
+      const goal = this.camGoal || this.cam;
+      if (spot && (!goal || Math.hypot(spot.x - goal.x, spot.y - goal.y) > 5)) this.camGoal = spot;
+    }
     this.dirty = true;
   }
 

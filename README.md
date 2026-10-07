@@ -39,7 +39,7 @@ guard towers, out-tech them, or scout their base and strike where they're weak.
 ## Zoom into the fight
 
 <p align="center">
-  <img src="docs/images/close-up.gif" width="560" alt="The camera follows the fighting up close: illustrated units (pickaxe workers, shield soldiers, arrow archers) with ids and health bars, beside barracks and guard towers drawn as crossed swords and battlements.">
+  <img src="docs/images/close-up.gif" width="640" alt="A close-up on the blue base at the end of the match: the orange army of archers and shield-bearing soldiers marches in and tears down the barracks, the lab and finally the keep.">
 </p>
 
 The live spectator page streams every match tick by tick. Scroll or pinch to zoom, and the map
