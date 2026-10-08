@@ -42,9 +42,9 @@ function mountHome(root) {
         <span class="go-badgers">Snow College · Est. 1888 · Go Badgers</span>
         <h1 class="headline">Bots command the badgers. You watch the <em>brawl</em>.</h1>
         <p class="lede">Badger Brawl is Snow College's tick-based strategy game, played entirely over a REST API.
-          Programs send diggers to collect Sunday eggs (the way Ephraim helped pay for the school in 1888),
-          put up Badger Stadium and the Graham Science Center, and march linebackers and quarterbacks across
-          the Sanpete Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.</p>
+          Programs send badger diggers after grubs, move into the Suites at Academy Square, study Organic
+          Chemistry and Code Review in the GRSC Makerspace, and march soldiers and archers across the Sanpete
+          Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.</p>
         <div class="hero-links">
           <a class="btn ghost" href="/scalar">Read the API docs</a>
           <a class="btn ghost" href="#write-a-bot">Train your badger</a>
@@ -109,7 +109,7 @@ Authorization: Bearer &lt;apiKey&gt;
 {"houseBots": ["sitter"]}</pre></li>
             <li><p>Long-poll your fog-of-war view, one tick at a time.</p>
               <pre class="snippet">GET /api/v1/matches/{id}/state?waitForTick=N</pre></li>
-            <li><p>Send orders: move, gather eggs, build, train, blitz.</p>
+            <li><p>Send orders: move, dig for grubs, build, train, attack.</p>
               <pre class="snippet">POST /api/v1/matches/{id}/commands</pre></li>
           </ol>
           <p class="small muted">Full schemas and every command are in the <a href="/scalar">API docs</a>.</p>

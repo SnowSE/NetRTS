@@ -1,18 +1,18 @@
-// Canvas renderer for a Badger Brawl match: the Sanpete Valley, henhouses, campus buildings, badgers, fog — with a zoomable camera.
+// Canvas renderer for a Badger Brawl match: the Sanpete Valley, grub patches, campus buildings, badgers, fog — with a zoomable camera.
 //
 // Level of detail follows the on-screen tile size (Te, in device pixels):
 //   Te <  9   plain shapes, no building letters
 //   Te >= 9   shapes + building letters
-//   Te >= 26  illustrated glyphs (claw marks, badger face, football, paw print; campus hall, stadium badger,
-//             co-op crate, science flask, residence hall), production / research bars, health bars on everything damaged
+//   Te >= 26  illustrated glyphs (claw marks, badger face, arrow, paw print; campus hall, dorm, co-op crate,
+//             makerspace flask, guard tower), production / research bars, health bars on everything damaged
 //   Te >= 56  labels: unit ids and building names
 import { playerColours, cssVar } from './util.js';
 import { buildingName } from './lore.js';
 
-// Letters at middle zoom: each HQ by its landmark (Noyes, Greenwood, Eccles, Library), then Badger Stadium,
-// Co-op Store, Science center and Residence hall (Snow Hall).
-const HQ_GLYPH = ['N', 'G', 'E', 'L'];
-const BUILDING_GLYPH = { Barracks: 'B', ResourceDepot: 'C', TechLab: 'S', GuardTower: 'R' };
+// Letters at middle zoom: HQs and housing by the first letter of their campus name, then Co-op Store,
+// Makerspace and guard Tower.
+const BUILDING_GLYPH = { ResourceDepot: 'C', TechLab: 'M', GuardTower: 'T' };
+const glyph = (b) => (b.type === 'CommandCenter' || b.type === 'Barracks' ? buildingName(b.type, b.owner)[0] : BUILDING_GLYPH[b.type]);
 const DETAIL = 26;
 const LABELS = 56;
 const MAX_TILE = 112; // largest on-screen tile, in device pixels
@@ -467,7 +467,7 @@ export class MapView {
       const size = T * (0.3 + 0.42 * frac);
       g.globalAlpha = 0.45 + 0.55 * frac;
       const cx = (r.x + 0.5) * T, cy = (r.y + 0.5) * T;
-      egg(g, cx, cy, size, this.theme.ore, T >= DETAIL);
+      grub(g, cx, cy, size, this.theme.ore, T >= DETAIL);
       if (T >= LABELS * 1.5) {
         g.globalAlpha = 0.9;
         this.label(g, `${r.remaining}`, cx, (r.y + 1) * T + 2, T);
@@ -495,7 +495,7 @@ export class MapView {
           g.font = `700 ${Math.round(T * 0.7)}px Bahnschrift, "Segoe UI", sans-serif`;
           g.textAlign = 'center';
           g.textBaseline = 'middle';
-          g.fillText((b.type === 'CommandCenter' ? HQ_GLYPH[b.owner % 4] : BUILDING_GLYPH[b.type]) || '?', x + w / 2, y + w / 2 + T * 0.04);
+          g.fillText(glyph(b) || '?', x + w / 2, y + w / 2 + T * 0.04);
         }
       } else {
         // Construction site: outline + hatch, fill rising with progress.
@@ -652,21 +652,26 @@ export function unitPath(g, type, cx, cy, r) {
   }
 }
 
-/** A Sunday egg: what everything costs. Ephraim sold its Sunday eggs to help build the school. */
-function egg(g, cx, cy, size, colour, detailed) {
-  const w = size * 0.36, h = size * 0.48;
+/** A curled grub: what diggers dig for. Detailed grubs get body segments. */
+function grub(g, cx, cy, size, colour, detailed) {
   g.save();
-  g.fillStyle = colour;
+  g.strokeStyle = colour;
+  g.lineCap = 'round';
+  g.lineWidth = Math.max(1.5, size * 0.3);
+  const rad = size * 0.3;
   g.beginPath();
-  g.moveTo(cx, cy - h);
-  g.bezierCurveTo(cx + w * 1.05, cy - h, cx + w * 1.15, cy + h * 0.95, cx, cy + h * 0.95);
-  g.bezierCurveTo(cx - w * 1.15, cy + h * 0.95, cx - w * 1.05, cy - h, cx, cy - h);
-  g.fill();
-  if (detailed) { // a shine on the shell
-    g.fillStyle = 'rgba(255, 255, 255, 0.45)';
-    g.beginPath();
-    g.ellipse(cx - w * 0.35, cy - h * 0.3, w * 0.18, h * 0.28, -0.4, 0, Math.PI * 2);
-    g.fill();
+  g.arc(cx, cy, rad, Math.PI * 0.15, Math.PI * 1.75);
+  g.stroke();
+  if (detailed) {
+    g.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    g.lineWidth = Math.max(1, size * 0.05);
+    for (let a = 0.45; a < 1.75; a += 0.32) {
+      const t = Math.PI * a;
+      g.beginPath();
+      g.moveTo(cx + Math.cos(t) * rad * 0.55, cy + Math.sin(t) * rad * 0.55);
+      g.lineTo(cx + Math.cos(t) * rad * 1.45, cy + Math.sin(t) * rad * 1.45);
+      g.stroke();
+    }
   }
   g.restore();
 }
@@ -714,30 +719,32 @@ function unitIcon(g, type, cx, cy, s, ink, accent) {
       }
       break;
     }
-    case 'Soldier': { // Linebacker: a badger, face on
+    case 'Soldier': { // a badger, face on
       badgerFace(g, s, ink, accent);
       break;
     }
-    case 'Archer': { // Quarterback: a football with its laces
-      g.save();
-      g.rotate(-Math.PI / 4);
+    case 'Archer': { // an arrow in flight
+      g.lineWidth = Math.max(1.4, s * 0.22);
       g.beginPath();
-      g.ellipse(0, 0, s * 0.95, s * 0.55, 0, 0, Math.PI * 2);
-      g.fill();
-      g.strokeStyle = accent;
-      g.lineWidth = Math.max(1, s * 0.1);
-      g.beginPath();
-      g.moveTo(-s * 0.38, 0);
-      g.lineTo(s * 0.38, 0);
-      for (const x of [-0.24, -0.08, 0.08, 0.24]) {
-        g.moveTo(s * x, -s * 0.14);
-        g.lineTo(s * x, s * 0.14);
-      }
+      g.moveTo(-s * 0.75, s * 0.75);
+      g.lineTo(s * 0.45, -s * 0.45);
       g.stroke();
-      g.restore();
+      g.beginPath(); // head
+      g.moveTo(s * 0.9, -s * 0.9);
+      g.lineTo(s * 0.12, -s * 0.62);
+      g.lineTo(s * 0.62, -s * 0.12);
+      g.closePath();
+      g.fill();
+      g.lineWidth = Math.max(1, s * 0.14); // fletching
+      g.beginPath();
+      g.moveTo(-s * 0.55, s * 0.55);
+      g.lineTo(-s * 0.85, s * 0.35);
+      g.moveTo(-s * 0.55, s * 0.55);
+      g.lineTo(-s * 0.35, s * 0.85);
+      g.stroke();
       break;
     }
-    case 'Scout': { // Wide Receiver: fast paws
+    case 'Scout': { // a paw print: scouts sniff out the enemy
       g.beginPath();
       g.ellipse(0, s * 0.3, s * 0.42, s * 0.34, 0, 0, Math.PI * 2);
       g.fill();
@@ -762,7 +769,7 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
   g.strokeStyle = ink;
   g.lineWidth = Math.max(1.2, s * 0.14);
   switch (type) {
-    case 'CommandCenter': { // HQ: a historic campus hall with a cupola and a Snow College pennant
+    case 'CommandCenter': { // HQ: a historic campus hall (the Noyes Building, for one) with a cupola and pennant
       g.fillRect(-s * 0.85, -s * 0.15, s * 1.7, s * 1.0);
       g.beginPath(); // pediment
       g.moveTo(-s * 0.95, -s * 0.1);
@@ -787,11 +794,16 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
       g.fill();
       break;
     }
-    case 'Barracks': { // Badger Stadium: where the team comes from
-      badgerFace(g, s * 0.95, ink, accent);
+    case 'Barracks': { // Housing: a dorm block with lit windows
+      g.fillRect(-s * 0.8, -s * 0.85, s * 1.6, s * 1.7);
+      g.fillStyle = accent;
+      for (const y of [-0.6, -0.15, 0.3]) {
+        for (const x of [-0.55, -0.12, 0.31]) g.fillRect(s * x, s * y, s * 0.24, s * 0.26);
+      }
+      g.fillRect(-s * 0.14, s * 0.62, s * 0.28, s * 0.23); // door
       break;
     }
-    case 'ResourceDepot': { // Co-op Store (where the first classes met): a crate of eggs
+    case 'ResourceDepot': { // Co-op Store (where the first classes met in 1888): a crate of grubs
       g.lineWidth = Math.max(1.2, s * 0.14);
       g.strokeRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.4);
       g.beginPath();
@@ -802,7 +814,7 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
       g.stroke();
       break;
     }
-    case 'TechLab': { // Graham Science Center: a flask
+    case 'TechLab': { // GRSC Makerspace: a flask
       g.beginPath();
       g.moveTo(-s * 0.22, -s * 0.9);
       g.lineTo(-s * 0.22, -s * 0.25);
@@ -820,34 +832,28 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
       g.fill();
       break;
     }
-    case 'GuardTower': { // Snow Hall: a brick residence hall; its RAs don't let anyone wander in
+    case 'GuardTower': { // tall tower with an arrow slit
       g.beginPath();
-      g.moveTo(-s * 0.85, s * 0.85);
-      g.lineTo(-s * 0.85, -s * 0.85);
-      g.lineTo(-s * 0.45, -s * 0.85);
-      g.lineTo(-s * 0.45, -s * 0.55);
-      g.lineTo(-s * 0.2, -s * 0.55);
-      g.lineTo(-s * 0.2, -s * 0.85);
-      g.lineTo(s * 0.2, -s * 0.85);
-      g.lineTo(s * 0.2, -s * 0.55);
-      g.lineTo(s * 0.45, -s * 0.55);
-      g.lineTo(s * 0.45, -s * 0.85);
-      g.lineTo(s * 0.85, -s * 0.85);
-      g.lineTo(s * 0.85, s * 0.85);
+      g.moveTo(-s * 0.45, s * 0.9);
+      g.lineTo(-s * 0.35, -s * 0.5);
+      g.lineTo(-s * 0.6, -s * 0.5);
+      g.lineTo(-s * 0.6, -s * 0.9);
+      g.lineTo(-s * 0.3, -s * 0.9);
+      g.lineTo(-s * 0.3, -s * 0.72);
+      g.lineTo(-s * 0.1, -s * 0.72);
+      g.lineTo(-s * 0.1, -s * 0.9);
+      g.lineTo(s * 0.1, -s * 0.9);
+      g.lineTo(s * 0.1, -s * 0.72);
+      g.lineTo(s * 0.3, -s * 0.72);
+      g.lineTo(s * 0.3, -s * 0.9);
+      g.lineTo(s * 0.6, -s * 0.9);
+      g.lineTo(s * 0.6, -s * 0.5);
+      g.lineTo(s * 0.35, -s * 0.5);
+      g.lineTo(s * 0.45, s * 0.9);
       g.closePath();
       g.fill();
-      g.strokeStyle = accent;
-      g.lineWidth = Math.max(1, s * 0.08);
-      g.beginPath();
-      for (const y of [-0.2, 0.2, 0.55]) {
-        g.moveTo(-s * 0.85, s * y);
-        g.lineTo(s * 0.85, s * y);
-      }
-      for (const [x, y0, y1] of [[0, -0.55, -0.2], [-0.4, -0.2, 0.2], [0.4, -0.2, 0.2], [0, 0.2, 0.55], [-0.45, 0.55, 0.85], [0.45, 0.55, 0.85]]) {
-        g.moveTo(s * x, s * y0);
-        g.lineTo(s * x, s * y1);
-      }
-      g.stroke();
+      g.fillStyle = accent;
+      g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
       break;
     }
   }

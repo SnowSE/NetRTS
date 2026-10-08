@@ -1,30 +1,43 @@
 // Badger Brawl vocabulary: what spectators read. The API keeps its own names (Worker, CommandCenter,
 // "rusher", ore) so bots never break; this file only changes how the Snow College site says them.
 //
-// Snow College (Ephraim, Utah) opened in 1888 as Sanpete Stake Academy, holding its first classes
-// above the Co-op Store, and was renamed for Lorenzo and Erastus Snow, not the weather. Ephraim
-// families sold their "Sunday eggs" to help pay for the school, so that's what everything costs here.
+// Snow College (Ephraim, Utah) opened in 1888 as Sanpete Stake Academy and was renamed for Lorenzo
+// and Erastus Snow, not the weather. Every team gets its own campus landmark and its own housing.
 
 export const GAME = 'Badger Brawl';
 
-export const UNIT_NAME = { Worker: 'Digger', Soldier: 'Linebacker', Archer: 'Quarterback', Scout: 'Wide Receiver' };
+export const UNIT_NAME = { Worker: 'Digger', Soldier: 'Soldier', Archer: 'Archer', Scout: 'Scout' };
 
-/** Every team's headquarters is a different landmark on the Ephraim campus, by player slot. */
-export const HQ_NAME = ['Noyes Building', 'Greenwood Student Center', 'Eccles Center', 'Huntsman Library'];
+/** Each team's headquarters is a different Snow College building, by player slot. */
+export const HQ_NAME = [
+  'Noyes Building', 'Greenwood Student Center', 'Eccles Center', 'Huntsman Library',
+  'Humanities Building', 'Social Science Building', 'Business Building', 'Health Science Center',
+  'Horne Activity Center', 'Bergeson Athletic Center', 'Badger Stadium', 'Lucy Phillips Building',
+  'Career Center', 'Planetarium', 'Sevier Valley Center', 'Richfield Administration Building',
+];
+
+/** Each team trains its army out of different student housing, by player slot: on campus first, then Ephraim apartments. */
+export const HOUSING_NAME = [
+  'Suites at Academy Square', 'Anderson Hall', 'Mary Nielson Hall', 'Snow Hall',
+  'Nuttall Hall', 'Castilleja Hall', 'Summit Valley Apartments', 'Badger Studios',
+  'Nordic Point', 'Snow Garden', 'Pinetree Condominiums', 'Acorn & Oaktree',
+  'Badger House', 'Badger Loft', 'The Up House', 'Alpine Canyon Apartments',
+];
 
 export const BUILDING_NAME = {
   CommandCenter: 'HQ',
-  Barracks: 'Badger Stadium',
+  Barracks: 'Housing',
   ResourceDepot: 'Co-op Store',
-  TechLab: 'Graham Science Center',
-  GuardTower: 'Snow Hall',
+  TechLab: 'GRSC Makerspace',
+  GuardTower: 'Guard Tower',
 };
 
+/** Upgrades are coursework: tier 1 is the intro class, tier 2 the upper-division one. */
 export const UPGRADE_NAME = {
-  Weapons1: 'Strength & Conditioning I', Weapons2: 'Strength & Conditioning II',
-  Armor1: 'Thicker Fur I', Armor2: 'Thicker Fur II',
-  Mobility1: 'Track & Field I', Mobility2: 'Track & Field II',
-  Harvesting1: 'Ag Science I', Harvesting2: 'Ag Science II',
+  Weapons1: 'Intro to Chemistry', Weapons2: 'Organic Chemistry',
+  Armor1: 'Unit Testing', Armor2: 'Code Review',
+  Mobility1: 'Algorithms', Mobility2: 'Parallel Computing',
+  Harvesting1: 'Intro to Biology', Harvesting2: 'Entomology',
 };
 
 /** House bots keep their API names; these are their mascot-league nicknames. */
@@ -32,18 +45,23 @@ export const BOT_NICKNAME = {
   sitter: 'Sleepy Sitter',
   rusher: 'Honey Badger',
   balanced: 'Blue Badger',
-  economist: 'Egg Hoarder',
+  economist: 'Grub Hoarder',
 };
 
-/** The resource: ore in the API, Sunday eggs on the field. */
-export const ORE = 'eggs';
+/** The resource: ore in the API, grubs on the field. Badgers dig for them. */
+export const ORE = 'grubs';
+
+const bySlot = (list, slot) => list[((slot % list.length) + list.length) % list.length];
 
 export const unitName = (t) => UNIT_NAME[t] ?? t;
 export const upgradeName = (t) => UPGRADE_NAME[t] ?? t;
+export const hqName = (slot) => bySlot(HQ_NAME, slot);
+export const housingName = (slot) => bySlot(HOUSING_NAME, slot);
 
-/** A building's field name; a team's HQ is named for its campus landmark when the owner slot is known. */
+/** A building's field name; HQs and housing are named per team when the owner slot is known. */
 export function buildingName(type, owner) {
-  if (type === 'CommandCenter' && owner != null) return HQ_NAME[((owner % 4) + 4) % 4];
+  if (owner != null && type === 'CommandCenter') return hqName(owner);
+  if (owner != null && type === 'Barracks') return housingName(owner);
   return BUILDING_NAME[type] ?? type;
 }
 
@@ -52,9 +70,9 @@ export function badgerize(text) {
   return String(text ?? '')
     .replace(/\bhouse-(\w+)/g, (m, bot) => BOT_NICKNAME[bot] ?? m)
     .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower)\b/g, (m) => BUILDING_NAME[m])
-    .replace(/\b(Worker|Soldier|Archer|Scout)\b/g, (m) => UNIT_NAME[m])
+    .replace(/\bWorker\b/g, UNIT_NAME.Worker)
     .replace(/\b((?:Weapons|Armor|Mobility|Harvesting)[12])\b/g, (m) => UPGRADE_NAME[m])
-    .replace(/\bDeposit\b/g, 'Henhouse')
-    .replace(/\bKilled enemy\b/g, 'Sacked enemy')
+    .replace(/\bDeposit\b/g, 'Grub patch')
+    .replace(/\bKilled enemy\b/g, 'Bowled over enemy')
     .replace(/\bDestroyed enemy\b/g, 'Flattened enemy');
 }

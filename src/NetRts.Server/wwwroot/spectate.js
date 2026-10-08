@@ -1,6 +1,6 @@
 // Spectate view: #/match/{id}
 import { api, html, setHtml, esc, slotVar, displayName, fmt, outcomeText } from './util.js';
-import { GAME, ORE, unitName, buildingName, upgradeName, badgerize } from './lore.js';
+import { GAME, ORE, unitName, buildingName, upgradeName, badgerize, hqName, housingName } from './lore.js';
 import { MapView, unitPath } from './mapview.js';
 
 const HOT = /Lost|Destroyed|Killed|Eliminated|Failed/;
@@ -34,7 +34,7 @@ export function mountSpectate(root, matchId) {
             <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
             <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
             <button type="button" id="zoom-fit" title="Show the whole map (0)">Fit</button>
-            <button type="button" id="follow" aria-pressed="false" title="Keep the camera on the biggest pile-up (F)">Follow the brawl</button>
+            <button type="button" id="follow" aria-pressed="false" title="Keep the camera on the biggest fight (F)">Follow the brawl</button>
             <span class="zoom-level" id="zoom-level" aria-live="polite">1×</span>
           </div>
           <div class="tooltip" id="tooltip" role="status" hidden></div>
@@ -117,7 +117,7 @@ export function mountSpectate(root, matchId) {
         ${u.destination ? html`<br>Heading to ${u.destination.x}, ${u.destination.y}` : ''}</div>`);
     }
     for (const r of info.resources) {
-      items.push(html`<div class="tt-item"><b>Henhouse</b> #${r.id}<br>${fmt(r.remaining)} Sunday ${ORE} left</div>`);
+      items.push(html`<div class="tt-item"><b>Grub patch</b> #${r.id}<br>${fmt(r.remaining)} ${ORE} left</div>`);
     }
     const fog = info.visible === false ? html`, hidden from ${who.get(view.vision)}` : '';
     setHtml(tooltip, html`<div class="tt-coord">${tile.x}, ${tile.y}: ${info.terrain === 'Rock' ? 'Wasatch Plateau rock' : 'Sanpete Valley'}${fog}</div>${items}`);
@@ -287,11 +287,11 @@ export function mountSpectate(root, matchId) {
       <article class="player ${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}" aria-label="${displayName(p.name)}">
         <div class="player-top">
           <h3>${displayName(p.name)}${p.eliminated ? html`<span class="badge dead">Hibernating</span>` : ''}${won ? html`<span class="badge won">Top Badger</span>` : ''}</h3>
-          ${typeof p.resources === 'number' ? html`<span class="ore-count" title="Sunday eggs in the basket">${fmt(p.resources)} ${ORE}</span>` : ''}
+          ${typeof p.resources === 'number' ? html`<span class="ore-count" title="Grubs in the larder">${fmt(p.resources)} ${ORE}</span>` : ''}
         </div>
-        <p class="counts">Home base: ${buildingName('CommandCenter', p.slot)}</p>
-        ${typeof p.unitCount === 'number' ? html`<p class="counts">${p.unitCount} badger${p.unitCount === 1 ? "" : "s"}, ${p.buildingCount} building${p.buildingCount === 1 ? "" : "s"}${typeof p.incomePerMinute === 'number' ? html` · <span title="Eggs banked in the last 60 ticks (one minute at normal speed)">${fmt(p.incomePerMinute)} ${ORE}/min</span>` : ''}</p>` : ''}
-        ${r ? html`<p class="counts">${r.unitsProduced} badgers trained, ${r.unitsLost} lost, ${r.unitsKilled} sacked, ${r.buildingsDestroyed} buildings flattened, ${r.buildingsLost} lost</p>` : ''}
+        <p class="counts">Home: ${hqName(p.slot)} · Lives in ${housingName(p.slot)}</p>
+        ${typeof p.unitCount === 'number' ? html`<p class="counts">${p.unitCount} badger${p.unitCount === 1 ? "" : "s"}, ${p.buildingCount} building${p.buildingCount === 1 ? "" : "s"}${typeof p.incomePerMinute === 'number' ? html` · <span title="Grubs banked in the last 60 ticks (one minute at normal speed)">${fmt(p.incomePerMinute)} ${ORE}/min</span>` : ''}</p>` : ''}
+        ${r ? html`<p class="counts">${r.unitsProduced} badgers trained, ${r.unitsLost} lost, ${r.unitsKilled} bowled over, ${r.buildingsDestroyed} buildings flattened, ${r.buildingsLost} lost</p>` : ''}
         ${p.pending ? html`<p class="counts">Waiting for the opening whistle</p>` : ''}
         ${score ? html`<dl class="stats">
           <div><dt>Destruction</dt><dd>${fmt(score.destruction)}</dd></div>
@@ -315,7 +315,7 @@ export function mountSpectate(root, matchId) {
     }
     if (!added) {
       if (!events.length) {
-        setHtml($('feed'), html`<li class="muted"><span></span><span>No tackles, buildings or classes yet.</span></li>`);
+        setHtml($('feed'), html`<li class="muted"><span></span><span>No fights, buildings or classes yet.</span></li>`);
       }
       return;
     }
@@ -514,7 +514,7 @@ function legendItems() {
     [unitName('Scout'), shape('Scout')],
     ['Building', '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12"/></svg>'],
     ['Under construction', '<svg viewBox="0 0 14 14" aria-hidden="true"><rect class="hollow" x="1.5" y="1.5" width="11" height="11"/><path class="hollow" d="M1.5 9.5l8-8M4.5 12.5l8-8"/></svg>'],
-    ['Sunday eggs', '<svg viewBox="0 0 14 14" aria-hidden="true"><path class="egg" d="M7 1.5C9.6 1.5 11.5 5.6 11.5 8.3S9.5 12.8 7 12.8 2.5 11 2.5 8.3 4.4 1.5 7 1.5z"/></svg>'],
+    ['Grubs', '<svg viewBox="0 0 14 14" aria-hidden="true"><path class="grub" d="M10.5 3.4A5 5 0 1 0 12 7"/></svg>'],
   ];
   return { __html: items.map(([label, svg]) => `<li>${svg}${esc(label)}</li>`).join('') };
 }

@@ -26,7 +26,7 @@
   --terrain-grid: rgba(15, 29, 46, 0.06);
   --terrain-rock: #7d7568;  /* Wasatch Plateau sandstone */
   --terrain-rock-hi: #9a9283;
-  --ore: #a8693a;         /* Sunday eggs: brown-shelled */
+  --ore: #b7791f;         /* grub patches: dug-up earth */
   --fog: rgba(238, 243, 248, 0.78);
   --outline: #0f1d2e;
   --glyph: #ffffff;
@@ -63,7 +63,7 @@
     --terrain-grid: rgba(230, 238, 247, 0.045);
     --terrain-rock: #4e4940;
     --terrain-rock-hi: #645e53;
-    --ore: #e0a878;
+    --ore: #f0b860;
     --fog: rgba(8, 14, 22, 0.62);
     --outline: #070d15;
     --glyph: #070d15;
@@ -97,7 +97,7 @@
   --terrain-grid: rgba(230, 238, 247, 0.045);
   --terrain-rock: #4e4940;
   --terrain-rock-hi: #645e53;
-  --ore: #e0a878;
+  --ore: #f0b860;
   --fog: rgba(8, 14, 22, 0.62);
   --outline: #070d15;
   --glyph: #070d15;
@@ -575,7 +575,7 @@ pre.snippet {
 .legend svg { width: 14px; height: 14px; }
 .legend svg * { fill: var(--ink); stroke: var(--ink); }
 .legend svg .hollow { fill: none; stroke-width: 1.5; }
-.legend svg .egg { fill: var(--ore); stroke: none; }
+.legend svg .grub { fill: none; stroke: var(--ore); stroke-width: 3; stroke-linecap: round; }
 
 .banner {
   border: 2px solid var(--ink);
