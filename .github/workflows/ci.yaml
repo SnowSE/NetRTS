@@ -51,7 +51,7 @@ jobs:
       run: >
         dotnet publish src/NetRts.Server --configuration Release -t:PublishContainer
         -p:ContainerRegistry=docker.io
-        -p:ContainerRepository=${{ secrets.DOCKERHUB_USERNAME }}/netrts-server
+        -p:ContainerRepository=snowcollege/netrts
       env:
         ContainerImageTags: latest;sha-${{ github.sha }}
 
