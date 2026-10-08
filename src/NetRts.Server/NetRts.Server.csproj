@@ -3,7 +3,14 @@
   <PropertyGroup>
     <Description>NetRts game server: REST API for bots, live spectator stream, persistence and ratings.</Description>
     <UserSecretsId>netrts-server</UserSecretsId>
+    <!-- dotnet publish -t:PublishContainer; CI pushes it to Docker Hub -->
+    <ContainerRepository>netrts-server</ContainerRepository>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The image runs as the non-root 'app' user, which can't write to /app; mount /home/app to keep the database -->
+    <ContainerEnvironmentVariable Include="ConnectionStrings__sqlite" Value="Data Source=/home/app/netrts.db" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.12" />
