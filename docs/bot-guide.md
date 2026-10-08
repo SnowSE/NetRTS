@@ -1,6 +1,6 @@
-# Writing a NetRts bot
+# Writing a Badger Brawl bot
 
-A NetRts bot is any program that can make HTTP requests. Each tick (1 second by default) the
+A Badger Brawl bot is any program that can make HTTP requests. Each tick (1 second by default) the
 server simulates the world; between ticks your bot reads what it can see and queues orders.
 This guide covers everything a bot needs; live, typed API docs with a playground are at **`/scalar`**, and every
 balance number is served by **`GET /api/v1/rules`**.
@@ -14,6 +14,28 @@ balance number is served by **`GET /api/v1/rules`**.
 - [Scoring and victory](#scoring-and-victory)
 - [Errors](#errors)
 - [Reference bots](#reference-bots)
+- [Badger field guide](#badger-field-guide)
+
+## Badger field guide
+
+The spectator site tells the story in badger. The API speaks plain RTS, so the names your bot sends
+and reads never change. When the play-by-play says your Snowballer was bowled over at the Snow Fort,
+your bot saw an `Archer` die next to a `GuardTower`.
+
+| On the field | In the API | |
+|---|---|---|
+| Digger | `Worker` | Digs grubs, builds burrows |
+| Brawler | `Soldier` | Front-line claws |
+| Snowballer | `Archer` | Ranged: four tiles of snowball |
+| Sniffer | `Scout` | Fast, and sees furthest |
+| Sett | `CommandCenter` | Home burrow. Lose your last one and you're out |
+| Den | `Barracks` | Trains Brawlers, Snowballers and Sniffers |
+| Larder | `ResourceDepot` | Closer drop-off for grubs, more storage |
+| Lecture Hall | `TechLab` | Where badgers study for upgrades |
+| Snow Fort | `GuardTower` | Throws snowballs at anyone close |
+| Grubs | ore (`resources`, `Gather`) | What everything costs |
+| Sharper Claws / Thicker Fur / Snowshoes / Digging Degree | `Weapons` / `Armor` / `Mobility` / `Harvesting` | Upgrades, tiers 1 and 2 |
+| Sleepy Sitter, Honey Badger, Blue Badger, Grub Hoarder | `sitter`, `rusher`, `balanced`, `economist` | House badgers |
 
 ## The loop
 

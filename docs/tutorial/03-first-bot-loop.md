@@ -148,7 +148,7 @@ def wait_for_start(match_id):
 
 ## The loop
 
-This is the heart of every NetRts bot:
+This is the heart of every Badger Brawl bot:
 
 ```csharp
 async Task Play(string matchId)

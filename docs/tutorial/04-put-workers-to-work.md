@@ -2,7 +2,7 @@
 
 [← Previous: Your first bot](03-first-bot-loop.md) · [Tutorial index](README.md) · [Next: Build and train →](05-build-and-train.md)
 
-Everything in NetRts costs ore: workers, soldiers, buildings. So a bot's first job is an
+Everything in Badger Brawl costs ore: workers, soldiers, buildings. So a bot's first job is an
 **economy**: keep every worker mining, and make more workers. Full code:
 [`code/step2_economy.cs`](code/step2_economy.cs) or [`code/step2_economy.py`](code/step2_economy.py).
 

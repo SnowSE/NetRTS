@@ -7,7 +7,7 @@ fight. That way you'll know what your own bot is aiming for.
 
 ## Run the server
 
-From the root of the NetRts repository:
+From the root of the Badger Brawl repository:
 
 ```bash
 dotnet run --project src/NetRts.Server
@@ -22,7 +22,7 @@ Now listening on: http://localhost:5080
 the server is up. Leave this terminal running and open a second one for the rest of the
 tutorial. (Stop the server with Ctrl+C when you're done for the day.)
 
-> **Why a server?** In NetRts the game lives on the server. It runs the world one *tick* at a
+> **Why a server?** In Badger Brawl the game lives on the server. It runs the world one *tick* at a
 > time (one second per tick by default). Bots are separate programs that ask the server what
 > they can see and send it orders. Your bot can be written in any language, run on any machine,
 > and crash without breaking the game.
@@ -31,7 +31,7 @@ tutorial. (Stop the server with Ctrl+C when you're done for the day.)
 
 Open <http://localhost:5080> in your browser (`dotnet run` may already have opened it for you).
 
-![The NetRts home page: a "Start an exhibition" form on the right, live matches, recent results and the leaderboard below](images/01-home.png)
+![The Badger Brawl home page: a "Start an exhibition" form on the right, live matches, recent results and the leaderboard below](images/01-home.png)
 
 - **Start an exhibition** pits two house bots against each other so you can watch.
 - **Live matches** and **Recent results** list every game on this server, including the ones

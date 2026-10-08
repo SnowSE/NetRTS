@@ -1,6 +1,6 @@
-# NetRts — Getting Started
+# Badger Brawl — Getting Started 🦡
 
-**NetRts is a real-time strategy game you don't play with a mouse.** You write a program — a
+**Badger Brawl is Snow College's real-time strategy game, and you don't play it with a mouse.** You write a program — a
 *bot* — that commands an army over HTTP. Every second the game advances one *tick*; between ticks
 your bot looks at what its units can see and sends orders. Destroy the enemy's Command Center, or
 have the higher score when time runs out, and you win.

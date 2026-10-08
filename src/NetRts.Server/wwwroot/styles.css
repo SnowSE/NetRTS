@@ -1,33 +1,36 @@
-/* NetRts spectator console.
+/* Badger Brawl spectator console: Snow College blue and white, fresh snow underfoot.
    One family (Bahnschrift / DIN-style system faces), widths and weights do the work.
-   The map is the loud element; everything else stays quiet. */
+   The map is the loud element; everything else stays quiet (except the badgers). */
 
 :root {
-  --bg: #e6ebe9;          /* survey paper */
-  --panel: #f5f7f6;
-  --panel-2: #dde4e2;
-  --ink: #15222a;
-  --muted: #4c5d66;
-  --line: #b8c4c3;
-  --focus: #0b6fa4;
+  --bg: #eef3f8;          /* fresh snow */
+  --panel: #f9fbfd;
+  --panel-2: #e1e9f1;
+  --ink: #0f1d2e;
+  --muted: #4a5a6c;
+  --line: #bccada;
+  --focus: #0055a5;
   --signal: #8a5a00;      /* live / call-to-action text */
   --signal-bg: #f2c14e;
   --danger: #a3261a;
   --ok: #0f6b4f;
+  --brand: #00447c;       /* Snow College blue */
+  --brand-hi: #00447c;
 
-  --p0: #b86e00;          /* Okabe-Ito, darkened for paper */
+  --p0: #b86e00;          /* Okabe-Ito, darkened for snow */
   --p1: #0072b2;
   --p2: #007a5a;
   --p3: #b0478a;
 
-  --terrain-open: #d7dfdc;
-  --terrain-grid: rgba(21, 34, 42, 0.06);
-  --terrain-rock: #6c7a7b;
-  --terrain-rock-hi: #889596;
-  --ore: #c99a10;
-  --fog: rgba(230, 235, 233, 0.78);
-  --outline: #15222a;
+  --terrain-open: #e3eaf1;  /* snowfield */
+  --terrain-grid: rgba(15, 29, 46, 0.06);
+  --terrain-rock: #6b7787;
+  --terrain-rock-hi: #8c97a6;
+  --ore: #b7791f;         /* grub patches: dug-up earth */
+  --fog: rgba(238, 243, 248, 0.78);
+  --outline: #0f1d2e;
   --glyph: #ffffff;
+  --snow: rgba(0, 68, 124, 0.18);
 
   --font: "Bahnschrift", "DIN Alternate", "DIN Next", "Barlow", "Roboto Condensed", "Segoe UI", system-ui, sans-serif;
   --radius-s: 2px;
@@ -37,62 +40,68 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    --bg: #141c21;
-    --panel: #1b252b;
-    --panel-2: #222e35;
-    --ink: #e2e9e8;
-    --muted: #93a3a8;
-    --line: #34444c;
-    --focus: #7cc7f0;
+    --bg: #0d1724;          /* a clear night over Ephraim */
+    --panel: #142235;
+    --panel-2: #1b2c42;
+    --ink: #e6eef7;
+    --muted: #93a5ba;
+    --line: #2c3f57;
+    --focus: #7cc0ff;
     --signal: #f2c14e;
     --signal-bg: #f2c14e;
     --danger: #ff8a7a;
     --ok: #5fd3a8;
+    --brand: #0a3a6b;
+    --brand-hi: #7cc0ff;
 
     --p0: #e69f00;
     --p1: #56b4e9;
     --p2: #2fc497;
     --p3: #e68fc3;
 
-    --terrain-open: #1f2a30;
-    --terrain-grid: rgba(226, 233, 232, 0.04);
-    --terrain-rock: #48555b;
-    --terrain-rock-hi: #5b686e;
-    --ore: #f2c14e;
-    --fog: rgba(12, 17, 20, 0.62);
-    --outline: #0a0f12;
-    --glyph: #0a0f12;
+    --terrain-open: #18263a;  /* moonlit snowfield */
+    --terrain-grid: rgba(230, 238, 247, 0.045);
+    --terrain-rock: #46546a;
+    --terrain-rock-hi: #5a6880;
+    --ore: #f0b860;
+    --fog: rgba(8, 14, 22, 0.62);
+    --outline: #070d15;
+    --glyph: #070d15;
+    --snow: rgba(255, 255, 255, 0.55);
     color-scheme: dark;
   }
 }
 
 /* Same palette when the reader picks Dark explicitly. */
 :root[data-theme="dark"] {
-  --bg: #141c21;
-  --panel: #1b252b;
-  --panel-2: #222e35;
-  --ink: #e2e9e8;
-  --muted: #93a3a8;
-  --line: #34444c;
-  --focus: #7cc7f0;
+  --bg: #0d1724;          /* a clear night over Ephraim */
+  --panel: #142235;
+  --panel-2: #1b2c42;
+  --ink: #e6eef7;
+  --muted: #93a5ba;
+  --line: #2c3f57;
+  --focus: #7cc0ff;
   --signal: #f2c14e;
   --signal-bg: #f2c14e;
   --danger: #ff8a7a;
   --ok: #5fd3a8;
+  --brand: #0a3a6b;
+  --brand-hi: #7cc0ff;
 
   --p0: #e69f00;
   --p1: #56b4e9;
   --p2: #2fc497;
   --p3: #e68fc3;
 
-  --terrain-open: #1f2a30;
-  --terrain-grid: rgba(226, 233, 232, 0.04);
-  --terrain-rock: #48555b;
-  --terrain-rock-hi: #5b686e;
-  --ore: #f2c14e;
-  --fog: rgba(12, 17, 20, 0.62);
-  --outline: #0a0f12;
-  --glyph: #0a0f12;
+  --terrain-open: #18263a;  /* moonlit snowfield */
+  --terrain-grid: rgba(230, 238, 247, 0.045);
+  --terrain-rock: #46546a;
+  --terrain-rock-hi: #5a6880;
+  --ore: #f0b860;
+  --fog: rgba(8, 14, 22, 0.62);
+  --outline: #070d15;
+  --glyph: #070d15;
+  --snow: rgba(255, 255, 255, 0.55);
   color-scheme: dark;
 }
 
@@ -148,7 +157,10 @@ a:hover { text-decoration-thickness: 2px; }
   justify-content: space-between;
   gap: 16px;
   padding: 10px clamp(16px, 3vw, 32px);
-  border-bottom: 1px solid var(--line);
+  background: var(--brand);
+  color: #fff;
+  border-bottom: 3px solid #fff;
+  box-shadow: 0 1px 0 var(--line);
 }
 
 .brand {
@@ -160,14 +172,17 @@ a:hover { text-decoration-thickness: 2px; }
   font-size: 1.15rem;
   letter-spacing: 0.01em;
 }
-.brand-mark { width: 24px; height: 24px; }
-.bm-a { fill: var(--p0); }
-.bm-b { fill: var(--p1); }
-.bm-line { stroke: var(--ink); stroke-width: 1.5; fill: none; }
+.brand-mark { width: 30px; height: 30px; }
+.bm-ear { fill: #c9d3de; }
+.bm-face { fill: #fff; stroke: #0f1d2e; stroke-width: 1; stroke-linejoin: round; }
+.bm-stripe, .bm-nose { fill: #0f1d2e; }
+.brand small { display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; }
+.brand span { line-height: 1.05; }
 
-.topbar nav { display: flex; gap: 20px; }
-.topbar nav a { text-decoration: none; color: var(--muted); }
-.topbar nav a:hover, .topbar nav a[aria-current="page"] { color: var(--ink); text-decoration: underline; }
+.topbar nav { display: flex; gap: 20px; align-items: center; }
+.topbar nav a { text-decoration: none; color: rgba(255, 255, 255, 0.82); }
+.topbar nav a:hover, .topbar nav a[aria-current="page"] { color: #fff; text-decoration: underline; }
+.topbar :focus-visible { outline-color: #fff; }
 
 main {
   flex: 1;
@@ -232,10 +247,10 @@ button, select, input { font: inherit; color: inherit; }
   gap: 8px;
   min-height: 44px;
   padding: 8px 18px;
-  border: 1px solid var(--ink);
+  border: 1px solid var(--brand);
   border-radius: var(--radius-s);
-  background: var(--ink);
-  color: var(--bg);
+  background: var(--brand);
+  color: #fff;
   font-weight: 600;
   cursor: pointer;
 }
@@ -295,6 +310,8 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 /* ---------- home ---------- */
 
 .hero {
+  position: relative;
+  isolation: isolate;
   display: grid;
   grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr);
   gap: clamp(24px, 4vw, 56px);
@@ -303,12 +320,44 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   border-bottom: 1px solid var(--line);
 }
 
+/* A light flurry behind the hero. Snow College gets real snow; the page gets this. */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: -16px 0 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(circle, var(--snow) 1.5px, transparent 2px),
+    radial-gradient(circle, var(--snow) 1px, transparent 1.5px);
+  background-size: 90px 90px, 53px 53px;
+  background-position: 0 0, 20px 30px;
+  animation: flurry 18s linear infinite;
+  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+}
+@keyframes flurry {
+  to { background-position: 30px 360px, 60px 330px; }
+}
+.headline em { font-style: normal; color: var(--brand-hi); }
+.go-badgers {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  background: var(--brand);
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
 .hero-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 
 .launch {
   background: var(--panel);
   border: 1px solid var(--line);
-  border-top: 4px solid var(--ink);
+  border-top: 4px solid var(--brand-hi);
   padding: 20px;
   display: grid;
   gap: 16px;
@@ -530,7 +579,7 @@ pre.snippet {
 .legend svg { width: 14px; height: 14px; }
 .legend svg * { fill: var(--ink); stroke: var(--ink); }
 .legend svg .hollow { fill: none; stroke-width: 1.5; }
-.legend svg .ore { fill: var(--ore); stroke: none; }
+.legend svg .grub { fill: none; stroke: var(--ore); stroke-width: 3; stroke-linecap: round; }
 
 .banner {
   border: 2px solid var(--ink);
@@ -631,11 +680,11 @@ pre.snippet {
 /* Theme toggle in the top bar */
 .theme-toggle {
   display: inline-flex; align-items: center; gap: 6px;
-  font: inherit; font-size: 0.9rem; color: var(--muted);
-  background: none; border: 1px solid var(--line); border-radius: var(--radius-m);
+  font: inherit; font-size: 0.9rem; color: rgba(255, 255, 255, 0.82);
+  background: none; border: 1px solid rgba(255, 255, 255, 0.45); border-radius: var(--radius-m);
   padding: 4px 10px; cursor: pointer;
 }
-.theme-toggle:hover { color: var(--ink); border-color: var(--muted); }
+.theme-toggle:hover { color: #fff; border-color: #fff; }
 .theme-toggle svg { width: 16px; height: 16px; }
 
 /* Map zoom controls */

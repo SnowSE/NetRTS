@@ -1,7 +1,7 @@
-# How NetRts Works — a guided tour of the back end
+# How Badger Brawl Works — a guided tour of the back end
 
-This guide explains the server behind NetRts for teaching: each section introduces a general
-idea, shows how NetRts applies it, points at the code, and ends with questions and exercises.
+This guide explains the server behind Badger Brawl for teaching: each section introduces a general
+idea, shows how Badger Brawl applies it, points at the code, and ends with questions and exercises.
 It assumes you can read C#; you don't need to know ASP.NET Core beforehand.
 
 **Contents**
@@ -80,9 +80,9 @@ called **determinism**, and it buys a lot:
 - **Bugs reproduce.** A crash report plus a replay recreates the exact situation.
 - **Fairness can be checked.** Anyone can re-run a tournament match and confirm the result.
 
-Determinism is easy to lose by accident. NetRts avoids these traps:
+Determinism is easy to lose by accident. Badger Brawl avoids these traps:
 
-| Trap | Why it breaks determinism | What NetRts does |
+| Trap | Why it breaks determinism | What Badger Brawl does |
 |---|---|---|
 | `System.Random` | Its algorithm may change between .NET versions. | Its own SplitMix64 generator (`Engine/Rng.cs`). |
 | Reading the clock | Wall time differs every run. | The engine only knows the tick number. |
@@ -98,7 +98,7 @@ replays it, and compares `StateHash()` of both runs.
 
 ## 3. The game loop: one tick
 
-Real-time games split time into discrete steps. NetRts uses a **fixed timestep** of one tick per
+Real-time games split time into discrete steps. Badger Brawl uses a **fixed timestep** of one tick per
 second by default, and `GameSimulation.Step()` (`Engine/GameSimulation.Tick.cs`) performs one:
 
 ```mermaid
@@ -203,7 +203,7 @@ Subtler leaks are blocked too:
 ## 7. Simultaneous combat
 
 If attacks were applied one at a time, the unit processed first would get a free hit — a hidden
-advantage determined by id numbers. NetRts resolves combat in two phases:
+advantage determined by id numbers. Badger Brawl resolves combat in two phases:
 
 1. **Decide:** every unit and tower that can attack adds an `Attack(attacker, target, damage)` to
    a list. Nobody's HP changes yet.
@@ -256,7 +256,7 @@ load.
 ## 10. Long polling and server-sent events
 
 A bot needs to know when a new tick happens. It could poll every 50 ms, but that wastes requests
-and still adds latency. NetRts offers two **push-style** techniques over plain HTTP.
+and still adds latency. Badger Brawl offers two **push-style** techniques over plain HTTP.
 
 **Long polling** — `GET /state?waitForTick=N`. The server doesn't answer until tick N exists (or a
 timeout passes). Inside `MatchHost`:
@@ -285,7 +285,7 @@ a fresh `TaskCompletionSource` and completes the old one.
 
 ## 11. Authentication with API keys
 
-Bots are long-running programs, not people at a login form, so NetRts uses **API keys**:
+Bots are long-running programs, not people at a login form, so Badger Brawl uses **API keys**:
 
 - `POST /players` generates 32 random bytes (`RandomNumberGenerator`) → `nrts_…`, returns it
   **once**, and stores only its **SHA-256 hash**. A stolen database doesn't reveal usable keys.
@@ -358,7 +358,7 @@ fog-of-war view), and every server test that uses one also exercises the real co
 
 ## 15. Testing a game
 
-Games have a reputation for being hard to test. Determinism makes NetRts easy to test:
+Games have a reputation for being hard to test. Determinism makes Badger Brawl easy to test:
 
 - **Scenario tests** (`tests/NetRts.Engine.Tests`): `GameSimulation.Testing.cs` exposes internal
   hooks to place units, set HP or grant upgrades. A test can stage "a soldier next to a worker with

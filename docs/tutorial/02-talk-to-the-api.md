@@ -210,7 +210,7 @@ Then `GET /api/v1/matches/$MATCH/result` shows who won and the score breakdown.
 Everything above, and more, is in the interactive API reference at <http://localhost:5080/scalar>
 (the **API docs** link on the home page; the old `/swagger` address takes you there too):
 
-![The NetRts API reference page. The left sidebar lists the endpoints (start an exhibition, create a match, join, leave, map, state, commands and more), each marked GET, POST or DELETE. On the right are a Server box showing http://localhost:5080, an Authentication box with a Bearer Token field, and Client Libraries tabs for Shell, Ruby, Node.js, PHP and Python.](images/02-api-reference.png)
+![The Badger Brawl API reference page. The left sidebar lists the endpoints (start an exhibition, create a match, join, leave, map, state, commands and more), each marked GET, POST or DELETE. On the right are a Server box showing http://localhost:5080, an Authentication box with a Bearer Token field, and Client Libraries tabs for Shell, Ruby, Node.js, PHP and Python.](images/02-api-reference.png)
 
 What you can do there:
 

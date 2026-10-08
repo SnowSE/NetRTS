@@ -1,15 +1,15 @@
-// Canvas renderer for a NetRts match: terrain, ore, buildings, units, fog — with a zoomable camera.
+// Canvas renderer for a Badger Brawl match: snowfield, grub patches, burrows, badgers, fog — with a zoomable camera.
 //
 // Level of detail follows the on-screen tile size (Te, in device pixels):
 //   Te <  9   plain shapes, no building letters
 //   Te >= 9   shapes + building letters
-//   Te >= 26  illustrated glyphs (pickaxe, sword & shield, bow, eye; keep, crossed swords, crate,
-//             flask, tower), production / research bars, health bars on everything damaged
+//   Te >= 26  illustrated glyphs (claw marks, badger face, snowball, paw print; sett, den, larder,
+//             mortarboard, snow fort), production / research bars, health bars on everything damaged
 //   Te >= 56  labels: unit ids and building names
 import { playerColours, cssVar } from './util.js';
+import { BUILDING_NAME } from './lore.js';
 
-const BUILDING_GLYPH = { CommandCenter: 'C', Barracks: 'B', ResourceDepot: 'D', TechLab: 'T', GuardTower: 'G' };
-const BUILDING_NAME = { CommandCenter: 'Command Center', Barracks: 'Barracks', ResourceDepot: 'Depot', TechLab: 'TechLab', GuardTower: 'Tower' };
+const BUILDING_GLYPH = { CommandCenter: 'S', Barracks: 'D', ResourceDepot: 'L', TechLab: 'H', GuardTower: 'F' };
 const DETAIL = 26;
 const LABELS = 56;
 const MAX_TILE = 112; // largest on-screen tile, in device pixels
@@ -79,9 +79,10 @@ export class MapView {
     this.dirty = true;
   }
 
-  setCursor(tile) {
+  /** reveal scrolls the view to keep the tile on screen: for arrow keys only, never mouse hover. */
+  setCursor(tile, reveal = false) {
     this.cursor = tile;
-    if (tile) this.ensureVisible(tile);
+    if (tile && reveal) this.ensureVisible(tile);
     this.dirty = true;
   }
 
@@ -457,37 +458,16 @@ export class MapView {
   }
 
   drawResources(g, s, T, inView) {
-    g.fillStyle = this.theme.ore;
     for (const r of s.resources) {
       if (r.remaining <= 0 || !inView(r.x, r.y)) continue;
       const frac = Math.min(1, r.remaining / (this.oreMax.get(r.id) || r.remaining));
       const size = T * (0.3 + 0.42 * frac);
       g.globalAlpha = 0.45 + 0.55 * frac;
       const cx = (r.x + 0.5) * T, cy = (r.y + 0.5) * T;
-      g.beginPath();
-      g.moveTo(cx, cy - size / 2);
-      g.lineTo(cx + size * 0.38, cy - size * 0.1);
-      g.lineTo(cx + size * 0.22, cy + size / 2);
-      g.lineTo(cx - size * 0.22, cy + size / 2);
-      g.lineTo(cx - size * 0.38, cy - size * 0.1);
-      g.closePath();
-      g.fill();
-      if (T >= DETAIL) {
-        // Facets catch the light.
-        g.globalAlpha = 0.35;
-        g.fillStyle = '#fff';
-        g.beginPath();
-        g.moveTo(cx, cy - size / 2);
-        g.lineTo(cx + size * 0.38, cy - size * 0.1);
-        g.lineTo(cx, cy);
-        g.closePath();
-        g.fill();
-        g.fillStyle = this.theme.ore;
-      }
+      grub(g, cx, cy, size, this.theme.ore, T >= DETAIL);
       if (T >= LABELS * 1.5) {
         g.globalAlpha = 0.9;
         this.label(g, `${r.remaining}`, cx, (r.y + 1) * T + 2, T);
-        g.fillStyle = this.theme.ore;
       }
     }
     g.globalAlpha = 1;
@@ -669,6 +649,54 @@ export function unitPath(g, type, cx, cy, r) {
   }
 }
 
+/** A curled grub: what diggers dig for. Detailed grubs get body segments. */
+function grub(g, cx, cy, size, colour, detailed) {
+  g.save();
+  g.strokeStyle = colour;
+  g.lineCap = 'round';
+  g.lineWidth = Math.max(1.5, size * 0.3);
+  const rad = size * 0.3;
+  g.beginPath();
+  g.arc(cx, cy, rad, Math.PI * 0.15, Math.PI * 1.75);
+  g.stroke();
+  if (detailed) {
+    g.strokeStyle = 'rgba(255, 255, 255, 0.5)';
+    g.lineWidth = Math.max(1, size * 0.05);
+    for (let a = 0.45; a < 1.75; a += 0.32) {
+      const t = Math.PI * a;
+      g.beginPath();
+      g.moveTo(cx + Math.cos(t) * rad * 0.55, cy + Math.sin(t) * rad * 0.55);
+      g.lineTo(cx + Math.cos(t) * rad * 1.45, cy + Math.sin(t) * rad * 1.45);
+      g.stroke();
+    }
+  }
+  g.restore();
+}
+
+/** The badger: white wedge face, two dark stripes through the eyes, a dark nose. */
+function badgerFace(g, s, ink, accent) {
+  g.fillStyle = ink;
+  g.beginPath();
+  g.moveTo(-s * 0.9, -s * 0.5);
+  g.quadraticCurveTo(0, -s * 1.05, s * 0.9, -s * 0.5);
+  g.lineTo(s * 0.14, s * 0.85);
+  g.quadraticCurveTo(0, s * 1.0, -s * 0.14, s * 0.85);
+  g.closePath();
+  g.fill();
+  g.strokeStyle = accent;
+  g.lineWidth = Math.max(1, s * 0.2);
+  g.beginPath();
+  g.moveTo(-s * 0.5, -s * 0.62);
+  g.lineTo(-s * 0.08, s * 0.6);
+  g.moveTo(s * 0.5, -s * 0.62);
+  g.lineTo(s * 0.08, s * 0.6);
+  g.stroke();
+  g.fillStyle = accent;
+  g.beginPath();
+  g.arc(0, s * 0.74, s * 0.15, 0, Math.PI * 2);
+  g.fill();
+}
+
 /** Close-up unit art, drawn inside the unit's shape: ink is the glyph colour, accent the player colour. */
 function unitIcon(g, type, cx, cy, s, ink, accent) {
   g.save();
@@ -679,69 +707,41 @@ function unitIcon(g, type, cx, cy, s, ink, accent) {
   g.fillStyle = ink;
   g.lineWidth = Math.max(1.2, s * 0.2);
   switch (type) {
-    case 'Worker': { // pickaxe
-      g.beginPath();
-      g.moveTo(-s * 0.7, s * 0.75);
-      g.lineTo(s * 0.35, -s * 0.3);
-      g.stroke();
-      g.lineWidth = Math.max(1.2, s * 0.24);
-      g.beginPath();
-      g.moveTo(-s * 0.15, -s * 0.85);
-      g.quadraticCurveTo(s * 0.6, -s * 0.75, s * 0.85, s * 0.1);
-      g.stroke();
+    case 'Worker': { // Digger: three claw marks
+      for (const dx of [-0.5, 0, 0.5]) {
+        g.beginPath();
+        g.moveTo(s * (dx - 0.2), -s * 0.75);
+        g.quadraticCurveTo(s * (dx + 0.25), -s * 0.1, s * (dx - 0.05), s * 0.75);
+        g.stroke();
+      }
       break;
     }
-    case 'Soldier': { // shield with a sword across it
-      g.beginPath();
-      g.moveTo(-s * 0.7, -s * 0.75);
-      g.lineTo(s * 0.7, -s * 0.75);
-      g.lineTo(s * 0.7, -s * 0.05);
-      g.quadraticCurveTo(s * 0.65, s * 0.7, 0, s * 0.95);
-      g.quadraticCurveTo(-s * 0.65, s * 0.7, -s * 0.7, -s * 0.05);
-      g.closePath();
-      g.fill();
-      g.strokeStyle = accent;
-      g.lineWidth = Math.max(1, s * 0.16);
-      g.beginPath();
-      g.moveTo(0, -s * 0.55);
-      g.lineTo(0, s * 0.6);
-      g.moveTo(-s * 0.32, -s * 0.12);
-      g.lineTo(s * 0.32, -s * 0.12);
-      g.stroke();
+    case 'Soldier': { // Brawler: a badger, face on
+      badgerFace(g, s, ink, accent);
       break;
     }
-    case 'Archer': { // an arrow in flight
-      g.lineWidth = Math.max(1.4, s * 0.22);
+    case 'Archer': { // Snowballer: a snowball in flight
       g.beginPath();
-      g.moveTo(-s * 0.75, s * 0.75);
-      g.lineTo(s * 0.45, -s * 0.45);
-      g.stroke();
-      g.beginPath(); // head
-      g.moveTo(s * 0.9, -s * 0.9);
-      g.lineTo(s * 0.12, -s * 0.62);
-      g.lineTo(s * 0.62, -s * 0.12);
-      g.closePath();
+      g.arc(s * 0.22, -s * 0.22, s * 0.48, 0, Math.PI * 2);
       g.fill();
-      g.lineWidth = Math.max(1, s * 0.14); // fletching
-      g.beginPath();
-      g.moveTo(-s * 0.55, s * 0.55);
-      g.lineTo(-s * 0.85, s * 0.35);
-      g.moveTo(-s * 0.55, s * 0.55);
-      g.lineTo(-s * 0.35, s * 0.85);
-      g.stroke();
+      g.lineWidth = Math.max(1, s * 0.14);
+      for (const [x0, y0, len] of [[-0.35, 0.05, 0.5], [-0.15, 0.35, 0.6], [-0.42, 0.42, 0.3]]) {
+        g.beginPath();
+        g.moveTo(s * x0, s * y0);
+        g.lineTo(s * (x0 - len * 0.7), s * (y0 + len * 0.7));
+        g.stroke();
+      }
       break;
     }
-    case 'Scout': { // an eye: scouts see furthest
+    case 'Scout': { // Sniffer: a paw print
       g.beginPath();
-      g.moveTo(-s * 0.95, 0);
-      g.quadraticCurveTo(0, -s * 0.85, s * 0.95, 0);
-      g.quadraticCurveTo(0, s * 0.85, -s * 0.95, 0);
-      g.closePath();
+      g.ellipse(0, s * 0.3, s * 0.42, s * 0.34, 0, 0, Math.PI * 2);
       g.fill();
-      g.fillStyle = accent;
-      g.beginPath();
-      g.arc(0, 0, s * 0.3, 0, Math.PI * 2);
-      g.fill();
+      for (const [x, y] of [[-0.55, -0.15], [-0.2, -0.5], [0.2, -0.5], [0.55, -0.15]]) {
+        g.beginPath();
+        g.arc(s * x, s * y, s * 0.17, 0, Math.PI * 2);
+        g.fill();
+      }
       break;
     }
   }
@@ -758,22 +758,21 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
   g.strokeStyle = ink;
   g.lineWidth = Math.max(1.2, s * 0.14);
   switch (type) {
-    case 'CommandCenter': { // keep with battlements and a flag
+    case 'CommandCenter': { // Sett: a burrow mound with a Snow College pennant
       g.beginPath();
-      g.moveTo(-s * 0.8, s * 0.85);
-      g.lineTo(-s * 0.8, -s * 0.2);
-      for (let i = 0; i < 4; i++) {
-        const x = -s * 0.8 + i * s * 0.4;
-        g.lineTo(x, -s * 0.45);
-        g.lineTo(x + s * 0.2, -s * 0.45);
-        g.lineTo(x + s * 0.2, -s * 0.2);
-        g.lineTo(x + s * 0.4, -s * 0.2);
-      }
-      g.lineTo(s * 0.8, s * 0.85);
+      g.moveTo(-s * 0.95, s * 0.85);
+      g.quadraticCurveTo(-s * 0.8, -s * 0.45, 0, -s * 0.45);
+      g.quadraticCurveTo(s * 0.8, -s * 0.45, s * 0.95, s * 0.85);
       g.closePath();
       g.fill();
-      g.fillStyle = accent;
-      g.fillRect(-s * 0.18, s * 0.3, s * 0.36, s * 0.55); // gate
+      g.fillStyle = accent; // the way in
+      g.beginPath();
+      g.moveTo(-s * 0.3, s * 0.85);
+      g.lineTo(-s * 0.3, s * 0.45);
+      g.arc(0, s * 0.45, s * 0.3, Math.PI, 0);
+      g.lineTo(s * 0.3, s * 0.85);
+      g.closePath();
+      g.fill();
       g.beginPath();
       g.moveTo(0, -s * 0.45);
       g.lineTo(0, -s * 1.0);
@@ -781,27 +780,17 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
       g.fillStyle = ink;
       g.beginPath();
       g.moveTo(0, -s * 1.0);
-      g.lineTo(s * 0.45, -s * 0.85);
+      g.lineTo(s * 0.5, -s * 0.85);
       g.lineTo(0, -s * 0.7);
       g.closePath();
       g.fill();
       break;
     }
-    case 'Barracks': { // crossed swords
-      for (const dir of [1, -1]) {
-        g.lineWidth = Math.max(1.2, s * 0.16);
-        g.beginPath();
-        g.moveTo(-s * 0.8 * dir, -s * 0.8);
-        g.lineTo(s * 0.6 * dir, s * 0.6);
-        g.stroke();
-        g.beginPath();
-        g.moveTo(s * 0.35 * dir, s * 0.75);
-        g.lineTo(s * 0.75 * dir, s * 0.35);
-        g.stroke();
-      }
+    case 'Barracks': { // Den: where brawlers come from
+      badgerFace(g, s * 0.95, ink, accent);
       break;
     }
-    case 'ResourceDepot': { // crate
+    case 'ResourceDepot': { // Larder: a crate of grubs
       g.lineWidth = Math.max(1.2, s * 0.14);
       g.strokeRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.4);
       g.beginPath();
@@ -812,46 +801,59 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
       g.stroke();
       break;
     }
-    case 'TechLab': { // flask
+    case 'TechLab': { // Lecture Hall: a graduation cap, tassel and all
       g.beginPath();
-      g.moveTo(-s * 0.22, -s * 0.9);
-      g.lineTo(-s * 0.22, -s * 0.25);
-      g.lineTo(-s * 0.8, s * 0.8);
-      g.lineTo(s * 0.8, s * 0.8);
-      g.lineTo(s * 0.22, -s * 0.25);
-      g.lineTo(s * 0.22, -s * 0.9);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(-s * 0.52, s * 0.3);
-      g.lineTo(s * 0.52, s * 0.3);
-      g.lineTo(s * 0.8, s * 0.8);
-      g.lineTo(-s * 0.8, s * 0.8);
+      g.moveTo(0, -s * 0.85);
+      g.lineTo(s * 0.95, -s * 0.35);
+      g.lineTo(0, s * 0.15);
+      g.lineTo(-s * 0.95, -s * 0.35);
       g.closePath();
       g.fill();
+      g.beginPath();
+      g.moveTo(-s * 0.55, -s * 0.1);
+      g.lineTo(-s * 0.55, s * 0.5);
+      g.quadraticCurveTo(0, s * 0.85, s * 0.55, s * 0.5);
+      g.lineTo(s * 0.55, -s * 0.1);
+      g.lineTo(0, s * 0.15);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = accent;
+      g.lineWidth = Math.max(1, s * 0.1);
+      g.beginPath();
+      g.moveTo(0, -s * 0.35);
+      g.lineTo(s * 0.75, -s * 0.2);
+      g.lineTo(s * 0.75, s * 0.45);
+      g.stroke();
       break;
     }
-    case 'GuardTower': { // tall tower with an arrow slit
+    case 'GuardTower': { // Snow Fort: stacked snow blocks with battlements
       g.beginPath();
-      g.moveTo(-s * 0.45, s * 0.9);
-      g.lineTo(-s * 0.35, -s * 0.5);
-      g.lineTo(-s * 0.6, -s * 0.5);
-      g.lineTo(-s * 0.6, -s * 0.9);
-      g.lineTo(-s * 0.3, -s * 0.9);
-      g.lineTo(-s * 0.3, -s * 0.72);
-      g.lineTo(-s * 0.1, -s * 0.72);
-      g.lineTo(-s * 0.1, -s * 0.9);
-      g.lineTo(s * 0.1, -s * 0.9);
-      g.lineTo(s * 0.1, -s * 0.72);
-      g.lineTo(s * 0.3, -s * 0.72);
-      g.lineTo(s * 0.3, -s * 0.9);
-      g.lineTo(s * 0.6, -s * 0.9);
-      g.lineTo(s * 0.6, -s * 0.5);
-      g.lineTo(s * 0.35, -s * 0.5);
-      g.lineTo(s * 0.45, s * 0.9);
+      g.moveTo(-s * 0.85, s * 0.85);
+      g.lineTo(-s * 0.85, -s * 0.85);
+      g.lineTo(-s * 0.45, -s * 0.85);
+      g.lineTo(-s * 0.45, -s * 0.55);
+      g.lineTo(-s * 0.2, -s * 0.55);
+      g.lineTo(-s * 0.2, -s * 0.85);
+      g.lineTo(s * 0.2, -s * 0.85);
+      g.lineTo(s * 0.2, -s * 0.55);
+      g.lineTo(s * 0.45, -s * 0.55);
+      g.lineTo(s * 0.45, -s * 0.85);
+      g.lineTo(s * 0.85, -s * 0.85);
+      g.lineTo(s * 0.85, s * 0.85);
       g.closePath();
       g.fill();
-      g.fillStyle = accent;
-      g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
+      g.strokeStyle = accent;
+      g.lineWidth = Math.max(1, s * 0.08);
+      g.beginPath();
+      for (const y of [-0.2, 0.2, 0.55]) {
+        g.moveTo(-s * 0.85, s * y);
+        g.lineTo(s * 0.85, s * y);
+      }
+      for (const [x, y0, y1] of [[0, -0.55, -0.2], [-0.4, -0.2, 0.2], [0.4, -0.2, 0.2], [0, 0.2, 0.55], [-0.45, 0.55, 0.85], [0.45, 0.55, 0.85]]) {
+        g.moveTo(s * x, s * y0);
+        g.lineTo(s * x, s * y1);
+      }
+      g.stroke();
       break;
     }
   }

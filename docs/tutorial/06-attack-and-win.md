@@ -197,7 +197,7 @@ The side panel now shows each player's totals (units built, lost and killed), th
 `/result` gave your bot. Your bot is also on the home page's leaderboard: a 1v1 game that
 includes a non-house player is rated.
 
-Congratulations: that's a complete NetRts bot! It reliably beats `sitter`, usually in about
+Congratulations: that's a complete Badger Brawl bot! It reliably beats `sitter`, usually in about
 225 to 235 ticks.
 
 ## Recap

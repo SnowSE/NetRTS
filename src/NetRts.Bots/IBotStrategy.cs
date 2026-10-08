@@ -21,10 +21,10 @@ public static class HouseBots
     private static readonly Dictionary<string, (string Description, Func<IBotStrategy> Create)> Registry =
         new(StringComparer.OrdinalIgnoreCase)
         {
-            ["rusher"] = ("Skimps on economy, masses soldiers from two barracks and attacks early.", () => new RusherBot()),
-            ["economist"] = ("Booms to a big economy, techs up, turtles behind guard towers, then pushes late.", () => new EconomistBot()),
-            ["balanced"] = ("Steady economy, mixed soldiers and archers, Weapons/Armor upgrades, attacks in waves.", () => new BalancedBot()),
-            ["sitter"] = ("Only mines. A punching bag for testing your first bot.", () => new SitterBot()),
+            ["rusher"] = ("The Honey Badger doesn't care: skimps on economy, masses soldiers from two barracks and attacks early.", () => new RusherBot()),
+            ["economist"] = ("The Grub Hoarder: booms to a big economy, techs up, turtles behind guard towers, then pushes late.", () => new EconomistBot()),
+            ["balanced"] = ("The Blue Badger: steady economy, mixed soldiers and archers, Weapons/Armor upgrades, attacks in waves.", () => new BalancedBot()),
+            ["sitter"] = ("The Sleepy Sitter: only mines. A friendly practice badger for testing your first bot.", () => new SitterBot()),
         };
 
     public static IReadOnlyList<HouseBotDto> All =>

@@ -1,4 +1,4 @@
-# Running and deploying NetRts
+# Running and deploying Badger Brawl
 
 There are three ways to run the server. All of them use the same code; only where the database
 lives changes.
@@ -46,7 +46,7 @@ your IPs ──HTTPS──► dbconsole (pgweb)  ───────┤ "apps"
 |---|---|
 | Virtual network `10.40.0.0/16` | Subnets `apps` (the web apps' outbound traffic) and `data` (the database's private endpoint). |
 | App Service plan (Linux, **B1**, 1 instance) | Runs the server, the database console and the Aspire dashboard. |
-| `server` web app | The NetRts server, HTTPS, **Always On**, connected to the network. |
+| `server` web app | The Badger Brawl server, HTTPS, **Always On**, connected to the network. |
 | `dbconsole` web app | [pgweb](https://github.com/sosedoff/pgweb), connected to the network. Every request from an address not on your list is refused, including to its deployment (SCM) site. |
 | Aspire dashboard web app | Logs, traces and metrics from the deployed server. |
 | Azure Container Registry | Holds the images that `azd` builds and pushes. |

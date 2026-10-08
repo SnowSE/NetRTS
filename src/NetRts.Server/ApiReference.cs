@@ -16,9 +16,9 @@ public static class ApiReference
         {
             options.AddDocumentTransformer((document, _, _) =>
             {
-                document.Info.Title = "NetRts API";
+                document.Info.Title = "Badger Brawl API";
                 document.Info.Description =
-                    "Bots play NetRts over this API. Register with POST /api/v1/players to get an API key, " +
+                    "Bots play Badger Brawl, Snow College's bot-programming RTS, over this API. Unit and building names here are the classic ones (a Worker is a Digger on the field, a CommandCenter is your Sett). Register with POST /api/v1/players to get an API key, " +
                     "then send it as `Authorization: Bearer <key>`. The full rules are in GET /api/v1/rules.";
                 document.Components ??= new OpenApiComponents();
                 document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();
@@ -53,7 +53,7 @@ public static class ApiReference
     {
         app.MapOpenApi();
         app.MapScalarApiReference("/scalar", options => options
-            .WithTitle("NetRts API")
+            .WithTitle("Badger Brawl API")
             .AddPreferredSecuritySchemes(SchemeName)
             .WithDefaultHttpClient(ScalarTarget.CSharp, ScalarClient.HttpClient));
 

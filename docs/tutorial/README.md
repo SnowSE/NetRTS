@@ -1,6 +1,6 @@
-# NetRts tutorial: your first bot
+# Badger Brawl tutorial: your first bot
 
-NetRts is a real-time strategy game where you don't click: you write a program (a *bot*) that
+Badger Brawl is a real-time strategy game where you don't click: you write a program (a *bot*) that
 plays for you over a REST API. This tutorial takes you from nothing to a bot that mines ore,
 builds a Barracks, trains an army and destroys the house bot `sitter`. You watch every step in
 the spectator page in your browser.

@@ -1,4 +1,5 @@
 // Shared helpers: API access, escaping, player colours.
+import { BOT_NICKNAME } from './lore.js';
 
 export class ApiError extends Error {
   constructor(status, code, message) {
@@ -19,7 +20,7 @@ export async function api(path, options = {}) {
   try {
     res = await fetch(path, init);
   } catch {
-    throw new ApiError(0, 'NETWORK', 'Could not reach the NetRts server. Check that it is running.');
+    throw new ApiError(0, 'NETWORK', 'Could not reach the Badger Brawl server. Check that it is running.');
   }
   const text = await res.text();
   let body = null;
@@ -68,8 +69,12 @@ export function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** "house-rusher" -> "rusher" for display; keeps the original otherwise. */
-export const displayName = (name) => (name?.startsWith('house-') ? name.slice(6) : name ?? '');
+/** "house-rusher" -> "Honey Badger" for display; keeps the original otherwise. */
+export const displayName = (name) => {
+  if (!name?.startsWith('house-')) return name ?? '';
+  const bot = name.slice(6);
+  return BOT_NICKNAME[bot] ?? bot;
+};
 
 export function timeAgo(iso) {
   const t = Date.parse(iso);
@@ -86,7 +91,7 @@ export const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : '–');
 export function outcomeText(outcome, players) {
   if (!outcome) return '';
   const winner = players?.find((p) => p.playerId === outcome.winnerId);
-  const how = { Elimination: 'by elimination', TimeLimit: 'on score at the time limit', Surrender: 'by surrender' }[outcome.reason] || '';
+  const how = { Elimination: 'by digging out the last sett', TimeLimit: 'on score at the time limit', Surrender: 'by surrender' }[outcome.reason] || '';
   if (!winner) return `Draw ${outcome.reason === 'TimeLimit' ? 'at the time limit' : ''} after ${fmt(outcome.ticks)} ticks`.replace('  ', ' ');
   return `${displayName(winner.name)} won ${how} after ${fmt(outcome.ticks)} ticks`;
 }

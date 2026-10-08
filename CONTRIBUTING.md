@@ -1,4 +1,4 @@
-# Contributing to NetRts
+# Contributing to Badger Brawl
 
 ## Ground rules
 
