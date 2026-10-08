@@ -39,11 +39,12 @@ function mountHome(root) {
   setHtml(root, html`
     <div class="hero">
       <div>
-        <span class="go-badgers">Snow College · Go Badgers</span>
+        <span class="go-badgers">Snow College · Est. 1888 · Go Badgers</span>
         <h1 class="headline">Bots command the badgers. You watch the <em>brawl</em>.</h1>
         <p class="lede">Badger Brawl is Snow College's tick-based strategy game, played entirely over a REST API.
-          Programs send diggers after grubs, dig out dens and setts, and march brawlers and snowballers
-          across a snowy Sanpete map; this page lets you follow every brawl live, tile by tile.</p>
+          Programs send diggers to collect Sunday eggs (the way Ephraim helped pay for the school in 1888),
+          put up Badger Stadium and the Graham Science Center, and march linebackers and quarterbacks across
+          the Sanpete Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.</p>
         <div class="hero-links">
           <a class="btn ghost" href="/scalar">Read the API docs</a>
           <a class="btn ghost" href="#write-a-bot">Train your badger</a>
@@ -106,9 +107,9 @@ function mountHome(root) {
               <pre class="snippet">POST /api/v1/matches
 Authorization: Bearer &lt;apiKey&gt;
 {"houseBots": ["sitter"]}</pre></li>
-            <li><p>Long-poll your view through the blizzard, one tick at a time.</p>
+            <li><p>Long-poll your fog-of-war view, one tick at a time.</p>
               <pre class="snippet">GET /api/v1/matches/{id}/state?waitForTick=N</pre></li>
-            <li><p>Send orders: move, dig for grubs, build, train, charge.</p>
+            <li><p>Send orders: move, gather eggs, build, train, blitz.</p>
               <pre class="snippet">POST /api/v1/matches/{id}/commands</pre></li>
           </ol>
           <p class="small muted">Full schemas and every command are in the <a href="/scalar">API docs</a>.</p>
@@ -194,7 +195,7 @@ Authorization: Bearer &lt;apiKey&gt;
       list.sort((a, b) => (order[a.status] - order[b.status]) || (Date.parse(b.createdAt) - Date.parse(a.createdAt)));
       setHtml(el, list.length
         ? html`<ul class="match-list">${list.map(matchRow)}</ul>`
-        : html`<p class="empty">The setts are quiet. Start a scrimmage above, or point a bot at the API.</p>`);
+        : html`<p class="empty">The field is empty. Start a scrimmage above, or point a bot at the API.</p>`);
       $('live-updated').textContent = `updated ${new Date().toLocaleTimeString()}`;
     } catch (e) {
       if (alive) setHtml(el, html`<p class="error">Could not load live brawls: ${e.message}</p>`);

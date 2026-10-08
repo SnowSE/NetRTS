@@ -1,9 +1,9 @@
-/* Badger Brawl spectator console: Snow College blue and white, fresh snow underfoot.
+/* Badger Brawl spectator console: Snow College blue, white and orange, on the Sanpete Valley.
    One family (Bahnschrift / DIN-style system faces), widths and weights do the work.
    The map is the loud element; everything else stays quiet (except the badgers). */
 
 :root {
-  --bg: #eef3f8;          /* fresh snow */
+  --bg: #eef2f6;
   --panel: #f9fbfd;
   --panel-2: #e1e9f1;
   --ink: #0f1d2e;
@@ -17,20 +17,20 @@
   --brand: #00447c;       /* Snow College blue */
   --brand-hi: #00447c;
 
-  --p0: #b86e00;          /* Okabe-Ito, darkened for snow */
+  --p0: #b86e00;          /* Okabe-Ito, darkened for paper */
   --p1: #0072b2;
   --p2: #007a5a;
   --p3: #b0478a;
 
-  --terrain-open: #e3eaf1;  /* snowfield */
+  --terrain-open: #e6e8dc;  /* sagebrush valley floor */
   --terrain-grid: rgba(15, 29, 46, 0.06);
-  --terrain-rock: #6b7787;
-  --terrain-rock-hi: #8c97a6;
-  --ore: #b7791f;         /* grub patches: dug-up earth */
+  --terrain-rock: #7d7568;  /* Wasatch Plateau sandstone */
+  --terrain-rock-hi: #9a9283;
+  --ore: #a8693a;         /* Sunday eggs: brown-shelled */
   --fog: rgba(238, 243, 248, 0.78);
   --outline: #0f1d2e;
   --glyph: #ffffff;
-  --snow: rgba(0, 68, 124, 0.18);
+  --orange: #d4661b;      /* Snow College orange */
 
   --font: "Bahnschrift", "DIN Alternate", "DIN Next", "Barlow", "Roboto Condensed", "Segoe UI", system-ui, sans-serif;
   --radius-s: 2px;
@@ -59,15 +59,15 @@
     --p2: #2fc497;
     --p3: #e68fc3;
 
-    --terrain-open: #18263a;  /* moonlit snowfield */
+    --terrain-open: #1d2621;  /* the valley at night */
     --terrain-grid: rgba(230, 238, 247, 0.045);
-    --terrain-rock: #46546a;
-    --terrain-rock-hi: #5a6880;
-    --ore: #f0b860;
+    --terrain-rock: #4e4940;
+    --terrain-rock-hi: #645e53;
+    --ore: #e0a878;
     --fog: rgba(8, 14, 22, 0.62);
     --outline: #070d15;
     --glyph: #070d15;
-    --snow: rgba(255, 255, 255, 0.55);
+    --orange: #f08a3c;
     color-scheme: dark;
   }
 }
@@ -93,15 +93,15 @@
   --p2: #2fc497;
   --p3: #e68fc3;
 
-  --terrain-open: #18263a;  /* moonlit snowfield */
+  --terrain-open: #1d2621;  /* the valley at night */
   --terrain-grid: rgba(230, 238, 247, 0.045);
-  --terrain-rock: #46546a;
-  --terrain-rock-hi: #5a6880;
-  --ore: #f0b860;
+  --terrain-rock: #4e4940;
+  --terrain-rock-hi: #645e53;
+  --ore: #e0a878;
   --fog: rgba(8, 14, 22, 0.62);
   --outline: #070d15;
   --glyph: #070d15;
-  --snow: rgba(255, 255, 255, 0.55);
+  --orange: #f08a3c;
   color-scheme: dark;
 }
 
@@ -159,8 +159,7 @@ a:hover { text-decoration-thickness: 2px; }
   padding: 10px clamp(16px, 3vw, 32px);
   background: var(--brand);
   color: #fff;
-  border-bottom: 3px solid #fff;
-  box-shadow: 0 1px 0 var(--line);
+  border-bottom: 3px solid var(--orange);
 }
 
 .brand {
@@ -320,25 +319,22 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   border-bottom: 1px solid var(--line);
 }
 
-/* A light flurry behind the hero. Snow College gets real snow; the page gets this. */
+/* Founded 1888: a big faint year behind the hero. */
 .hero::before {
-  content: "";
+  content: "1888";
   position: absolute;
-  inset: -16px 0 0;
+  right: 36%;
+  top: -0.15em;
   z-index: -1;
   pointer-events: none;
-  background-image:
-    radial-gradient(circle, var(--snow) 1.5px, transparent 2px),
-    radial-gradient(circle, var(--snow) 1px, transparent 1.5px);
-  background-size: 90px 90px, 53px 53px;
-  background-position: 0 0, 20px 30px;
-  animation: flurry 18s linear infinite;
-  mask-image: linear-gradient(to bottom, #000 40%, transparent);
+  font-size: clamp(6rem, 18vw, 15rem);
+  font-weight: 700;
+  font-stretch: 75%;
+  line-height: 1;
+  color: var(--brand-hi);
+  opacity: 0.06;
 }
-@keyframes flurry {
-  to { background-position: 30px 360px, 60px 330px; }
-}
-.headline em { font-style: normal; color: var(--brand-hi); }
+.headline em { font-style: normal; color: var(--orange); }
 .go-badgers {
   display: inline-block;
   margin-bottom: 14px;
@@ -579,7 +575,7 @@ pre.snippet {
 .legend svg { width: 14px; height: 14px; }
 .legend svg * { fill: var(--ink); stroke: var(--ink); }
 .legend svg .hollow { fill: none; stroke-width: 1.5; }
-.legend svg .grub { fill: none; stroke: var(--ore); stroke-width: 3; stroke-linecap: round; }
+.legend svg .egg { fill: var(--ore); stroke: none; }
 
 .banner {
   border: 2px solid var(--ink);

@@ -1,7 +1,7 @@
 <h1 align="center">🦡 Badger Brawl</h1>
 
-<p align="center"><strong>Write the bot. Command the badgers. Watch them brawl.</strong><br>
-<sub>A Snow College bot-programming game · Ephraim, Utah · Go Badgers!</sub></p>
+<p align="center"><strong>Write the bot. Coach the badgers. Watch them brawl.</strong><br>
+<sub>A Snow College bot-programming game · Ephraim, Utah · Est. 1888 · Go Badgers!</sub></p>
 
 <p align="center">
   <a href="https://github.com/SnowSE/NetRTS/actions/workflows/ci.yaml"><img src="https://github.com/SnowSE/NetRTS/actions/workflows/ci.yaml/badge.svg" alt="CI status"></a>
@@ -9,102 +9,111 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/battle.gif" width="520" alt="An 825-tick brawl replayed at speed: the orange Grub Hoarder digs in at the top-left, the Blue Badger at the bottom-right, and their badgers trade waves across the middle of the snowfield until orange breaks through.">
+  <img src="docs/images/battle.gif" width="520" alt="An 825-tick brawl replayed at speed: the orange Egg Hoarder builds up in the top-left, the Blue Badger in the bottom-right, and their teams trade waves across the middle of the valley until orange breaks through.">
 </p>
 
 **Badger Brawl is a real-time strategy game where nobody touches a mouse.** You write a program,
-in any language that speaks HTTP, and it runs a clan of badgers: digging up grubs, burrowing new
-dens, cramming in the Lecture Hall for sharper claws, sniffing through the blizzard and sending
-brawlers at the rival sett. Every second the world ticks forward; your bot sees what its badgers
-can see and decides what to do next. Then you sit back and watch it win (or work out why it
-didn't).
+in any language that speaks HTTP, and it coaches a team of Snow College Badgers: sending diggers
+out for Sunday eggs, putting up Badger Stadium and the Graham Science Center, and running
+linebackers and quarterbacks across the Sanpete Valley at the other team's Noyes Building. Every
+second the world ticks forward; your bot sees what its badgers can see and calls the next play.
+Then you sit back and watch it win (or work out why it didn't).
 
-Built by and for Snow College software engineering students, for programming competitions,
+Built by and for Snow College Software Engineering students, for programming competitions,
 classrooms and anyone who has ever wanted to settle "my strategy is better than yours" with code.
 
-## Your code is the head badger
+## Why eggs? Why Noyes?
+
+Snow College is named for Lorenzo and Erastus Snow, [not the weather](https://snow.edu/offices/administration/historical-sketch.html).
+It opened in 1888 as Sanpete Stake Academy, with its first 150 students meeting upstairs in
+Ephraim's Co-op Store, and the town helped pay for it by selling its "Sunday eggs". In 1900
+Newton E. Noyes went to Salt Lake to ask for help keeping the school open, and the school took the
+Snow name; the Noyes Building, the oldest on campus, still carries his. So in Badger Brawl, eggs are
+the currency, the Co-op Store is where you drop them off, and every team defends a campus landmark.
+
+## Your code is the head coach
 
 Orders are plain JSON, and they say what you mean. The API uses classic RTS names (a Digger is a
-`Worker`, a Den is a `Barracks`), so every bot library and tutorial still applies:
+`Worker`, Badger Stadium is a `Barracks`), so every bot library and tutorial still applies:
 
 ```jsonc
 { "commands": [
-  { "type": "Gather",  "units": "all", "unitType": "Worker", "targetId": 4 },          // diggers, go dig up those grubs
-  { "type": "Build",   "unitIds": [31], "buildingType": "Barracks", "x": 12, "y": 9 }, // dig a den here
-  { "type": "Produce", "buildingId": 77, "unitType": "Soldier", "count": 3 },          // three brawlers, please
-  { "type": "Attack",  "units": "5-40", "x": 56, "y": 56 }                             // everyone: charge!
+  { "type": "Gather",  "units": "all", "unitType": "Worker", "targetId": 4 },          // diggers, collect those eggs
+  { "type": "Build",   "unitIds": [31], "buildingType": "Barracks", "x": 12, "y": 9 }, // put Badger Stadium here
+  { "type": "Produce", "buildingId": 77, "unitType": "Soldier", "count": 3 },          // three linebackers, please
+  { "type": "Attack",  "units": "5-40", "x": 56, "y": 56 }                             // everyone: blitz!
 ] }
 ```
 
-## Meet the clan
+## Meet the team, see the campus
 
 | On the field | In the API | What it does |
 |---|---|---|
-| 🦡 **Digger** | `Worker` | Digs grubs, builds burrows. Claws for every job. |
-| 🥊 **Brawler** | `Soldier` | Tough, close-up, and doesn't care. |
-| ❄️ **Snowballer** | `Archer` | Hurls snowballs from four tiles away. |
-| 👃 **Sniffer** | `Scout` | Twice as fast, and smells trouble furthest off. |
-| 🏔️ **Sett** | `CommandCenter` | The home burrow. Lose your last one and you're out. |
-| 🕳️ **Den** | `Barracks` | Where brawlers, snowballers and sniffers come from. |
-| 🧺 **Larder** | `ResourceDepot` | A closer place to drop grubs, and more room to store them. |
-| 🎓 **Lecture Hall** | `TechLab` | Badgers study here: Sharper Claws, Thicker Fur, Snowshoes and a Digging Degree. |
-| ⛄ **Snow Fort** | `GuardTower` | Pelts anything that wanders too close. |
+| 🦡 **Digger** | `Worker` | Gathers eggs and puts up buildings. |
+| 🏈 **Linebacker** | `Soldier` | Tough, close-up, and hits hard. |
+| 🎯 **Quarterback** | `Archer` | Throws from four tiles away. |
+| 💨 **Wide Receiver** | `Scout` | Twice as fast, and sees furthest down the field. |
+| 🏛️ **HQ** | `CommandCenter` | Your home landmark: the **Noyes Building**, **Greenwood Student Center**, **Eccles Center** or **Huntsman Library**, by seat. Lose your last one and you're out. |
+| 🏟️ **Badger Stadium** | `Barracks` | Where linebackers, quarterbacks and receivers come from. |
+| 🧺 **Co-op Store** | `ResourceDepot` | A closer place to drop eggs off, and room to store more. |
+| 🧪 **Graham Science Center** | `TechLab` | Research: Strength & Conditioning, Thicker Fur, Track & Field and Ag Science. |
+| 🏠 **Snow Hall** | `GuardTower` | A residence hall whose RAs don't let anyone wander in. |
 
-Four kinds of badger, five burrows, eight upgrades, and a rule set small enough to learn in an
-afternoon, with plenty of strategy hiding in it: rush early, out-dig the opponent, turtle behind
-snow forts, out-study them, or sniff out their sett and strike where they're weak.
+Four positions, five buildings, eight upgrades, and a rule set small enough to learn in an
+afternoon, with plenty of strategy hiding in it: blitz early, out-gather the opponent, turtle behind
+residence halls, out-study them, or scout their campus and strike where they're weak.
 
 ## Zoom into the brawl
 
 <p align="center">
-  <img src="docs/images/close-up.gif" width="640" alt="A close-up on the blue sett at the end of the brawl: the orange badgers march in and flatten the den, the lecture hall and finally the sett.">
+  <img src="docs/images/close-up.gif" width="640" alt="A close-up on the blue campus at the end of the brawl: the orange team marches in and flattens Badger Stadium, the science center and finally the HQ.">
 </p>
 
 The live spectator page streams every brawl tick by tick. Scroll or pinch to zoom, and the map
-switches from a strategic overview to an illustrated close-up on a snowy Sanpete field: claw-marked
-diggers, striped badger brawlers, snowballs in flight, sniffer paw prints, setts flying the Snow
-pennant, mortarboard lecture halls and snow forts, with health bars and dig progress. Hit
-**Follow the brawl** and the camera chases the biggest scuffle on its own. It fills whatever screen
-you give it, from a phone to a wall-sized monitor, in Snow College blue by day or by night.
+switches from a strategic overview to an illustrated close-up of the Sanpete Valley: claw-marked
+diggers, striped badger linebackers, footballs, receivers' paw prints, campus halls flying a
+pennant, the badger over Badger Stadium, science flasks and brick residence halls, with health bars
+and build progress. Hit **Follow the brawl** and the camera chases the biggest pile-up on its own.
+It fills whatever screen you give it, from a phone to a wall-sized monitor, in Snow College blue,
+white and orange, light or dark.
 
 <p align="center">
-  <img src="docs/images/spectator.png" width="860" alt="The spectator page mid-brawl: the map on the left, each badger's grubs, income, score breakdown and upgrades on the right, and the play-by-play underneath.">
+  <img src="docs/images/spectator.png" width="860" alt="The spectator page mid-brawl: the map on the left, each team's eggs, income, home landmark, score breakdown and upgrades on the right, and the play-by-play underneath.">
 </p>
 
-## A blizzard that's actually fair
+## Fog of war that's actually fair
 
-<img src="docs/images/fog-of-war.png" width="300" align="right" alt="The same brawl through the blue badger's eyes: only the area around its own sett is clear; the orange clan waits just beyond the edge of the blizzard.">
+<img src="docs/images/fog-of-war.png" width="300" align="right" alt="The same brawl through the blue team's eyes: only the area around its own campus is lit; the orange team waits just beyond the edge of its sight.">
 
 Your bot sees only what its badgers see. The server enforces this; it isn't a polite request to
-the client. Enemy orders are never revealed, ids of unseen badgers can't be probed, and burrows you
-sniffed out earlier are remembered for you. Maps are generated from a seed with mirror symmetry, so
-every starting sett is exactly as good as every other.
+the client. Enemy orders are never revealed, ids of unseen badgers can't be probed, and buildings
+you scouted earlier are remembered for you. Maps are generated from a seed with mirror symmetry, so
+every starting campus is exactly as good as every other.
 
-Spectators can flip to any player's view to see the brawl the way that bot saw it.
+Spectators can flip to any team's view to see the brawl the way that bot saw it.
 
 <br clear="right">
 
 ## Every brawl ends with a box score
 
 <p align="center">
-  <img src="docs/images/victory.png" width="860" alt="The end of the brawl: a winner banner, 825 ticks, each side's badgers trained, lost and bowled over, the final score breakdown and the play-by-play.">
+  <img src="docs/images/victory.png" width="860" alt="The end of the brawl: a winner banner, 825 ticks, each side's badgers trained, lost and sacked, the final score breakdown and the play-by-play.">
 </p>
 
-Flatten the last enemy Sett, or have the higher score when the final buzzer sounds. Results break
-down into destruction, economy and survival, feed an Elo ladder of Top Badgers, and come with a
-full replay: the engine is deterministic, so a seed plus the command log reproduces any brawl
-exactly.
+Take the last enemy HQ, or have the higher score at the final whistle. Results break down into
+destruction, economy and survival, feed an Elo ladder of Top Badgers, and come with a full replay:
+the engine is deterministic, so a seed plus the command log reproduces any brawl exactly.
 
 ## Four house badgers to scrimmage
 
 | House badger | API name | Plays like |
 |---|---|---|
-| **Sleepy Sitter** | `sitter` | Digs grubs and never fights back. Your first win. |
-| **Honey Badger** | `rusher` | Doesn't care. Two dens, brawlers early, charges before you're ready. |
-| **Blue Badger** | `balanced` | Steady digging, mixed clan, upgrades, attacks in waves. |
-| **Grub Hoarder** | `economist` | Out-digs everyone, hides behind snow forts, arrives late with an enormous clan. |
+| **Sleepy Sitter** | `sitter` | Gathers eggs and never fights back. Your first win. |
+| **Honey Badger** | `rusher` | Doesn't care. Two stadiums, linebackers early, blitzes before you're ready. |
+| **Blue Badger** | `balanced` | Steady economy, mixed team, upgrades, attacks in waves. |
+| **Egg Hoarder** | `economist` | Out-gathers everyone, hides behind residence halls, arrives late with an enormous team. |
 
-Beat the Sleepy Sitter in your first hour. Beating the Grub Hoarder takes a real plan.
+Beat the Sleepy Sitter in your first hour. Beating the Egg Hoarder takes a real game plan.
 
 ## An API that documents itself
 
@@ -132,7 +141,7 @@ docker run -p 8080:8080 -v badger-data:/home/app snowcollege/netrts
 ```
 
 Open **http://localhost:5080** (or :8080 for Docker) and start a scrimmage between two house
-badgers. Then send your own bot into the snow from another terminal:
+badgers. Then put your own bot on the field from another terminal:
 
 ```bash
 dotnet run --project src/NetRts.BotRunner -- --server http://localhost:5080 --name eph-the-badger --strategy rusher --vs sitter
@@ -151,14 +160,14 @@ setup deploys to Azure (App Service plus a private PostgreSQL) with `azd up`.
 
 | For | Read |
 |---|---|
-| New badgers, first five minutes | [docs/getting-started.md](docs/getting-started.md): one page |
-| New badgers, first bot | [docs/tutorial/](docs/tutorial/README.md): step by step in C# or Python, with screenshots |
-| Reference (and the field guide of badger names) | [docs/bot-guide.md](docs/bot-guide.md): every command, rule, stat and error code |
+| New players, first five minutes | [docs/getting-started.md](docs/getting-started.md): one page |
+| New players, first bot | [docs/tutorial/](docs/tutorial/README.md): step by step in C# or Python, with screenshots |
+| Reference (and the field guide of campus names) | [docs/bot-guide.md](docs/bot-guide.md): every command, rule, stat and error code |
 | Teaching / contributors | [docs/how-it-works.md](docs/how-it-works.md): guided tour of the back end, with exercises |
 | Hosting | [docs/deploying.md](docs/deploying.md): local Aspire and Azure deployment |
 | Maintainers | [docs/architecture.md](docs/architecture.md), [docs/requirements-coverage.md](docs/requirements-coverage.md) |
 
-## Under the burrow
+## Under the hood
 
 The code still lives under its original `NetRts` project names.
 
@@ -167,7 +176,7 @@ The code still lives under its original `NetRts` project names.
 | `src/NetRts.Engine` | The game: map generation, rules, pathfinding, the tick simulation, fog-of-war views, replays. Pure, deterministic C#. |
 | `src/NetRts.Protocol` | JSON contract shared by the server, SDK and bots. |
 | `src/NetRts.Server` | ASP.NET Core host: API keys, matchmaking, tick loops, long-poll state, live spectator stream, Elo, the spectator site. |
-| `src/NetRts.Server/wwwroot/lore.js` | The badger vocabulary: every name the spectator site shows. |
+| `src/NetRts.Server/wwwroot/lore.js` | The Snow College vocabulary: every name the spectator site shows. |
 | `src/NetRts.Bots` | C# SDK (`NetRtsClient`, `BotLoop`) and the house badgers. |
 | `src/NetRts.BotRunner` | Command-line runner for any house-badger strategy. |
 | `src/NetRts.AppHost`, `src/NetRts.ServiceDefaults` | .NET Aspire: local orchestration, Azure deployment, telemetry. |
@@ -180,7 +189,7 @@ dotnet build
 dotnet test
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) to join the clan.
+See [CONTRIBUTING.md](CONTRIBUTING.md) to join the team.
 
 ## License
 

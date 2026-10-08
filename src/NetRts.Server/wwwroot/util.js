@@ -91,7 +91,7 @@ export const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : '–');
 export function outcomeText(outcome, players) {
   if (!outcome) return '';
   const winner = players?.find((p) => p.playerId === outcome.winnerId);
-  const how = { Elimination: 'by digging out the last sett', TimeLimit: 'on score at the time limit', Surrender: 'by surrender' }[outcome.reason] || '';
+  const how = { Elimination: 'by taking the last HQ', TimeLimit: 'on score at the time limit', Surrender: 'by surrender' }[outcome.reason] || '';
   if (!winner) return `Draw ${outcome.reason === 'TimeLimit' ? 'at the time limit' : ''} after ${fmt(outcome.ticks)} ticks`.replace('  ', ' ');
   return `${displayName(winner.name)} won ${how} after ${fmt(outcome.ticks)} ticks`;
 }

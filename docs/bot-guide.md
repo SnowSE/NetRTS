@@ -18,24 +18,29 @@ balance number is served by **`GET /api/v1/rules`**.
 
 ## Badger field guide
 
-The spectator site tells the story in badger. The API speaks plain RTS, so the names your bot sends
-and reads never change. When the play-by-play says your Snowballer was bowled over at the Snow Fort,
-your bot saw an `Archer` die next to a `GuardTower`.
+The spectator site tells the story in Snow College terms. The API speaks plain RTS, so the names your
+bot sends and reads never change. When the play-by-play says your Quarterback was sacked outside
+Snow Hall, your bot saw an `Archer` die next to a `GuardTower`.
+
+Snow College is named for Lorenzo and Erastus Snow, not the weather. It opened in 1888 as Sanpete
+Stake Academy, with its first classes held upstairs in Ephraim's Co-op Store, and Ephraim families
+sold their "Sunday eggs" to help pay for it. So eggs are the currency, and every team's home base is
+a campus landmark.
 
 | On the field | In the API | |
 |---|---|---|
-| Digger | `Worker` | Digs grubs, builds burrows |
-| Brawler | `Soldier` | Front-line claws |
-| Snowballer | `Archer` | Ranged: four tiles of snowball |
-| Sniffer | `Scout` | Fast, and sees furthest |
-| Sett | `CommandCenter` | Home burrow. Lose your last one and you're out |
-| Den | `Barracks` | Trains Brawlers, Snowballers and Sniffers |
-| Larder | `ResourceDepot` | Closer drop-off for grubs, more storage |
-| Lecture Hall | `TechLab` | Where badgers study for upgrades |
-| Snow Fort | `GuardTower` | Throws snowballs at anyone close |
-| Grubs | ore (`resources`, `Gather`) | What everything costs |
-| Sharper Claws / Thicker Fur / Snowshoes / Digging Degree | `Weapons` / `Armor` / `Mobility` / `Harvesting` | Upgrades, tiers 1 and 2 |
-| Sleepy Sitter, Honey Badger, Blue Badger, Grub Hoarder | `sitter`, `rusher`, `balanced`, `economist` | House badgers |
+| Digger | `Worker` | Gathers eggs, puts up buildings |
+| Linebacker | `Soldier` | Front line |
+| Quarterback | `Archer` | Ranged: throws four tiles |
+| Wide Receiver | `Scout` | Fast, and sees furthest |
+| HQ: Noyes Building, Greenwood Student Center, Eccles Center or Huntsman Library (by player slot) | `CommandCenter` | Lose your last one and you're out |
+| Badger Stadium | `Barracks` | Trains Linebackers, Quarterbacks and Wide Receivers |
+| Co-op Store | `ResourceDepot` | Closer drop-off for eggs, more storage |
+| Graham Science Center | `TechLab` | Researches upgrades |
+| Snow Hall | `GuardTower` | A residence hall whose RAs fire on anyone close |
+| Sunday eggs, from henhouses | ore (`resources`, `Gather`) | What everything costs |
+| Strength & Conditioning / Thicker Fur / Track & Field / Ag Science | `Weapons` / `Armor` / `Mobility` / `Harvesting` | Upgrades, tiers 1 and 2 |
+| Sleepy Sitter, Honey Badger, Blue Badger, Egg Hoarder | `sitter`, `rusher`, `balanced`, `economist` | House badgers |
 
 ## The loop
 
