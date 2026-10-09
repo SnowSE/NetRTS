@@ -769,10 +769,7 @@ pre.snippet {
 }
 
 [data-brand="snow"] .topbar { background: var(--brand); color: #fff; border-bottom: 3px solid var(--orange); }
-[data-brand="snow"] .brand-mark { width: 30px; height: 30px; }
-.bm-ear { fill: #c9d3de; }
-.bm-face { fill: #fff; stroke: #0f1d2e; stroke-width: 1; stroke-linejoin: round; }
-.bm-stripe, .bm-nose { fill: #0f1d2e; }
+.brand-s { display: block; height: 44px; width: auto; }   /* the official S; don't recolour or crop it */
 .brand small { display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; }
 [data-brand="snow"] .brand span { line-height: 1.05; }
 [data-brand="snow"] .topbar nav { align-items: center; }

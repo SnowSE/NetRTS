@@ -15,7 +15,7 @@
     document.documentElement.dataset.brand = brand;
     if (brand === 'snow') {
       document.title = 'Badger Brawl';
-      document.getElementById('favicon').href = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect width='24' height='24' rx='4' fill='%2300447c'/%3E%3Ccircle cx='5' cy='6' r='2.4' fill='%23c9d3de'/%3E%3Ccircle cx='19' cy='6' r='2.4' fill='%23c9d3de'/%3E%3Cpath d='M2.5 7.5Q12 1.5 21.5 7.5L13.6 21Q12 22.8 10.4 21Z' fill='%23fff'/%3E%3Cpath d='M6.2 5.4L10.7 19.4 11.5 19.6 9.4 4.4ZM17.8 5.4L13.3 19.4 12.5 19.6 14.6 4.4Z' fill='%230f1d2e'/%3E%3Ccircle cx='12' cy='20.2' r='1.7' fill='%230f1d2e'/%3E%3C/svg%3E";
+      document.getElementById('favicon').href = 'images/snow-s-blue.png';
     }
   </script>
   <link rel="stylesheet" href="styles.css">
@@ -34,13 +34,8 @@
       <span>NetRts</span>
     </a>
     <a class="brand only-snow" href="#/" aria-label="Badger Brawl home">
-      <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="5" cy="6" r="2.4" class="bm-ear"/>
-        <circle cx="19" cy="6" r="2.4" class="bm-ear"/>
-        <path d="M2.5 7.5Q12 1.5 21.5 7.5L13.6 21Q12 22.8 10.4 21Z" class="bm-face"/>
-        <path d="M6.2 5.4L10.7 19.4 11.5 19.6 9.4 4.4ZM17.8 5.4L13.3 19.4 12.5 19.6 14.6 4.4Z" class="bm-stripe"/>
-        <circle cx="12" cy="20.2" r="1.7" class="bm-nose"/>
-      </svg>
+      <!-- The official Snow College "S" (snow.edu brand downloads), used unaltered as the brand guide requires. -->
+      <img class="brand-s" src="images/snow-s-white.png" alt="" width="29" height="44">
       <span>Badger Brawl<small>Snow College</small></span>
     </a>
     <nav aria-label="Primary">
