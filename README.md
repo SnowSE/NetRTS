@@ -20,8 +20,7 @@ other team's Noyes Building. Every second the world ticks forward; your bot sees
 see and decides what to do next.
 Then you sit back and watch it win (or work out why it didn't).
 
-Built by and for Snow College Software Engineering students, for programming competitions,
-classrooms and anyone who has ever wanted to settle "my strategy is better than yours" with code.
+Built for programming competitions, classrooms and anyone who has ever wanted to settle "my strategy is better than yours" with code.
 
 ## Why Noyes? Why Academy Square?
 

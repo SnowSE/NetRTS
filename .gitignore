@@ -328,3 +328,7 @@ Thumbs.db
 *.db
 *.db-shm
 *.db-wal
+
+# Local tooling output
+.claude/worktrees/
+.playwright-mcp/
