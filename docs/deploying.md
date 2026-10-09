@@ -148,3 +148,21 @@ Every `NetRts:*` option in `src/NetRts.Server/appsettings.json` (tick speed, map
 be overridden in Azure as an App Service application setting, using `__` for `:`. For example,
 `NetRts__MaxLiveMatches = 100`. Set them in the portal under the web app → **Settings →
 Environment variables**, or with `az webapp config appsettings set`.
+
+## Continuous deployment to netrts-jallen.azurewebsites.net
+
+Separately from the `azd` setup above, every push to `main` that passes CI publishes the server image
+to Docker Hub (`snowcollege/netrts`) and then deploys that exact image (`sha-<commit>`) to
+<https://netrts-jallen.azurewebsites.net> (the `deploy` job in `.github/workflows/ci.yaml`).
+
+| Resource (group `rg-netrts`, West US 3) | Purpose |
+|---|---|
+| `netrts-plan` (Linux, P0v3, 1 instance) | App Service plan. Keep it at one instance; live matches live in memory. |
+| `netrts-jallen` web app | Runs the Docker Hub image. Always On, HTTPS only, system-assigned identity. |
+| `netrts-jallen-pg` | Azure Database for PostgreSQL 16, Burstable B1ms. Entra ID sign-in only; the firewall admits Azure services only. |
+| `id-netrts-github` | Managed identity GitHub Actions signs in as (OIDC, `main` branch only), with Website Contributor on the web app. |
+
+The web app's connection string `netrtsdb` has no password; the server signs in to PostgreSQL with
+the web app's identity, which is a Microsoft Entra admin on the database. GitHub needs the
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` repository secrets (the identity's
+client ID and the faculty subscription's tenant and ID) alongside the Docker Hub ones.

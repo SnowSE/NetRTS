@@ -55,6 +55,29 @@ jobs:
       env:
         ContainerImageTags: latest;sha-${{ github.sha }}
 
+  deploy:
+    needs: docker
+    runs-on: ubuntu-latest
+    # Live matches are held in memory, so don't let two deploys restart the app at once
+    concurrency: azure-app-service
+    permissions:
+      id-token: write   # OIDC sign-in to Azure through the id-netrts-github managed identity
+      contents: read
+
+    steps:
+    - name: Log in to Azure
+      uses: azure/login@v2
+      with:
+        client-id: ${{ secrets.AZURE_CLIENT_ID }}
+        tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+        subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+    - name: Deploy image to App Service
+      uses: azure/webapps-deploy@v3
+      with:
+        app-name: netrts-jallen
+        images: docker.io/snowcollege/netrts:sha-${{ github.sha }}
+
   python-sample:
     runs-on: ubuntu-latest
     steps:
