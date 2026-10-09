@@ -18,6 +18,9 @@ public sealed class MatchHost
 {
     private static readonly RulesDto Rules = GameRules.ToDto();
 
+    /// <summary>A pause lifts itself after this long, so nobody can stall a match (or hold its slot) forever.</summary>
+    public static readonly TimeSpan MaxPause = TimeSpan.FromMinutes(5);
+
     private readonly object _gate = new();
     private readonly List<Seat> _seats = [];
     private readonly List<IBotStrategy?> _seatBots = []; // parallel to _seats; non-null for house bots
@@ -27,6 +30,9 @@ public sealed class MatchHost
     private TaskCompletionSource _tickSignal = NewSignal();
     private GameSimulation? _sim;
     private MapDto? _map;
+    private int _tickIntervalMs;
+    private DateTime? _pausedAt;
+    private PeriodicTimer? _timer;
 
     public MatchHost(Guid id, string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics)
     {
@@ -39,6 +45,7 @@ public sealed class MatchHost
         CreatedAt = createdAt;
         _logger = logger;
         _metrics = metrics;
+        _tickIntervalMs = settings.TickIntervalMs;
     }
 
     public Guid Id { get; }
@@ -50,6 +57,96 @@ public sealed class MatchHost
     public DateTime CreatedAt { get; }
     public DateTime? CompletedAt { get; private set; }
     public bool Recorded { get; set; }
+
+    /// <summary>The current speed; starts at <see cref="MatchSettings.TickIntervalMs"/> and can be changed while running.</summary>
+    public int TickIntervalMs
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _tickIntervalMs;
+            }
+        }
+    }
+
+    public bool Paused
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _pausedAt is not null;
+            }
+        }
+    }
+
+    /// <summary>Only matches with at most one real player can be sped up, slowed down or paused.</summary>
+    public bool SpeedAdjustable
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _seats.Count(s => !s.IsHouseBot) <= 1;
+            }
+        }
+    }
+
+    /// <summary>Changes the speed and/or pauses. Returns an error code, or null on success.</summary>
+    public string? SetSpeed(int? tickIntervalMs, bool? paused, DateTime now)
+    {
+        lock (_gate)
+        {
+            if (_seats.Count(s => !s.IsHouseBot) > 1)
+            {
+                return "SPEED_LOCKED";
+            }
+
+            if (_sim is null || _sim.Status != MatchStatus.Active)
+            {
+                return "MATCH_NOT_ACTIVE";
+            }
+
+            if (tickIntervalMs is { } ms)
+            {
+                _tickIntervalMs = ms;
+                if (_timer is not null)
+                {
+                    _timer.Period = TimeSpan.FromMilliseconds(ms);
+                }
+            }
+
+            if (paused is { } pause)
+            {
+                _pausedAt = pause ? _pausedAt ?? now : null;
+            }
+        }
+
+        _logger.LogInformation("Match {MatchId} speed set to {TickIntervalMs} ms per tick, paused: {Paused}", Id, TickIntervalMs, Paused);
+        Signal(); // let spectator streams show the change
+        return null;
+    }
+
+    /// <summary>Runs one tick of a paused match. Returns an error code, or null on success.</summary>
+    public string? Step()
+    {
+        lock (_gate)
+        {
+            if (_seats.Count(s => !s.IsHouseBot) > 1)
+            {
+                return "SPEED_LOCKED";
+            }
+
+            if (_pausedAt is null)
+            {
+                return "NOT_PAUSED";
+            }
+        }
+
+        Advance();
+        return null;
+    }
 
     public MatchStatus Status
     {
@@ -193,7 +290,7 @@ public sealed class MatchHost
                 var started = Stopwatch.GetTimestamp();
                 RunHouseBots();
                 _sim.Step();
-                _metrics.TickRan(Stopwatch.GetElapsedTime(started), Settings.TickIntervalMs);
+                _metrics.TickRan(Stopwatch.GetElapsedTime(started), _tickIntervalMs);
                 if (_sim.Status == MatchStatus.Completed)
                 {
                     CompletedAt = DateTime.UtcNow;
@@ -261,7 +358,7 @@ public sealed class MatchHost
         lock (_gate)
         {
             var slot = _sim?.SlotOf(playerId) ?? -1;
-            return slot < 0 ? null : _sim!.GetPlayerView(slot, sinceTick) with { TickIntervalMs = Settings.TickIntervalMs };
+            return slot < 0 ? null : _sim!.GetPlayerView(slot, sinceTick) with { TickIntervalMs = _tickIntervalMs, Paused = _pausedAt is not null };
         }
     }
 
@@ -269,7 +366,12 @@ public sealed class MatchHost
     {
         lock (_gate)
         {
-            return _sim is null ? null : _sim.GetSpectatorView(sinceTick, includeVisibility) with { TickIntervalMs = Settings.TickIntervalMs };
+            return _sim is null ? null : _sim.GetSpectatorView(sinceTick, includeVisibility) with
+            {
+                TickIntervalMs = _tickIntervalMs,
+                Paused = _pausedAt is not null,
+                SpeedAdjustable = _seats.Count(s => !s.IsHouseBot) <= 1,
+            };
         }
     }
 
@@ -311,7 +413,7 @@ public sealed class MatchHost
                 MaxPlayers = MaxPlayers,
                 Tick = _sim?.Tick ?? 0,
                 MaxTicks = Settings.MaxTicks,
-                TickIntervalMs = Settings.TickIntervalMs,
+                TickIntervalMs = _tickIntervalMs,
                 MapWidth = Settings.MapWidth,
                 MapHeight = Settings.MapHeight,
                 Seed = Settings.Seed,
@@ -319,6 +421,8 @@ public sealed class MatchHost
                 Players = _seats.Select((s, i) => new MatchPlayerDto { PlayerId = s.PlayerId, Name = s.Name, Slot = i, IsHouseBot = s.IsHouseBot }).ToList(),
                 Outcome = _sim?.Outcome,
                 Name = Name,
+                Paused = _pausedAt is not null,
+                SpeedAdjustable = _seats.Count(s => !s.IsHouseBot) <= 1,
             };
         }
     }
@@ -368,10 +472,18 @@ public sealed class MatchHost
         try
         {
             await Task.Delay(startDelay, ct);
-            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(Settings.TickIntervalMs));
+            using var timer = new PeriodicTimer(TimeSpan.FromMilliseconds(TickIntervalMs));
+            lock (_gate)
+            {
+                _timer = timer;
+            }
+
             do
             {
-                Advance();
+                if (!StillPaused(DateTime.UtcNow))
+                {
+                    Advance();
+                }
             }
             while (Status == MatchStatus.Active && await timer.WaitForNextTickAsync(ct));
         }
@@ -381,6 +493,27 @@ public sealed class MatchHost
         catch (Exception ex)
         {
             _logger.LogError(ex, "Tick loop for match {MatchId} crashed", Id);
+        }
+        finally
+        {
+            lock (_gate)
+            {
+                _timer = null; // disposed with the loop; SetSpeed must not touch it
+            }
+        }
+    }
+
+    /// <summary>Whether the match is paused, lifting a pause that has lasted longer than <see cref="MaxPause"/>.</summary>
+    private bool StillPaused(DateTime now)
+    {
+        lock (_gate)
+        {
+            if (_pausedAt is { } since && now - since > MaxPause)
+            {
+                _pausedAt = null;
+            }
+
+            return _pausedAt is not null;
         }
     }
 

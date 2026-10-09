@@ -26,6 +26,30 @@ public class LiveMatchTests(TickingServerFactory factory) : IClassFixture<Tickin
     }
 
     [Fact]
+    public async Task A_paused_match_stops_ticking_until_it_is_resumed()
+    {
+        var ct = TestContext.Current.CancellationToken;
+        var (client, _) = await factory.NewPlayerAsync();
+        var match = await client.CreateMatchAsync(new CreateMatchRequest
+        {
+            HouseBots = ["sitter"],
+            Settings = new MatchSettingsDto { TickIntervalMs = 20 },
+        }, ct);
+        await client.WaitForStartAsync(match.MatchId, ct);
+        var host = factory.Matches.Get(match.MatchId)!;
+
+        Assert.Null(host.SetSpeed(null, paused: true, DateTime.UtcNow));
+        await Task.Delay(100, ct); // let a tick already in flight finish
+        var pausedAt = host.ToSummary().Tick;
+        await Task.Delay(300, ct);
+        Assert.Equal(pausedAt, host.ToSummary().Tick);
+
+        Assert.Null(host.SetSpeed(10, paused: false, DateTime.UtcNow));
+        await host.WaitForTickAsync(pausedAt + 5, TimeSpan.FromSeconds(10), ct);
+        Assert.True(host.ToSummary().Tick >= pausedAt + 5);
+    }
+
+    [Fact]
     public async Task Ten_concurrent_matches_all_progress()
     {
         var ct = TestContext.Current.CancellationToken;

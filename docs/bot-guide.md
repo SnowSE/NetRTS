@@ -89,6 +89,8 @@ limited to 5 per minute per IP address, so register once and reuse the key.
 | `POST /api/v1/matches/{id}/commands` | Queue commands. |
 | `DELETE /api/v1/matches/{id}/commands` | Drop everything still waiting in your queue. |
 | `POST /api/v1/matches/{id}/surrender` | Concede. |
+| `POST /api/v1/matches/{id}/speed` | Change a running match's speed: `{"tickIntervalMs":250}`, `{"paused":true}` or both. Only matches with at most one real player (exhibitions and games against house bots), so nobody's opponent can be sped up or paused; anyone may call it, and the spectator page has buttons for it. A pause lifts itself after five minutes. Your state's `tickIntervalMs` and `paused` show the current speed. |
+| `POST /api/v1/matches/{id}/step` | Run one tick of a paused match. |
 | `GET /api/v1/matches/{id}/result` | Winner, end reason, score breakdown and stats (`409` until it ends). |
 | `GET /api/v1/matches/{id}/replay` | Seed + every executed command — enough to re-simulate the match exactly. |
 | `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |

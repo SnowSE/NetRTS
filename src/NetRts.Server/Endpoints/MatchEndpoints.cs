@@ -82,6 +82,18 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Take a free seat in a waiting match.");
 
+        matches.MapPost("/{matchId:guid}/speed", (Guid matchId, MatchSpeedRequest request, MatchManager manager) =>
+                Results.Ok(manager.SetSpeed(matchId, request).ToSummary()))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Change a running match's tick interval or pause it. Only for matches with at most one real player; anyone watching may do it.");
+
+        matches.MapPost("/{matchId:guid}/step", (Guid matchId, MatchManager manager) =>
+                Results.Ok(manager.Step(matchId).ToSummary()))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Run one tick of a paused match.");
+
         matches.MapPost("/{matchId:guid}/leave", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
             {
                 return Results.Ok(manager.Leave(matchId, user.PlayerId()).ToSummary());
@@ -254,12 +266,15 @@ public static class MatchEndpoints
         context.Response.Headers["X-Accel-Buffering"] = "no";
 
         var lastTick = -1;
+        (int, bool) lastSpeed = default;
         while (!ct.IsCancellationRequested)
         {
             var next = host.NextTick;
             var view = host.GetSpectatorView(lastTick < 0 ? null : lastTick, fog ?? false);
-            if (view is not null && view.Tick != lastTick)
+            // A new tick, or a speed change or pause, which other spectators should see straight away.
+            if (view is not null && (view.Tick != lastTick || (view.TickIntervalMs, view.Paused) != lastSpeed))
             {
+                lastSpeed = (view.TickIntervalMs, view.Paused);
                 await context.Response.WriteAsync($"data: {JsonSerializer.Serialize(view, NetRtsClient.JsonOptions)}\n\n", ct);
                 await context.Response.Body.FlushAsync(ct);
                 lastTick = view.Tick;

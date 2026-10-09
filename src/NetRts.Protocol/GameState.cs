@@ -8,6 +8,10 @@ public sealed record GameStateDto
     public MatchStatus Status { get; init; }
     public int MaxTicks { get; init; }
     public int TickIntervalMs { get; init; }
+
+    /// <summary>True while a spectator has paused the match. Long polls simply wait until it resumes.</summary>
+    public bool Paused { get; init; }
+
     public int MapWidth { get; init; }
     public int MapHeight { get; init; }
 

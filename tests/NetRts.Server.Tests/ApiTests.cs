@@ -265,6 +265,54 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task Spectators_can_change_the_speed_of_an_exhibition_and_step_it_while_paused()
+    {
+        var http = factory.CreateClient();
+        var created = await http.PostAsJsonAsync("/api/v1/exhibitions", new CreateExhibitionRequest { Bots = ["rusher", "sitter"] }, NetRtsClient.JsonOptions, Ct);
+        var match = (await created.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+        Assert.True(match.SpeedAdjustable);
+        var speedUrl = $"/api/v1/matches/{match.MatchId}/speed";
+        var stepUrl = $"/api/v1/matches/{match.MatchId}/step";
+
+        var tooFast = await http.PostAsJsonAsync(speedUrl, new MatchSpeedRequest { TickIntervalMs = 1 }, NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, tooFast.StatusCode);
+        var notPaused = await http.PostAsync(stepUrl, null, Ct);
+        Assert.Equal("NOT_PAUSED", (await notPaused.ErrorAsync()).Code);
+
+        var paused = await (await http.PostAsJsonAsync(speedUrl, new MatchSpeedRequest { TickIntervalMs = 250, Paused = true }, NetRtsClient.JsonOptions, Ct))
+            .Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(250, paused!.TickIntervalMs);
+        Assert.True(paused.Paused);
+
+        var stepped = await (await http.PostAsync(stepUrl, null, Ct)).Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(paused.Tick + 1, stepped!.Tick);
+        var view = await http.GetFromJsonAsync<SpectatorStateDto>($"/api/v1/matches/{match.MatchId}/spectate", NetRtsClient.JsonOptions, Ct);
+        Assert.True(view!.Paused);
+        Assert.Equal(250, view.TickIntervalMs);
+
+        var resumed = await (await http.PostAsJsonAsync(speedUrl, new MatchSpeedRequest { Paused = false }, NetRtsClient.JsonOptions, Ct))
+            .Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct);
+        Assert.False(resumed!.Paused);
+        Assert.Equal(250, resumed.TickIntervalMs);
+    }
+
+    [Fact]
+    public async Task Nobody_can_change_the_speed_of_a_match_between_two_players()
+    {
+        var (host, _) = await factory.NewPlayerAsync();
+        var (guest, _) = await factory.NewPlayerAsync();
+        var match = await host.CreateMatchAsync(new CreateMatchRequest(), Ct);
+        await guest.JoinMatchAsync(match.MatchId, Ct);
+
+        var response = await factory.CreateClient().PostAsJsonAsync($"/api/v1/matches/{match.MatchId}/speed",
+            new MatchSpeedRequest { Paused = true }, NetRtsClient.JsonOptions, Ct);
+
+        Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
+        Assert.Equal("SPEED_LOCKED", (await response.ErrorAsync()).Code);
+        Assert.False((await host.GetMatchAsync(match.MatchId, Ct)).SpeedAdjustable);
+    }
+
+    [Fact]
     public async Task Exhibitions_can_be_spectated()
     {
         var http = factory.CreateClient();

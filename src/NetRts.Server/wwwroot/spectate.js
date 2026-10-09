@@ -20,7 +20,10 @@ export function mountSpectate(root, matchKey) {
         </div>
         <p class="sub" id="subtitle"></p>
       </div>
-      <div class="clock" id="clock" aria-live="off"></div>
+      <div class="clock-col">
+        <div class="clock" id="clock" aria-live="off"></div>
+        <div class="speed" id="speed" role="group" aria-label="Match speed" hidden></div>
+      </div>
     </div>
     <div class="arena">
       <div class="map-col">
@@ -287,7 +290,7 @@ export function mountSpectate(root, matchKey) {
     $('matchup').hidden = !summary?.name;
     document.title = `${title} – ${GAME}`;
     if (summary) {
-      $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;
+      $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${state?.tickIntervalMs ?? summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;
     }
   }
 
@@ -295,10 +298,11 @@ export function mountSpectate(root, matchKey) {
     const tick = state?.tick ?? summary?.tick ?? 0;
     const max = state?.maxTicks ?? summary?.maxTicks ?? 0;
     const status = finished ? 'Completed' : (state?.status ?? summary?.status ?? 'Waiting');
+    const paused = status === 'Active' && (state?.paused ?? summary?.paused);
     const pct = max ? Math.min(100, (tick / max) * 100) : 0;
     setHtml($('clock'), html`
       <div class="clock-top">
-        <span class="status ${status}">${status === 'Active' ? 'Live' : status}</span>
+        <span class="status ${paused ? 'Paused' : status}">${paused ? 'Paused' : status === 'Active' ? 'Live' : status}</span>
         <span class="tick">${fmt(tick)} <small>/ ${fmt(max)} ticks</small></span>
       </div>
       <div class="progress" role="progressbar" aria-label="Match progress" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${tick}">
@@ -435,8 +439,51 @@ export function mountSpectate(root, matchKey) {
   }
 
   function renderAll() {
-    renderHeader(); renderClock(); renderVision(); renderPlayers(); renderBanner();
+    renderHeader(); renderClock(); renderSpeed(); renderVision(); renderPlayers(); renderBanner();
   }
+
+  // ---------- speed: exhibitions and games against house bots can be sped up, slowed down or paused
+  const SPEED_CHOICES = [100, 250, 500, 1000, 2000];
+  let speedKey = '';
+  function renderSpeed() {
+    const box = $('speed');
+    const status = finished ? 'Completed' : (state?.status ?? summary?.status);
+    const adjustable = status === 'Active' && (state?.speedAdjustable ?? summary?.speedAdjustable);
+    const ms = state?.tickIntervalMs ?? summary?.tickIntervalMs ?? 1000;
+    const paused = Boolean(state?.paused ?? summary?.paused);
+    const key = `${adjustable}|${ms}|${paused}`;
+    if (key === speedKey) return;   // re-rendering every tick would steal focus from the drop-down
+    speedKey = key;
+    box.hidden = !adjustable;
+    if (!adjustable) return;
+    const choices = SPEED_CHOICES.includes(ms) ? SPEED_CHOICES : [...SPEED_CHOICES, ms].sort((a, b) => a - b);
+    setHtml(box, html`
+      <button type="button" class="btn ghost" data-act="pause" aria-pressed="${paused}">${paused ? 'Resume' : 'Pause'}</button>
+      <button type="button" class="btn ghost" data-act="step" ${paused ? '' : html`disabled`} title="Run one tick">Step</button>
+      <label class="small muted" for="speed-ms">Speed</label>
+      <select id="speed-ms">
+        ${choices.map((c) => html`<option value="${c}" ${c === ms ? html`selected` : ''}>${c / 1000} s per tick</option>`)}
+      </select>`);
+  }
+  async function changeSpeed(path, body) {
+    try {
+      summary = { ...summary, ...(await api(`/api/v1/matches/${matchId}/${path}`, { method: 'POST', body })) };
+      // The stream brings the new state; until it does, show what we asked for.
+      if (state) state = { ...state, paused: summary.paused, tickIntervalMs: summary.tickIntervalMs, tick: Math.max(state.tick, summary.tick) };
+      renderAll();
+    } catch (e) {
+      setOverlay(say('Could not change the speed', 'The badgers would not change pace'), e.message);
+      later(() => setOverlay(null), 2500);
+    }
+  }
+  $('speed').addEventListener('click', (e) => {
+    const act = e.target.closest('button')?.dataset.act;
+    if (act === 'pause') changeSpeed('speed', { paused: !(state?.paused ?? summary?.paused) });
+    if (act === 'step') changeSpeed('step');
+  });
+  $('speed').addEventListener('change', (e) => {
+    if (e.target.id === 'speed-ms') changeSpeed('speed', { tickIntervalMs: Number(e.target.value) });
+  });
 
   function setOverlay(title, body) {
     if (!title) { overlay.hidden = true; return; }

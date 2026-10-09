@@ -54,6 +54,25 @@ public sealed record MatchSummaryDto
 
     /// <summary>The name given when the match was created, or null.</summary>
     public string? Name { get; init; }
+
+    /// <summary>True while the match is paused (see POST /api/v1/matches/{id}/speed).</summary>
+    public bool Paused { get; init; }
+
+    /// <summary>
+    /// Whether spectators may change the speed: only matches with at most one real player (exhibitions and
+    /// games against house bots), so nobody's opponent can be sped up or paused on them.
+    /// </summary>
+    public bool SpeedAdjustable { get; init; }
+}
+
+/// <summary>Change a running match's speed. Either field may be left out.</summary>
+public sealed record MatchSpeedRequest
+{
+    /// <summary>New milliseconds per tick, within the server's limits (100-10000 by default).</summary>
+    public int? TickIntervalMs { get; init; }
+
+    /// <summary>Pause or resume. A paused match resumes on its own after five minutes.</summary>
+    public bool? Paused { get; init; }
 }
 
 public sealed record MatchPlayerDto
@@ -106,6 +125,8 @@ public sealed record SpectatorStateDto
     public MatchStatus Status { get; init; }
     public int MaxTicks { get; init; }
     public int TickIntervalMs { get; init; }
+    public bool Paused { get; init; }
+    public bool SpeedAdjustable { get; init; }
     public IReadOnlyList<SpectatorPlayerDto> Players { get; init; } = [];
     public IReadOnlyList<UnitDto> Units { get; init; } = [];
     public IReadOnlyList<BuildingDto> Buildings { get; init; } = [];

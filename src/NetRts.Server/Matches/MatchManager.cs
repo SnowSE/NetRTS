@@ -190,6 +190,42 @@ public sealed partial class MatchManager(
         return host;
     }
 
+    /// <summary>Changes a running match's speed or pauses it (matches with at most one real player only).</summary>
+    public MatchHost SetSpeed(Guid matchId, MatchSpeedRequest request)
+    {
+        var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
+        if (request.TickIntervalMs is { } ms && (ms < _options.MinTickIntervalMs || ms > _options.MaxTickIntervalMs))
+        {
+            throw new MatchException(400, "INVALID_SETTINGS", $"tickIntervalMs must be between {_options.MinTickIntervalMs} and {_options.MaxTickIntervalMs}.");
+        }
+
+        ThrowSpeedError(host.SetSpeed(request.TickIntervalMs, request.Paused, DateTime.UtcNow));
+        return host;
+    }
+
+    /// <summary>Runs one tick of a paused match.</summary>
+    public MatchHost Step(Guid matchId)
+    {
+        var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
+        ThrowSpeedError(host.Step());
+        return host;
+    }
+
+    private static void ThrowSpeedError(string? error)
+    {
+        switch (error)
+        {
+            case null:
+                return;
+            case "SPEED_LOCKED":
+                throw new MatchException(403, error, "Only matches with at most one real player (exhibitions and games against house bots) can change speed.");
+            case "NOT_PAUSED":
+                throw new MatchException(409, error, "Pause the match before stepping it.");
+            default:
+                throw new MatchException(409, error, "The match isn't running.");
+        }
+    }
+
     /// <summary>Drops stale waiting matches and finished matches that have been persisted and aged out.</summary>
     public void Housekeep(DateTime now)
     {
