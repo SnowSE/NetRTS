@@ -81,6 +81,7 @@ limited to 5 per minute per IP address, so register once and reuse the key.
 |---|---|
 | `POST /api/v1/matches` | Create a match; you take slot 0. Body (all optional): `{"name":"cs1400-lab", "maxPlayers":2, "houseBots":["balanced"], "settings":{"tickIntervalMs":1000,"maxTicks":1800,"mapWidth":64,"mapHeight":64,"seed":42}}`. It starts as soon as every seat is filled — with `houseBots` that is immediately. A `name` (3–32 letters, digits, `_` or `-`) lets others find the match; no two unfinished matches share one (`409 MATCH_NAME_TAKEN`). |
 | `GET /api/v1/matches?status=Waiting` | Open matches you can join, with their `name` if they have one. |
+| `GET /api/v1/matches/named/{name}` | The match with that name: the one waiting or running, otherwise the most recent. The spectator page takes names too: `/#/match/{name}`. |
 | `POST /api/v1/matches/{id}/join` | Take a free seat. |
 | `POST /api/v1/matches/{id}/leave` | Give up your seat before the match starts. |
 | `GET /api/v1/matches/{id}/map` | Terrain and every start position (public knowledge). |

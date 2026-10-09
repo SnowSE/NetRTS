@@ -48,6 +48,33 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("One match's summary.");
 
+        matches.MapGet("/named/{name}", async (string name, MatchManager manager, NetRtsDb db, CancellationToken ct) =>
+            {
+                if (!MatchManager.IsValidName(name))
+                {
+                    return ApiErrors.NotFound("Match");
+                }
+
+                // A name belongs to one unfinished match at a time; after that it can be reused, so prefer
+                // the unfinished one, then the newest.
+                var live = manager.All.Where(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+                if ((live.FirstOrDefault(m => m.Status != MatchStatus.Completed) ?? live.FirstOrDefault()) is { } host)
+                {
+                    return Results.Ok(host.ToSummary());
+                }
+
+                var needle = $"\"name\":\"{name.ToLowerInvariant()}\"";
+                var json = await db.Matches.AsNoTracking()
+                    .Where(m => m.SummaryJson.ToLower().Contains(needle))
+                    .OrderByDescending(m => m.CompletedAt)
+                    .Select(m => m.SummaryJson)
+                    .FirstOrDefaultAsync(ct);
+                return json is null ? ApiErrors.NotFound("Match") : Results.Text(json, "application/json");
+            })
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("The match with this name: the one waiting or running, otherwise the most recent.");
+
         matches.MapPost("/{matchId:guid}/join", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
                 Results.Ok(manager.Join(matchId, user.PlayerId(), user.PlayerName()).ToSummary()))
             .RequireAuthorization()

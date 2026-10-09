@@ -239,6 +239,32 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task A_match_can_be_found_by_name_while_live_and_after_it_is_archived()
+    {
+        var (client, _) = await factory.NewPlayerAsync();
+        var http = factory.CreateClient();
+        var name = $"find-{Guid.NewGuid():N}"[..12];
+        var match = await client.CreateMatchAsync(new CreateMatchRequest { Name = name, HouseBots = ["sitter"] }, Ct);
+
+        var live = await http.GetFromJsonAsync<MatchSummaryDto>($"/api/v1/matches/named/{name.ToUpperInvariant()}", NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(match.MatchId, live!.MatchId);
+        Assert.Equal(HttpStatusCode.NotFound, (await http.GetAsync("/api/v1/matches/named/no-such-match", Ct)).StatusCode);
+
+        await client.SurrenderAsync(match.MatchId, Ct);
+        var host = factory.Matches.Get(match.MatchId)!;
+        while (!host.Recorded)
+        {
+            await Task.Delay(20, Ct);
+        }
+
+        factory.Matches.Housekeep(DateTime.UtcNow.AddDays(1));
+        Assert.Null(factory.Matches.Get(match.MatchId));
+        var archived = await http.GetFromJsonAsync<MatchSummaryDto>($"/api/v1/matches/named/{name}", NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(match.MatchId, archived!.MatchId);
+        Assert.Equal(name, archived.Name);
+    }
+
+    [Fact]
     public async Task Exhibitions_can_be_spectated()
     {
         var http = factory.CreateClient();

@@ -1,18 +1,23 @@
-// Spectate view: #/match/{id}
+// Spectate view: #/match/{id} or #/match/{name}
 import { api, html, setHtml, esc, slotVar, displayName, fmt, outcomeText } from './util.js';
 import { GAME, SNOW, say, ORE, unitName, buildingName, upgradeName, badgerize, hqName, housingName } from './lore.js';
 import { MapView, unitPath } from './mapview.js';
 
 const HOT = /Lost|Destroyed|Killed|Eliminated|Failed/;
 
-export function mountSpectate(root, matchId) {
+export function mountSpectate(root, matchKey) {
+  const byName = !/^[0-9a-fA-F-]{36}$/.test(matchKey);
+  let matchId = byName ? null : matchKey;
   document.title = `${say('Match', 'Brawl')} – ${GAME}`;
   setHtml(root, html`
     <div id="banner-slot" aria-live="polite"></div>
     <div class="match-head">
       <div>
         <p class="small" style="margin:0 0 6px"><a href="#/">${say('All matches', 'All brawls')}</a></p>
-        <h1 id="title">${say('Loading match…', 'Waking the badgers…')}</h1>
+        <div class="title-row">
+          <h1 id="title">${say('Loading match…', 'Waking the badgers…')}</h1>
+          <span class="matchup" id="matchup" hidden></span>
+        </div>
         <p class="sub" id="subtitle"></p>
       </div>
       <div class="clock" id="clock" aria-live="off"></div>
@@ -272,10 +277,14 @@ export function mountSpectate(root, matchId) {
   function renderHeader() {
     const players = [...(state?.players || summary?.players || [])].sort((a, b) => a.slot - b.slot);
     const seats = summary?.maxPlayers ?? players.length;
-    const title = !players.length ? say('Waiting for players', 'Waiting for badgers')
+    const matchup = !players.length ? say('Waiting for players', 'Waiting for badgers')
       : seats > 4 ? `${seats}-player ${say('match', 'brawl')}`   // the scoreboard lists everyone
         : players.map((p) => displayName(p.name)).join(' vs ');
+    // A named match shows its name, with the matchup beside it.
+    const title = summary?.name || matchup;
     $('title').textContent = title;
+    $('matchup').textContent = summary?.name ? matchup : '';
+    $('matchup').hidden = !summary?.name;
     document.title = `${title} – ${GAME}`;
     if (summary) {
       $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;
@@ -438,12 +447,17 @@ export function mountSpectate(root, matchId) {
   // ---------- data flow
   async function loadSummary() {
     try {
-      summary = await api(`/api/v1/matches/${matchId}`);
+      summary = await api(byName && !matchId ? `/api/v1/matches/named/${encodeURIComponent(matchKey)}` : `/api/v1/matches/${matchId}`);
+      matchId = summary.matchId;
+      // Show the friendlier name in the address bar while the match is waiting or running.
+      if (summary.name && summary.status !== 'Completed' && location.hash !== `#/match/${summary.name}`) {
+        history.replaceState(null, '', `#/match/${summary.name}`);
+      }
       return true;
     } catch (e) {
       if (e.status === 404) {
         $('title').textContent = say('Match not found', 'Brawl not found');
-        setOverlay(say('No match with this id', 'No brawl with this id'), say('It may have been removed. Go back to the match list to pick another.', 'It may have been cleared out. Go back to the list to pick another.'));
+        setOverlay(byName ? say('No match with this name', 'No brawl with this name') : say('No match with this id', 'No brawl with this id'), say('It may have been removed. Go back to the match list to pick another.', 'It may have been cleared out. Go back to the list to pick another.'));
         setHtml($('players'), html``);
         setHtml($('clock'), html``);
         $('vision-field').hidden = true;

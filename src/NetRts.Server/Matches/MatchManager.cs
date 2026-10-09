@@ -93,7 +93,7 @@ public sealed partial class MatchManager(
         ValidateBots(bots);
         var settings = ResolveSettings(request.Settings, maxPlayers);
         var name = string.IsNullOrWhiteSpace(request.Name) ? null : request.Name.Trim();
-        if (name is not null && !ValidName().IsMatch(name))
+        if (name is not null && !IsValidName(name))
         {
             throw new MatchException(400, "INVALID_NAME", "Match names are 3-32 characters: letters, digits, '_' or '-'.");
         }
@@ -231,6 +231,9 @@ public sealed partial class MatchManager(
             throw new MatchException(503, "SERVER_BUSY", $"The server is hosting its maximum of {_options.MaxLiveMatches} matches.");
         }
     }
+
+    /// <summary>Match names follow the player-name rules: 3-32 letters, digits, '_' or '-'.</summary>
+    public static bool IsValidName(string name) => ValidName().IsMatch(name);
 
     [GeneratedRegex("^[A-Za-z0-9_-]{3,32}$")]
     private static partial Regex ValidName();

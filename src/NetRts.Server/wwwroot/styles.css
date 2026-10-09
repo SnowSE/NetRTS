@@ -477,6 +477,8 @@ pre.snippet {
   font-stretch: 75%;
   overflow-wrap: anywhere;
 }
+.match-head .title-row { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 14px; }
+.match-head .matchup { color: var(--muted); font-size: clamp(1rem, 1.8vw, 1.3rem); font-weight: 600; overflow-wrap: anywhere; }
 .match-head .sub { color: var(--muted); margin: 4px 0 0; font-size: 0.9rem; overflow-wrap: anywhere; }
 
 .clock { display: grid; gap: 6px; }
