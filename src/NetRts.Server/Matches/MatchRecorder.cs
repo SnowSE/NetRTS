@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
@@ -11,9 +12,9 @@ namespace NetRts.Server.Matches;
 /// Persists finished matches (summary, result, replay) and updates win/loss records and Elo
 /// ratings. Runs off the tick loop so a slow database never stalls a game.
 /// </summary>
-public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchRecorder> logger) : BackgroundService
+public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchRecorder> logger, MatchMetrics metrics) : BackgroundService
 {
-    private readonly Channel<MatchHost> _queue = Channel.CreateUnbounded<MatchHost>();
+    private readonly Channel<MatchHost> _queue = metrics.ObserveRecorderQueue(Channel.CreateUnbounded<MatchHost>());
 
     public void Enqueue(MatchHost host) => _queue.Writer.TryWrite(host);
 
@@ -21,14 +22,20 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
     {
         await foreach (var host in _queue.Reader.ReadAllAsync(stoppingToken))
         {
+            using var activity = MatchMetrics.ActivitySource.StartActivity("record match");
+            activity?.SetTag("netrts.match.id", host.Id);
+            var started = Stopwatch.GetTimestamp();
             try
             {
                 await RecordAsync(host, stoppingToken);
                 host.Recorded = true;
+                metrics.MatchRecorded(Stopwatch.GetElapsedTime(started));
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogError(ex, "Failed to record match {MatchId}", host.Id);
+                metrics.MatchRecordFailed();
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             }
         }
     }

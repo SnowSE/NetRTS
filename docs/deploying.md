@@ -161,8 +161,27 @@ to Docker Hub (`snowcollege/netrts`) and then deploys that exact image (`sha-<co
 | `netrts-jallen` web app | Runs the Docker Hub image. Always On, HTTPS only, system-assigned identity. |
 | `netrts-jallen-pg` | Azure Database for PostgreSQL 16, Burstable B1ms. Entra ID sign-in only; the firewall admits Azure services only. |
 | `id-netrts-github` | Managed identity GitHub Actions signs in as (OIDC, `main` branch only), with Website Contributor on the web app. |
+| `netrts-insights` + `netrts-logs` | Application Insights on a Log Analytics workspace (30-day retention, **1 GB/day cap**). The web app's `APPLICATIONINSIGHTS_CONNECTION_STRING` setting switches the server's OpenTelemetry export to it. |
 
 The web app's connection string `netrtsdb` has no password; the server signs in to PostgreSQL with
 the web app's identity, which is a Microsoft Entra admin on the database. GitHub needs the
 `AZURE_CLIENT_ID`, `AZURE_TENANT_ID` and `AZURE_SUBSCRIPTION_ID` repository secrets (the identity's
 client ID and the faculty subscription's tenant and ID) alongside the Docker Hub ones.
+
+### Telemetry
+
+With `APPLICATIONINSIGHTS_CONNECTION_STRING` set the server exports to Application Insights;
+otherwise it exports to `OTEL_EXPORTER_OTLP_ENDPOINT` (the Aspire dashboard when run under Aspire).
+In the portal, open `netrts-insights` for **Live metrics**, **Failures**, **Performance** and
+**Logs**. The game's own metrics are under **Metrics** → namespace *azure.applicationinsights* (custom):
+
+| Metric | What to watch |
+|---|---|
+| `netrts.tick.duration`, `netrts.tick.overruns` | Ticks slower than their interval mean the server is falling behind. |
+| `netrts.matches.live` (by `netrts.match.status`) | Waiting and active matches, against `MaxLiveMatches`. |
+| `netrts.matches.started` / `netrts.matches.completed` (by kind, end reason), `netrts.match.ticks` | Match volume and how matches end. |
+| `netrts.house_bot.failures` (by bot) | House bot turns that threw. |
+| `netrts.recorder.queue`, `netrts.recorder.failures`, `netrts.recorder.duration` | Finished matches not yet saved are lost on restart; alert on failures. |
+
+Per-tick requests (state long-polls, command submissions, spectator polls and streams) and health
+probes are left out of traces to keep volume down; the standard HTTP request metrics still count them.

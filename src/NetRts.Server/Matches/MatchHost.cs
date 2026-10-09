@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using NetRts.Bots;
 using NetRts.Engine;
 using NetRts.Protocol;
@@ -21,12 +22,13 @@ public sealed class MatchHost
     private readonly List<Seat> _seats = [];
     private readonly List<IBotStrategy?> _seatBots = []; // parallel to _seats; non-null for house bots
     private readonly ILogger _logger;
+    private readonly MatchMetrics _metrics;
     private readonly CancellationTokenSource _stop = new();
     private TaskCompletionSource _tickSignal = NewSignal();
     private GameSimulation? _sim;
     private MapDto? _map;
 
-    public MatchHost(Guid id, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger)
+    public MatchHost(Guid id, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics)
     {
         Id = id;
         CreatorId = creatorId;
@@ -35,6 +37,7 @@ public sealed class MatchHost
         IsExhibition = isExhibition;
         CreatedAt = createdAt;
         _logger = logger;
+        _metrics = metrics;
     }
 
     public Guid Id { get; }
@@ -159,7 +162,9 @@ public sealed class MatchHost
             _map = _sim.Map.ToDto();
         }
 
-        _logger.LogInformation("Match {MatchId} started: {Players}", Id, string.Join(" vs ", Seats.Select(s => s.Name)));
+        var seats = Seats;
+        _logger.LogInformation("Match {MatchId} started: {Players}", Id, string.Join(" vs ", seats.Select(s => s.Name)));
+        _metrics.MatchStarted(IsExhibition, seats.Count);
         Signal();
 
         if (autoTick)
@@ -183,8 +188,10 @@ public sealed class MatchHost
                     return;
                 }
 
+                var started = Stopwatch.GetTimestamp();
                 RunHouseBots();
                 _sim.Step();
+                _metrics.TickRan(Stopwatch.GetElapsedTime(started), Settings.TickIntervalMs);
                 if (_sim.Status == MatchStatus.Completed)
                 {
                     CompletedAt = DateTime.UtcNow;
@@ -394,6 +401,7 @@ public sealed class MatchHost
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "House bot {Bot} failed in match {MatchId}", bot.Name, Id);
+                _metrics.HouseBotFailed(bot.Name);
             }
         }
     }
@@ -413,6 +421,7 @@ public sealed class MatchHost
     private void OnCompleted()
     {
         _logger.LogInformation("Match {MatchId} finished at tick {Tick}: {Outcome}", Id, _sim!.Tick, _sim.Outcome);
+        _metrics.MatchCompleted(IsExhibition, _sim.Outcome);
         Completed?.Invoke(this);
     }
 

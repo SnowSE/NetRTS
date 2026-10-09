@@ -1,5 +1,7 @@
+using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging;
@@ -46,17 +48,40 @@ public static class Extensions
             .WithTracing(tracing => tracing
                 .AddSource(builder.Environment.ApplicationName)
                 .AddSource(NetRtsTelemetryName)
-                .AddAspNetCoreInstrumentation(options =>
-                    // Long-polls and spectator streams would drown out everything else.
-                    options.Filter = context => !context.Request.Path.StartsWithSegments("/health"))
+                .AddAspNetCoreInstrumentation(options => options.Filter = context => !IsNoisy(context.Request.Path))
                 .AddHttpClientInstrumentation());
 
-        if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
+        // Application Insights in Azure, the Aspire dashboard (OTLP) locally.
+        if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+        {
+            builder.Services.AddOpenTelemetry().UseAzureMonitor();
+        }
+        else if (!string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]))
         {
             builder.Services.AddOpenTelemetry().UseOtlpExporter();
         }
 
         return builder;
+    }
+
+    /// <summary>
+    /// Requests every bot or spectator makes once per tick (state long-polls, command submissions,
+    /// spectator polls and streams) plus health probes. They would drown out every other trace; the
+    /// HTTP request metrics still count them.
+    /// </summary>
+    private static bool IsNoisy(PathString path)
+    {
+        if (path.StartsWithSegments("/health"))
+        {
+            return true;
+        }
+
+        var value = path.Value ?? "";
+        return value.StartsWith("/api/v1/matches/", StringComparison.OrdinalIgnoreCase)
+               && (value.EndsWith("/state", StringComparison.OrdinalIgnoreCase)
+                   || value.EndsWith("/commands", StringComparison.OrdinalIgnoreCase)
+                   || value.EndsWith("/spectate", StringComparison.OrdinalIgnoreCase)
+                   || value.EndsWith("/spectate/stream", StringComparison.OrdinalIgnoreCase));
     }
 
     public static IHostApplicationBuilder AddDefaultHealthChecks(this IHostApplicationBuilder builder)

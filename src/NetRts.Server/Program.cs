@@ -29,6 +29,7 @@ else
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ApiKeyCache>();
 builder.Services.AddSingleton<HouseBotDirectory>();
+builder.Services.AddSingleton<MatchMetrics>();
 builder.Services.AddSingleton<MatchRecorder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchRecorder>());
 builder.Services.AddSingleton<MatchManager>();

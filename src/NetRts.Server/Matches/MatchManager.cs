@@ -63,9 +63,10 @@ public sealed class MatchManager(
     IOptions<NetRtsOptions> options,
     HouseBotDirectory houseBots,
     MatchRecorder recorder,
+    MatchMetrics metrics,
     ILoggerFactory loggerFactory)
 {
-    private readonly ConcurrentDictionary<Guid, MatchHost> _matches = new();
+    private readonly ConcurrentDictionary<Guid, MatchHost> _matches = metrics.ObserveLiveMatches(new ConcurrentDictionary<Guid, MatchHost>());
     private readonly NetRtsOptions _options = options.Value;
     private readonly ILogger _logger = loggerFactory.CreateLogger<MatchManager>();
     private readonly object _createGate = new();
@@ -198,7 +199,7 @@ public sealed class MatchManager(
     private MatchHost NewHost(Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition)
     {
         var host = new MatchHost(Guid.NewGuid(), creatorId, maxPlayers, settings, isExhibition, DateTime.UtcNow,
-            loggerFactory.CreateLogger<MatchHost>());
+            loggerFactory.CreateLogger<MatchHost>(), metrics);
         host.Completed += recorder.Enqueue;
         return host;
     }
