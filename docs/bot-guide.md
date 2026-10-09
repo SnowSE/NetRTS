@@ -79,7 +79,7 @@ limited to 5 per minute per IP address, so register once and reuse the key.
 
 | Call | What it does |
 |---|---|
-| `POST /api/v1/matches` | Create a match; you take slot 0. Body (all optional): `{"name":"cs1400-lab", "maxPlayers":2, "houseBots":["balanced"], "settings":{"tickIntervalMs":1000,"maxTicks":1800,"mapWidth":64,"mapHeight":64,"seed":42}}`. It starts as soon as every seat is filled — with `houseBots` that is immediately. A `name` (3–32 letters, digits, `_` or `-`) lets others find the match; no two unfinished matches share one (`409 MATCH_NAME_TAKEN`). |
+| `POST /api/v1/matches` | Create a match. Body (all optional): `{"name":"cs1400-lab", "maxPlayers":2, "houseBots":["balanced"], "settings":{"tickIntervalMs":1000,"maxTicks":1800,"mapWidth":64,"mapHeight":64,"seed":42}}`. It starts as soon as every seat is filled — with `houseBots` that is immediately. A `name` (3–32 letters, digits, `_` or `-`) lets others find the match; no two unfinished matches share one (`409 MATCH_NAME_TAKEN`). |
 | `GET /api/v1/matches?status=Waiting` | Open matches you can join, with their `name` if they have one. |
 | `GET /api/v1/matches/named/{name}` | The match with that name: the one waiting or running, otherwise the most recent. The spectator page takes names too: `/#/match/{name}`. |
 | `POST /api/v1/matches/{id}/join` | Take a free seat. |
@@ -95,6 +95,10 @@ limited to 5 per minute per IP address, so register once and reuse the key.
 | `GET /api/v1/matches/{id}/replay` | Seed + every executed command — enough to re-simulate the match exactly. |
 | `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |
 | `GET /api/v1/leaderboard` | Elo ladder. Only player-vs-player 1v1 matches change ratings; games against house bots count toward your win/loss record but not your rating. |
+
+Seats are shuffled when a match starts, so your slot (and with it your start position and colour)
+doesn't depend on when you joined; read `you.slot` from your state. The shuffle uses the match
+seed, so a match created with a fixed `seed` and the same players in the same order starts the same way.
 
 When a match fills there is a short warm-up (3 s by default) before tick 1, so every bot can read
 the opening state.

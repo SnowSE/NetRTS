@@ -145,7 +145,7 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     public async Task Waiting_matches_start_when_the_last_seat_is_filled()
     {
         var (host, _) = await factory.NewPlayerAsync();
-        var (guest, _) = await factory.NewPlayerAsync();
+        var (guest, guestInfo) = await factory.NewPlayerAsync();
         var (latecomer, _) = await factory.NewPlayerAsync();
 
         var match = await host.CreateMatchAsync(new CreateMatchRequest(), Ct);
@@ -157,10 +157,32 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
 
         var joined = await guest.JoinMatchAsync(match.MatchId, Ct);
         Assert.Equal(MatchStatus.Active, joined.Status);
-        Assert.Equal(1, (await guest.GetStateAsync(match.MatchId, ct: Ct)).You.Slot);
+        var guestSeat = Assert.Single(joined.Players, p => p.Name == guestInfo.Name);
+        Assert.Equal(guestSeat.Slot, (await guest.GetStateAsync(match.MatchId, ct: Ct)).You.Slot);
 
         var full = await Assert.ThrowsAsync<NetRtsApiException>(() => latecomer.JoinMatchAsync(match.MatchId, Ct));
         Assert.Equal(HttpStatusCode.Conflict, full.Status);
+    }
+
+    [Fact]
+    public async Task Start_positions_are_shuffled_not_handed_out_in_join_order()
+    {
+        // With a fixed seed the shuffle is repeatable; across seeds the creator lands in different slots.
+        var creatorSlots = new HashSet<int>();
+        for (var seed = 1; seed <= 12; seed++)
+        {
+            var (client, me) = await factory.NewPlayerAsync();
+            var match = await client.CreateMatchAsync(new CreateMatchRequest
+            {
+                HouseBots = ["sitter", "sitter", "sitter"],
+                MaxPlayers = 4,
+                Settings = new MatchSettingsDto { Seed = seed },
+            }, Ct);
+            creatorSlots.Add(match.Players.Single(p => p.PlayerId == me.PlayerId).Slot);
+            Assert.Equal(match.Players.Single(p => p.PlayerId == me.PlayerId).Slot, (await client.GetStateAsync(match.MatchId, ct: Ct)).You.Slot);
+        }
+
+        Assert.True(creatorSlots.Count > 1, "the creator always started in the same slot");
     }
 
     [Fact]
@@ -185,7 +207,7 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
         var (winner, winnerInfo) = await factory.NewPlayerAsync();
         var (loser, loserInfo) = await factory.NewPlayerAsync();
         var match = await winner.CreateMatchAsync(new CreateMatchRequest(), Ct);
-        await loser.JoinMatchAsync(match.MatchId, Ct);
+        var loserSlot = (await loser.JoinMatchAsync(match.MatchId, Ct)).Players.Single(p => p.PlayerId == loserInfo.PlayerId).Slot;
         factory.Matches.Get(match.MatchId)!.Advance(3);
 
         var afterSurrender = await loser.SurrenderAsync(match.MatchId, Ct);
@@ -205,7 +227,7 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
         Assert.Null(factory.Matches.Get(match.MatchId));
         Assert.Equal(winnerInfo.PlayerId, (await winner.GetResultAsync(match.MatchId, Ct)).Outcome.WinnerId);
         var replay = await factory.CreateClient().GetFromJsonAsync<ReplayDto>($"/api/v1/matches/{match.MatchId}/replay", NetRtsClient.JsonOptions, Ct);
-        Assert.Equal(1, Assert.Single(replay!.Surrenders).Slot);
+        Assert.Equal(loserSlot, Assert.Single(replay!.Surrenders).Slot);
         Assert.Equal(64, (await winner.GetMapAsync(match.MatchId, Ct)).Width);
 
         var leaderboard = await factory.CreateClient().GetFromJsonAsync<List<LeaderboardEntryDto>>("/api/v1/leaderboard", NetRtsClient.JsonOptions, Ct);
@@ -403,9 +425,12 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
         Assert.Equal(MatchStatus.Active, match.Status);   // 1 player + 15 house bots fills every seat
         Assert.Equal(16, match.Players.Count);
         Assert.Equal(16, match.Players.Select(p => p.PlayerId).Distinct().Count());
-        Assert.Equal(["house-rusher", "house-rusher 2", "house-rusher 3"], match.Players.Skip(1).Take(3).Select(p => p.Name));
-        Assert.Equal("house-sitter 7", match.Players[^1].Name);
-        Assert.Equal(me.PlayerId, match.Players[0].PlayerId);
+        // Seats are shuffled when the match starts, so check the names, not their order.
+        var names = match.Players.Select(p => p.Name).ToHashSet();
+        Assert.Contains("house-rusher", names);
+        Assert.Contains("house-rusher 8", names);
+        Assert.Contains("house-sitter 7", names);
+        Assert.Contains(match.Players, p => p.PlayerId == me.PlayerId);
     }
 
     [Fact]
