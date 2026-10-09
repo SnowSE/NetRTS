@@ -87,3 +87,13 @@ jobs:
         python-version: '3.12'
     - name: Byte-compile sample bot
       run: python -m py_compile samples/python/bot.py
+
+  csharp-sample:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v7
+    - uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: 10.0.x
+    - name: Build the starter bot
+      run: dotnet build samples/csharp/StarterBot.cs

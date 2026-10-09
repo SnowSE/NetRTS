@@ -332,3 +332,6 @@ Thumbs.db
 # Local tooling output
 .claude/worktrees/
 .playwright-mcp/
+
+# Starter bot API keys
+apikey-*.txt

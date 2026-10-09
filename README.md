@@ -150,6 +150,26 @@ Every endpoint, schema and error code is browsable at `/scalar`, with ready-made
 a "Test Request" button that uses your API key. The docs walk you from first request to a bot that
 wins, in **C# or Python**: pick a language on any example and the rest follow.
 
+## Play in two minutes
+
+All you need is the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0). Save the
+[starter bot](samples/csharp/StarterBot.cs), one file, into an empty folder and run it with a name
+of your own:
+
+```bash
+curl -O https://raw.githubusercontent.com/SnowSE/NetRTS/main/samples/csharp/StarterBot.cs
+dotnet run StarterBot.cs --player-name Frank
+```
+
+(In Windows PowerShell type `curl.exe` instead of `curl`, or open the
+[raw file](https://raw.githubusercontent.com/SnowSE/NetRTS/main/samples/csharp/StarterBot.cs) and
+save it as `StarterBot.cs`.)
+
+It signs you up, starts a match against a house badger on <https://netrts.snowse.io> and prints a
+link to watch it. Then open `StarterBot.cs`, make `Decide` smarter, and play a classmate:
+`--create-match our-game` on one computer, `--join-match our-game` on the other. The
+[starter's README](samples/csharp/README.md) has every option.
+
 ## Start in five minutes
 
 You need the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).

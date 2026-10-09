@@ -288,6 +288,8 @@ Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `404 MATCH_NOT_FOUND`,
 
 ## Reference bots
 
+- **C# starter, one file:** [`samples/csharp/StarterBot.cs`](../samples/csharp/StarterBot.cs). Save it and
+  `dotnet run StarterBot.cs --player-name Frank`; small enough for a first programming class.
 - **Python, no dependencies:** [`samples/python/bot.py`](../samples/python/bot.py).
 - **C#:** `src/NetRts.Bots` has a typed client (`NetRtsClient`), the standard loop
   (`BotLoop.RunAsync`) and the house bots' `PlanBot` brain. The runner plays any of them against a

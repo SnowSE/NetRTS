@@ -8,6 +8,11 @@ have the higher score when time runs out, and you win.
 Any language that can send HTTP requests and read JSON will do. Code examples in these docs come in
 C# and Python; pick your language on any example and the rest follow.
 
+> **Just want to play?** Save the one-file [C# starter bot](../samples/csharp/StarterBot.cs) and run
+> `dotnet run StarterBot.cs --player-name Frank`. It signs up, plays a house bot on
+> <https://netrts.snowse.io> and gives you a `Decide` method to improve.
+> [Its README](../samples/csharp/README.md) has the details. Read on to learn the API itself.
+
 ## 1. Get a server
 
 Your organiser will give you a server address (we'll write it as `$SERVER`). Practising on your own
