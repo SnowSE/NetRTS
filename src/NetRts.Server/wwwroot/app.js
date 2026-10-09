@@ -1,5 +1,5 @@
 // Spectator UI: hash router + home view.
-import { api, html, raw, setHtml, slotVar, displayName, timeAgo, fmt, outcomeText, esc } from './util.js';
+import { api, html, raw, setHtml, slotVar, displayName, timeAgo, fmt, outcomeHtml, esc } from './util.js';
 import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
 
@@ -85,7 +85,7 @@ function mountHome(root) {
           <div id="live" aria-live="polite" aria-busy="true"><p class="empty">${say('Loading matches…', 'Waking the badgers…')}</p></div>
         </section>
         <section aria-labelledby="hist-h">
-          <h2 id="hist-h">${say('Recent results', 'Recent box scores')}</h2>
+          <h2 id="hist-h">${say('Recent results', 'Recent brawls')}</h2>
           <div id="history"><p class="empty">Loading results…</p></div>
         </section>
       </div>
@@ -99,7 +99,7 @@ function mountHome(root) {
           <ol class="steps">
             <li><p>Register a player and keep the <code>apiKey</code> it returns.</p>
               <pre class="snippet">POST /api/v1/players
-{"name": "${say('mybot', 'eph-the-badger')}"}</pre></li>
+{"name": "${say('mybot', 'buster-the-badger')}"}</pre></li>
             <li><p>${say('Create a match against a house bot, sending your key.', 'Challenge a house badger, sending your key.')}</p>
               <pre class="snippet">POST /api/v1/matches
 Authorization: Bearer &lt;apiKey&gt;
@@ -117,6 +117,7 @@ Authorization: Bearer &lt;apiKey&gt;
   let alive = true;
   let timer = null;
   let cycle = 0;
+  let liveIds = null;   // the matches in the live list last time, to spot ones that just finished
   const $ = (id) => root.querySelector('#' + id);
 
   // ---- exhibition form
@@ -200,10 +201,17 @@ Authorization: Bearer &lt;apiKey&gt;
       if (!alive) return;
       // Finished matches move to "Recent results"; keep this list to what you can watch live.
       const list = all.filter((m) => m.status !== 'Completed');
+      // A brawl that just finished belongs in the results and may have moved the ladder: refresh them now.
+      const ids = new Set(list.map((m) => m.matchId));
+      if (liveIds && [...liveIds].some((id) => !ids.has(id))) {
+        loadHistory();
+        loadLadder();
+      }
+      liveIds = ids;
       const order = { Active: 0, Waiting: 1, Completed: 2 };
       list.sort((a, b) => (order[a.status] - order[b.status]) || (Date.parse(b.createdAt) - Date.parse(a.createdAt)));
       setHtml(el, list.length
-        ? html`<ul class="match-list">${list.map(matchRow)}</ul>`
+        ? html`<ul class="match-list">${list.map((m) => matchRow(m))}</ul>`
         : html`<p class="empty">${say('No matches running. Start an exhibition above, or point a bot at the API.', 'The field is empty. Start a scrimmage above, or point a bot at the API.')}</p>`);
       $('live-updated').textContent = `updated ${new Date().toLocaleTimeString()}`;
     } catch (e) {
@@ -219,7 +227,7 @@ Authorization: Bearer &lt;apiKey&gt;
       const list = await api('/api/v1/matches/history?limit=10');
       if (!alive) return;
       setHtml(el, list.length
-        ? html`<ul class="match-list">${list.map(matchRow)}</ul>`
+        ? html`<ul class="match-list">${list.map((m) => matchRow(m, { status: false }))}</ul>`
         : html`<p class="empty">${say('No finished matches yet.', "No finished brawls yet. The season hasn't started.")}</p>`);
     } catch (e) {
       if (alive) setHtml(el, html`<p class="error">Could not load results: ${e.message}</p>`);
@@ -252,7 +260,8 @@ Authorization: Bearer &lt;apiKey&gt;
   return () => { alive = false; clearTimeout(timer); };
 }
 
-function matchRow(m) {
+/** One row of a match list. Finished matches leave out the status column: they all say "Completed". */
+function matchRow(m, { status = true } = {}) {
   const players = [...(m.players || [])].sort((a, b) => a.slot - b.slot);
   const names = players.length
     ? players.map((p, i) => html`${i ? html`<span class="vs-sep">vs</span>` : ''}<span class="pname" style="--pc:${slotVar(p.slot)}">${displayName(p.name)}</span>`)
@@ -260,7 +269,7 @@ function matchRow(m) {
   const open = m.maxPlayers - players.length;
   let meta;
   if (m.status === 'Completed' && m.outcome) {
-    meta = html`${outcomeText(m.outcome, m.players)}<br>${timeAgo(m.createdAt)}`;
+    meta = html`${outcomeHtml(m.outcome, m.players)}<br>${timeAgo(m.createdAt)}`;
   } else if (m.status === 'Waiting') {
     meta = html`${open} seat${open === 1 ? '' : 's'} open`;
   } else {
@@ -269,8 +278,8 @@ function matchRow(m) {
   }
   // A name keeps pointing at the newest match that uses it, so finished matches link by id.
   const key = m.name && m.status !== 'Completed' ? m.name : m.matchId;
-  return html`<li><a class="match-row" href="#/match/${key}" aria-label="${m.status} ${say('match', 'brawl')}: ${players.map((p) => displayName(p.name)).join(' versus ')}">
-    <span class="status ${m.status}">${m.status === 'Active' ? 'Live' : m.status}</span>
+  return html`<li><a class="match-row ${status ? '' : 'no-status'}" href="#/match/${key}" aria-label="${m.status} ${say('match', 'brawl')}: ${players.map((p) => displayName(p.name)).join(' versus ')}">
+    ${status ? html`<span class="status ${m.status}">${m.status === 'Active' ? 'Live' : m.status}</span>` : ''}
     <span class="who">${m.name ? html`<b style="margin-right:8px">${m.name}</b>` : ''}${names}<span class="muted small" style="margin-left:8px">${m.mapWidth}×${m.mapHeight}</span></span>
     <span class="meta">${meta}</span></a></li>`;
 }

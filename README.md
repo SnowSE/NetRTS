@@ -189,7 +189,7 @@ Open **http://localhost:5080** (or :8080 for Docker) and start a scrimmage betwe
 badgers. Then put your own bot on the field from another terminal:
 
 ```bash
-dotnet run --project src/NetRts.BotRunner -- --server http://localhost:5080 --name eph-the-badger --strategy rusher --vs sitter
+dotnet run --project src/NetRts.BotRunner -- --server http://localhost:5080 --name buster-the-badger --strategy rusher --vs sitter
 python samples/python/bot.py --server http://localhost:5080 --name my-python-badger
 ```
 

@@ -94,10 +94,23 @@ export function timeAgo(iso) {
 
 export const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : '–');
 
+const howWon = (reason) =>
+  ({ Elimination: say('by elimination', 'by taking the last HQ'), TimeLimit: 'on score at the time limit', Surrender: 'by surrender' }[reason] || '');
+
 export function outcomeText(outcome, players) {
   if (!outcome) return '';
   const winner = players?.find((p) => p.playerId === outcome.winnerId);
-  const how = { Elimination: say('by elimination', 'by taking the last HQ'), TimeLimit: 'on score at the time limit', Surrender: 'by surrender' }[outcome.reason] || '';
   if (!winner) return `Draw ${outcome.reason === 'TimeLimit' ? 'at the time limit' : ''} after ${fmt(outcome.ticks)} ticks`.replace('  ', ' ');
-  return `${displayName(winner.name)} won ${how} after ${fmt(outcome.ticks)} ticks`;
+  return `${displayName(winner.name)} won ${howWon(outcome.reason)} after ${fmt(outcome.ticks)} ticks`;
+}
+
+/** outcomeText as markup: the winner (in their colour) and how they won stand out; the tick count doesn't. */
+export function outcomeHtml(outcome, players) {
+  if (!outcome) return '';
+  const winner = players?.find((p) => p.playerId === outcome.winnerId);
+  if (!winner) {
+    return html`<strong class="outcome-how">Draw${outcome.reason === 'TimeLimit' ? ' at the time limit' : ''}</strong> after ${fmt(outcome.ticks)} ticks`;
+  }
+  return html`<strong class="pname outcome-winner" style="--pc:${slotVar(winner.slot)}">${displayName(winner.name)}</strong>
+    won <strong class="outcome-how">${howWon(outcome.reason)}</strong> after ${fmt(outcome.ticks)} ticks`;
 }

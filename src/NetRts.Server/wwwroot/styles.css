@@ -387,9 +387,12 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   padding: 10px 4px;
   text-decoration: none;
 }
+.match-row.no-status { grid-template-columns: minmax(0, 1fr) auto; }
 .match-row:hover { background: var(--panel); }
 .match-row .who { min-width: 0; overflow-wrap: anywhere; }
 .match-row .meta { color: var(--muted); font-size: 0.875rem; text-align: right; white-space: nowrap; }
+.outcome-winner { color: var(--ink); font-size: 1rem; }
+.outcome-how { color: var(--ink); font-weight: 600; }
 
 .pname { font-weight: 600; }
 .pname::before {
@@ -658,7 +661,7 @@ pre.snippet {
 
 @media (max-width: 520px) {
   .topbar nav { gap: 14px; }
-  .match-row { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .match-row, .match-row.no-status { grid-template-columns: minmax(0, 1fr); gap: 4px; }
   .match-row .meta { text-align: left; }
   .versus { grid-template-columns: minmax(0, 1fr); }
   .versus .vs { display: none; }
