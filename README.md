@@ -20,6 +20,29 @@ other team's Noyes Building. Every second the world ticks forward; your bot sees
 see and decides what to do next.
 Then you sit back and watch it win (or work out why it didn't).
 
+## Competition Plan
+- Announce week before October break
+- Competition rounds every two weeks starting the week after October break
+- Pizza on first competition round of each semester
+- Competition rounds are playable in person or remote, discord voice channel will be on for remote players
+- Competition rounds continue every other week until graduation in May
+    - Oct 22
+    - Nov 5
+    - Nov 19
+    - Dec 3
+    - Jan 14
+    - Jan 28
+    - Feb 11
+    - Feb 25
+    - Mar 11
+    - Mar 25
+    - Apr 8
+    - Apr 22    
+- Final championship is the afternoon of graduation (Apr 29)
+- Scoring: Prizes will be awarded to:
+    - top 3 cumulative scores from all bi-weekly competition rounds
+    - top 3 scores of final championship game    
+
 Built for programming competitions, classrooms and anyone who has ever wanted to settle "my strategy is better than yours" with code.
 
 ## Why Noyes? Why Academy Square?
