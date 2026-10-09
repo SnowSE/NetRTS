@@ -36,7 +36,14 @@ export function mountSpectate(root, matchId) {
             <button type="button" id="zoom-fit" title="Show the whole map (0)">Fit</button>
             <button type="button" id="follow" aria-pressed="false" title="Keep the camera on the biggest fight (F)">${say('Follow the fight', 'Follow the brawl')}</button>
             <span class="zoom-level" id="zoom-level" aria-live="polite">1×</span>
+            <button type="button" id="fullscreen" aria-pressed="false" title="Full screen (G)">Full screen</button>
           </div>
+          <section class="mini-board" id="mini-board" aria-label="Scoreboard">
+            <button type="button" class="mini-board-toggle" id="board-toggle" aria-expanded="true" aria-controls="board-list">
+              <span>Scoreboard</span><span class="mini-board-tick" id="board-tick"></span><span aria-hidden="true" class="chev">▾</span>
+            </button>
+            <ol id="board-list"></ol>
+          </section>
           <div class="tooltip" id="tooltip" role="status" hidden></div>
           <div class="overlay-msg" id="overlay"><div><strong>${say('Loading map…', 'Unrolling the Sanpete Valley…')}</strong></div></div>
         </div>
@@ -82,6 +89,10 @@ export function mountSpectate(root, matchId) {
     const cs = getComputedStyle(frame);
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     const w = frame.clientWidth - padX;
+    if (frame.classList.contains('is-full')) {
+      view.fit(w, frame.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom));
+      return;
+    }
     const top = frame.getBoundingClientRect().top + window.scrollY;
     // Show the whole map without scrolling where possible; phones fall back to width.
     const h = window.innerWidth < 760 ? w : Math.max(300, window.innerHeight - top - 40);
@@ -148,6 +159,38 @@ export function mountSpectate(root, matchId) {
   $('zoom-fit').addEventListener('click', () => view.resetView());
   followBtn.addEventListener('click', () => view.setFollow(!view.follow));
 
+  // Full screen: the map frame fills the screen with a collapsible scoreboard. Uses the Fullscreen API
+  // where there is one, and a fixed overlay where there isn't (iPhone Safari).
+  const fullBtn = $('fullscreen'), boardToggle = $('board-toggle');
+  const isFull = () => frame.classList.contains('is-full');
+  const setFull = (on) => {
+    frame.classList.toggle('is-full', on);
+    document.documentElement.classList.toggle('map-full', on);
+    fullBtn.setAttribute('aria-pressed', String(on));
+    fullBtn.textContent = on ? 'Exit full screen' : 'Full screen';
+    fit();
+  };
+  const toggleFull = async () => {
+    if (!isFull()) {
+      if (frame.requestFullscreen) {
+        try { await frame.requestFullscreen(); return; } catch { /* refused: fall back to the overlay */ }
+      }
+      setFull(true);
+    } else if (document.fullscreenElement) {
+      await document.exitFullscreen();
+    } else {
+      setFull(false);
+    }
+  };
+  const onFullscreenChange = () => setFull(document.fullscreenElement === frame);
+  document.addEventListener('fullscreenchange', onFullscreenChange);
+  fullBtn.addEventListener('click', toggleFull);
+  boardToggle.addEventListener('click', () => {
+    const open = boardToggle.getAttribute('aria-expanded') !== 'true';
+    boardToggle.setAttribute('aria-expanded', String(open));
+    $('board-list').hidden = !open;
+  });
+
   canvas.addEventListener('wheel', (e) => {
     // At full view, scrolling down keeps scrolling the page; otherwise the wheel zooms the map.
     if (view.zoom <= 1 && e.deltaY > 0) return;
@@ -208,11 +251,12 @@ export function mountSpectate(root, matchId) {
   canvas.addEventListener('keydown', (e) => {
     if (!view.map) return;
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
-    if (e.key === 'Escape') { inspect(null); return; }
+    if (e.key === 'Escape') { inspect(null); if (isFull() && !document.fullscreenElement) setFull(false); return; }
     if (e.key === '+' || e.key === '=') { view.zoomCentre(1.5); return; }
     if (e.key === '-' || e.key === '_') { view.zoomCentre(1 / 1.5); return; }
     if (e.key === '0') { view.resetView(); return; }
     if (e.key === 'f' || e.key === 'F') { view.setFollow(!view.follow); return; }
+    if (e.key === 'g' || e.key === 'G') { toggleFull(); return; }
     if (!d) return;
     e.preventDefault();
     const step = e.shiftKey ? 8 : 1;
@@ -227,7 +271,10 @@ export function mountSpectate(root, matchId) {
   // ---------- rendering pieces
   function renderHeader() {
     const players = [...(state?.players || summary?.players || [])].sort((a, b) => a.slot - b.slot);
-    const title = players.length ? players.map((p) => displayName(p.name)).join(' vs ') : say('Waiting for players', 'Waiting for badgers');
+    const seats = summary?.maxPlayers ?? players.length;
+    const title = !players.length ? say('Waiting for players', 'Waiting for badgers')
+      : seats > 4 ? `${seats}-player ${say('match', 'brawl')}`   // the scoreboard lists everyone
+        : players.map((p) => displayName(p.name)).join(' vs ');
     $('title').textContent = title;
     document.title = `${title} – ${GAME}`;
     if (summary) {
@@ -258,7 +305,13 @@ export function mountSpectate(root, matchId) {
     const hasFog = players.some((p) => p.visibility?.length);
     field.hidden = !hasFog;
     const cur = view.vision == null ? 'all' : String(view.vision);
-    setHtml($('vision'), html`
+    // Big matches get a drop-down; a row of sixteen buttons doesn't fit.
+    $('vision').classList.toggle('segmented', players.length <= 4);
+    setHtml($('vision'), players.length > 4 ? html`
+      <select class="vision-select" aria-label="Show the map as seen by">
+        <option value="all" ${cur === 'all' ? html`selected` : ''}>All</option>
+        ${players.map((p) => html`<option value="${p.slot}" ${cur === String(p.slot) ? html`selected` : ''}>${displayName(p.name)}</option>`)}
+      </select>` : html`
       <input type="radio" name="vision" id="v-all" value="all" ${cur === 'all' ? html`checked` : ''}><label for="v-all">All</label>
       ${players.map((p) => html`
         <input type="radio" name="vision" id="v-${p.slot}" value="${p.slot}" ${cur === String(p.slot) ? html`checked` : ''}>
@@ -268,6 +321,22 @@ export function mountSpectate(root, matchId) {
     view.setVision(e.target.value === 'all' ? null : Number(e.target.value));
     refreshTooltip();
   });
+
+  /** The full-screen scoreboard: everyone ranked by total score, eliminated players last. */
+  function renderBoard(list, byId, winnerId) {
+    const rows = list.map((p) => {
+      const score = p.score || byId.get(p.playerId)?.score;
+      return { p, total: score ? totalOf(score) : 0 };
+    }).sort((a, b) => (a.p.eliminated - b.p.eliminated) || (b.total - a.total) || (a.p.slot - b.p.slot));
+    setHtml($('board-list'), html`${rows.map(({ p, total }) => html`
+      <li class="${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}">
+        <span class="pname">${displayName(p.name)}</span>
+        ${winnerId && p.playerId === winnerId ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}
+        <span class="board-score">${fmt(total)}</span>
+      </li>`)}`);
+    const tick = state?.tick ?? summary?.tick;
+    $('board-tick').textContent = tick != null ? `tick ${fmt(tick)}` : '';
+  }
 
   function renderPlayers() {
     const winnerId = (state?.outcome || result?.outcome || summary?.outcome)?.winnerId;
@@ -279,10 +348,22 @@ export function mountSpectate(root, matchId) {
     else list = (summary?.players || []).map((p) => ({ ...p, pending: true }));
     list = [...list].sort((a, b) => a.slot - b.slot);
     if (!list.length) { setHtml($('players'), html`<p class="empty">No one has joined yet.</p>`); return; }
+    renderBoard(list, byId, done && winnerId);
+    // Five or more players: compact cards that wrap, so sixteen fit beside the map.
+    const many = list.length > 4;
+    $('players').classList.toggle('players-many', many);
     setHtml($('players'), html`${list.map((p) => {
       const r = byId.get(p.playerId);
       const score = p.score || r?.score;
       const won = done && winnerId && p.playerId === winnerId;
+      if (many) {
+        return html`
+      <article class="player compact ${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}" aria-label="${displayName(p.name)}">
+        <h3>${displayName(p.name)}${p.eliminated ? html`<span class="badge dead">${say('Out', 'Hibernating')}</span>` : ''}${won ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}</h3>
+        ${score ? html`<p class="counts">Score ${fmt(totalOf(score))}</p>` : ''}
+        ${typeof p.resources === 'number' ? html`<p class="counts">${fmt(p.resources)} ${ORE} · ${p.unitCount} units</p>` : ''}
+      </article>`;
+      }
       return html`
       <article class="player ${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}" aria-label="${displayName(p.name)}">
         <div class="player-top">
@@ -297,7 +378,7 @@ export function mountSpectate(root, matchId) {
           <div><dt>Destruction</dt><dd>${fmt(score.destruction)}</dd></div>
           <div><dt>Economy</dt><dd>${fmt(score.economy)}</dd></div>
           <div><dt>Survival</dt><dd>${fmt(score.survival)}</dd></div>
-          <div class="total"><dt>Total</dt><dd>${fmt(score.total ?? score.destruction + score.economy + score.survival)}</dd></div>
+          <div class="total"><dt>Total</dt><dd>${fmt(totalOf(score))}</dd></div>
         </dl>` : ''}
         ${p.upgrades?.length ? html`<ul class="upgrades" aria-label="Upgrades">${p.upgrades.map((u) => html`<li>${upgradeName(u)}</li>`)}</ul>` : ''}
       </article>`;
@@ -496,9 +577,14 @@ export function mountSpectate(root, matchId) {
     ro.disconnect();
     window.removeEventListener('resize', fit);
     scheme.removeEventListener('change', onScheme);
+    document.removeEventListener('fullscreenchange', onFullscreenChange);
+    document.documentElement.classList.remove('map-full');
+    if (document.fullscreenElement === frame) document.exitFullscreen().catch(() => {});
     view.destroy();
   };
 }
+
+const totalOf = (score) => score.total ?? score.destruction + score.economy + score.survival;
 
 function spaced(s) {
   return String(s ?? '').replace(/([a-z])([A-Z0-9])/g, '$1 $2');

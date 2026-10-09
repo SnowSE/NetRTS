@@ -11,10 +11,13 @@ public sealed record MatchSettingsDto
 
 public sealed record CreateMatchRequest
 {
-    /// <summary>2-4 players. Default 2.</summary>
+    /// <summary>
+    /// 2-16 players. Default 2. Up to four start in the corners; five or more start around a ring, which
+    /// needs a bigger map (the default map size grows to fit, e.g. 120×120 for 16 players).
+    /// </summary>
     public int? MaxPlayers { get; init; }
 
-    /// <summary>Fill remaining seats with house bots (see GET /api/v1/bots), e.g. ["balanced"].</summary>
+    /// <summary>Fill seats with house bots (see GET /api/v1/bots), e.g. ["balanced"]; each bot at most once.</summary>
     public IReadOnlyList<string>? HouseBots { get; init; }
 
     public MatchSettingsDto? Settings { get; init; }

@@ -18,7 +18,7 @@ public static class ApiReference
             {
                 document.Info.Title = "Badger Brawl API";
                 document.Info.Description =
-                    "Bots play Badger Brawl, Snow College's bot-programming RTS, over this API. Unit and building names here are the classic ones (a Worker is a Digger on the field, ore is grubs, and a CommandCenter is your campus HQ, like the Noyes Building). Register with POST /api/v1/players to get an API key, " +
+                    "Bots play Badger Brawl, Snow College's bot-programming RTS, over this API. Unit and building names here are the classic ones (ore is grubs on the field, and a CommandCenter is your campus HQ, like the Noyes Building). Register with POST /api/v1/players to get an API key, " +
                     "then send it as `Authorization: Bearer <key>`. The full rules are in GET /api/v1/rules.";
                 document.Components ??= new OpenApiComponents();
                 document.Components.SecuritySchemes ??= new Dictionary<string, IOpenApiSecurityScheme>();

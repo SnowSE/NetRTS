@@ -269,6 +269,44 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task Big_matches_take_up_to_sixteen_players_and_all_four_house_bots()
+    {
+        var (host, _) = await factory.NewPlayerAsync();
+
+        var match = await host.CreateMatchAsync(new CreateMatchRequest
+        {
+            MaxPlayers = 16,
+            HouseBots = ["sitter", "rusher", "balanced", "economist"],
+        }, Ct);
+
+        Assert.Equal(MatchStatus.Waiting, match.Status);
+        Assert.Equal(16, match.MaxPlayers);
+        Assert.Equal(5, match.Players.Count);
+        Assert.Equal(120, match.MapWidth);   // the default map grows to fit a 16-player ring
+
+        var tooMany = await Assert.ThrowsAsync<NetRtsApiException>(() =>
+            host.CreateMatchAsync(new CreateMatchRequest { MaxPlayers = 17 }, Ct));
+        var mapTooSmall = await Assert.ThrowsAsync<NetRtsApiException>(() =>
+            host.CreateMatchAsync(new CreateMatchRequest { MaxPlayers = 16, Settings = new MatchSettingsDto { MapWidth = 64, MapHeight = 64 } }, Ct));
+        Assert.Equal("INVALID_SETTINGS", tooMany.Code);
+        Assert.Equal("INVALID_SETTINGS", mapTooSmall.Code);
+        Assert.Contains("16-player map", mapTooSmall.Message);
+    }
+
+    [Fact]
+    public async Task Exhibitions_take_all_four_house_bots()
+    {
+        var http = factory.CreateClient();
+
+        var created = await http.PostAsJsonAsync("/api/v1/exhibitions",
+            new CreateExhibitionRequest { Bots = ["sitter", "rusher", "balanced", "economist"] }, NetRtsClient.JsonOptions, Ct);
+
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var summary = await created.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(4, summary!.Players.Count);
+    }
+
+    [Fact]
     public async Task Rules_bots_and_unknown_routes_are_served_as_json()
     {
         var http = factory.CreateClient();

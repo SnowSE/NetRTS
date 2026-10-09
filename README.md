@@ -13,7 +13,7 @@
 </p>
 
 **Badger Brawl is a real-time strategy game where nobody touches a mouse.** You write a program,
-in any language that speaks HTTP, and it runs a clan of Snow College Badgers: sending diggers
+in any language that speaks HTTP, and it runs a clan of Snow College Badgers: sending workers
 after grubs, moving into the Suites at Academy Square, signing up for Organic Chemistry and Code
 Review in the GRSC Makerspace, and marching soldiers and archers across the Sanpete Valley at the
 other team's Noyes Building. Every second the world ticks forward; your bot sees what its badgers can
@@ -34,12 +34,12 @@ Store.
 
 ## Your code is the head badger
 
-Orders are plain JSON, and they say what you mean. The API uses classic RTS names (a Digger is a
-`Worker`, Anderson Hall is a `Barracks`), so every bot library and tutorial still applies:
+Orders are plain JSON, and they say what you mean. The API uses classic RTS names (grubs are ore,
+Anderson Hall is a `Barracks`), so every bot library and tutorial still applies:
 
 ```jsonc
 { "commands": [
-  { "type": "Gather",  "units": "all", "unitType": "Worker", "targetId": 4 },          // diggers, go dig up those grubs
+  { "type": "Gather",  "units": "all", "unitType": "Worker", "targetId": 4 },          // workers, go dig up those grubs
   { "type": "Build",   "unitIds": [31], "buildingType": "Barracks", "x": 12, "y": 9 }, // move into housing here
   { "type": "Produce", "buildingId": 77, "unitType": "Soldier", "count": 3 },          // three soldiers, please
   { "type": "Attack",  "units": "5-40", "x": 56, "y": 56 }                             // everyone: charge!
@@ -50,7 +50,7 @@ Orders are plain JSON, and they say what you mean. The API uses classic RTS name
 
 | On the field | In the API | What it does |
 |---|---|---|
-| 🦡 **Digger** | `Worker` | Digs up grubs and puts up buildings. |
+| 🦡 **Worker** | `Worker` | Digs up grubs and puts up buildings. |
 | ⚔️ **Soldier** | `Soldier` | Tough, close-up. |
 | 🏹 **Archer** | `Archer` | Shoots from four tiles away. |
 | 👃 **Scout** | `Scout` | Twice as fast, and sniffs out the enemy furthest off. |
@@ -72,7 +72,7 @@ guard towers, out-study them, or scout their campus and strike where they're wea
 
 The live spectator page streams every brawl tick by tick. Scroll or pinch to zoom, and the map
 switches from a strategic overview to an illustrated close-up of the Sanpete Valley: claw-marked
-diggers, striped badger soldiers, archers' arrows, scouts' paw prints, campus halls flying a
+workers, striped badger soldiers, archers' arrows, scouts' paw prints, campus halls flying a
 pennant, lit-up dorms, makerspace flasks and guard towers, with health bars and build progress. Hit
 **Follow the brawl** and the camera chases the biggest fight on its own.
 It fills whatever screen you give it, from a phone to a wall-sized monitor, in Snow College blue,

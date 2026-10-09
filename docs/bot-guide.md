@@ -19,7 +19,7 @@ balance number is served by **`GET /api/v1/rules`**.
 ## Badger field guide
 
 The spectator site tells the story in Snow College terms. The API speaks plain RTS, so the names your
-bot sends and reads never change. When the play-by-play says your Digger was bowled over outside
+bot sends and reads never change. When the play-by-play says your Worker was bowled over outside
 Anderson Hall, your bot saw a `Worker` die next to a `Barracks`.
 
 Snow College is named for Lorenzo and Erastus Snow, not the weather. It opened in 1888 as Sanpete
@@ -28,8 +28,7 @@ own campus building and its own student housing.
 
 | On the field | In the API | |
 |---|---|---|
-| Digger | `Worker` | Digs grubs, puts up buildings |
-| Soldier, Archer, Scout | `Soldier`, `Archer`, `Scout` | Same names on both sides |
+| Worker, Soldier, Archer, Scout | `Worker`, `Soldier`, `Archer`, `Scout` | Units keep their names in both themes |
 | HQ: Noyes Building, Greenwood Student Center, Eccles Center, Huntsman Library, ... (one per player slot) | `CommandCenter` | Lose your last one and you're out |
 | Housing: Suites at Academy Square, Anderson Hall, Mary Nielson Hall, Snow Hall, ... (one per player slot) | `Barracks` | Trains soldiers, archers and scouts |
 | Co-op Store | `ResourceDepot` | Closer drop-off for grubs, more storage |
@@ -96,6 +95,14 @@ limited to 5 per minute per IP address, so register once and reuse the key.
 
 When a match fills there is a short warm-up (3 s by default) before tick 1, so every bot can read
 the opening state.
+
+**Big matches.** `maxPlayers` goes from 2 to 16, and `houseBots` can fill up to four seats (each
+house bot plays at most once). Two to four players start in the map's corners. Five or more start
+evenly spaced around a ring, each with the same ore seam behind their Command Center, an expansion
+and a contested deposit in the gap to the next player, and the same rock outcrops in every gap. A
+ring needs room, so the default map grows with the player count (120×120 for 16 players), and a map
+that's too small is rejected with `INVALID_SETTINGS` saying the minimum size. `GET .../map` lists
+every start position.
 
 ## Reading state
 

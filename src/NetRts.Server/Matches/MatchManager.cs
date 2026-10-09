@@ -44,9 +44,9 @@ public sealed class MatchManager(
     public MatchHost Create(Guid creatorId, string creatorName, CreateMatchRequest request)
     {
         var maxPlayers = request.MaxPlayers ?? 2;
-        if (maxPlayers is < 2 or > 4)
+        if (maxPlayers is < 2 or > MapGenerator.MaxPlayers)
         {
-            throw new MatchException(400, "INVALID_SETTINGS", "maxPlayers must be between 2 and 4.");
+            throw new MatchException(400, "INVALID_SETTINGS", $"maxPlayers must be between 2 and {MapGenerator.MaxPlayers}.");
         }
 
         var bots = request.HouseBots ?? [];
@@ -56,7 +56,7 @@ public sealed class MatchManager(
         }
 
         ValidateBots(bots);
-        var settings = ResolveSettings(request.Settings);
+        var settings = ResolveSettings(request.Settings, maxPlayers);
 
         lock (_createGate)
         {
@@ -88,7 +88,7 @@ public sealed class MatchManager(
         }
 
         ValidateBots(request.Bots);
-        var settings = ResolveSettings(request.Settings);
+        var settings = ResolveSettings(request.Settings, request.Bots.Count);
 
         lock (_createGate)
         {
@@ -203,16 +203,30 @@ public sealed class MatchManager(
         }
     }
 
-    private MatchSettings ResolveSettings(MatchSettingsDto? dto)
+    /// <summary>The map size used when a match doesn't ask for one: the configured default, grown for big matches.</summary>
+    internal int DefaultMapSizeFor(int players)
     {
-        var width = dto?.MapWidth ?? _options.DefaultMapSize;
-        var height = dto?.MapHeight ?? _options.DefaultMapSize;
+        var needed = MapGenerator.MinSizeFor(players) + 16;   // some elbow room beyond the minimum
+        var roomy = (needed + 7) / 8 * 8;
+        return Math.Clamp(Math.Max(_options.DefaultMapSize, players > 4 ? roomy : 0), MapGenerator.MinSize, MapGenerator.MaxSize);
+    }
+
+    private MatchSettings ResolveSettings(MatchSettingsDto? dto, int players)
+    {
+        var width = dto?.MapWidth ?? DefaultMapSizeFor(players);
+        var height = dto?.MapHeight ?? DefaultMapSizeFor(players);
         var interval = dto?.TickIntervalMs ?? _options.DefaultTickIntervalMs;
         var maxTicks = dto?.MaxTicks ?? _options.DefaultMaxTicks;
 
         if (width is < MapGenerator.MinSize or > MapGenerator.MaxSize || height is < MapGenerator.MinSize or > MapGenerator.MaxSize)
         {
             throw new MatchException(400, "INVALID_SETTINGS", $"Map dimensions must be between {MapGenerator.MinSize} and {MapGenerator.MaxSize}.");
+        }
+
+        var min = MapGenerator.MinSizeFor(players);
+        if (width < min || height < min)
+        {
+            throw new MatchException(400, "INVALID_SETTINGS", $"A {players}-player map must be at least {min}×{min}.");
         }
 
         if (interval < _options.MinTickIntervalMs || interval > _options.MaxTickIntervalMs)

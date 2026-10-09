@@ -70,17 +70,32 @@ public sealed class GameMap
 }
 
 /// <summary>
-/// Builds a map with four-fold mirror symmetry so every start position is equally fair.
-/// Features are generated in the top-left quadrant and mirrored into the other three.
+/// Builds a fair map. Up to four players start in the corners of a map with four-fold mirror symmetry:
+/// features are generated in the top-left quadrant and mirrored into the other three. Five to sixteen
+/// players start evenly spaced around a ring, and every base, expansion, contested deposit and rock
+/// outcrop is repeated once per player around that ring.
 /// </summary>
 public static class MapGenerator
 {
     public const int MinSize = 32;
     public const int MaxSize = 128;
+    public const int MaxPlayers = 16;
 
     private const int BaseOreAmount = 1000;
     private const int ExpansionOreAmount = 1200;
     private const int RichOreAmount = 1500;
+
+    /// <summary>Command Centers on a ring sit at least this far apart from their neighbours.</summary>
+    private const int RingSpacing = 16;
+
+    /// <summary>Tiles kept between a ring base and the map edge, for the ore seam behind it.</summary>
+    private const int RingBackroom = 9;
+
+    /// <summary>The smallest width and height a map for this many players can have.</summary>
+    public static int MinSizeFor(int playerCount) =>
+        playerCount <= 4 ? MinSize : 2 * ((int)Math.Ceiling(RingRadiusFor(playerCount)) + RingBackroom);
+
+    private static double RingRadiusFor(int playerCount) => RingSpacing / 2.0 / Sin(Math.PI / playerCount);
 
     public static GameMap Generate(int width, int height, int seed, int playerCount)
     {
@@ -89,9 +104,20 @@ public static class MapGenerator
             throw new ArgumentOutOfRangeException(nameof(width), $"Map dimensions must be between {MinSize} and {MaxSize}.");
         }
 
-        if (playerCount is < 2 or > 4)
+        if (playerCount is < 2 or > MaxPlayers)
         {
-            throw new ArgumentOutOfRangeException(nameof(playerCount), "Matches support 2 to 4 players.");
+            throw new ArgumentOutOfRangeException(nameof(playerCount), $"Matches support 2 to {MaxPlayers} players.");
+        }
+
+        if (playerCount > 4)
+        {
+            var min = MinSizeFor(playerCount);
+            if (width < min || height < min)
+            {
+                throw new ArgumentOutOfRangeException(nameof(width), $"A {playerCount}-player map must be at least {min}×{min}.");
+            }
+
+            return GenerateRing(width, height, seed, playerCount);
         }
 
         var rng = new Rng(seed);
@@ -193,6 +219,120 @@ public static class MapGenerator
 
         return new GameMap(width, height, new bool[width * height], corners.Take(playerCount).ToList(), deposits);
     }
+
+    /// <summary>
+    /// Five to sixteen players around a ring, slot 0 at the top-left. Each player gets an identical
+    /// share: a nine-deposit seam behind the base, an expansion and a contested deposit in each gap
+    /// to the next player, and the same rock outcrops in every gap. Positions are rounded to tiles,
+    /// so shares can differ by a tile, never by ore.
+    /// </summary>
+    private static GameMap GenerateRing(int width, int height, int seed, int playerCount)
+    {
+        var rng = new Rng(seed);
+        var cx = (width - 1) / 2.0;
+        var cy = (height - 1) / 2.0;
+        var radius = Math.Min(width, height) / 2.0 - RingBackroom;
+        var step = 2 * Math.PI / playerCount;
+
+        Point At(double angle, double distance) => new(
+            (int)Math.Round(cx + distance * Cos(angle), MidpointRounding.AwayFromZero),
+            (int)Math.Round(cy + distance * Sin(angle), MidpointRounding.AwayFromZero));
+
+        // A line of tiles across the ray at this angle, stepping along the nearest of the eight grid
+        // directions so every tile is distinct (rounding a true perpendicular can land two on one tile).
+        Point Across(double angle, double distance, int along)
+        {
+            var c = At(angle, distance);
+            double px = -Sin(angle), py = Cos(angle);
+            var m = Math.Max(Math.Abs(px), Math.Abs(py));
+            var sx = (int)Math.Round(px / m, MidpointRounding.AwayFromZero);
+            var sy = (int)Math.Round(py / m, MidpointRounding.AwayFromZero);
+            return new Point(c.X + along * sx, c.Y + along * sy);
+        }
+
+        var angles = Enumerable.Range(0, playerCount).Select(i => -3 * Math.PI / 4 + i * step).ToArray();
+        var starts = angles.Select(a => At(a, radius)).ToArray();
+
+        var spawns = new List<DepositSpawn>();
+        var expansionAt = 0.55 + rng.Next(0, 20) / 100.0;   // how far out the expansions sit, same for everyone
+        var contestedAt = Math.Max(4, radius * (0.2 + rng.Next(0, 15) / 100.0));
+        foreach (var angle in angles)
+        {
+            for (var k = -4; k <= 4; k++)
+            {
+                spawns.Add(new DepositSpawn(Across(angle, radius + 4, k), BaseOreAmount));   // the seam behind the base
+            }
+
+            var gap = angle + step / 2;
+            foreach (var along in new[] { -1, 0, 1 })
+            {
+                spawns.Add(new DepositSpawn(Across(gap, radius * expansionAt, along), ExpansionOreAmount));
+            }
+
+            spawns.Add(new DepositSpawn(At(gap, contestedAt), RichOreAmount));
+        }
+
+        var deposits = spawns
+            .Where(d => d.Position.X >= 0 && d.Position.Y >= 0 && d.Position.X < width && d.Position.Y < height)
+            .DistinctBy(d => d.Position)
+            .OrderBy(d => d.Position.Y).ThenBy(d => d.Position.X)
+            .ToList();
+        var depositSet = deposits.Select(d => d.Position).ToHashSet();
+
+        for (var attempt = 0; attempt < 30; attempt++)
+        {
+            // Outcrops: a few (distance, offset into the gap, size) templates, stamped into every gap alike.
+            var templates = Enumerable.Range(0, rng.Next(2, 5))
+                .Select(_ => (Distance: radius * rng.Next(30, 95) / 100.0, Offset: step * rng.Next(25, 76) / 100.0, Size: rng.Next(1, 4)))
+                .ToList();
+            var rock = new bool[width * height];
+            foreach (var angle in angles)
+            {
+                foreach (var (distance, offset, size) in templates)
+                {
+                    var c = At(angle + offset, distance);
+                    for (var y = c.Y - size; y <= c.Y + size; y++)
+                    {
+                        for (var x = c.X - size; x <= c.X + size; x++)
+                        {
+                            var p = new Point(x, y);
+                            if (x < 0 || y < 0 || x >= width || y >= height || p.DistanceSquared(c) > size * size + 1
+                                || starts.Any(s => s.Chebyshev(p) <= 6) || deposits.Any(d => d.Position.Chebyshev(p) <= 2))
+                            {
+                                continue;
+                            }
+
+                            rock[y * width + x] = true;
+                        }
+                    }
+                }
+            }
+
+            if (IsConnected(rock, depositSet, width, height, starts))
+            {
+                return new GameMap(width, height, rock, starts, deposits);
+            }
+        }
+
+        return new GameMap(width, height, new bool[width * height], starts, deposits);
+    }
+
+    // Sine and cosine from a Taylor series: only +, * and /, which IEEE 754 makes identical on every
+    // platform, unlike Math.Sin. Map generation (and so replays) must not depend on the OS.
+    private static double Sin(double x)
+    {
+        x = Math.IEEERemainder(x, 2 * Math.PI);
+        double term = x, sum = x, x2 = x * x;
+        for (var n = 1; n <= 12; n++)
+        {
+            term *= -x2 / ((2 * n) * (2 * n + 1));
+            sum += term;
+        }
+
+        return sum;
+    }
+
+    private static double Cos(double x) => Sin(x + Math.PI / 2);
 
     private static int AmountAt(List<DepositSpawn> quadrant, Point p, int width, int height)
     {

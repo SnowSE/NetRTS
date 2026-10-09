@@ -44,7 +44,7 @@ function mountHome(root) {
         <p class="lede">${say(`NetRts is a tick-based strategy game played entirely over a REST API.
           Programs gather ore, raise barracks and send soldiers across the map; this page lets you
           follow every match live, tile by tile.`, `Badger Brawl is Snow College's tick-based strategy game, played entirely over a REST API.
-          Programs send badger diggers after grubs, move into the Suites at Academy Square, study Organic
+          Programs send badger workers after grubs, move into the Suites at Academy Square, study Organic
           Chemistry and Code Review in the GRSC Makerspace, and march soldiers and archers across the Sanpete
           Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.`)}</p>
         <div class="hero-links">
@@ -54,7 +54,7 @@ function mountHome(root) {
       </div>
       <form class="launch" id="launch" novalidate>
         <h2>${say('Start an exhibition', 'Start a scrimmage')}</h2>
-        <p class="muted small" style="margin:0">${say('Pick two house bots and watch them play each other.', 'Pick two house badgers and watch them have it out.')}</p>
+        <p class="muted small" style="margin:0">${say('Pick two to four house bots and watch them play each other.', 'Pick two to four house badgers and watch them have it out.')}</p>
         <div class="versus">
           <div class="field">
             <label for="bot-a"><span class="side-swatch" style="background:var(--p0)"></span>${say('First bot', 'First badger')}</label>
@@ -64,6 +64,17 @@ function mountHome(root) {
           <div class="field">
             <label for="bot-b"><span class="side-swatch" style="background:var(--p1)"></span>${say('Second bot', 'Second badger')}</label>
             <select id="bot-b" name="botB" required disabled><option>Loading…</option></select>
+          </div>
+        </div>
+        <div class="versus">
+          <div class="field">
+            <label for="bot-c"><span class="side-swatch" style="background:var(--p2)"></span>${say('Third bot', 'Third badger')} <span class="muted">(optional)</span></label>
+            <select id="bot-c" name="botC" disabled><option>Loading…</option></select>
+          </div>
+          <span class="vs" aria-hidden="true">vs</span>
+          <div class="field">
+            <label for="bot-d"><span class="side-swatch" style="background:var(--p3)"></span>${say('Fourth bot', 'Fourth badger')} <span class="muted">(optional)</span></label>
+            <select id="bot-d" name="botD" disabled><option>Loading…</option></select>
           </div>
         </div>
         <p class="bot-desc muted small" id="bot-desc" aria-live="polite"></p>
@@ -127,26 +138,28 @@ Authorization: Bearer &lt;apiKey&gt;
   // ---- exhibition form
   let bots = [];
   const selA = $('bot-a'), selB = $('bot-b'), desc = $('bot-desc'), errEl = $('launch-error'), btn = $('launch-btn');
+  const selects = [selA, selB, $('bot-c'), $('bot-d')];   // the last two are optional
+  const chosen = () => selects.map((s) => s.value).filter(Boolean);
   const showDesc = () => {
-    const a = bots.find((b) => b.name === selA.value), b = bots.find((x) => x.name === selB.value);
-    desc.innerHTML = [a, b].filter(Boolean).map((x) => (nickname(x.name) ? esc(x.description) : `<b>${esc(x.name)}</b>: ${esc(x.description)}`)).join('<br>');
+    desc.innerHTML = [...new Set(chosen())].map((n) => bots.find((b) => b.name === n)).filter(Boolean)
+      .map((x) => (nickname(x.name) ? esc(x.description) : `<b>${esc(x.name)}</b>: ${esc(x.description)}`)).join('<br>');
   };
-  selA.addEventListener('change', showDesc);
-  selB.addEventListener('change', showDesc);
+  selects.forEach((s) => s.addEventListener('change', showDesc));
 
   api('/api/v1/bots').then((list) => {
     if (!alive) return;
     bots = list || [];
     const opts = bots.map((b) => `<option value="${esc(b.name)}">${esc(nickname(b.name) ? `${nickname(b.name)} (${b.name})` : b.name)}</option>`).join('');
     selA.innerHTML = opts; selB.innerHTML = opts;
+    selects[2].innerHTML = selects[3].innerHTML = `<option value="">None</option>${opts}`;
     const pick = (n, fallback) => (bots.some((b) => b.name === n) ? n : fallback);
     selA.value = pick('rusher', bots[0]?.name);
     selB.value = pick('economist', bots[1]?.name ?? bots[0]?.name);
-    selA.disabled = selB.disabled = bots.length === 0;
+    selects.forEach((s) => { s.disabled = bots.length === 0; });
     showDesc();
   }).catch((e) => {
     if (!alive) return;
-    selA.innerHTML = selB.innerHTML = '<option>Unavailable</option>';
+    selects.forEach((s) => { s.innerHTML = '<option>Unavailable</option>'; });
     showError(`${say('Could not load house bots.', 'Could not wake the house badgers.')} ${e.message}`);
   });
 
@@ -156,14 +169,15 @@ Authorization: Bearer &lt;apiKey&gt;
     ev.preventDefault();
     showError('');
     if (!selA.value || !selB.value || selA.disabled) { showError(say('Choose two house bots first.', 'Choose two house badgers first.')); return; }
-    if (selA.value === selB.value) { showError(say('Pick two different bots. Each house bot can take only one seat in a match.', 'Pick two different badgers. Each house badger can take only one seat in a brawl.')); return; }
+    const picked = chosen();
+    if (new Set(picked).size !== picked.length) { showError(say('Pick different bots. Each house bot can take only one seat in a match.', 'Pick different badgers. Each house badger can take only one seat in a brawl.')); return; }
     const speed = Number(new FormData(ev.target).get('speed')) || 500;
     btn.disabled = true;
     btn.textContent = say('Starting…', 'Digging in…');
     try {
       const summary = await api('/api/v1/exhibitions', {
         method: 'POST',
-        body: { bots: [selA.value, selB.value], settings: { tickIntervalMs: speed } },
+        body: { bots: picked, settings: { tickIntervalMs: speed } },
       });
       location.hash = `#/match/${summary.matchId}`;
     } catch (e) {

@@ -19,6 +19,19 @@
   --p1: #0072b2;
   --p2: #007a5a;
   --p3: #b0478a;
+  /* Slots 4-15, for ring maps of up to 16 players. */
+  --p4: #c0392b;
+  --p5: #6a3d9a;
+  --p6: #7a7a00;
+  --p7: #00838f;
+  --p8: #6d4c41;
+  --p9: #c2185b;
+  --p10: #303f9f;
+  --p11: #558b2f;
+  --p12: #e65100;
+  --p13: #00695c;
+  --p14: #8e24aa;
+  --p15: #546e7a;
 
   --terrain-open: #d7dfdc;
   --terrain-grid: rgba(21, 34, 42, 0.06);
@@ -53,6 +66,18 @@
     --p1: #56b4e9;
     --p2: #2fc497;
     --p3: #e68fc3;
+    --p4: #ff6b5e;
+    --p5: #b39ddb;
+    --p6: #d4d45a;
+    --p7: #4dd0e1;
+    --p8: #bcaaa4;
+    --p9: #f48fb1;
+    --p10: #9fa8da;
+    --p11: #aed581;
+    --p12: #ffab40;
+    --p13: #80cbc4;
+    --p14: #ce93d8;
+    --p15: #b0bec5;
 
     --terrain-open: #1f2a30;
     --terrain-grid: rgba(226, 233, 232, 0.04);
@@ -84,6 +109,18 @@
   --p1: #56b4e9;
   --p2: #2fc497;
   --p3: #e68fc3;
+  --p4: #ff6b5e;
+  --p5: #b39ddb;
+  --p6: #d4d45a;
+  --p7: #4dd0e1;
+  --p8: #bcaaa4;
+  --p9: #f48fb1;
+  --p10: #9fa8da;
+  --p11: #aed581;
+  --p12: #ffab40;
+  --p13: #80cbc4;
+  --p14: #ce93d8;
+  --p15: #b0bec5;
 
   --terrain-open: #1f2a30;
   --terrain-grid: rgba(226, 233, 232, 0.04);
@@ -781,3 +818,71 @@ pre.snippet {
   text-transform: uppercase;
 }
 .legend svg .grub { fill: none; stroke: var(--ore); stroke-width: 3; stroke-linecap: round; }
+
+/* ---------- big matches (5-16 players) ---------- */
+
+.players-many { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); max-height: 60vh; overflow-y: auto; }
+.player.compact { padding: 8px 10px; }
+.player.compact h3 { font-size: 0.95rem; }
+.player.compact .counts { margin: 2px 0 0; font-size: 0.8rem; }
+.vision-select { min-height: 36px; width: auto; }
+
+/* ---------- full-screen map ---------- */
+
+.mini-board { display: none; }
+.map-frame.is-full {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  border: 0;
+  padding: 8px;
+  min-height: 0;
+  height: 100vh;
+  height: 100dvh;
+}
+.map-frame:fullscreen { background: var(--panel); }
+html.map-full { overflow: hidden; }
+.map-frame.is-full .mini-board {
+  display: block;
+  position: absolute;
+  top: 14px;
+  left: 14px;
+  z-index: 2;
+  width: min(260px, calc(100% - 28px));
+  max-height: calc(100% - 28px);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  backdrop-filter: blur(4px);
+}
+.mini-board-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font-weight: 700;
+  cursor: pointer;
+  text-align: left;
+}
+.mini-board-tick { margin-left: auto; font-weight: 400; font-size: 0.8rem; color: var(--muted); }
+.mini-board-toggle .chev { transition: transform 0.15s; }
+.mini-board-toggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+.mini-board ol { list-style: none; margin: 0; padding: 0 10px 8px; counter-reset: rank; }
+.mini-board li {
+  counter-increment: rank;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 0.875rem;
+  border-top: 1px solid var(--line);
+}
+.mini-board li::before { content: counter(rank); width: 1.4em; color: var(--muted); font-size: 0.8rem; }
+.mini-board li .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-board li.out { opacity: 0.5; text-decoration: line-through; }
+.board-score { font-weight: 700; }

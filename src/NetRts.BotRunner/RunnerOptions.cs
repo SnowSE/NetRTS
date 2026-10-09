@@ -34,7 +34,7 @@ public sealed class RunnerOptions
           --strategy <name>    Strategy to play with: {0} (default: balanced)
           --vs <houseBot>      Create a match against a house bot; it starts right away
           --create             Create a waiting match and print its id for others to --join
-          --players <n>        Seats in a --create match, 2-4 (default: 2)
+          --players <n>        Seats in a --create match, 2-16 (default: 2)
           --join <matchId>     Join an existing waiting match
           --tick-ms <ms>       Tick interval for matches you create
           --max-ticks <n>      Tick limit for matches you create
@@ -113,7 +113,7 @@ public sealed class RunnerOptions
                     modes.Add(MatchMode.Join);
                     break;
                 case "--players":
-                    o.Players = Int(arg, Value(), 2, 4);
+                    o.Players = Int(arg, Value(), 2, 16);
                     break;
                 case "--tick-ms":
                     o.TickMs = Int(arg, Value(), 1, int.MaxValue);

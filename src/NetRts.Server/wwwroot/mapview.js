@@ -524,7 +524,7 @@ export class MapView {
     const inset = Math.max(1, Math.round(T * 0.06));
     for (const b of s.buildings) {
       if (!inView(b.x, b.y)) continue;
-      const col = this.colours[b.owner % 4];
+      const col = this.colours[b.owner % this.colours.length];
       const x = b.x * T + inset, y = b.y * T + inset, w = T - inset * 2;
       if (b.completed) {
         g.fillStyle = col;
@@ -596,7 +596,7 @@ export class MapView {
       const t = pos.get(u.targetId) || targets.get(u.targetId);
       if (!t) continue;
       const p = pos.get(u.id);
-      g.strokeStyle = this.colours[u.owner % 4];
+      g.strokeStyle = this.colours[u.owner % this.colours.length];
       g.globalAlpha = 0.7;
       if (T >= DETAIL) g.setLineDash([T / 6, T / 8]);
       g.beginPath();
@@ -613,7 +613,7 @@ export class MapView {
       const cx = p.x * T, cy = p.y * T;
       const stacked = u._scale || 1;
       const r = T * 0.34 * (T >= DETAIL && stacked < 1 ? Math.min(1, stacked * 1.15) : stacked);
-      const col = this.colours[u.owner % 4];
+      const col = this.colours[u.owner % this.colours.length];
       const detailed = r * 2 >= DETAIL * 0.62;
       g.fillStyle = col;
       g.strokeStyle = this.theme.outline;
@@ -696,7 +696,7 @@ export function unitPath(g, type, cx, cy, r) {
   }
 }
 
-/** A curled grub: what diggers dig for. Detailed grubs get body segments. */
+/** A curled grub: what workers dig for. Detailed grubs get body segments. */
 function grub(g, cx, cy, size, colour, detailed) {
   g.save();
   g.strokeStyle = colour;
@@ -754,7 +754,7 @@ function snowUnitIcon(g, type, cx, cy, s, ink, accent) {
   g.fillStyle = ink;
   g.lineWidth = Math.max(1.2, s * 0.2);
   switch (type) {
-    case 'Worker': { // Digger: three claw marks
+    case 'Worker': { // three claw marks: badgers dig
       for (const dx of [-0.5, 0, 0.5]) {
         g.beginPath();
         g.moveTo(s * (dx - 0.2), -s * 0.75);

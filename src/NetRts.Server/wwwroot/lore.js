@@ -14,7 +14,6 @@ export const say = (classic, snow) => (SNOW ? snow : classic);
 
 export const GAME = say('NetRts', 'Badger Brawl');
 
-export const UNIT_NAME = { Worker: 'Digger', Soldier: 'Soldier', Archer: 'Archer', Scout: 'Scout' };
 
 /** Each team's headquarters is a different Snow College building, by player slot. */
 export const HQ_NAME = [
@@ -64,7 +63,8 @@ const bySlot = (list, slot) => list[((slot % list.length) + list.length) % list.
 /** "CommandCenter" -> "Command Center". */
 export const spaced = (s) => String(s ?? '').replace(/([a-z])([A-Z0-9])/g, '$1 $2');
 
-export const unitName = (t) => (SNOW ? UNIT_NAME[t] ?? t : t);
+/** Units keep their API names (Worker, Soldier, Archer, Scout) in every theme. */
+export const unitName = (t) => t;
 export const upgradeName = (t) => (SNOW ? UPGRADE_NAME[t] ?? t : spaced(t));
 export const hqName = (slot) => bySlot(HQ_NAME, slot);
 export const housingName = (slot) => bySlot(HOUSING_NAME, slot);
@@ -85,7 +85,6 @@ export function badgerize(text) {
   return String(text ?? '')
     .replace(/\bhouse-(\w+)/g, (m, bot) => BOT_NICKNAME[bot] ?? m)
     .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower)\b/g, (m) => BUILDING_NAME[m])
-    .replace(/\bWorker\b/g, UNIT_NAME.Worker)
     .replace(/\b((?:Weapons|Armor|Mobility|Harvesting)[12])\b/g, (m) => UPGRADE_NAME[m])
     .replace(/\bDeposit\b/g, 'Grub patch')
     .replace(/\bKilled enemy\b/g, 'Bowled over enemy')

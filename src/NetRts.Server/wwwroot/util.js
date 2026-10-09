@@ -56,13 +56,16 @@ function render(v) {
 export const raw = (s) => ({ __html: s });
 export const setHtml = (el, h) => { el.innerHTML = h.__html ?? h; };
 
+/** Player colours: one per slot, up to 16 players. */
+export const SLOT_COLOURS = 16;
+
 /** CSS custom property name for a slot's colour. */
-export const slotVar = (slot) => `var(--p${((slot % 4) + 4) % 4})`;
+export const slotVar = (slot) => `var(--p${((slot % SLOT_COLOURS) + SLOT_COLOURS) % SLOT_COLOURS})`;
 
 /** Reads the resolved player colours (theme aware) for the canvas. */
 export function playerColours() {
   const cs = getComputedStyle(document.documentElement);
-  return [0, 1, 2, 3].map((i) => cs.getPropertyValue(`--p${i}`).trim());
+  return Array.from({ length: SLOT_COLOURS }, (_, i) => cs.getPropertyValue(`--p${i}`).trim());
 }
 
 export function cssVar(name) {
