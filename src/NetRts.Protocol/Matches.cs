@@ -21,6 +21,12 @@ public sealed record CreateMatchRequest
     public IReadOnlyList<string>? HouseBots { get; init; }
 
     public MatchSettingsDto? Settings { get; init; }
+
+    /// <summary>
+    /// Optional name so others can find the match, e.g. "cs1400-lab": 3-32 letters, digits, '_' or '-'.
+    /// No two matches that haven't finished can share a name.
+    /// </summary>
+    public string? Name { get; init; }
 }
 
 public sealed record CreateExhibitionRequest
@@ -45,6 +51,9 @@ public sealed record MatchSummaryDto
     public DateTimeOffset CreatedAt { get; init; }
     public IReadOnlyList<MatchPlayerDto> Players { get; init; } = [];
     public MatchOutcomeDto? Outcome { get; init; }
+
+    /// <summary>The name given when the match was created, or null.</summary>
+    public string? Name { get; init; }
 }
 
 public sealed record MatchPlayerDto

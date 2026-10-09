@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using NetRts.Bots;
 using NetRts.Engine;
@@ -59,7 +60,7 @@ public sealed class HouseBotDirectory
 }
 
 /// <summary>All live matches (waiting, running, recently finished) and the rules for creating them.</summary>
-public sealed class MatchManager(
+public sealed partial class MatchManager(
     IOptions<NetRtsOptions> options,
     HouseBotDirectory houseBots,
     MatchRecorder recorder,
@@ -91,6 +92,11 @@ public sealed class MatchManager(
 
         ValidateBots(bots);
         var settings = ResolveSettings(request.Settings, maxPlayers);
+        var name = string.IsNullOrWhiteSpace(request.Name) ? null : request.Name.Trim();
+        if (name is not null && !ValidName().IsMatch(name))
+        {
+            throw new MatchException(400, "INVALID_NAME", "Match names are 3-32 characters: letters, digits, '_' or '-'.");
+        }
 
         lock (_createGate)
         {
@@ -101,7 +107,12 @@ public sealed class MatchManager(
                 throw new MatchException(429, "TOO_MANY_WAITING_MATCHES", $"You already have {waitingByCreator} matches waiting for opponents.");
             }
 
-            var host = NewHost(creatorId, maxPlayers, settings, isExhibition: false);
+            if (name is not null && _matches.Values.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase) && m.Status != MatchStatus.Completed))
+            {
+                throw new MatchException(409, "MATCH_NAME_TAKEN", $"A match named '{name}' is already waiting or running.");
+            }
+
+            var host = NewHost(name, creatorId, maxPlayers, settings, isExhibition: false);
             host.TryJoin(new Seat(creatorId, creatorName, IsHouseBot: false));
             foreach (var (seat, strategy) in houseBots.SeatsFor(bots))
             {
@@ -133,7 +144,7 @@ public sealed class MatchManager(
                 throw new MatchException(429, "TOO_MANY_EXHIBITIONS", $"{running} exhibitions are already running; try again when one finishes.");
             }
 
-            var host = NewHost(null, request.Bots.Count, settings, isExhibition: true);
+            var host = NewHost(null, null, request.Bots.Count, settings, isExhibition: true);
             foreach (var (seat, strategy) in houseBots.SeatsFor(request.Bots))
             {
                 host.TryJoin(seat, strategy);
@@ -196,9 +207,9 @@ public sealed class MatchManager(
         }
     }
 
-    private MatchHost NewHost(Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition)
+    private MatchHost NewHost(string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition)
     {
-        var host = new MatchHost(Guid.NewGuid(), creatorId, maxPlayers, settings, isExhibition, DateTime.UtcNow,
+        var host = new MatchHost(Guid.NewGuid(), name, creatorId, maxPlayers, settings, isExhibition, DateTime.UtcNow,
             loggerFactory.CreateLogger<MatchHost>(), metrics);
         host.Completed += recorder.Enqueue;
         return host;
@@ -220,6 +231,9 @@ public sealed class MatchManager(
             throw new MatchException(503, "SERVER_BUSY", $"The server is hosting its maximum of {_options.MaxLiveMatches} matches.");
         }
     }
+
+    [GeneratedRegex("^[A-Za-z0-9_-]{3,32}$")]
+    private static partial Regex ValidName();
 
     private static void ValidateBots(IReadOnlyList<string> bots)
     {

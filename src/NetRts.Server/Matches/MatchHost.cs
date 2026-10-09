@@ -28,9 +28,10 @@ public sealed class MatchHost
     private GameSimulation? _sim;
     private MapDto? _map;
 
-    public MatchHost(Guid id, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics)
+    public MatchHost(Guid id, string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics)
     {
         Id = id;
+        Name = name;
         CreatorId = creatorId;
         MaxPlayers = maxPlayers;
         Settings = settings;
@@ -41,6 +42,7 @@ public sealed class MatchHost
     }
 
     public Guid Id { get; }
+    public string? Name { get; }
     public Guid? CreatorId { get; }
     public int MaxPlayers { get; }
     public MatchSettings Settings { get; }
@@ -316,6 +318,7 @@ public sealed class MatchHost
                 CreatedAt = new DateTimeOffset(CreatedAt, TimeSpan.Zero),
                 Players = _seats.Select((s, i) => new MatchPlayerDto { PlayerId = s.PlayerId, Name = s.Name, Slot = i, IsHouseBot = s.IsHouseBot }).ToList(),
                 Outcome = _sim?.Outcome,
+                Name = Name,
             };
         }
     }

@@ -268,7 +268,7 @@ function matchRow(m) {
   }
   return html`<li><a class="match-row" href="#/match/${m.matchId}" aria-label="${m.status} ${say('match', 'brawl')}: ${players.map((p) => displayName(p.name)).join(' versus ')}">
     <span class="status ${m.status}">${m.status === 'Active' ? 'Live' : m.status}</span>
-    <span class="who">${names}<span class="muted small" style="margin-left:8px">${m.mapWidth}×${m.mapHeight}</span></span>
+    <span class="who">${m.name ? html`<b style="margin-right:8px">${m.name}</b>` : ''}${names}<span class="muted small" style="margin-left:8px">${m.mapWidth}×${m.mapHeight}</span></span>
     <span class="meta">${meta}</span></a></li>`;
 }
 

@@ -217,6 +217,28 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task Matches_can_be_named_and_names_are_unique_until_the_match_ends()
+    {
+        var (host, _) = await factory.NewPlayerAsync();
+        var (other, _) = await factory.NewPlayerAsync();
+        var name = $"lab-{Guid.NewGuid():N}"[..12];
+
+        var match = await host.CreateMatchAsync(new CreateMatchRequest { Name = name }, Ct);
+        Assert.Equal(name, match.Name);
+        Assert.Contains(await other.ListMatchesAsync(MatchStatus.Waiting, Ct), m => m.MatchId == match.MatchId && m.Name == name);
+
+        var taken = await Assert.ThrowsAsync<NetRtsApiException>(() => other.CreateMatchAsync(new CreateMatchRequest { Name = name.ToUpperInvariant() }, Ct));
+        Assert.Equal("MATCH_NAME_TAKEN", taken.Code);
+        var invalid = await Assert.ThrowsAsync<NetRtsApiException>(() => other.CreateMatchAsync(new CreateMatchRequest { Name = "no spaces" }, Ct));
+        Assert.Equal("INVALID_NAME", invalid.Code);
+
+        await other.JoinMatchAsync(match.MatchId, Ct);
+        await other.SurrenderAsync(match.MatchId, Ct);
+        var again = await other.CreateMatchAsync(new CreateMatchRequest { Name = name, HouseBots = ["sitter"] }, Ct);
+        Assert.Equal(name, again.Name);
+    }
+
+    [Fact]
     public async Task Exhibitions_can_be_spectated()
     {
         var http = factory.CreateClient();
