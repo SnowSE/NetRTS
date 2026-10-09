@@ -76,7 +76,9 @@ diggers, striped badger soldiers, archers' arrows, scouts' paw prints, campus ha
 pennant, lit-up dorms, makerspace flasks and guard towers, with health bars and build progress. Hit
 **Follow the brawl** and the camera chases the biggest fight on its own.
 It fills whatever screen you give it, from a phone to a wall-sized monitor, in Snow College blue,
-white and orange, light or dark.
+white and orange, light or dark. Prefer plain RTS? The **Original theme** button in the top bar
+switches the whole site back to the classic NetRts look (ore, Command Centers, barracks), and
+remembers your choice.
 
 <p align="center">
   <img src="docs/images/spectator.png" width="860" alt="The spectator page mid-brawl: the map on the left, each team's grubs, income, home building and housing, score breakdown and upgrades on the right, and the play-by-play underneath.">

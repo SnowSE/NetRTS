@@ -1,18 +1,23 @@
-// Canvas renderer for a Badger Brawl match: the Sanpete Valley, grub patches, campus buildings, badgers, fog — with a zoomable camera.
+// Canvas renderer for a NetRts match: terrain, ore, buildings, units, fog — with a zoomable camera.
+// The Snow College theme swaps in its own art: grubs, claw marks, badgers, campus halls and dorms.
 //
 // Level of detail follows the on-screen tile size (Te, in device pixels):
 //   Te <  9   plain shapes, no building letters
 //   Te >= 9   shapes + building letters
-//   Te >= 26  illustrated glyphs (claw marks, badger face, arrow, paw print; campus hall, dorm, co-op crate,
-//             makerspace flask, guard tower), production / research bars, health bars on everything damaged
+//   Te >= 26  illustrated glyphs (pickaxe, sword & shield, bow, eye; keep, crossed swords, crate,
+//             flask, tower — or the Snow College set), production / research bars, health bars on everything damaged
 //   Te >= 56  labels: unit ids and building names
 import { playerColours, cssVar } from './util.js';
-import { buildingName } from './lore.js';
+import { SNOW, buildingName } from './lore.js';
 
-// Letters at middle zoom: HQs and housing by the first letter of their campus name, then Co-op Store,
+const CLASSIC_GLYPH = { CommandCenter: 'C', Barracks: 'B', ResourceDepot: 'D', TechLab: 'T', GuardTower: 'G' };
+// Snow College letters: HQs and housing by the first letter of their campus name, then Co-op Store,
 // Makerspace and guard Tower.
-const BUILDING_GLYPH = { ResourceDepot: 'C', TechLab: 'M', GuardTower: 'T' };
-const glyph = (b) => (b.type === 'CommandCenter' || b.type === 'Barracks' ? buildingName(b.type, b.owner)[0] : BUILDING_GLYPH[b.type]);
+const SNOW_GLYPH = { ResourceDepot: 'C', TechLab: 'M', GuardTower: 'T' };
+const glyph = (b) => (!SNOW ? CLASSIC_GLYPH[b.type]
+  : b.type === 'CommandCenter' || b.type === 'Barracks' ? buildingName(b.type, b.owner)[0] : SNOW_GLYPH[b.type]);
+const unitIcon = (...args) => (SNOW ? snowUnitIcon : classicUnitIcon)(...args);
+const buildingIcon = (...args) => (SNOW ? snowBuildingIcon : classicBuildingIcon)(...args);
 const DETAIL = 26;
 const LABELS = 56;
 const MAX_TILE = 112; // largest on-screen tile, in device pixels
@@ -461,6 +466,45 @@ export class MapView {
   }
 
   drawResources(g, s, T, inView) {
+    if (SNOW) { this.drawGrubs(g, s, T, inView); return; }
+    g.fillStyle = this.theme.ore;
+    for (const r of s.resources) {
+      if (r.remaining <= 0 || !inView(r.x, r.y)) continue;
+      const frac = Math.min(1, r.remaining / (this.oreMax.get(r.id) || r.remaining));
+      const size = T * (0.3 + 0.42 * frac);
+      g.globalAlpha = 0.45 + 0.55 * frac;
+      const cx = (r.x + 0.5) * T, cy = (r.y + 0.5) * T;
+      g.beginPath();
+      g.moveTo(cx, cy - size / 2);
+      g.lineTo(cx + size * 0.38, cy - size * 0.1);
+      g.lineTo(cx + size * 0.22, cy + size / 2);
+      g.lineTo(cx - size * 0.22, cy + size / 2);
+      g.lineTo(cx - size * 0.38, cy - size * 0.1);
+      g.closePath();
+      g.fill();
+      if (T >= DETAIL) {
+        // Facets catch the light.
+        g.globalAlpha = 0.35;
+        g.fillStyle = '#fff';
+        g.beginPath();
+        g.moveTo(cx, cy - size / 2);
+        g.lineTo(cx + size * 0.38, cy - size * 0.1);
+        g.lineTo(cx, cy);
+        g.closePath();
+        g.fill();
+        g.fillStyle = this.theme.ore;
+      }
+      if (T >= LABELS * 1.5) {
+        g.globalAlpha = 0.9;
+        this.label(g, `${r.remaining}`, cx, (r.y + 1) * T + 2, T);
+        g.fillStyle = this.theme.ore;
+      }
+    }
+    g.globalAlpha = 1;
+  }
+
+  /** Snow College theme: curled grubs instead of ore crystals. */
+  drawGrubs(g, s, T, inView) {
     for (const r of s.resources) {
       if (r.remaining <= 0 || !inView(r.x, r.y)) continue;
       const frac = Math.min(1, r.remaining / (this.oreMax.get(r.id) || r.remaining));
@@ -700,8 +744,8 @@ function badgerFace(g, s, ink, accent) {
   g.fill();
 }
 
-/** Close-up unit art, drawn inside the unit's shape: ink is the glyph colour, accent the player colour. */
-function unitIcon(g, type, cx, cy, s, ink, accent) {
+/** Snow College close-up unit art, drawn inside the unit's shape: ink is the glyph colour, accent the player colour. */
+function snowUnitIcon(g, type, cx, cy, s, ink, accent) {
   g.save();
   g.translate(cx, cy);
   g.lineCap = 'round';
@@ -759,8 +803,8 @@ function unitIcon(g, type, cx, cy, s, ink, accent) {
   g.restore();
 }
 
-/** Close-up building art. */
-function buildingIcon(g, type, cx, cy, s, ink, accent) {
+/** Snow College close-up building art. */
+function snowBuildingIcon(g, type, cx, cy, s, ink, accent) {
   g.save();
   g.translate(cx, cy);
   g.lineCap = 'round';
@@ -815,6 +859,195 @@ function buildingIcon(g, type, cx, cy, s, ink, accent) {
       break;
     }
     case 'TechLab': { // GRSC Makerspace: a flask
+      g.beginPath();
+      g.moveTo(-s * 0.22, -s * 0.9);
+      g.lineTo(-s * 0.22, -s * 0.25);
+      g.lineTo(-s * 0.8, s * 0.8);
+      g.lineTo(s * 0.8, s * 0.8);
+      g.lineTo(s * 0.22, -s * 0.25);
+      g.lineTo(s * 0.22, -s * 0.9);
+      g.stroke();
+      g.beginPath();
+      g.moveTo(-s * 0.52, s * 0.3);
+      g.lineTo(s * 0.52, s * 0.3);
+      g.lineTo(s * 0.8, s * 0.8);
+      g.lineTo(-s * 0.8, s * 0.8);
+      g.closePath();
+      g.fill();
+      break;
+    }
+    case 'GuardTower': { // tall tower with an arrow slit
+      g.beginPath();
+      g.moveTo(-s * 0.45, s * 0.9);
+      g.lineTo(-s * 0.35, -s * 0.5);
+      g.lineTo(-s * 0.6, -s * 0.5);
+      g.lineTo(-s * 0.6, -s * 0.9);
+      g.lineTo(-s * 0.3, -s * 0.9);
+      g.lineTo(-s * 0.3, -s * 0.72);
+      g.lineTo(-s * 0.1, -s * 0.72);
+      g.lineTo(-s * 0.1, -s * 0.9);
+      g.lineTo(s * 0.1, -s * 0.9);
+      g.lineTo(s * 0.1, -s * 0.72);
+      g.lineTo(s * 0.3, -s * 0.72);
+      g.lineTo(s * 0.3, -s * 0.9);
+      g.lineTo(s * 0.6, -s * 0.9);
+      g.lineTo(s * 0.6, -s * 0.5);
+      g.lineTo(s * 0.35, -s * 0.5);
+      g.lineTo(s * 0.45, s * 0.9);
+      g.closePath();
+      g.fill();
+      g.fillStyle = accent;
+      g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
+      break;
+    }
+  }
+  g.restore();
+}
+
+/** Original close-up unit art, drawn inside the unit's shape: ink is the glyph colour, accent the player colour. */
+function classicUnitIcon(g, type, cx, cy, s, ink, accent) {
+  g.save();
+  g.translate(cx, cy);
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.strokeStyle = ink;
+  g.fillStyle = ink;
+  g.lineWidth = Math.max(1.2, s * 0.2);
+  switch (type) {
+    case 'Worker': { // pickaxe
+      g.beginPath();
+      g.moveTo(-s * 0.7, s * 0.75);
+      g.lineTo(s * 0.35, -s * 0.3);
+      g.stroke();
+      g.lineWidth = Math.max(1.2, s * 0.24);
+      g.beginPath();
+      g.moveTo(-s * 0.15, -s * 0.85);
+      g.quadraticCurveTo(s * 0.6, -s * 0.75, s * 0.85, s * 0.1);
+      g.stroke();
+      break;
+    }
+    case 'Soldier': { // shield with a sword across it
+      g.beginPath();
+      g.moveTo(-s * 0.7, -s * 0.75);
+      g.lineTo(s * 0.7, -s * 0.75);
+      g.lineTo(s * 0.7, -s * 0.05);
+      g.quadraticCurveTo(s * 0.65, s * 0.7, 0, s * 0.95);
+      g.quadraticCurveTo(-s * 0.65, s * 0.7, -s * 0.7, -s * 0.05);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = accent;
+      g.lineWidth = Math.max(1, s * 0.16);
+      g.beginPath();
+      g.moveTo(0, -s * 0.55);
+      g.lineTo(0, s * 0.6);
+      g.moveTo(-s * 0.32, -s * 0.12);
+      g.lineTo(s * 0.32, -s * 0.12);
+      g.stroke();
+      break;
+    }
+    case 'Archer': { // an arrow in flight
+      g.lineWidth = Math.max(1.4, s * 0.22);
+      g.beginPath();
+      g.moveTo(-s * 0.75, s * 0.75);
+      g.lineTo(s * 0.45, -s * 0.45);
+      g.stroke();
+      g.beginPath(); // head
+      g.moveTo(s * 0.9, -s * 0.9);
+      g.lineTo(s * 0.12, -s * 0.62);
+      g.lineTo(s * 0.62, -s * 0.12);
+      g.closePath();
+      g.fill();
+      g.lineWidth = Math.max(1, s * 0.14); // fletching
+      g.beginPath();
+      g.moveTo(-s * 0.55, s * 0.55);
+      g.lineTo(-s * 0.85, s * 0.35);
+      g.moveTo(-s * 0.55, s * 0.55);
+      g.lineTo(-s * 0.35, s * 0.85);
+      g.stroke();
+      break;
+    }
+    case 'Scout': { // an eye: scouts see furthest
+      g.beginPath();
+      g.moveTo(-s * 0.95, 0);
+      g.quadraticCurveTo(0, -s * 0.85, s * 0.95, 0);
+      g.quadraticCurveTo(0, s * 0.85, -s * 0.95, 0);
+      g.closePath();
+      g.fill();
+      g.fillStyle = accent;
+      g.beginPath();
+      g.arc(0, 0, s * 0.3, 0, Math.PI * 2);
+      g.fill();
+      break;
+    }
+  }
+  g.restore();
+}
+
+/** Original close-up building art. */
+function classicBuildingIcon(g, type, cx, cy, s, ink, accent) {
+  g.save();
+  g.translate(cx, cy);
+  g.lineCap = 'round';
+  g.lineJoin = 'round';
+  g.fillStyle = ink;
+  g.strokeStyle = ink;
+  g.lineWidth = Math.max(1.2, s * 0.14);
+  switch (type) {
+    case 'CommandCenter': { // keep with battlements and a flag
+      g.beginPath();
+      g.moveTo(-s * 0.8, s * 0.85);
+      g.lineTo(-s * 0.8, -s * 0.2);
+      for (let i = 0; i < 4; i++) {
+        const x = -s * 0.8 + i * s * 0.4;
+        g.lineTo(x, -s * 0.45);
+        g.lineTo(x + s * 0.2, -s * 0.45);
+        g.lineTo(x + s * 0.2, -s * 0.2);
+        g.lineTo(x + s * 0.4, -s * 0.2);
+      }
+      g.lineTo(s * 0.8, s * 0.85);
+      g.closePath();
+      g.fill();
+      g.fillStyle = accent;
+      g.fillRect(-s * 0.18, s * 0.3, s * 0.36, s * 0.55); // gate
+      g.beginPath();
+      g.moveTo(0, -s * 0.45);
+      g.lineTo(0, -s * 1.0);
+      g.stroke();
+      g.fillStyle = ink;
+      g.beginPath();
+      g.moveTo(0, -s * 1.0);
+      g.lineTo(s * 0.45, -s * 0.85);
+      g.lineTo(0, -s * 0.7);
+      g.closePath();
+      g.fill();
+      break;
+    }
+    case 'Barracks': { // crossed swords
+      for (const dir of [1, -1]) {
+        g.lineWidth = Math.max(1.2, s * 0.16);
+        g.beginPath();
+        g.moveTo(-s * 0.8 * dir, -s * 0.8);
+        g.lineTo(s * 0.6 * dir, s * 0.6);
+        g.stroke();
+        g.beginPath();
+        g.moveTo(s * 0.35 * dir, s * 0.75);
+        g.lineTo(s * 0.75 * dir, s * 0.35);
+        g.stroke();
+      }
+      break;
+    }
+    case 'ResourceDepot': { // crate
+      g.lineWidth = Math.max(1.2, s * 0.14);
+      g.strokeRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.4);
+      g.beginPath();
+      g.moveTo(-s * 0.75, -s * 0.65);
+      g.lineTo(s * 0.75, s * 0.75);
+      g.moveTo(s * 0.75, -s * 0.65);
+      g.lineTo(-s * 0.75, s * 0.75);
+      g.stroke();
+      break;
+    }
+    case 'TechLab': { // flask
       g.beginPath();
       g.moveTo(-s * 0.22, -s * 0.9);
       g.lineTo(-s * 0.22, -s * 0.25);

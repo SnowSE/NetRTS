@@ -33,3 +33,15 @@ button.addEventListener('click', () => {
 });
 
 apply(current);
+
+// Brand toggle: the original NetRts look or the Snow College theme. Switching reloads the page so every
+// view re-renders in one vocabulary.
+const brandButton = document.getElementById('brand-toggle');
+const snow = document.documentElement.dataset.brand === 'snow';
+brandButton.setAttribute('aria-label', snow
+  ? 'Site theme: Snow College. Click for the original theme.'
+  : 'Site theme: original. Click for the Snow College theme.');
+brandButton.addEventListener('click', () => {
+  try { localStorage.setItem('netrts-brand', snow ? 'classic' : 'snow'); } catch { /* storage blocked */ }
+  location.reload();
+});

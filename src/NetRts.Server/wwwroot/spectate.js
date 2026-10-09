@@ -1,18 +1,18 @@
 // Spectate view: #/match/{id}
 import { api, html, setHtml, esc, slotVar, displayName, fmt, outcomeText } from './util.js';
-import { GAME, ORE, unitName, buildingName, upgradeName, badgerize, hqName, housingName } from './lore.js';
+import { GAME, SNOW, say, ORE, unitName, buildingName, upgradeName, badgerize, hqName, housingName } from './lore.js';
 import { MapView, unitPath } from './mapview.js';
 
 const HOT = /Lost|Destroyed|Killed|Eliminated|Failed/;
 
 export function mountSpectate(root, matchId) {
-  document.title = `Brawl – ${GAME}`;
+  document.title = `${say('Match', 'Brawl')} – ${GAME}`;
   setHtml(root, html`
     <div id="banner-slot" aria-live="polite"></div>
     <div class="match-head">
       <div>
-        <p class="small" style="margin:0 0 6px"><a href="#/">All brawls</a></p>
-        <h1 id="title">Waking the badgers…</h1>
+        <p class="small" style="margin:0 0 6px"><a href="#/">${say('All matches', 'All brawls')}</a></p>
+        <h1 id="title">${say('Loading match…', 'Waking the badgers…')}</h1>
         <p class="sub" id="subtitle"></p>
       </div>
       <div class="clock" id="clock" aria-live="off"></div>
@@ -28,19 +28,19 @@ export function mountSpectate(root, matchId) {
           <ul class="legend" aria-label="Map key">${legendItems()}</ul>
         </div>
         <div class="map-frame" id="frame">
-          <canvas id="map" tabindex="0" role="img" aria-label="Brawl map. Use the arrow keys to inspect tiles, plus and minus to zoom."
+          <canvas id="map" tabindex="0" role="img" aria-label="${say('Battle', 'Brawl')} map. Use the arrow keys to inspect tiles, plus and minus to zoom."
             aria-describedby="tooltip"></canvas>
           <div class="map-controls" role="toolbar" aria-label="Map view">
             <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
             <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
             <button type="button" id="zoom-fit" title="Show the whole map (0)">Fit</button>
-            <button type="button" id="follow" aria-pressed="false" title="Keep the camera on the biggest fight (F)">Follow the brawl</button>
+            <button type="button" id="follow" aria-pressed="false" title="Keep the camera on the biggest fight (F)">${say('Follow the fight', 'Follow the brawl')}</button>
             <span class="zoom-level" id="zoom-level" aria-live="polite">1×</span>
           </div>
           <div class="tooltip" id="tooltip" role="status" hidden></div>
-          <div class="overlay-msg" id="overlay"><div><strong>Unrolling the Sanpete Valley…</strong></div></div>
+          <div class="overlay-msg" id="overlay"><div><strong>${say('Loading map…', 'Unrolling the Sanpete Valley…')}</strong></div></div>
         </div>
-        <p class="small muted" style="margin:0">Scroll or pinch to zoom in on a brawl, drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
+        <p class="small muted" style="margin:0">${say('Scroll or pinch to zoom in on a battle,', 'Scroll or pinch to zoom in on a brawl,')} drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
       </div>
       <aside class="side" aria-label="Players and events">
         <section aria-labelledby="players-h">
@@ -48,8 +48,8 @@ export function mountSpectate(root, matchId) {
           <div id="players" style="display:grid;gap:10px"></div>
         </section>
         <section class="feed" aria-labelledby="feed-h">
-          <h2 id="feed-h">Play-by-play</h2>
-          <ol id="feed" aria-live="off"><li class="muted"><span></span><span>Waiting for the opening whistle…</span></li></ol>
+          <h2 id="feed-h">${say('Battle log', 'Play-by-play')}</h2>
+          <ol id="feed" aria-live="off"><li class="muted"><span></span><span>${say('Waiting for the first tick…', 'Waiting for the opening whistle…')}</span></li></ol>
         </section>
       </aside>
     </div>`);
@@ -106,8 +106,8 @@ export function mountSpectate(root, matchId) {
     for (const b of info.buildings) {
       items.push(html`<div class="tt-item"><b>${buildingName(b.type, b.owner)}</b> #${b.id} ${owner(b.owner)}<br>
         HP ${fmt(b.hp)} / ${fmt(b.maxHp)}${b.completed ? '' : html`<br>Under construction, ${b.constructionPercent}%`}
-        ${b.production?.length ? html`<br>Training ${b.production.map((p) => `${unitName(p.unitType)} ${p.percent}%`).join(', ')}` : ''}
-        ${b.research ? html`<br>Studying ${upgradeName(b.research.upgrade)} ${b.research.percent}%` : ''}</div>`);
+        ${b.production?.length ? html`<br>${say('Producing', 'Training')} ${b.production.map((p) => `${unitName(p.unitType)} ${p.percent}%`).join(', ')}` : ''}
+        ${b.research ? html`<br>${say('Researching', 'Studying')} ${upgradeName(b.research.upgrade)} ${b.research.percent}%` : ''}</div>`);
     }
     for (const u of info.units) {
       items.push(html`<div class="tt-item"><b>${unitName(u.type)}</b> #${u.id} ${owner(u.owner)}<br>
@@ -117,10 +117,10 @@ export function mountSpectate(root, matchId) {
         ${u.destination ? html`<br>Heading to ${u.destination.x}, ${u.destination.y}` : ''}</div>`);
     }
     for (const r of info.resources) {
-      items.push(html`<div class="tt-item"><b>Grub patch</b> #${r.id}<br>${fmt(r.remaining)} ${ORE} left</div>`);
+      items.push(html`<div class="tt-item"><b>${say('Ore deposit', 'Grub patch')}</b> #${r.id}<br>${fmt(r.remaining)} ${ORE} left</div>`);
     }
     const fog = info.visible === false ? html`, hidden from ${who.get(view.vision)}` : '';
-    setHtml(tooltip, html`<div class="tt-coord">${tile.x}, ${tile.y}: ${info.terrain === 'Rock' ? 'Wasatch Plateau rock' : 'Sanpete Valley'}${fog}</div>${items}`);
+    setHtml(tooltip, html`<div class="tt-coord">${tile.x}, ${tile.y}: ${SNOW ? (info.terrain === 'Rock' ? 'Wasatch Plateau rock' : 'Sanpete Valley') : info.terrain}${fog}</div>${items}`);
     tooltip.hidden = false;
     const pt = anchor || view.tileCenter(tile);
     const fr = frame.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
@@ -227,11 +227,11 @@ export function mountSpectate(root, matchId) {
   // ---------- rendering pieces
   function renderHeader() {
     const players = [...(state?.players || summary?.players || [])].sort((a, b) => a.slot - b.slot);
-    const title = players.length ? players.map((p) => displayName(p.name)).join(' vs ') : 'Waiting for badgers';
+    const title = players.length ? players.map((p) => displayName(p.name)).join(' vs ') : say('Waiting for players', 'Waiting for badgers');
     $('title').textContent = title;
     document.title = `${title} – ${GAME}`;
     if (summary) {
-      $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${summary.tickIntervalMs} ms per tick, brawl ${summary.matchId.slice(0, 8)}`;
+      $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;
     }
   }
 
@@ -286,13 +286,13 @@ export function mountSpectate(root, matchId) {
       return html`
       <article class="player ${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}" aria-label="${displayName(p.name)}">
         <div class="player-top">
-          <h3>${displayName(p.name)}${p.eliminated ? html`<span class="badge dead">Hibernating</span>` : ''}${won ? html`<span class="badge won">Top Badger</span>` : ''}</h3>
-          ${typeof p.resources === 'number' ? html`<span class="ore-count" title="Grubs in the larder">${fmt(p.resources)} ${ORE}</span>` : ''}
+          <h3>${displayName(p.name)}${p.eliminated ? html`<span class="badge dead">${say('Eliminated', 'Hibernating')}</span>` : ''}${won ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}</h3>
+          ${typeof p.resources === 'number' ? html`<span class="ore-count" title="${say('Ore in the bank', 'Grubs in the larder')}">${fmt(p.resources)} ${ORE}</span>` : ''}
         </div>
-        <p class="counts">Home: ${hqName(p.slot)} · Lives in ${housingName(p.slot)}</p>
-        ${typeof p.unitCount === 'number' ? html`<p class="counts">${p.unitCount} badger${p.unitCount === 1 ? "" : "s"}, ${p.buildingCount} building${p.buildingCount === 1 ? "" : "s"}${typeof p.incomePerMinute === 'number' ? html` · <span title="Grubs banked in the last 60 ticks (one minute at normal speed)">${fmt(p.incomePerMinute)} ${ORE}/min</span>` : ''}</p>` : ''}
-        ${r ? html`<p class="counts">${r.unitsProduced} badgers trained, ${r.unitsLost} lost, ${r.unitsKilled} bowled over, ${r.buildingsDestroyed} buildings flattened, ${r.buildingsLost} lost</p>` : ''}
-        ${p.pending ? html`<p class="counts">Waiting for the opening whistle</p>` : ''}
+        ${SNOW ? html`<p class="counts">Home: ${hqName(p.slot)} · Lives in ${housingName(p.slot)}</p>` : ''}
+        ${typeof p.unitCount === 'number' ? html`<p class="counts">${p.unitCount} ${say('unit', 'badger')}${p.unitCount === 1 ? "" : "s"}, ${p.buildingCount} building${p.buildingCount === 1 ? "" : "s"}${typeof p.incomePerMinute === 'number' ? html` · <span title="${say('Ore', 'Grubs')} banked in the last 60 ticks (one minute at normal speed)">${fmt(p.incomePerMinute)} ${ORE}/min</span>` : ''}</p>` : ''}
+        ${r ? html`<p class="counts">${r.unitsProduced} ${say('units built', 'badgers trained')}, ${r.unitsLost} lost, ${r.unitsKilled} ${say('kills', 'bowled over')}, ${r.buildingsDestroyed} buildings ${say('razed', 'flattened')}, ${r.buildingsLost} lost</p>` : ''}
+        ${p.pending ? html`<p class="counts">${say('Waiting for the match to start', 'Waiting for the opening whistle')}</p>` : ''}
         ${score ? html`<dl class="stats">
           <div><dt>Destruction</dt><dd>${fmt(score.destruction)}</dd></div>
           <div><dt>Economy</dt><dd>${fmt(score.economy)}</dd></div>
@@ -315,7 +315,7 @@ export function mountSpectate(root, matchId) {
     }
     if (!added) {
       if (!events.length) {
-        setHtml($('feed'), html`<li class="muted"><span></span><span>No fights, buildings or classes yet.</span></li>`);
+        setHtml($('feed'), html`<li class="muted"><span></span><span>${say('No kills, buildings or research yet.', 'No fights, buildings or classes yet.')}</span></li>`);
       }
       return;
     }
@@ -332,12 +332,14 @@ export function mountSpectate(root, matchId) {
     if (!finished || !outcome) return;
     const players = state?.players || result?.players || summary?.players || [];
     const winner = players.find((p) => p.playerId === outcome.winnerId);
-    const reason = { Elimination: 'Last badger standing. Go Badgers!', TimeLimit: 'The final buzzer sounded; the higher score wins.', Surrender: 'The other side forfeited.' }[outcome.reason] || '';
+    const reason = SNOW
+      ? { Elimination: 'Last badger standing. Go Badgers!', TimeLimit: 'The final buzzer sounded; the higher score wins.', Surrender: 'The other side forfeited.' }
+      : { Elimination: 'Last army standing.', TimeLimit: 'Time ran out; the higher score wins.', Surrender: 'The other side surrendered.' }[outcome.reason] || '';
     setHtml($('banner-slot'), html`
       <div class="banner ${winner ? 'win' : ''}" style="${winner ? `--pc:${slotVar(winner.slot)}` : ''}">
-        <h2>${winner ? `${displayName(winner.name)} wins the brawl` : 'A tie in Ephraim'}</h2>
+        <h2>${winner ? `${displayName(winner.name)} ${say('wins', 'wins the brawl')}` : say('Draw', 'A tie in Ephraim')}</h2>
         <p>${outcomeText(outcome, players)}. ${reason}</p>
-        <a class="btn ghost" href="#/">Back to the brawls</a>
+        <a class="btn ghost" href="#/">${say('Back to matches', 'Back to the brawls')}</a>
       </div>`);
     fit();
   }
@@ -359,14 +361,14 @@ export function mountSpectate(root, matchId) {
       return true;
     } catch (e) {
       if (e.status === 404) {
-        $('title').textContent = 'Brawl not found';
-        setOverlay('No brawl with this id', 'It may have been cleared out. Go back to the list to pick another.');
+        $('title').textContent = say('Match not found', 'Brawl not found');
+        setOverlay(say('No match with this id', 'No brawl with this id'), say('It may have been removed. Go back to the match list to pick another.', 'It may have been cleared out. Go back to the list to pick another.'));
         setHtml($('players'), html``);
         setHtml($('clock'), html``);
         $('vision-field').hidden = true;
         return false;
       }
-      setOverlay('Could not load the brawl', e.message);
+      setOverlay(say('Could not load the match', 'Could not load the brawl'), e.message);
       later(start, 3000);
       return false;
     }
@@ -381,8 +383,8 @@ export function mountSpectate(root, matchId) {
     } catch (e) {
       if (e.code === 'MATCH_NOT_STARTED' || e.status === 409) {
         const open = summary ? summary.maxPlayers - summary.players.length : 0;
-        setOverlay('Waiting for the opening whistle', open > 0
-          ? `${open} seat${open === 1 ? '' : 's'} still open. The map appears when every badger has joined.`
+        setOverlay(say('Waiting for the match to start', 'Waiting for the opening whistle'), open > 0
+          ? `${open} seat${open === 1 ? '' : 's'} still open. The map appears when every ${say('player', 'badger')} has joined.`
           : 'The map appears as soon as the first tick runs.');
       } else {
         setOverlay('Could not load the map', e.message);
@@ -398,8 +400,8 @@ export function mountSpectate(root, matchId) {
     if (summary.status === 'Waiting') {
       // Polling the summary avoids a stream of 409s from /map while seats fill.
       const open = summary.maxPlayers - summary.players.length;
-      setOverlay('Waiting for the opening whistle', open > 0
-        ? `${open} seat${open === 1 ? '' : 's'} still open. The map appears when every badger has joined.`
+      setOverlay(say('Waiting for the match to start', 'Waiting for the opening whistle'), open > 0
+        ? `${open} seat${open === 1 ? '' : 's'} still open. The map appears when every ${say('player', 'badger')} has joined.`
         : 'The map appears as soon as the first tick runs.');
       later(start, 2000);
       return;
@@ -433,7 +435,7 @@ export function mountSpectate(root, matchId) {
         summary = await api(`/api/v1/matches/${matchId}`);
         if (summary.status === 'Completed') { await showFinal(); return; }
       } catch (e) {
-        if (e.status === 404) { setOverlay('This brawl is over and gone', 'It is no longer on the server.'); return; }
+        if (e.status === 404) { setOverlay(say('This match is gone', 'This brawl is over and gone'), 'It is no longer on the server.'); return; }
       }
       later(openStream, 1500);
     };
@@ -514,7 +516,9 @@ function legendItems() {
     [unitName('Scout'), shape('Scout')],
     ['Building', '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12"/></svg>'],
     ['Under construction', '<svg viewBox="0 0 14 14" aria-hidden="true"><rect class="hollow" x="1.5" y="1.5" width="11" height="11"/><path class="hollow" d="M1.5 9.5l8-8M4.5 12.5l8-8"/></svg>'],
-    ['Grubs', '<svg viewBox="0 0 14 14" aria-hidden="true"><path class="grub" d="M10.5 3.4A5 5 0 1 0 12 7"/></svg>'],
+    SNOW
+      ? ['Grubs', '<svg viewBox="0 0 14 14" aria-hidden="true"><path class="grub" d="M10.5 3.4A5 5 0 1 0 12 7"/></svg>']
+      : ['Ore', '<svg viewBox="0 0 14 14" aria-hidden="true"><path class="ore" d="M7 1l5 4.5-2 7.5H4L2 5.5z"/></svg>'],
   ];
   return { __html: items.map(([label, svg]) => `<li>${svg}${esc(label)}</li>`).join('') };
 }
