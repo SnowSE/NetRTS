@@ -46,11 +46,31 @@ export function mountSpectate(root, matchKey) {
             <span class="zoom-level" id="zoom-level" aria-live="polite">1×</span>
             <button type="button" id="fullscreen" aria-pressed="false" title="Full screen (G)">Full screen</button>
           </div>
-          <section class="mini-board" id="mini-board" aria-label="Scoreboard">
-            <button type="button" class="mini-board-toggle" id="board-toggle" aria-expanded="true" aria-controls="board-list">
-              <span>Scoreboard</span><span class="mini-board-tick" id="board-tick"></span><span aria-hidden="true" class="chev">▾</span>
+          <section class="fs-panel fs-left" aria-label="Scoreboard">
+            <button type="button" class="fs-toggle" id="board-toggle" aria-expanded="true" aria-controls="board-body">
+              <span>Scoreboard</span><span class="fs-sub" id="board-tick"></span><span aria-hidden="true" class="chev">▾</span>
             </button>
-            <ol id="board-list"></ol>
+            <div class="fs-body" id="board-body">
+              <table class="fs-board">
+                <thead><tr>
+                  <th scope="col"><span class="visually-hidden">Rank</span></th><th scope="col">Player</th><th scope="col" class="num">Score</th>
+                  <th scope="col" class="num x">${ORE}</th><th scope="col" class="num x">${say('Units', 'Badgers')}</th>
+                  <th scope="col" class="num x">Bldgs</th><th scope="col" class="num xx">/min</th>
+                </tr></thead>
+                <tbody id="board-list"></tbody>
+              </table>
+            </div>
+          </section>
+          <section class="fs-panel fs-right" aria-label="${say('Match', 'Brawl')}">
+            <button type="button" class="fs-toggle" id="info-toggle" aria-expanded="true" aria-controls="info-body">
+              <span id="fs-title">${say('Match', 'Brawl')}</span><span aria-hidden="true" class="chev">▾</span>
+            </button>
+            <div class="fs-body" id="info-body">
+              <p class="fs-matchup" id="fs-matchup"></p>
+              <div class="speed" id="fs-speed" role="group" aria-label="Match speed" hidden></div>
+              <h3 class="fs-h">${say('Battle log', 'Play-by-play')}</h3>
+              <ol class="fs-feed" id="fs-feed"></ol>
+            </div>
           </section>
           <div class="tooltip" id="tooltip" role="status" hidden></div>
           <div class="overlay-msg" id="overlay"><div><strong>${say('Loading map…', 'Unrolling the Sanpete Valley…')}</strong></div></div>
@@ -193,11 +213,20 @@ export function mountSpectate(root, matchKey) {
   const onFullscreenChange = () => setFull(document.fullscreenElement === frame);
   document.addEventListener('fullscreenchange', onFullscreenChange);
   fullBtn.addEventListener('click', toggleFull);
-  boardToggle.addEventListener('click', () => {
-    const open = boardToggle.getAttribute('aria-expanded') !== 'true';
-    boardToggle.setAttribute('aria-expanded', String(open));
-    $('board-list').hidden = !open;
-  });
+  // Each full-screen panel collapses to its title bar, and the choice is remembered on this device.
+  const setPanel = (toggle, open) => {
+    toggle.setAttribute('aria-expanded', String(open));
+    $(toggle.getAttribute('aria-controls')).hidden = !open;
+  };
+  for (const toggle of [boardToggle, $('info-toggle')]) {
+    const key = `netrts.fs.${toggle.id}`;
+    try { if (localStorage.getItem(key) === 'closed') setPanel(toggle, false); } catch { /* storage blocked */ }
+    toggle.addEventListener('click', () => {
+      const open = toggle.getAttribute('aria-expanded') !== 'true';
+      setPanel(toggle, open);
+      try { localStorage.setItem(key, open ? 'open' : 'closed'); } catch { /* storage blocked */ }
+    });
+  }
 
   canvas.addEventListener('wheel', (e) => {
     // At full view, scrolling down keeps scrolling the page; otherwise the wheel zooms the map.
@@ -288,6 +317,8 @@ export function mountSpectate(root, matchKey) {
     $('title').textContent = title;
     $('matchup').textContent = summary?.name ? matchup : '';
     $('matchup').hidden = !summary?.name;
+    $('fs-title').textContent = title;
+    $('fs-matchup').textContent = summary?.name ? matchup : '';
     document.title = `${title} – ${GAME}`;
     if (summary) {
       $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${state?.tickIntervalMs ?? summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;
@@ -341,12 +372,24 @@ export function mountSpectate(root, matchKey) {
       const score = p.score || byId.get(p.playerId)?.score;
       return { p, total: score ? totalOf(score) : 0 };
     }).sort((a, b) => (a.p.eliminated - b.p.eliminated) || (b.total - a.total) || (a.p.slot - b.p.slot));
-    setHtml($('board-list'), html`${rows.map(({ p, total }) => html`
-      <li class="${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}">
-        <span class="pname">${displayName(p.name)}</span>
-        ${winnerId && p.playerId === winnerId ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}
-        <span class="board-score">${fmt(total)}</span>
-      </li>`)}`);
+    const num = (v) => (typeof v === 'number' ? fmt(v) : '–');
+    setHtml($('board-list'), html`${rows.map(({ p, total }, i) => {
+      const score = p.score || byId.get(p.playerId)?.score;
+      return html`
+      <tr class="${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}">
+        <td class="rank">${i + 1}</td>
+        <th scope="row">
+          <span class="pname">${displayName(p.name)}</span>
+          ${winnerId && p.playerId === winnerId ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}
+          ${score ? html`<span class="breakdown">D ${fmt(score.destruction)} · E ${fmt(score.economy)} · S ${fmt(score.survival)}</span>` : ''}
+        </th>
+        <td class="num board-score">${fmt(total)}</td>
+        <td class="num x">${num(p.resources)}</td>
+        <td class="num x">${num(p.unitCount)}</td>
+        <td class="num x">${num(p.buildingCount)}</td>
+        <td class="num xx">${num(p.incomePerMinute)}</td>
+      </tr>`;
+    })}`);
     const tick = state?.tick ?? summary?.tick;
     $('board-tick').textContent = tick != null ? `tick ${fmt(tick)}` : '';
   }
@@ -415,6 +458,8 @@ export function mountSpectate(root, matchKey) {
     }
     events.sort((a, b) => b.tick - a.tick);
     if (events.length > 200) events.length = 200;
+    setHtml($('fs-feed'), html`${events.slice(0, 14).map((ev) => html`
+      <li class="${HOT.test(ev.kind) ? 'hot' : ''}"><span class="t">${fmt(ev.tick)}</span><span>${badgerize(ev.message)}</span></li>`)}`);
     setHtml($('feed'), html`${events.map((ev) => html`
       <li class="${HOT.test(ev.kind) ? 'hot' : ''}"><span class="t">${fmt(ev.tick)}</span>
         <span>${badgerize(ev.message)}<span class="k">${spaced(ev.kind)}</span></span></li>`)}`);
@@ -446,7 +491,7 @@ export function mountSpectate(root, matchKey) {
   const SPEED_CHOICES = [100, 250, 500, 1000, 2000];
   let speedKey = '';
   function renderSpeed() {
-    const box = $('speed');
+    const boxes = [$('speed'), $('fs-speed')];
     const status = finished ? 'Completed' : (state?.status ?? summary?.status);
     const adjustable = status === 'Active' && (state?.speedAdjustable ?? summary?.speedAdjustable);
     const ms = state?.tickIntervalMs ?? summary?.tickIntervalMs ?? 1000;
@@ -454,16 +499,18 @@ export function mountSpectate(root, matchKey) {
     const key = `${adjustable}|${ms}|${paused}`;
     if (key === speedKey) return;   // re-rendering every tick would steal focus from the drop-down
     speedKey = key;
-    box.hidden = !adjustable;
+    boxes.forEach((box) => { box.hidden = !adjustable; });
     if (!adjustable) return;
     const choices = SPEED_CHOICES.includes(ms) ? SPEED_CHOICES : [...SPEED_CHOICES, ms].sort((a, b) => a - b);
-    setHtml(box, html`
+    const controls = html`
       <button type="button" class="btn ghost" data-act="pause" aria-pressed="${paused}">${paused ? 'Resume' : 'Pause'}</button>
       <button type="button" class="btn ghost" data-act="step" ${paused ? '' : html`disabled`} title="Run one tick">Step</button>
-      <label class="small muted" for="speed-ms">Speed</label>
-      <select id="speed-ms">
-        ${choices.map((c) => html`<option value="${c}" ${c === ms ? html`selected` : ''}>${c / 1000} s per tick</option>`)}
-      </select>`);
+      <label class="small muted">Speed
+        <select class="speed-ms">
+          ${choices.map((c) => html`<option value="${c}" ${c === ms ? html`selected` : ''}>${c / 1000} s per tick</option>`)}
+        </select>
+      </label>`;
+    boxes.forEach((box) => setHtml(box, controls));
   }
   async function changeSpeed(path, body) {
     try {
@@ -476,14 +523,16 @@ export function mountSpectate(root, matchKey) {
       later(() => setOverlay(null), 2500);
     }
   }
-  $('speed').addEventListener('click', (e) => {
-    const act = e.target.closest('button')?.dataset.act;
-    if (act === 'pause') changeSpeed('speed', { paused: !(state?.paused ?? summary?.paused) });
-    if (act === 'step') changeSpeed('step');
-  });
-  $('speed').addEventListener('change', (e) => {
-    if (e.target.id === 'speed-ms') changeSpeed('speed', { tickIntervalMs: Number(e.target.value) });
-  });
+  for (const box of [$('speed'), $('fs-speed')]) {
+    box.addEventListener('click', (e) => {
+      const act = e.target.closest('button')?.dataset.act;
+      if (act === 'pause') changeSpeed('speed', { paused: !(state?.paused ?? summary?.paused) });
+      if (act === 'step') changeSpeed('step');
+    });
+    box.addEventListener('change', (e) => {
+      if (e.target.matches('.speed-ms')) changeSpeed('speed', { tickIntervalMs: Number(e.target.value) });
+    });
+  }
 
   function setOverlay(title, body) {
     if (!title) { overlay.hidden = true; return; }

@@ -833,7 +833,7 @@ pre.snippet {
 
 /* ---------- full-screen map ---------- */
 
-.mini-board { display: none; }
+.fs-panel { display: none; }
 .map-frame.is-full {
   position: fixed;
   inset: 0;
@@ -846,50 +846,88 @@ pre.snippet {
 }
 .map-frame:fullscreen { background: var(--panel); }
 html.map-full { overflow: hidden; }
-.map-frame.is-full .mini-board {
+
+/* Two collapsible panels. On a widescreen projector a square map leaves room on both sides, so each
+   panel takes the margin beside the map (never less than 260px; collapse them if they cover it). */
+.map-frame.is-full .fs-panel {
+  --fs-w: clamp(260px, calc((100vw - 100vh) / 2 - 28px), 460px);
   display: block;
   position: absolute;
-  top: 14px;
-  left: 14px;
   z-index: 2;
-  width: min(260px, calc(100% - 28px));
-  max-height: calc(100% - 28px);
+  width: min(var(--fs-w), calc(100% - 28px));
   overflow-y: auto;
+  container-type: inline-size;
   border: 1px solid var(--line);
   border-radius: var(--radius-m);
-  background: color-mix(in srgb, var(--panel) 90%, transparent);
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
   backdrop-filter: blur(4px);
 }
-.mini-board-toggle {
+.map-frame.is-full .fs-left { top: 14px; left: 14px; max-height: calc(100% - 28px); }
+/* Below the zoom / full-screen buttons. */
+.map-frame.is-full .fs-right { top: 64px; right: 14px; max-height: calc(100% - 78px); }
+@media (max-width: 760px) {
+  .map-frame.is-full .fs-right { display: none; }   /* phones: the map needs the room */
+}
+.fs-toggle {
+  position: sticky;
+  top: 0;
   display: flex;
   align-items: center;
   gap: 8px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 8px 12px;
   border: 0;
-  background: none;
+  background: inherit;
   color: var(--ink);
+  font: inherit;
   font-weight: 700;
+  font-size: 1rem;
   cursor: pointer;
   text-align: left;
 }
-.mini-board-tick { margin-left: auto; font-weight: 400; font-size: 0.8rem; color: var(--muted); }
-.mini-board-toggle .chev { transition: transform 0.15s; }
-.mini-board-toggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
-.mini-board ol { list-style: none; margin: 0; padding: 0 10px 8px; counter-reset: rank; }
-.mini-board li {
-  counter-increment: rank;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 0;
-  font-size: 0.875rem;
-  border-top: 1px solid var(--line);
+.fs-toggle > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-sub { margin-left: auto; font-weight: 400; font-size: 0.85rem; color: var(--muted); }
+.fs-toggle .chev { margin-left: auto; transition: transform 0.15s; }
+.fs-sub + .chev { margin-left: 0; }
+.fs-toggle[aria-expanded="false"] .chev { transform: rotate(-90deg); }
+.fs-body { padding: 0 12px 10px; }
+
+/* Scoreboard: rank, player, score; ore, units and buildings once the panel is 300px wide;
+   income at 380px. */
+.fs-board { width: 100%; border-collapse: collapse; font-size: 0.9rem; font-variant-numeric: tabular-nums; }
+.fs-board th, .fs-board td { padding: 5px 4px; border-top: 1px solid var(--line); text-align: left; vertical-align: top; }
+.fs-board thead th { border-top: 0; padding-top: 0; font-size: 0.75rem; font-weight: 600; color: var(--muted); text-transform: capitalize; }
+.fs-board .num { text-align: right; white-space: nowrap; }
+.fs-board .rank { width: 1.4em; color: var(--muted); font-size: 0.8rem; }
+.fs-board tbody th { font-weight: 600; max-width: 0; width: 100%; }
+.fs-board .pname { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fs-board .breakdown { display: none; font-size: 0.72rem; font-weight: 400; color: var(--muted); white-space: nowrap; }
+.fs-board .badge { margin: 2px 0 0; }
+.fs-board tr.out { opacity: 0.5; }
+.fs-board tr.out .pname { text-decoration: line-through; }
+.fs-board .x, .fs-board .xx { display: none; }
+@container (min-width: 300px) { .fs-board .x { display: table-cell; } }
+@container (min-width: 380px) {
+  .fs-board .xx { display: table-cell; }
+  .fs-board .breakdown { display: block; }
 }
-.mini-board li::before { content: counter(rank); width: 1.4em; color: var(--muted); font-size: 0.8rem; }
-.mini-board li .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mini-board li.out { opacity: 0.5; text-decoration: line-through; }
 .board-score { font-weight: 700; }
+
+/* Match panel: who's playing, the speed controls and the latest events. */
+.fs-matchup { margin: 0 0 8px; color: var(--muted); font-size: 0.9rem; }
+.fs-panel .speed { margin-bottom: 10px; }
+.fs-h { margin: 4px 0; font-size: 0.85rem; color: var(--muted); }
+.fs-feed { list-style: none; margin: 0; padding: 0; }
+.fs-feed li {
+  display: grid;
+  grid-template-columns: 3.2em minmax(0, 1fr);
+  gap: 6px;
+  padding: 4px 0;
+  border-top: 1px solid var(--line);
+  font-size: 0.85rem;
+}
+.fs-feed li .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.fs-feed li.hot { color: var(--danger); }
 
 /* Scrimmage form: how many copies of each house bot. */
 .bot-counts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 12px; }
