@@ -294,6 +294,25 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task A_house_bot_can_fill_several_seats_as_numbered_copies()
+    {
+        var (host, me) = await factory.NewPlayerAsync();
+
+        var match = await host.CreateMatchAsync(new CreateMatchRequest
+        {
+            MaxPlayers = 16,
+            HouseBots = [.. Enumerable.Repeat("rusher", 8), .. Enumerable.Repeat("sitter", 7)],
+        }, Ct);
+
+        Assert.Equal(MatchStatus.Active, match.Status);   // 1 player + 15 house bots fills every seat
+        Assert.Equal(16, match.Players.Count);
+        Assert.Equal(16, match.Players.Select(p => p.PlayerId).Distinct().Count());
+        Assert.Equal(["house-rusher", "house-rusher 2", "house-rusher 3"], match.Players.Skip(1).Take(3).Select(p => p.Name));
+        Assert.Equal("house-sitter 7", match.Players[^1].Name);
+        Assert.Equal(me.PlayerId, match.Players[0].PlayerId);
+    }
+
+    [Fact]
     public async Task Exhibitions_take_all_four_house_bots()
     {
         var http = factory.CreateClient();

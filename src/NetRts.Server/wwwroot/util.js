@@ -72,11 +72,14 @@ export function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
 
-/** "house-rusher" -> "rusher" (or "Honey Badger" in the Snow College theme) for display; keeps the original otherwise. */
+/**
+ * "house-rusher" -> "rusher" (or "Honey Badger" in the Snow College theme) for display, and a second
+ * copy "house-rusher 2" -> "rusher 2"; keeps other names as they are.
+ */
 export const displayName = (name) => {
   if (!name?.startsWith('house-')) return name ?? '';
-  const bot = name.slice(6);
-  return nickname(bot) ?? bot;
+  const [bot, copy] = name.slice(6).split(' ');
+  return [nickname(bot) ?? bot, copy].filter(Boolean).join(' ');
 };
 
 export function timeAgo(iso) {

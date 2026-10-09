@@ -17,12 +17,45 @@ public sealed class HouseBotDirectory
 {
     private readonly ConcurrentDictionary<string, Guid> _ids = new(StringComparer.OrdinalIgnoreCase);
 
-    public static string PlayerName(string bot) => $"house-{bot}";
+    /// <summary>"house-rusher" for the first copy of a bot in a match, then "house-rusher 2", "house-rusher 3", ...</summary>
+    public static string PlayerName(string bot, int copy = 1) => copy == 1 ? $"house-{bot}" : $"house-{bot} {copy}";
 
     public void Register(string bot, Guid playerId) => _ids[bot] = playerId;
 
     public Guid IdOf(string bot) =>
         _ids.TryGetValue(bot, out var id) ? id : throw new InvalidOperationException($"House bot {bot} was not seeded.");
+
+    /// <summary>
+    /// The seat id for a bot's copy in a match. The first copy is the bot's real player, so its results
+    /// count on the leaderboard; later copies get a stable id derived from it that matches no player row,
+    /// so they can win or lose without touching the bot's record.
+    /// </summary>
+    public Guid SeatIdOf(string bot, int copy)
+    {
+        var id = IdOf(bot);
+        if (copy == 1)
+        {
+            return id;
+        }
+
+        Span<byte> bytes = stackalloc byte[16];
+        id.TryWriteBytes(bytes);
+        bytes[14] ^= 0xC0;
+        bytes[15] ^= (byte)copy;
+        return new Guid(bytes);
+    }
+
+    /// <summary>Seats for a list of house bots, numbering repeated bots as copies.</summary>
+    public IEnumerable<(Seat Seat, IBotStrategy Strategy)> SeatsFor(IReadOnlyList<string> bots)
+    {
+        var copies = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        foreach (var bot in bots)
+        {
+            var name = bot.ToLowerInvariant();
+            var copy = copies[name] = copies.GetValueOrDefault(name) + 1;
+            yield return (new Seat(SeatIdOf(name, copy), PlayerName(name, copy), IsHouseBot: true), HouseBots.Create(name));
+        }
+    }
 }
 
 /// <summary>All live matches (waiting, running, recently finished) and the rules for creating them.</summary>
@@ -69,9 +102,9 @@ public sealed class MatchManager(
 
             var host = NewHost(creatorId, maxPlayers, settings, isExhibition: false);
             host.TryJoin(new Seat(creatorId, creatorName, IsHouseBot: false));
-            foreach (var bot in bots)
+            foreach (var (seat, strategy) in houseBots.SeatsFor(bots))
             {
-                host.TryJoin(new Seat(houseBots.IdOf(bot), HouseBotDirectory.PlayerName(bot), IsHouseBot: true), HouseBots.Create(bot));
+                host.TryJoin(seat, strategy);
             }
 
             _matches[host.Id] = host;
@@ -82,9 +115,9 @@ public sealed class MatchManager(
 
     public MatchHost CreateExhibition(CreateExhibitionRequest request)
     {
-        if (request.Bots.Count is < 2 or > 4)
+        if (request.Bots.Count is < 2 or > MapGenerator.MaxPlayers)
         {
-            throw new MatchException(400, "INVALID_SETTINGS", "An exhibition needs 2 to 4 house bots.");
+            throw new MatchException(400, "INVALID_SETTINGS", $"An exhibition needs 2 to {MapGenerator.MaxPlayers} house bots.");
         }
 
         ValidateBots(request.Bots);
@@ -100,9 +133,9 @@ public sealed class MatchManager(
             }
 
             var host = NewHost(null, request.Bots.Count, settings, isExhibition: true);
-            foreach (var bot in request.Bots)
+            foreach (var (seat, strategy) in houseBots.SeatsFor(request.Bots))
             {
-                host.TryJoin(new Seat(houseBots.IdOf(bot), HouseBotDirectory.PlayerName(bot), IsHouseBot: true), HouseBots.Create(bot));
+                host.TryJoin(seat, strategy);
             }
 
             _matches[host.Id] = host;
@@ -195,11 +228,6 @@ public sealed class MatchManager(
             {
                 throw new MatchException(400, "UNKNOWN_HOUSE_BOT", $"Unknown house bot '{bot}'. See GET /api/v1/bots.");
             }
-        }
-
-        if (bots.Distinct(StringComparer.OrdinalIgnoreCase).Count() != bots.Count)
-        {
-            throw new MatchException(400, "DUPLICATE_HOUSE_BOT", "Each house bot can take only one seat in a match.");
         }
     }
 

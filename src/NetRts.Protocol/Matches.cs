@@ -17,7 +17,7 @@ public sealed record CreateMatchRequest
     /// </summary>
     public int? MaxPlayers { get; init; }
 
-    /// <summary>Fill seats with house bots (see GET /api/v1/bots), e.g. ["balanced"]; each bot at most once.</summary>
+    /// <summary>Fill seats with house bots (see GET /api/v1/bots), e.g. ["balanced"]. Repeat a name for several copies.</summary>
     public IReadOnlyList<string>? HouseBots { get; init; }
 
     public MatchSettingsDto? Settings { get; init; }
@@ -25,7 +25,7 @@ public sealed record CreateMatchRequest
 
 public sealed record CreateExhibitionRequest
 {
-    /// <summary>House bot names to pit against each other, e.g. ["rusher", "economist"].</summary>
+    /// <summary>2-16 house bot names to pit against each other, e.g. ["rusher", "economist"]. Repeat a name for several copies.</summary>
     public IReadOnlyList<string> Bots { get; init; } = [];
 
     public MatchSettingsDto? Settings { get; init; }

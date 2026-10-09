@@ -96,8 +96,10 @@ limited to 5 per minute per IP address, so register once and reuse the key.
 When a match fills there is a short warm-up (3 s by default) before tick 1, so every bot can read
 the opening state.
 
-**Big matches.** `maxPlayers` goes from 2 to 16, and `houseBots` can fill up to four seats (each
-house bot plays at most once). Two to four players start in the map's corners. Five or more start
+**Big matches.** `maxPlayers` goes from 2 to 16, and `houseBots` can fill every seat but yours.
+Repeat a name for several copies of the same bot: `["rusher","rusher","sitter"]` seats
+`house-rusher`, `house-rusher 2` and `house-sitter`. Only the first copy's results count toward that
+bot's leaderboard record. Two to four players start in the map's corners. Five or more start
 evenly spaced around a ring, each with the same ore seam behind their Command Center, an expansion
 and a contested deposit in the gap to the next player, and the same rock outcrops in every gap. A
 ring needs room, so the default map grows with the player count (120×120 for 16 players), and a map

@@ -883,3 +883,8 @@ html.map-full { overflow: hidden; }
 .mini-board li .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .mini-board li.out { opacity: 0.5; text-decoration: line-through; }
 .board-score { font-weight: 700; }
+
+/* Scrimmage form: how many copies of each house bot. */
+.bot-counts { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 6px 12px; }
+.bot-count { display: flex; align-items: center; gap: 8px; font-size: 0.95rem; color: var(--ink); }
+.bot-count input { width: 4.2em; min-height: 36px; padding: 4px 6px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--panel); }

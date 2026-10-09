@@ -54,29 +54,12 @@ function mountHome(root) {
       </div>
       <form class="launch" id="launch" novalidate>
         <h2>${say('Start an exhibition', 'Start a scrimmage')}</h2>
-        <p class="muted small" style="margin:0">${say('Pick two to four house bots and watch them play each other.', 'Pick two to four house badgers and watch them have it out.')}</p>
-        <div class="versus">
-          <div class="field">
-            <label for="bot-a"><span class="side-swatch" style="background:var(--p0)"></span>${say('First bot', 'First badger')}</label>
-            <select id="bot-a" name="botA" required disabled><option>Loading…</option></select>
-          </div>
-          <span class="vs" aria-hidden="true">vs</span>
-          <div class="field">
-            <label for="bot-b"><span class="side-swatch" style="background:var(--p1)"></span>${say('Second bot', 'Second badger')}</label>
-            <select id="bot-b" name="botB" required disabled><option>Loading…</option></select>
-          </div>
-        </div>
-        <div class="versus">
-          <div class="field">
-            <label for="bot-c"><span class="side-swatch" style="background:var(--p2)"></span>${say('Third bot', 'Third badger')} <span class="muted">(optional)</span></label>
-            <select id="bot-c" name="botC" disabled><option>Loading…</option></select>
-          </div>
-          <span class="vs" aria-hidden="true">vs</span>
-          <div class="field">
-            <label for="bot-d"><span class="side-swatch" style="background:var(--p3)"></span>${say('Fourth bot', 'Fourth badger')} <span class="muted">(optional)</span></label>
-            <select id="bot-d" name="botD" disabled><option>Loading…</option></select>
-          </div>
-        </div>
+        <p class="muted small" style="margin:0">${say('Pick 2 to 16 house bots (as many copies of each as you like) and watch them play each other.', 'Pick 2 to 16 house badgers (as many copies of each as you like) and watch them have it out.')}</p>
+        <fieldset class="field">
+          <legend>${say('House bots', 'House badgers')}</legend>
+          <div class="bot-counts" id="bot-counts"><p class="muted small" style="margin:0">Loading…</p></div>
+          <p class="muted small" id="bot-total" aria-live="polite" style="margin:0"></p>
+        </fieldset>
         <p class="bot-desc muted small" id="bot-desc" aria-live="polite"></p>
         <fieldset class="field">
           <legend>${say('Tick speed', 'Pace')}</legend>
@@ -137,29 +120,36 @@ Authorization: Bearer &lt;apiKey&gt;
 
   // ---- exhibition form
   let bots = [];
-  const selA = $('bot-a'), selB = $('bot-b'), desc = $('bot-desc'), errEl = $('launch-error'), btn = $('launch-btn');
-  const selects = [selA, selB, $('bot-c'), $('bot-d')];   // the last two are optional
-  const chosen = () => selects.map((s) => s.value).filter(Boolean);
-  const showDesc = () => {
-    desc.innerHTML = [...new Set(chosen())].map((n) => bots.find((b) => b.name === n)).filter(Boolean)
+  const desc = $('bot-desc'), errEl = $('launch-error'), btn = $('launch-btn'), countsEl = $('bot-counts'), totalEl = $('bot-total');
+  const MAX_SEATS = 16;
+  const counts = new Map();   // bot name -> how many copies take a seat
+  const picked = () => bots.flatMap((b) => Array(counts.get(b.name) || 0).fill(b.name));
+  const label = (name) => (nickname(name) ? `${nickname(name)} (${name})` : name);
+  const showCounts = () => {
+    const total = picked().length;
+    totalEl.textContent = `${total} ${say('bot', 'badger')}${total === 1 ? '' : 's'} · ${total > 4 ? 'ring map' : 'corner map'}`;
+    desc.innerHTML = bots.filter((b) => counts.get(b.name))
       .map((x) => (nickname(x.name) ? esc(x.description) : `<b>${esc(x.name)}</b>: ${esc(x.description)}`)).join('<br>');
   };
-  selects.forEach((s) => s.addEventListener('change', showDesc));
+  countsEl.addEventListener('input', (e) => {
+    const n = Math.max(0, Math.min(MAX_SEATS, Math.floor(Number(e.target.value) || 0)));
+    counts.set(e.target.dataset.bot, n);
+    showCounts();
+  });
 
   api('/api/v1/bots').then((list) => {
     if (!alive) return;
     bots = list || [];
-    const opts = bots.map((b) => `<option value="${esc(b.name)}">${esc(nickname(b.name) ? `${nickname(b.name)} (${b.name})` : b.name)}</option>`).join('');
-    selA.innerHTML = opts; selB.innerHTML = opts;
-    selects[2].innerHTML = selects[3].innerHTML = `<option value="">None</option>${opts}`;
-    const pick = (n, fallback) => (bots.some((b) => b.name === n) ? n : fallback);
-    selA.value = pick('rusher', bots[0]?.name);
-    selB.value = pick('economist', bots[1]?.name ?? bots[0]?.name);
-    selects.forEach((s) => { s.disabled = bots.length === 0; });
-    showDesc();
+    for (const b of bots) counts.set(b.name, 0);
+    if (counts.has('rusher')) counts.set('rusher', 1); else if (bots[0]) counts.set(bots[0].name, 1);
+    if (counts.has('economist')) counts.set('economist', 1); else if (bots[1]) counts.set(bots[1].name, 1);
+    countsEl.innerHTML = bots.map((b, i) => `
+      <label class="bot-count"><input type="number" min="0" max="${MAX_SEATS}" step="1" inputmode="numeric"
+        id="count-${i}" data-bot="${esc(b.name)}" value="${counts.get(b.name)}"> ${esc(label(b.name))}</label>`).join('');
+    showCounts();
   }).catch((e) => {
     if (!alive) return;
-    selects.forEach((s) => { s.innerHTML = '<option>Unavailable</option>'; });
+    countsEl.innerHTML = '<p class="muted small" style="margin:0">Unavailable</p>';
     showError(`${say('Could not load house bots.', 'Could not wake the house badgers.')} ${e.message}`);
   });
 
@@ -168,16 +158,18 @@ Authorization: Bearer &lt;apiKey&gt;
   $('launch').addEventListener('submit', async (ev) => {
     ev.preventDefault();
     showError('');
-    if (!selA.value || !selB.value || selA.disabled) { showError(say('Choose two house bots first.', 'Choose two house badgers first.')); return; }
-    const picked = chosen();
-    if (new Set(picked).size !== picked.length) { showError(say('Pick different bots. Each house bot can take only one seat in a match.', 'Pick different badgers. Each house badger can take only one seat in a brawl.')); return; }
+    const seats = picked();
+    if (seats.length < 2 || seats.length > MAX_SEATS) {
+      showError(say(`Pick 2 to ${MAX_SEATS} house bots in all.`, `Pick 2 to ${MAX_SEATS} house badgers in all.`));
+      return;
+    }
     const speed = Number(new FormData(ev.target).get('speed')) || 500;
     btn.disabled = true;
     btn.textContent = say('Starting…', 'Digging in…');
     try {
       const summary = await api('/api/v1/exhibitions', {
         method: 'POST',
-        body: { bots: picked, settings: { tickIntervalMs: speed } },
+        body: { bots: seats, settings: { tickIntervalMs: speed } },
       });
       location.hash = `#/match/${summary.matchId}`;
     } catch (e) {
