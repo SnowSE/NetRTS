@@ -426,9 +426,9 @@ export function mountSpectate(root, matchKey) {
     if (!finished || !outcome) return;
     const players = state?.players || result?.players || summary?.players || [];
     const winner = players.find((p) => p.playerId === outcome.winnerId);
-    const reason = SNOW
+    const reason = (SNOW
       ? { Elimination: 'Last badger standing. Go Badgers!', TimeLimit: 'The final buzzer sounded; the higher score wins.', Surrender: 'The other side forfeited.' }
-      : { Elimination: 'Last army standing.', TimeLimit: 'Time ran out; the higher score wins.', Surrender: 'The other side surrendered.' }[outcome.reason] || '';
+      : { Elimination: 'Last army standing.', TimeLimit: 'Time ran out; the higher score wins.', Surrender: 'The other side surrendered.' })[outcome.reason] || '';
     setHtml($('banner-slot'), html`
       <div class="banner ${winner ? 'win' : ''}" style="${winner ? `--pc:${slotVar(winner.slot)}` : ''}">
         <h2>${winner ? `${displayName(winner.name)} ${say('wins', 'wins the brawl')}` : say('Draw', 'A tie in Ephraim')}</h2>
