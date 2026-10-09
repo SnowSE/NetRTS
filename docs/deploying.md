@@ -149,16 +149,16 @@ be overridden in Azure as an App Service application setting, using `__` for `:`
 `NetRts__MaxLiveMatches = 100`. Set them in the portal under the web app → **Settings →
 Environment variables**, or with `az webapp config appsettings set`.
 
-## Continuous deployment to netrts-jallen.azurewebsites.net
+## Continuous deployment to netrts.snowse.io
 
 Separately from the `azd` setup above, every push to `main` that passes CI publishes the server image
 to Docker Hub (`snowcollege/netrts`) and then deploys that exact image (`sha-<commit>`) to
-<https://netrts-jallen.azurewebsites.net> (the `deploy` job in `.github/workflows/ci.yaml`).
+<https://netrts.snowse.io> (the `deploy` job in `.github/workflows/ci.yaml`).
 
 | Resource (group `rg-netrts`, West US 3) | Purpose |
 |---|---|
 | `netrts-plan` (Linux, P0v3, 1 instance) | App Service plan. Keep it at one instance; live matches live in memory. |
-| `netrts-jallen` web app | Runs the Docker Hub image. Always On, HTTPS only, system-assigned identity. |
+| `netrts-jallen` web app | Runs the Docker Hub image. Always On, HTTPS only, system-assigned identity. Custom domain `netrts.snowse.io`: a Cloudflare CNAME to `netrts-jallen.azurewebsites.net`, DNS only (not proxied) so the free App Service managed certificate can renew. |
 | `netrts-jallen-pg` | Azure Database for PostgreSQL 16, Burstable B1ms. Entra ID sign-in only; the firewall admits Azure services only. |
 | `id-netrts-github` | Managed identity GitHub Actions signs in as (OIDC, `main` branch only), with Website Contributor on the web app. |
 | `netrts-insights` + `netrts-logs` | Application Insights on a Log Analytics workspace (30-day retention, **1 GB/day cap**). The web app's `APPLICATIONINSIGHTS_CONNECTION_STRING` setting switches the server's OpenTelemetry export to it. |
