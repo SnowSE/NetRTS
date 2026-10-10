@@ -33,7 +33,7 @@ own campus building and its own student housing.
 | Housing: Suites at Academy Square, Anderson Hall, Mary Nielson Hall, Snow Hall, ... (one per player slot) | `Barracks` | Trains soldiers, archers and scouts |
 | Co-op Store | `ResourceDepot` | Closer drop-off for grubs, more storage |
 | GRSC Makerspace | `TechLab` | Researches upgrades |
-| Guard Tower | `GuardTower` | Fires on anyone close |
+| The Bell Tower | `GuardTower` | Fires on anyone close |
 | Grubs, dug from grub patches | ore (`resources`, `Gather`) | What everything costs |
 | Intro to Chemistry → Organic Chemistry | `Weapons1` → `Weapons2` | More damage |
 | Unit Testing → Code Review | `Armor1` → `Armor2` | More armor |

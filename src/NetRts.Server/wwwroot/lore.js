@@ -36,7 +36,7 @@ export const BUILDING_NAME = {
   Barracks: 'Housing',
   ResourceDepot: 'Co-op Store',
   TechLab: 'GRSC Makerspace',
-  GuardTower: 'Guard Tower',
+  GuardTower: 'The Bell Tower',
 };
 
 /** Upgrades are coursework: tier 1 is the intro class, tier 2 the upper-division one. */

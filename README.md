@@ -80,11 +80,11 @@ Anderson Hall is a `Barracks`), so every bot library and tutorial still applies:
 | 🏠 **Housing** | `Barracks` | Each team's own address: **Suites at Academy Square**, **Anderson Hall**, **Mary Nielson Hall**, **Snow Hall**, then the Ephraim apartments. Trains soldiers, archers and scouts. |
 | 🧺 **Co-op Store** | `ResourceDepot` | A closer place to drop grubs off, and room to store more. |
 | 🧪 **GRSC Makerspace** | `TechLab` | Coursework: Intro to Chemistry → Organic Chemistry, Unit Testing → Code Review, Algorithms → Parallel Computing, Intro to Biology → Entomology. |
-| 🗼 **Guard Tower** | `GuardTower` | Shoots anything that wanders too close. |
+| 🔔 **The Bell Tower** | `GuardTower` | Shoots anything that wanders too close. |
 
 Four kinds of badger, five buildings, eight upgrades, and a rule set small enough to learn in an
 afternoon, with plenty of strategy hiding in it: rush early, out-dig the opponent, turtle behind
-guard towers, out-study them, or scout their campus and strike where they're weak.
+bell towers, out-study them, or scout their campus and strike where they're weak.
 
 ## Zoom into the brawl
 
@@ -95,7 +95,7 @@ guard towers, out-study them, or scout their campus and strike where they're wea
 The live spectator page streams every brawl tick by tick. Scroll or pinch to zoom, and the map
 switches from a strategic overview to an illustrated close-up of the Sanpete Valley: claw-marked
 workers, striped badger soldiers, archers' arrows, scouts' paw prints, campus halls flying a
-pennant, lit-up dorms, makerspace flasks and guard towers, with health bars and build progress. Hit
+pennant, lit-up dorms, makerspace flasks and bell towers, with health bars and build progress. Hit
 **Follow the brawl** and the camera chases the biggest fight on its own.
 It fills whatever screen you give it, from a phone to a wall-sized monitor, in Snow College blue,
 white and orange, light or dark. Prefer plain RTS? The **Original theme** button in the top bar
@@ -136,7 +136,7 @@ the engine is deterministic, so a seed plus the command log reproduces any brawl
 | **Sleepy Sitter** | `sitter` | Digs grubs and never fights back. Your first win. |
 | **Honey Badger** | `rusher` | Doesn't care. Two dorms' worth of soldiers early, attacks before you're ready. |
 | **Blue Badger** | `balanced` | Steady economy, mixed team, upgrades, attacks in waves. |
-| **Grub Hoarder** | `economist` | Out-digs everyone, hides behind guard towers, arrives late with an enormous clan. |
+| **Grub Hoarder** | `economist` | Out-digs everyone, hides behind bell towers, arrives late with an enormous clan. |
 
 Beat the Sleepy Sitter in your first hour. Beating the Grub Hoarder takes a real plan.
 
