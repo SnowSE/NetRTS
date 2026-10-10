@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en" data-brand="snow" data-theme="dark">
+<head>
+  <meta charset="utf-8">
+  <title>Badger Brawl promo</title>
+  <link rel="stylesheet" href="/src/NetRts.Server/wwwroot/styles.css">
+  <script type="importmap">
+    { "imports": { "three": "/promo/node_modules/three/build/three.module.js", "three/addons/": "/promo/node_modules/three/examples/jsm/" } }
+  </script>
+  <style>
+    :root {
+      --night: #050a12; --blue: #0055a5; --sky: #7cc0ff; --orange: #f08a3c; --ink: #e6eef7; --muted: #8fa3bb;
+      --code: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+      --head: "Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif;
+    }
+    html, body { margin: 0; background: #000; overflow: hidden; }
+    body { display: grid; place-items: center; height: 100vh; }
+    #stage { position: relative; width: 1920px; height: 1080px; overflow: hidden; background: var(--night); color: var(--ink); font-family: var(--head); transform-origin: 0 0; }
+    #stage canvas { position: absolute; inset: 0; width: 1920px; height: 1080px; }
+    .layer { position: absolute; inset: 0; pointer-events: none; }
+    #tags { z-index: 3; }
+    #ui { z-index: 4; }
+    #fx { z-index: 9; }
+    .hide { display: none !important; }
+
+    /* Backdrop: deep night with soft blue and orange glows. */
+    .bg { position: absolute; inset: 0; background:
+        radial-gradient(60% 70% at 20% 30%, rgba(0, 85, 165, 0.35), transparent 70%),
+        radial-gradient(50% 60% at 85% 75%, rgba(240, 138, 60, 0.20), transparent 70%),
+        linear-gradient(180deg, #060b14, #08111d 60%, #050a12); }
+    .vignette { position: absolute; inset: 0; background: radial-gradient(120% 90% at 50% 50%, transparent 55%, rgba(0,0,0,0.55)); }
+    .grain { position: absolute; inset: -50%; opacity: 0.06; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    .flash { position: absolute; inset: 0; background: #fff; opacity: 0; mix-blend-mode: screen; }
+    .bars { position: absolute; left: 0; right: 0; height: 0; background: #000; }
+    .bars.top { top: 0; } .bars.bot { bottom: 0; }
+
+    /* Type */
+    .title { position: absolute; left: 0; right: 0; text-align: center; font-weight: 700; letter-spacing: -0.02em; line-height: 0.95; text-shadow: 0 0 40px rgba(124, 192, 255, 0.35); }
+    .kicker { font-family: var(--code); font-size: 26px; letter-spacing: 0.32em; text-transform: uppercase; color: var(--sky); }
+    .big { font-size: 150px; }
+    .huge { font-size: 210px; }
+    .mid { font-size: 92px; }
+    .small { font-size: 46px; font-weight: 600; letter-spacing: 0; }
+    .orange { color: var(--orange); text-shadow: 0 0 40px rgba(240, 138, 60, 0.45); }
+    .skyc { color: var(--sky); }
+    .mutedc { color: var(--muted); }
+    .codeword { font-family: var(--code); font-weight: 600; }
+    .word { display: inline-block; will-change: transform, opacity, filter; }
+    .lower { position: absolute; left: 110px; bottom: 96px; }
+    .lower .l1 { font-size: 78px; font-weight: 700; letter-spacing: -0.01em; text-shadow: 0 2px 24px rgba(0,0,0,0.8); }
+    .lower .l2 { font-family: var(--code); font-size: 32px; font-weight: 600; color: #a9d4ff; margin-top: 12px; text-shadow: 0 2px 12px rgba(0,0,0,1), 0 0 4px rgba(0,0,0,1); }
+    .lower .bar { width: 120px; height: 6px; background: var(--orange); margin-bottom: 22px; box-shadow: 0 0 18px var(--orange); }
+
+    /* Windows: terminal and editor in the style of a modern dark terminal. */
+    .win { position: absolute; border-radius: 14px; background: rgba(12, 18, 28, 0.88); border: 1px solid rgba(124, 192, 255, 0.18);
+      box-shadow: 0 40px 120px rgba(0,0,0,0.65), 0 0 0 1px rgba(0,0,0,0.6), 0 0 80px rgba(0, 85, 165, 0.25); overflow: hidden; backdrop-filter: blur(18px); }
+    .win .tabs { height: 52px; display: flex; align-items: flex-end; gap: 4px; padding: 0 14px; background: rgba(4, 8, 14, 0.75); }
+    .win .tab { height: 40px; padding: 0 22px; display: flex; align-items: center; gap: 12px; font: 600 19px var(--head); color: var(--muted); border-radius: 9px 9px 0 0; }
+    .win .tab.on { background: rgba(12, 18, 28, 0.95); color: var(--ink); }
+    .win .tab .dot { width: 12px; height: 12px; border-radius: 3px; background: var(--orange); }
+    .win .tab .dot.b { background: var(--sky); }
+    .win .ctl { margin-left: auto; align-self: center; display: flex; gap: 28px; color: var(--muted); font: 20px var(--head); padding-right: 10px; }
+    .win pre { margin: 0; padding: 26px 34px; font: 30px/1.5 var(--code); color: #d6e2f0; white-space: pre; font-variant-ligatures: contextual; }
+    .win pre .ln { color: #3d5068; display: inline-block; width: 2.4em; text-align: right; margin-right: 1.1em; user-select: none; }
+    .caret { display: inline-block; width: 0.55em; height: 1.1em; background: var(--sky); vertical-align: -0.18em; box-shadow: 0 0 14px var(--sky); }
+    .prompt { color: #5fd3a8; }
+    .k { color: #c792ea; } .ty { color: #7cc0ff; } .s { color: #f0b860; } .c { color: #6a8099; font-style: italic; } .n { color: #f78c6c; } .m { color: #82e0aa; } .p { color: #89ddff; }
+    .hl { background: linear-gradient(90deg, rgba(240,138,60,0.28), rgba(240,138,60,0.05)); box-shadow: inset 4px 0 0 var(--orange); display: inline-block; width: 100%; }
+    .add { background: rgba(95, 211, 168, 0.13); box-shadow: inset 4px 0 0 #5fd3a8; display: inline-block; width: 100%; }
+    .out-mob { color: #ffb37a; font-weight: 700; text-shadow: 0 0 14px rgba(240,138,60,0.7); }
+    .win.light pre { color: #d6e2f0; }
+
+    /* Floating info tags over the 3D battlefield. */
+    .tag { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+    .tag-card { position: absolute; left: -2px; bottom: 54px; transform: translateX(-50%); min-width: 230px; padding: 10px 14px 11px; border-radius: 8px;
+      background: rgba(6, 12, 20, 0.78); border: 1px solid color-mix(in srgb, var(--tc) 70%, transparent); border-top: 3px solid var(--tc);
+      box-shadow: 0 8px 30px rgba(0,0,0,0.5), 0 0 22px color-mix(in srgb, var(--tc) 35%, transparent); font-family: var(--code); white-space: nowrap; backdrop-filter: blur(6px); }
+    .tag-h { display: flex; justify-content: space-between; gap: 18px; font: 700 21px var(--head); letter-spacing: 0.08em; color: var(--tc); }
+    .tag-h i { font-style: normal; color: #b8c7d8; font-family: var(--code); font-size: 17px; font-weight: 400; letter-spacing: 0; }
+    .tag-l { font-size: 15px; color: #8fa3bb; margin-top: 3px; }
+    .tag-hp { position: relative; height: 7px; background: rgba(255,255,255,0.1); border-radius: 4px; margin: 8px 0 4px; }
+    .tag-hp span { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; }
+    .tag-hp::after { content: attr(data-v); position: absolute; right: 0; top: 9px; font-size: 13px; color: #8fa3bb; }
+    .tag-a { font-size: 15px; color: #e6eef7; font-weight: 600; letter-spacing: 0.04em; margin-top: 14px; }
+    .tag-stem { position: absolute; left: -1px; bottom: 6px; width: 2px; height: 48px; background: linear-gradient(var(--tc), transparent); }
+    .tag-stem::after { content: ""; position: absolute; left: -4px; bottom: -6px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid var(--tc); }
+
+    /* HUD bits */
+    .hud { position: absolute; font-family: var(--code); font-size: 22px; color: var(--sky); letter-spacing: 0.1em; text-shadow: 0 0 12px rgba(0,0,0,0.9); }
+    .chip { display: inline-flex; align-items: center; gap: 14px; padding: 12px 22px; border-radius: 999px; border: 1px solid rgba(124,192,255,0.35); background: rgba(6, 12, 20, 0.7); font: 600 30px var(--head); }
+    .card { position: absolute; border-radius: 18px; background: rgba(10, 17, 28, 0.85); border: 1px solid rgba(124,192,255,0.2); box-shadow: 0 30px 90px rgba(0,0,0,0.6); padding: 36px 44px; }
+    .rule { display: flex; gap: 34px; align-items: flex-start; }
+    .rule .num { font: 700 120px/0.9 var(--head); color: var(--orange); text-shadow: 0 0 30px rgba(240,138,60,0.5); }
+    .rule h3 { margin: 0 0 12px; font: 700 64px/1 var(--head); }
+    .rule p { margin: 0; font: 400 34px/1.35 var(--head); color: #b8c7d8; }
+    .yes { color: #5fd3a8; } .no { color: #ff8a7a; }
+    .loopbox { position: absolute; border-radius: 18px; border: 2px solid rgba(124,192,255,0.35); background: rgba(6, 12, 20, 0.85); padding: 26px 34px; font: 600 40px var(--head); }
+    .loopbox small { display: block; font: 24px var(--code); color: var(--sky); margin-top: 8px; }
+    .s-logo { position: absolute; }
+    .dates { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; }
+    .date { padding: 14px 0; border-radius: 10px; text-align: center; border: 1px solid rgba(124,192,255,0.25); background: rgba(6,12,20,0.7); font: 600 32px var(--head); }
+    .date.first { border-color: var(--orange); color: var(--orange); box-shadow: 0 0 24px rgba(240,138,60,0.4); }
+    .date.final { border-color: #ffd27a; color: #ffd27a; }
+    .stat { font: 700 88px/1 var(--head); }
+    .stat small { display: block; font: 400 26px var(--code); color: var(--muted); margin-top: 8px; letter-spacing: 0.06em; }
+    .boxscore { font-family: var(--code); font-size: 30px; }
+    .boxscore td { padding: 8px 22px; }
+    .boxscore th { padding: 8px 22px; text-align: left; font: 600 22px var(--head); color: var(--muted); letter-spacing: 0.1em; }
+    .lang { font: 600 34px var(--code); }
+    .winner { color: #ffd27a; text-shadow: 0 0 20px rgba(255, 210, 122, 0.6); }
+  </style>
+  <script src="data/before.js"></script>
+  <script src="data/after.js"></script>
+  <script src="data/fixed.js"></script>
+  <script src="data/duel.js"></script>
+  <script src="data/four.js"></script>
+  <script src="data/ring16.js"></script>
+</head>
+<body>
+  <div id="stage">
+    <div class="layer bg" id="bg"></div>
+    <canvas id="map" width="1920" height="1080"></canvas>
+    <canvas id="gl" width="1920" height="1080"></canvas>
+    <div class="layer" id="tags"></div>
+    <div class="layer" id="ui"></div>
+    <div class="layer" id="fx"><div class="bars top"></div><div class="bars bot"></div><div class="vignette"></div><div class="grain"></div><div class="flash"></div></div>
+  </div>
+  <script type="module" src="promo.js"></script>
+</body>
+</html>
