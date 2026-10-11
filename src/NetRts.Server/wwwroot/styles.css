@@ -675,12 +675,16 @@ pre.snippet {
   .topbar { flex-wrap: wrap; }
   .topbar nav { gap: 8px 14px; flex-wrap: wrap; }
   .match-row, .match-row.no-status { grid-template-columns: minmax(0, 1fr); gap: 4px; }
-  .match-row .meta { text-align: left; }
+  .match-row .meta { text-align: left; white-space: normal; }
   .versus { grid-template-columns: minmax(0, 1fr); }
   .versus .vs { display: none; }
   .launch .segmented label { flex-direction: column; line-height: 1.2; padding: 6px 4px; }
   .segmented .ms { margin-left: 0; }
-  .ladder th:nth-child(n+5), .ladder td:nth-child(n+5) { display: none; }
+  :not(.table-scroll) > .ladder th:nth-child(n+5), :not(.table-scroll) > .ladder td:nth-child(n+5) { display: none; }
+  /* Scrolling tables keep every column; numbers stay on one line so the table scrolls instead of squashing. */
+  .table-scroll > .ladder th, .table-scroll > .ladder td:not(:nth-child(2)) { white-space: nowrap; }
+  #ladder .ladder td:nth-child(2) { min-width: 10em; }
+  fieldset.ladder-tabs .segmented { grid-auto-flow: row; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .map-frame { padding: 4px; }
 }
 

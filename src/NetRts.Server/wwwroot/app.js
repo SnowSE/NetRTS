@@ -320,7 +320,7 @@ Authorization: Bearer &lt;apiKey&gt;
       const list = await api(`/api/v1/leaderboard?category=${category}`);
       if (!alive || category !== root.querySelector('input[name="ladder-cat"]:checked')?.value) return;
       setHtml(el, list.length ? html`
-        <table class="ladder">
+        <div class="table-scroll"><table class="ladder">
           <caption class="visually-hidden">${say('Players ranked by rating', 'Badgers ranked by rating')}</caption>
           <thead><tr><th scope="col">#</th><th scope="col">Player</th>${category !== 'Practice' ? html`<th scope="col"><abbr title="League points: score margins over the rest of each match's top four">Pts</abbr></th>` : ''}<th scope="col">Rating</th>
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
@@ -329,7 +329,7 @@ Authorization: Bearer &lt;apiKey&gt;
               <td>${playerLabel(p)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
               ${category !== 'Practice' ? html`<td class="rating">${fmt(p.points)}</td>` : ''}<td class="${category === 'Practice' ? 'rating' : ''}">${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
           </tbody>
-        </table>` : html`<p class="empty">${category === 'Practice'
+        </table></div>` : html`<p class="empty">${category === 'Practice'
           ? say('No ranked players yet.', 'No ranked badgers yet.')
           : `No ${category.toLowerCase()} matches have finished yet.`}</p>`);
     } catch (e) {
