@@ -179,6 +179,29 @@ Without it the callback URL it sends to Discord starts with `http://` and Discor
 AppHost sets it for `azd` deployments. Sign-in cookies are encrypted with keys stored in the
 database (`data_protection_keys`), so restarts and redeploys don't sign anyone out.
 
+## Announcing results in Discord
+
+The shared server posts finished matches to the coding-competition channel:
+
+- **League matches:** one message once every heat has finished, with each heat's top four and
+  their points, linking to the match's scoreboard page.
+- **Practice between real bots:** one short message each.
+- **Practice against house bots:** one digest every hour (`Discord__ResultsDigestMinutes`).
+- **House-bot exhibitions:** nothing.
+
+To turn it on, open the channel's settings → **Integrations → Webhooks → New Webhook**, copy its
+URL, and set two app settings on the web app:
+
+| Setting | Value |
+|---|---|
+| `Discord__ResultsWebhookUrl` | the webhook URL (treat it as a secret: anyone with it can post) |
+| `NetRts__PublicUrl` | `https://netrts.snowse.io`, so messages link to the matches |
+
+Leave `Discord__ResultsWebhookUrl` unset anywhere else (local runs, private servers) and nothing is
+posted. Messages show bot names and owners' nicknames as text with mentions turned off, so nobody
+is pinged. Posting happens in the background, at most one message every two seconds; if Discord is
+unreachable the message is logged and skipped.
+
 ## Starting a new season
 
 Every result is recorded in the current season, whose label is empty. To close a season, label it

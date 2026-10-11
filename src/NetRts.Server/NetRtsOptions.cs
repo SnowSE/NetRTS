@@ -5,6 +5,9 @@ public sealed class NetRtsOptions
 {
     public const string Section = "NetRts";
 
+    /// <summary>The site's public address, e.g. https://netrts.snowse.io, for links in Discord announcements.</summary>
+    public string? PublicUrl { get; set; }
+
     public int DefaultTickIntervalMs { get; set; } = 1000;
     public int MinTickIntervalMs { get; set; } = 100;
     public int MaxTickIntervalMs { get; set; } = 10_000;

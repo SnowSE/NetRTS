@@ -32,6 +32,15 @@ public sealed class DiscordOptions
     /// </summary>
     public string? ServerId { get; set; }
 
+    /// <summary>
+    /// Incoming webhook of the channel where finished matches are announced (channel settings →
+    /// Integrations → Webhooks). Leave unset on private servers: nothing is posted.
+    /// </summary>
+    public string? ResultsWebhookUrl { get; set; }
+
+    /// <summary>How often practice games against house bots are announced, as one digest.</summary>
+    public int ResultsDigestMinutes { get; set; } = 60;
+
     public bool Enabled => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 
     public bool HasServer => !string.IsNullOrWhiteSpace(ServerId);

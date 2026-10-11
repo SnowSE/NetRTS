@@ -12,7 +12,7 @@ namespace NetRts.Server.Matches;
 /// Persists finished matches (summary, result, replay) and updates win/loss records and Elo
 /// ratings. Runs off the tick loop so a slow database never stalls a game.
 /// </summary>
-public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchRecorder> logger, MatchMetrics metrics) : BackgroundService
+public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchRecorder> logger, MatchMetrics metrics, MatchAnnouncer announcer) : BackgroundService
 {
     private readonly Channel<MatchHost> _queue = metrics.ObserveRecorderQueue(Channel.CreateUnbounded<MatchHost>());
 
@@ -30,6 +30,7 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
                 await RecordAsync(host, stoppingToken);
                 host.Recorded = true;
                 metrics.MatchRecorded(Stopwatch.GetElapsedTime(started));
+                announcer.MatchRecorded(host);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {

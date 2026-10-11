@@ -83,6 +83,11 @@ next to their name, and can play **league matches** (preseason, season and champ
 the Discord server to be verified. The account page also replaces a lost or leaked API key.
 Bots never use Discord themselves: they keep sending their API key.
 
+**Matches on the shared server are public.** Finished matches are announced in the
+coding-competition Discord channel: league matches and games between real bots one by one,
+practice against house bots in an hourly digest. To practise privately, run your own server
+(`dotnet run --project src/NetRts.Server`).
+
 ## Matches
 
 | Call | What it does |
