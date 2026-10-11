@@ -62,18 +62,25 @@ api('/api/v1/account').then(showAccountLink).catch(() => {});
 
 /* ------------------------------------------------------------------ home */
 
-/** Each category is its own leaderboard. */
+/** Each category is its own leaderboard, in the order a year plays out. */
 const CATEGORIES = [
+  { key: 'Practice', label: say('Practice', 'Scrimmage'), note: 'Every match bots start themselves. Open to everyone.' },
+  { key: 'Preseason', label: say('Preseason', 'Preseason'), note: 'Warm-up league matches (beta testing). Ranked by points; they don\'t count toward the season.' },
   { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: each heat\'s top four score their margins over the players below them.' },
   { key: 'Championship', label: say('Championship', 'Championship'), note: 'Championship matches; Discord-verified bots only. Ranked by points, like the season.' },
-  { key: 'Preseason', label: say('Preseason', 'Preseason'), note: 'Warm-up league matches (beta testing). Ranked by points; they don\'t count toward the season.' },
-  { key: 'Practice', label: say('Practice', 'Scrimmage'), note: 'Every match bots start themselves. Open to everyone.' },
 ];
-const ladderCategory = () => {
-  let c = null;
-  try { c = localStorage.getItem('netrts-ladder'); } catch {}
-  return CATEGORIES.some((x) => x.key === c) ? c : 'Season';
-};
+
+/**
+ * The tab to open on: the latest phase of this season that has had a match (a league ladder only
+ * has rows once one of its matches is recorded), else Practice. Labelling the season in the
+ * database for next year empties them all again.
+ */
+async function currentPhase() {
+  const later = CATEGORIES.slice(1).reverse();
+  const counts = await Promise.all(later.map((c) =>
+    api(`/api/v1/leaderboard?category=${c.key}&limit=1`).then((l) => l.length, () => 0)));
+  return later.find((_, i) => counts[i] > 0)?.key ?? 'Practice';
+}
 
 const SPEEDS = [
   { ms: 250, label: say('Fast', 'Honey badger') },
@@ -147,7 +154,7 @@ function mountHome(root) {
             <legend class="visually-hidden">Leaderboard</legend>
             <div class="segmented">
               ${CATEGORIES.map((c) => html`
-                <input type="radio" name="ladder-cat" id="cat-${c.key}" value="${c.key}" ${c.key === ladderCategory() ? html`checked` : ''}>
+                <input type="radio" name="ladder-cat" id="cat-${c.key}" value="${c.key}" ${c.key === 'Practice' ? html`checked` : ''}>
                 <label for="cat-${c.key}">${c.label}</label>`)}
             </div>
           </fieldset>
@@ -294,14 +301,20 @@ Authorization: Bearer &lt;apiKey&gt;
     }
   }
 
-  root.querySelector('.ladder-tabs').addEventListener('change', (e) => {
-    try { localStorage.setItem('netrts-ladder', e.target.value); } catch {}
+  // Open on the current phase unless they've already picked a tab.
+  let tabChosen = false;
+  root.querySelector('.ladder-tabs').addEventListener('change', () => {
+    tabChosen = true;
     loadLadder();
+  });
+  const phase = currentPhase().then((key) => {
+    if (alive && !tabChosen) root.querySelector(`#cat-${key}`).checked = true;
   });
 
   async function loadLadder() {
+    await phase;
     const el = $('ladder');
-    const category = root.querySelector('input[name="ladder-cat"]:checked')?.value || 'Season';
+    const category = root.querySelector('input[name="ladder-cat"]:checked')?.value || 'Practice';
     $('ladder-note').textContent = CATEGORIES.find((c) => c.key === category)?.note ?? '';
     try {
       const list = await api(`/api/v1/leaderboard?category=${category}`);
