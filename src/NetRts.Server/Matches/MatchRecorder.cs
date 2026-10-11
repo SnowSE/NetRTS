@@ -51,8 +51,12 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
 
         var summary = host.ToSummary();
         var seats = host.Seats;
-        // Only player-vs-player 1v1s move ratings; practice against house bots could otherwise be farmed.
-        var rated = seats.Count == 2 && seats.All(s => !s.IsHouseBot);
+        // Each category (practice, season, championship) keeps its own ratings and records. Practice
+        // ratings move only in player-vs-player 1v1s, since games against house bots could be farmed.
+        // League matches are set up by admins, so every size is rated, by finishing place.
+        var rated = host.Category == MatchCategory.Practice
+            ? seats.Count == 2 && seats.All(s => !s.IsHouseBot)
+            : seats.Count(s => !s.IsHouseBot) >= 2;
 
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
@@ -71,6 +75,7 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
             Reason = result.Outcome.Reason.ToString(),
             WinnerId = result.Outcome.WinnerId,
             Rated = rated,
+            Category = host.Category,
             SummaryJson = JsonSerializer.Serialize(summary, NetRtsClient.JsonOptions),
             ResultJson = JsonSerializer.Serialize(result, NetRtsClient.JsonOptions),
             ReplayJson = JsonSerializer.Serialize(replay, NetRtsClient.JsonOptions),
@@ -79,12 +84,20 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
         // Exhibitions between house bots are entertainment, not ladder games.
         if (seats.Any(s => !s.IsHouseBot))
         {
+            // Second and later copies of a house bot have no player row, so they keep no record.
             var ids = seats.Select(s => s.PlayerId).ToList();
-            var players = await db.Players.Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
+            var known = await db.Players.Where(p => ids.Contains(p.Id)).Select(p => p.Id).ToListAsync(ct);
+            var stats = await db.PlayerStats.Where(s => known.Contains(s.PlayerId) && s.Category == host.Category && s.Season == Seasons.Current)
+                .ToDictionaryAsync(s => s.PlayerId, ct);
+            foreach (var id in known.Where(id => !stats.ContainsKey(id)))
+            {
+                stats[id] = db.PlayerStats.Add(new PlayerStatsRecord { PlayerId = id, Category = host.Category }).Entity;
+            }
+
             var winner = result.Outcome.WinnerId;
             foreach (var seat in seats)
             {
-                if (!players.TryGetValue(seat.PlayerId, out var p))
+                if (!stats.TryGetValue(seat.PlayerId, out var p))
                 {
                     continue;
                 }
@@ -93,7 +106,7 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
                 {
                     p.Draws++;
                 }
-                else if (winner == p.Id)
+                else if (winner == seat.PlayerId)
                 {
                     p.Wins++;
                 }
@@ -103,14 +116,32 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
                 }
             }
 
-            if (rated && players.TryGetValue(seats[0].PlayerId, out var a) && players.TryGetValue(seats[1].PlayerId, out var b))
+            // Finishing order: the winner, then everyone else by final score (eliminated players have
+            // no survival points, so they trail). Equal scores share a place.
+            var ranked = result.Players.Where(p => stats.ContainsKey(p.PlayerId))
+                .OrderByDescending(p => p.Winner).ThenByDescending(p => p.Score.Total).ToList();
+            if (rated)
             {
-                var scoreA = winner is null ? 0.5 : winner == a.Id ? 1.0 : 0.0;
-                (a.Rating, b.Rating) = Elo.Update(a.Rating, b.Rating, scoreA);
+                var places = ranked.Select(p => 1 + ranked.Count(q =>
+                    (q.Winner && !p.Winner) || (q.Winner == p.Winner && q.Score.Total > p.Score.Total))).ToList();
+                var ratings = Elo.UpdateMany(ranked.Select(p => stats[p.PlayerId].Rating).ToList(), places);
+                for (var i = 0; i < ranked.Count; i++)
+                {
+                    stats[ranked[i].PlayerId].Rating = ratings[i];
+                }
+            }
+
+            if (host.Category != MatchCategory.Practice)
+            {
+                var points = LeaguePoints.Award(ranked.Select(p => p.Score.Total).ToList());
+                for (var i = 0; i < ranked.Count; i++)
+                {
+                    stats[ranked[i].PlayerId].Points += points[i];
+                }
             }
         }
 
         await db.SaveChangesAsync(ct);
-        logger.LogInformation("Recorded match {MatchId} ({Reason}, rated: {Rated})", host.Id, result.Outcome.Reason, rated);
+        logger.LogInformation("Recorded {Category} match {MatchId} ({Reason}, rated: {Rated})", host.Category, host.Id, result.Outcome.Reason, rated);
     }
 }

@@ -63,6 +63,19 @@ public sealed record MatchSummaryDto
     /// games against house bots), so nobody's opponent can be sped up or paused on them.
     /// </summary>
     public bool SpeedAdjustable { get; init; }
+
+    /// <summary>Which leaderboard the match counts toward. Matches bots create are Practice.</summary>
+    public MatchCategory Category { get; init; }
+
+    /// <summary>
+    /// For a league match (preseason, season, championship): its heats once the admin has split it,
+    /// empty before that. Null for ordinary matches. Bots just play the league match's id; the server
+    /// routes each bot to its own heat.
+    /// </summary>
+    public IReadOnlyList<HeatDto>? Heats { get; init; }
+
+    /// <summary>For a heat: the league match it belongs to.</summary>
+    public Guid? ParentMatchId { get; init; }
 }
 
 /// <summary>Change a running match's speed. Either field may be left out.</summary>
@@ -81,6 +94,15 @@ public sealed record MatchPlayerDto
     public string Name { get; init; } = "";
     public int Slot { get; init; }
     public bool IsHouseBot { get; init; }
+
+    /// <summary>True when a Discord-verified person has claimed this bot (the blue check).</summary>
+    public bool Verified { get; init; }
+
+    /// <summary>The verified owner's name: their Discord server nickname, or Discord name. Null if unclaimed.</summary>
+    public string? OwnerName { get; init; }
+
+    /// <summary>In a league match's queue: whether the bot made an API call in the last 40 seconds. Null elsewhere.</summary>
+    public bool? Connected { get; init; }
 }
 
 /// <summary>The static map: terrain is public knowledge, entities are not.</summary>

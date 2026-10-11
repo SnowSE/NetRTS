@@ -1,4 +1,9 @@
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
+using Microsoft.Extensions.Options;
+using NetRts.Server.Auth;
+using NetRts.Server.Data;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -28,6 +33,38 @@ public class ServerFactory : WebApplicationFactory<Program>
         builder.UseSetting("NetRts:MaxLongPollSeconds", "5");
         builder.UseSetting("NetRts:RequestsPerSecond", "100000");
         builder.UseSetting("NetRts:RegistrationsPerMinutePerIp", "100000");
+    }
+
+    /// <summary>Stores a Discord account, as a Discord sign-in would.</summary>
+    public async Task<AccountRecord> NewAccountAsync(bool admin = false, bool inServer = true, string? nickname = null)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
+        var id = Guid.NewGuid();
+        var account = new AccountRecord
+        {
+            Id = id,
+            DiscordId = $"{Random.Shared.NextInt64():D}",
+            Username = $"user-{id:N}"[..12],
+            ServerNickname = nickname,
+            InServer = inServer,
+            IsAdmin = admin,
+            CreatedAt = DateTime.UtcNow,
+            LastSignInAt = DateTime.UtcNow,
+        };
+        db.Accounts.Add(account);
+        await db.SaveChangesAsync();
+        return account;
+    }
+
+    /// <summary>An HTTP client carrying the sign-in cookie a Discord sign-in as this account would have set.</summary>
+    public HttpClient ClientFor(AccountRecord account)
+    {
+        var cookie = Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>().Get(Accounts.CookieScheme);
+        var ticket = new AuthenticationTicket(Accounts.Principal(account), Accounts.CookieScheme);
+        var client = CreateClient();
+        client.DefaultRequestHeaders.Add("Cookie", $"{cookie.Cookie.Name}={cookie.TicketDataFormat.Protect(ticket)}");
+        return client;
     }
 
     /// <summary>Registers a uniquely named player and returns an authenticated client for it.</summary>

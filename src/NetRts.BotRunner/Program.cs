@@ -148,8 +148,11 @@ namespace NetRts.BotRunner
 
                 default:
                 {
-                    var match = await client.JoinMatchAsync(o.JoinMatchId, ct);
-                    Log($"Joined match {match.MatchId} ({match.Players.Count}/{match.MaxPlayers} seats taken, {Describe(match)}).");
+                    var matchId = o.JoinMatchName is { } name ? (await client.GetMatchByNameAsync(name, ct)).MatchId : o.JoinMatchId;
+                    var match = await client.JoinMatchAsync(matchId, ct);
+                    Log(match.Heats is null
+                        ? $"Joined match {match.MatchId} ({match.Players.Count}/{match.MaxPlayers} seats taken, {Describe(match)})."
+                        : $"Joined {match.Category} match {match.Name} ({match.Players.Count} in so far). It starts when the admin starts the heats.");
                     return match;
                 }
             }

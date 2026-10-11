@@ -24,6 +24,9 @@ public sealed class NetRtsOptions
     /// <summary>Waiting matches nobody joins are dropped after this long.</summary>
     public int WaitingMatchTimeoutMinutes { get; set; } = 30;
 
+    /// <summary>Season and championship matches wait this long for their players before they're dropped.</summary>
+    public int LeagueMatchTimeoutMinutes { get; set; } = 24 * 60;
+
     /// <summary>Finished matches stay in memory (for spectators) this long; afterwards they're served from the database.</summary>
     public int CompletedMatchRetentionMinutes { get; set; } = 10;
 

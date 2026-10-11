@@ -35,6 +35,18 @@ public sealed class ApiKeyCache
     public bool TryGet(string hash, out (Guid Id, string Name) player) => _byHash.TryGetValue(hash, out player);
 
     public void Set(string hash, Guid id, string name) => _byHash[hash] = (id, name);
+
+    /// <summary>Forgets every cached key of a player, after their key is replaced.</summary>
+    public void Forget(Guid playerId)
+    {
+        foreach (var (hash, player) in _byHash)
+        {
+            if (player.Id == playerId)
+            {
+                _byHash.TryRemove(hash, out _);
+            }
+        }
+    }
 }
 
 /// <summary>Accepts "Authorization: Bearer &lt;key&gt;" or "X-Api-Key: &lt;key&gt;".</summary>
@@ -43,6 +55,7 @@ public sealed class ApiKeyAuthenticationHandler(
     ILoggerFactory logger,
     UrlEncoder encoder,
     ApiKeyCache cache,
+    Presence presence,
     NetRtsDb db)
     : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
@@ -80,6 +93,7 @@ public sealed class ApiKeyAuthenticationHandler(
             cache.Set(hash, record.Id, record.Name);
         }
 
+        presence.Touch(player.Id);
         var identity = new ClaimsIdentity(
             [new Claim(ClaimTypes.NameIdentifier, player.Id.ToString()), new Claim(ClaimTypes.Name, player.Name)],
             ApiKeys.Scheme);

@@ -82,6 +82,19 @@ export const displayName = (name) => {
   return [nickname(bot) ?? bot, copy].filter(Boolean).join(' ');
 };
 
+/** The blue check beside a bot claimed by a Discord-verified person; hover shows who. */
+export function verifiedBadge(p) {
+  if (!p?.verified) return '';
+  const who = p.ownerName ? `Verified with Discord: ${p.ownerName}` : 'Verified with Discord';
+  return html`<svg class="verified" viewBox="0 0 16 16" role="img" aria-label="${who}"><title>${who}</title>
+    <circle cx="8" cy="8" r="8"/><path d="M4.4 8.3l2.4 2.4 4.8-5" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+}
+
+/** A player for lists: bot name, blue check, and (with owner) the owner's Discord server nickname. */
+export function playerLabel(p, { owner = true } = {}) {
+  return html`${displayName(p?.name)}${verifiedBadge(p)}${owner && p?.verified && p.ownerName ? html`<span class="owner">${p.ownerName}</span>` : ''}`;
+}
+
 export function timeAgo(iso) {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return '';

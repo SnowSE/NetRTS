@@ -114,6 +114,10 @@ public sealed class NetRtsClient : IDisposable
         return Send<GameStateDto>(HttpMethod.Get, url, null, ct);
     }
 
+    /// <summary>The match with this name: the one waiting or running (e.g. a league match like "season-week3"), otherwise the latest.</summary>
+    public Task<MatchSummaryDto> GetMatchByNameAsync(string name, CancellationToken ct = default) =>
+        Send<MatchSummaryDto>(HttpMethod.Get, $"api/v1/matches/named/{Uri.EscapeDataString(name)}", null, ct);
+
     public Task<SubmitCommandsResponse> SubmitAsync(Guid matchId, IReadOnlyList<CommandRequest> commands, CancellationToken ct = default) =>
         Send<SubmitCommandsResponse>(HttpMethod.Post, $"api/v1/matches/{matchId}/commands", new SubmitCommandsRequest { Commands = commands }, ct);
 

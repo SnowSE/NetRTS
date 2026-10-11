@@ -17,25 +17,31 @@ public static class MatchEndpoints
     {
         var matches = app.MapGroup("/api/v1/matches").WithTags("Matches");
 
-        matches.MapPost("/", (CreateMatchRequest request, ClaimsPrincipal user, MatchManager manager) =>
+        matches.MapPost("/", async (CreateMatchRequest request, ClaimsPrincipal user, MatchManager manager, NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct) =>
             {
-                var host = manager.Create(user.PlayerId(), user.PlayerName(), request);
+                var host = manager.Create(await Accounts.SeatForAsync(db, discord.Value, user, ct), request);
                 return Results.Created($"/api/v1/matches/{host.Id}", host.ToSummary());
             })
             .RequireAuthorization()
             .Produces<MatchSummaryDto>(201)
             .ProducesErrors()
-            .WithSummary("Create a match (you take slot 0). Optionally fill seats with house bots; it starts when full.");
+            .WithSummary("Create a practice match (you take slot 0). Optionally fill seats with house bots; it starts when full.");
 
-        matches.MapGet("/", (MatchManager manager, MatchStatus? status) =>
-                manager.All.Select(m => m.ToSummary()).Where(m => status is null || m.Status == status).ToList())
-            .WithSummary("Matches currently in memory: waiting for players, running, or recently finished.");
+        matches.MapGet("/", (MatchManager manager, LeagueMatchManager leagues, MatchStatus? status) =>
+                leagues.All.Select(leagues.ToSummary).Concat(manager.All.Select(m => m.ToSummary()))
+                    .Where(m => status is null || m.Status == status).ToList())
+            .WithSummary("Matches currently in memory: waiting for players, running, or recently finished. League matches come first.");
 
         matches.MapGet("/history", History)
-            .WithSummary("Recently completed matches from the archive.");
+            .WithSummary("Recently completed matches from the archive, optionally only one category.");
 
-        matches.MapGet("/{matchId:guid}", async (Guid matchId, MatchManager manager, NetRtsDb db, CancellationToken ct) =>
+        matches.MapGet("/{matchId:guid}", async (Guid matchId, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
+                if (leagues.Find(matchId) is { } league)
+                {
+                    return Results.Ok(leagues.ToSummary(league));
+                }
+
                 if (manager.Get(matchId) is { } host)
                 {
                     return Results.Ok(host.ToSummary());
@@ -48,11 +54,16 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("One match's summary.");
 
-        matches.MapGet("/named/{name}", async (string name, MatchManager manager, NetRtsDb db, CancellationToken ct) =>
+        matches.MapGet("/named/{name}", async (string name, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
                 if (!MatchManager.IsValidName(name))
                 {
                     return ApiErrors.NotFound("Match");
+                }
+
+                if (leagues.Named(name) is { } league)
+                {
+                    return Results.Ok(leagues.ToSummary(league));
                 }
 
                 // A name belongs to one unfinished match at a time; after that it can be reused, so prefer
@@ -75,36 +86,42 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("The match with this name: the one waiting or running, otherwise the most recent.");
 
-        matches.MapPost("/{matchId:guid}/join", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
-                Results.Ok(manager.Join(matchId, user.PlayerId(), user.PlayerName()).ToSummary()))
+        matches.MapPost("/{matchId:guid}/join", async (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct) =>
+            {
+                var seat = await Accounts.SeatForAsync(db, discord.Value, user, ct);
+                return leagues.Find(matchId) is { } league
+                    ? Results.Ok(leagues.ToSummary(leagues.Join(league.Id, seat)))
+                    : Results.Ok(manager.Join(matchId, seat).ToSummary());
+            })
             .RequireAuthorization()
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
-            .WithSummary("Take a free seat in a waiting match.");
+            .WithSummary("Take a seat in a waiting match. League matches (preseason, season, championship) take Discord-verified bots, one per person; play continues on the same match id once the admin starts the heats.");
 
-        matches.MapPost("/{matchId:guid}/speed", (Guid matchId, MatchSpeedRequest request, MatchManager manager) =>
-                Results.Ok(manager.SetSpeed(matchId, request).ToSummary()))
+        matches.MapPost("/{matchId:guid}/speed", (Guid matchId, MatchSpeedRequest request, MatchManager manager, LeagueMatchManager leagues) =>
+                Results.Ok(manager.SetSpeed(NotLeague(matchId, leagues), request).ToSummary()))
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Change a running match's tick interval or pause it. Only for matches with at most one real player; anyone watching may do it.");
 
-        matches.MapPost("/{matchId:guid}/step", (Guid matchId, MatchManager manager) =>
-                Results.Ok(manager.Step(matchId).ToSummary()))
+        matches.MapPost("/{matchId:guid}/step", (Guid matchId, MatchManager manager, LeagueMatchManager leagues) =>
+                Results.Ok(manager.Step(NotLeague(matchId, leagues)).ToSummary()))
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Run one tick of a paused match.");
 
-        matches.MapPost("/{matchId:guid}/leave", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
-            {
-                return Results.Ok(manager.Leave(matchId, user.PlayerId()).ToSummary());
-            })
+        matches.MapPost("/{matchId:guid}/leave", (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
+                leagues.Find(matchId) is { } league
+                    ? Results.Ok(leagues.ToSummary(leagues.Leave(league.Id, user.PlayerId())))
+                    : Results.Ok(manager.Leave(matchId, user.PlayerId()).ToSummary()))
             .RequireAuthorization()
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Give up your seat in a match that hasn't started.");
 
-        matches.MapGet("/{matchId:guid}/map", async (Guid matchId, MatchManager manager, NetRtsDb db, CancellationToken ct) =>
+        matches.MapGet("/{matchId:guid}/map", async (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
+                matchId = HeatOfCaller(matchId, user, leagues);
                 if (manager.Get(matchId) is { } host)
                 {
                     return host.Map is { } map
@@ -132,9 +149,9 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Your fog-of-war view. Pass waitForTick=N to long-poll until tick N has been simulated.");
 
-        matches.MapPost("/{matchId:guid}/commands", (Guid matchId, SubmitCommandsRequest request, ClaimsPrincipal user, MatchManager manager) =>
+        matches.MapPost("/{matchId:guid}/commands", (Guid matchId, SubmitCommandsRequest request, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
             {
-                var host = LiveParticipantMatch(manager, matchId, user);
+                var host = LiveParticipantMatch(manager, HeatOfCaller(matchId, user, leagues), user);
                 if (host.Status == MatchStatus.Waiting)
                 {
                     return ApiErrors.Error(409, "MATCH_NOT_STARTED", "The match hasn't started yet.");
@@ -152,13 +169,13 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Queue commands. Each is validated now and executed on an upcoming tick (100 per tick, FIFO).");
 
-        matches.MapDelete("/{matchId:guid}/commands", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
-                Results.Ok(new { cleared = LiveParticipantMatch(manager, matchId, user).ClearQueue(user.PlayerId()) ?? 0 }))
+        matches.MapDelete("/{matchId:guid}/commands", (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
+                Results.Ok(new { cleared = LiveParticipantMatch(manager, HeatOfCaller(matchId, user, leagues), user).ClearQueue(user.PlayerId()) ?? 0 }))
             .RequireAuthorization()
             .WithSummary("Drop every command still waiting in your queue.");
 
-        matches.MapPost("/{matchId:guid}/surrender", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
-                LiveParticipantMatch(manager, matchId, user) is var host && host.Surrender(user.PlayerId())
+        matches.MapPost("/{matchId:guid}/surrender", (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
+                LiveParticipantMatch(manager, HeatOfCaller(matchId, user, leagues), user) is var host && host.Surrender(user.PlayerId())
                     ? Results.Ok(host.ToSummary())
                     : ApiErrors.Error(409, "MATCH_NOT_ACTIVE", "The match is not in progress."))
             .RequireAuthorization()
@@ -166,8 +183,9 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Concede. Your units and buildings are removed. Returns the match, with its outcome if it ended.");
 
-        matches.MapGet("/{matchId:guid}/result", async (Guid matchId, MatchManager manager, NetRtsDb db, CancellationToken ct) =>
+        matches.MapGet("/{matchId:guid}/result", async (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
+                matchId = HeatOfCaller(matchId, user, leagues);
                 if (manager.Get(matchId) is { } host)
                 {
                     return host.GetResult() is { } result
@@ -182,8 +200,9 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Winner, end reason and score breakdown of a finished match.");
 
-        matches.MapGet("/{matchId:guid}/replay", async (Guid matchId, MatchManager manager, NetRtsDb db, CancellationToken ct) =>
+        matches.MapGet("/{matchId:guid}/replay", async (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
+                matchId = HeatOfCaller(matchId, user, leagues);
                 if (manager.Get(matchId) is { } host)
                 {
                     return host.GetReplay() is { } replay
@@ -198,9 +217,9 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Seed plus every executed command: enough to re-simulate the match exactly.");
 
-        matches.MapGet("/{matchId:guid}/spectate", (Guid matchId, MatchManager manager, int? sinceTick, bool? fog) =>
+        matches.MapGet("/{matchId:guid}/spectate", (Guid matchId, MatchManager manager, LeagueMatchManager leagues, int? sinceTick, bool? fog) =>
             {
-                var host = manager.Get(matchId);
+                var host = manager.Get(NotLeague(matchId, leagues));
                 if (host is null)
                 {
                     return ApiErrors.NotFound("Live match");
@@ -214,10 +233,56 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Omniscient view of a live match for spectators.");
 
+        matches.MapGet("/{matchId:guid}/standings", (Guid matchId, MatchManager manager, LeagueMatchManager leagues) =>
+                leagues.Find(matchId) is { } league ? Results.Ok(leagues.Standings(league))
+                : manager.Get(matchId) is { } host ? Results.Ok(new[] { LeagueMatchManager.StandingsOf(host) })
+                : ApiErrors.NotFound("Live match"))
+            .Produces<IReadOnlyList<HeatStandingsDto>>()
+            .ProducesErrors()
+            .WithSummary("Live scoreboard: for a league match, one table per heat (with the points each player would earn); otherwise one table.");
+
         matches.MapGet("/{matchId:guid}/spectate/stream", SpectateStream)
             .Produces(200, contentType: "text/event-stream")
             .ProducesErrors()
             .WithSummary("Server-sent events: one spectator snapshot per tick until the match ends.");
+
+        var admin = app.MapGroup("/api/v1/admin/matches").WithTags("Admin").RequireAuthorization(Accounts.AdminPolicy);
+
+        admin.MapPost("/", (CreateLeagueMatchRequest request, LeagueMatchManager leagues) =>
+            {
+                var league = leagues.Create(request);
+                return Results.Created($"/api/v1/matches/{league.Id}", leagues.ToSummary(league));
+            })
+            .Produces<MatchSummaryDto>(201)
+            .ProducesErrors()
+            .WithSummary("Create a preseason, season or championship match for verified bots to join (Discord server administrators, signed in on the website).");
+
+        admin.MapPost("/{matchId:guid}/heats", (Guid matchId, SplitHeatsRequest request, LeagueMatchManager leagues) =>
+                leagues.ToSummary(leagues.Split(matchId, request.Sizes)))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Shuffle everyone into heats of these sizes (they must add up to everyone who joined). Again to reshuffle.");
+
+        admin.MapDelete("/{matchId:guid}/heats", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Unsplit(matchId)))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Undo the split and reopen the match to new players.");
+
+        admin.MapPost("/{matchId:guid}/start", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Start(matchId)))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Start every heat at once.");
+
+        admin.MapDelete("/{matchId:guid}/players/{playerId:guid}", (Guid matchId, Guid playerId, LeagueMatchManager leagues) =>
+                leagues.ToSummary(leagues.Remove(matchId, playerId)))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Take a bot out of the match (and out of its heat, if split).");
+
+        admin.MapDelete("/{matchId:guid}", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Cancel(matchId)))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Call off a league match that hasn't started.");
 
         app.MapPost("/api/v1/exhibitions", (CreateExhibitionRequest request, MatchManager manager) =>
             {
@@ -235,11 +300,25 @@ public static class MatchEndpoints
         Guid matchId,
         ClaimsPrincipal user,
         MatchManager manager,
+        LeagueMatchManager leagues,
         IOptions<NetRtsOptions> options,
         CancellationToken ct,
         int? waitForTick = null,
         int? sinceTick = null)
     {
+        // A league match: wait (when long-polling) for the admin to start the heats, then use this bot's heat.
+        if (leagues.Find(matchId) is { } league)
+        {
+            var wait = waitForTick is null ? TimeSpan.Zero : TimeSpan.FromSeconds(options.Value.MaxLongPollSeconds);
+            var heat = await leagues.HeatForAsync(league, user.PlayerId(), wait, ct);
+            if (heat is null)
+            {
+                return ApiErrors.Error(409, "MATCH_NOT_STARTED", "The admin hasn't started the heats yet. Long-poll with waitForTick=0 to wait for it.");
+            }
+
+            matchId = heat.Id;
+        }
+
         var host = LiveParticipantMatch(manager, matchId, user);
         if (waitForTick is { } tick)
         {
@@ -296,9 +375,10 @@ public static class MatchEndpoints
         }
     }
 
-    private static async Task<IReadOnlyList<MatchSummaryDto>> History(NetRtsDb db, CancellationToken ct, int limit = 20)
+    private static async Task<IReadOnlyList<MatchSummaryDto>> History(NetRtsDb db, CancellationToken ct, int limit = 20, MatchCategory? category = null)
     {
         var rows = await db.Matches.AsNoTracking()
+            .Where(m => category == null || m.Category == category)
             .OrderByDescending(m => m.CompletedAt)
             .Take(Math.Clamp(limit, 1, 100))
             .Select(m => m.SummaryJson)
@@ -308,6 +388,42 @@ public static class MatchEndpoints
 
     private static Task<MatchRecord?> Archived(NetRtsDb db, Guid matchId, CancellationToken ct) =>
         db.Matches.AsNoTracking().FirstOrDefaultAsync(m => m.Id == matchId, ct);
+
+    /// <summary>
+    /// League matches are played in heats: a bot's calls on the league match go to its own heat. Others
+    /// (spectators) must pick a heat. Ordinary match ids pass through unchanged.
+    /// </summary>
+    private static Guid HeatOfCaller(Guid matchId, ClaimsPrincipal user, LeagueMatchManager leagues)
+    {
+        if (leagues.Find(matchId) is not { } league)
+        {
+            return matchId;
+        }
+
+        if (user.FindFirstValue(ClaimTypes.NameIdentifier) is not null && Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var playerId))
+        {
+            if (leagues.StartedHeatOf(league, playerId) is { } heat)
+            {
+                return heat.Id;
+            }
+
+            lock (league.Gate)
+            {
+                if (league.IsQueued(playerId))
+                {
+                    throw new MatchException(409, "MATCH_NOT_STARTED", "The admin hasn't started the heats yet.");
+                }
+            }
+        }
+
+        return NotLeague(matchId, leagues);
+    }
+
+    /// <summary>Spectator calls on a league match must name one of its heats.</summary>
+    private static Guid NotLeague(Guid matchId, LeagueMatchManager leagues) =>
+        leagues.Find(matchId) is null
+            ? matchId
+            : throw new MatchException(409, "PICK_A_HEAT", "This match is played in heats; use a heat's id (see heats in GET /api/v1/matches/{id}).");
 
     private static MatchHost LiveParticipantMatch(MatchManager manager, Guid matchId, ClaimsPrincipal user)
     {

@@ -36,7 +36,7 @@ The first run signs you up and saves your secret key in a file named after your 
 | `--opponent rusher` | The house bot to play: `sitter` (default, easiest), `economist`, `balanced` or `rusher` (hardest). |
 | `--tick-ms 250` | Milliseconds per tick for a match you start (100-10000, default 1000). |
 | `--create-match our-game` | Start a match for a classmate to join, instead of playing a house bot. |
-| `--join-match our-game` | Join a waiting match by its name (or its id). |
+| `--join-match our-game` | Join a waiting match by its name (or its id). League matches like `season-week3` work the same way: claim your bot with Discord first, and play starts when the admin starts the heats. |
 | `--server http://localhost:5080` | Play on another server, like one running on your own computer. |
 
 Every option, and its default, is a property of the `Options` class at the bottom of `StarterBot.cs`.

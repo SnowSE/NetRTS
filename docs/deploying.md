@@ -80,8 +80,9 @@ azd init                         # run in the repo root; it detects the Aspire A
 azd up                           # choose subscription and region; provisions everything, builds and deploys
 ```
 
-`azd up` prints the URLs of the server and the database console. The database tables are created the
-first time the server starts.
+`azd up` prints the URLs of the server and the database console. The server applies the database
+migrations (`src/NetRts.Server/Data/Migrations`) every time it starts. `azd up` also asks for the
+three Discord parameters described in [Discord sign-in](#discord-sign-in).
 
 Then make yourself a database administrator (once). Only the server's identity is one after
 deployment:
@@ -139,8 +140,9 @@ azd down --purge                 # deletes the resource group and everything in 
   credentials. The Azure PostgreSQL client (`AddAzureNpgsqlDbContext` in `Program.cs`) sees that and
   signs in with the app's managed identity. Locally the container connection string does contain a
   password, and the same client uses it.
-- **Restarts end live matches.** A redeploy or platform restart stops matches in progress; finished
-  matches, players and ratings are safe in PostgreSQL. Avoid deploying during a tournament round.
+- **Restarts end live matches.** A redeploy or platform restart stops matches in progress and drops
+  league matches that haven't finished (they live in memory too); finished matches, players, ratings and
+  points are safe in PostgreSQL. Avoid deploying while league heats are being played.
 
 ### Settings
 
@@ -148,6 +150,64 @@ Every `NetRts:*` option in `src/NetRts.Server/appsettings.json` (tick speed, map
 be overridden in Azure as an App Service application setting, using `__` for `:`. For example,
 `NetRts__MaxLiveMatches = 100`. Set them in the portal under the web app → **Settings →
 Environment variables**, or with `az webapp config appsettings set`.
+
+## Discord sign-in
+
+People sign in to the website with Discord to claim their bots (a blue check and their server
+nickname) and to become game admins. Bots keep using API keys. Without these settings the site
+works as before and hides the sign-in link.
+
+1. At <https://discord.com/developers/applications>, create an application. Under **OAuth2**, copy
+   the **Client ID** and reset/copy the **Client Secret**, and add a redirect for every address the
+   site is served from: `https://netrts.snowse.io/signin-discord`, `http://localhost:5080/signin-discord`
+   for local runs, and so on.
+2. Get the server (guild) ID: in Discord, turn on **Settings → Advanced → Developer Mode**, then
+   right-click the server and choose **Copy Server ID**. Members of that server are verified, their
+   server nickname is shown, and anyone with the **Administrator** permission there (or the owner)
+   is a game admin who can run preseason, season and championship matches. Admin rights are re-read
+   whenever that person signs in again.
+3. Configure the server:
+
+   | Where | How |
+   |---|---|
+   | Local (`dotnet run`, `aspire run`) | `dotnet user-secrets set "Discord:ClientId" "…" --project src/NetRts.Server`, likewise `Discord:ClientSecret` and `Discord:ServerId` |
+   | `azd up` | Answer the `discord-client-id`, `discord-client-secret` and `discord-server-id` prompts (stored in the azd environment) |
+   | netrts.snowse.io | App settings `Discord__ClientId`, `Discord__ClientSecret`, `Discord__ServerId` and `ASPNETCORE_FORWARDEDHEADERS_ENABLED=true` on the web app |
+
+`ASPNETCORE_FORWARDEDHEADERS_ENABLED` makes the server trust App Service's `X-Forwarded-Proto`.
+Without it the callback URL it sends to Discord starts with `http://` and Discord rejects it. The
+AppHost sets it for `azd` deployments. Sign-in cookies are encrypted with keys stored in the
+database (`data_protection_keys`), so restarts and redeploys don't sign anyone out.
+
+## Starting a new season
+
+Every result is recorded in the current season, whose label is empty. To close a season, label it
+in the database; its leaderboards stay viewable with `?season=<label>`, and the next season starts
+from zero:
+
+```sql
+UPDATE player_stats SET "Season" = '2026-27' WHERE "Season" = '';
+UPDATE matches      SET "Season" = '2026-27' WHERE "Season" = '';
+```
+
+The same works for a beta test: play `Preseason` matches, then label them (e.g. `beta-2026`) or
+just leave them on the separate preseason leaderboard.
+
+## Database migrations
+
+The schema is managed by EF Core migrations, one set per provider, because generated migrations use
+one database's column types: `Data/Migrations/Sqlite` and `Data/Migrations/Postgres`. After
+changing the model in `Data/NetRtsDb.cs`, add a migration to both:
+
+```bash
+cd src/NetRts.Server
+dotnet ef migrations add <Name> --context SqliteNetRtsDb   -o Data/Migrations/Sqlite   --namespace NetRts.Server.Data.Migrations.Sqlite
+dotnet ef migrations add <Name> --context PostgresNetRtsDb -o Data/Migrations/Postgres --namespace NetRts.Server.Data.Migrations.Postgres
+```
+
+Databases created before migrations existed are recognised at startup (they have a `players` table
+but no history) and marked as being at the first migration, so the rest applies on top and existing
+bots keep their keys.
 
 ## Continuous deployment to netrts.snowse.io
 

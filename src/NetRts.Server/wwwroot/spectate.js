@@ -1,5 +1,5 @@
 // Spectate view: #/match/{id} or #/match/{name}
-import { api, html, setHtml, esc, slotVar, displayName, fmt, outcomeText } from './util.js';
+import { api, html, setHtml, esc, slotVar, displayName, playerLabel, fmt, outcomeText } from './util.js';
 import { GAME, SNOW, say, ORE, unitName, buildingName, upgradeName, badgerize, hqName, housingName } from './lore.js';
 import { MapView, unitPath } from './mapview.js';
 
@@ -13,7 +13,7 @@ export function mountSpectate(root, matchKey) {
     <div id="banner-slot" aria-live="polite"></div>
     <div class="match-head">
       <div>
-        <p class="small" style="margin:0 0 6px"><a href="#/">${say('All matches', 'All brawls')}</a></p>
+        <p class="small" style="margin:0 0 6px"><a href="#/" id="back-link">${say('All matches', 'All brawls')}</a></p>
         <div class="title-row">
           <h1 id="title">${say('Loading match…', 'Waking the badgers…')}</h1>
           <span class="matchup" id="matchup" hidden></span>
@@ -312,6 +312,11 @@ export function mountSpectate(root, matchKey) {
     const matchup = !players.length ? say('Waiting for players', 'Waiting for badgers')
       : seats > 4 ? `${seats}-player ${say('match', 'brawl')}`   // the scoreboard lists everyone
         : players.map((p) => displayName(p.name)).join(' vs ');
+    // A heat links back to its league match, where every heat's scoreboard is.
+    if (summary?.parentMatchId) {
+      $('back-link').href = `#/match/${summary.parentMatchId}`;
+      $('back-link').textContent = `${(summary.name || '').replace(/-h\d+$/, '')}: all heats`;
+    }
     // A named match shows its name, with the matchup beside it.
     const title = summary?.name || matchup;
     $('title').textContent = title;
@@ -398,6 +403,9 @@ export function mountSpectate(root, matchKey) {
     const winnerId = (state?.outcome || result?.outcome || summary?.outcome)?.winnerId;
     const done = finished || !!result;
     const byId = new Map((result?.players || []).map((p) => [p.playerId, p]));
+    // The summary knows who verified their bot with Discord; the live state doesn't.
+    const seat = new Map((summary?.players || []).map((p) => [p.playerId, p]));
+    const label = (p) => playerLabel({ ...p, ...seat.get(p.playerId) });
     let list;
     if (state) list = state.players;
     else if (result) list = result.players;
@@ -415,7 +423,7 @@ export function mountSpectate(root, matchKey) {
       if (many) {
         return html`
       <article class="player compact ${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}" aria-label="${displayName(p.name)}">
-        <h3>${displayName(p.name)}${p.eliminated ? html`<span class="badge dead">${say('Out', 'Hibernating')}</span>` : ''}${won ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}</h3>
+        <h3>${label(p)}${p.eliminated ? html`<span class="badge dead">${say('Out', 'Hibernating')}</span>` : ''}${won ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}</h3>
         ${score ? html`<p class="counts">Score ${fmt(totalOf(score))}</p>` : ''}
         ${typeof p.resources === 'number' ? html`<p class="counts">${fmt(p.resources)} ${ORE} · ${p.unitCount} units</p>` : ''}
       </article>`;
@@ -423,7 +431,7 @@ export function mountSpectate(root, matchKey) {
       return html`
       <article class="player ${p.eliminated ? 'out' : ''}" style="--pc:${slotVar(p.slot)}" aria-label="${displayName(p.name)}">
         <div class="player-top">
-          <h3>${displayName(p.name)}${p.eliminated ? html`<span class="badge dead">${say('Eliminated', 'Hibernating')}</span>` : ''}${won ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}</h3>
+          <h3>${label(p)}${p.eliminated ? html`<span class="badge dead">${say('Eliminated', 'Hibernating')}</span>` : ''}${won ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}</h3>
           ${typeof p.resources === 'number' ? html`<span class="ore-count" title="${say('Ore in the bank', 'Grubs in the larder')}">${fmt(p.resources)} ${ORE}</span>` : ''}
         </div>
         ${SNOW ? html`<p class="counts">Home: ${hqName(p.slot)} · Lives in ${housingName(p.slot)}</p>` : ''}

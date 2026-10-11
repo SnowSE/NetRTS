@@ -41,7 +41,7 @@ Deliberate deviations are marked **Δ**.
 | 062 Elimination | Losing your last Command Center. **Δ** extra Command Centers can be built, so it's the *last* one. |
 | 063–064 Time limit | Highest total wins; ties are draws. |
 | 065 Results endpoint | `GET …/result` (live or archived), plus `GET …/replay`. |
-| 066–067 Auth and participation | Per-player API keys (hashed at rest); every game endpoint checks the caller is seated (`NOT_A_PARTICIPANT`). |
+| 066–067 Auth and participation | Per-player API keys (hashed at rest); every game endpoint checks the caller is seated (`NOT_A_PARTICIPANT`). Beyond the spec: people sign in to the website with Discord to claim bots (blue check, server nickname); Discord server admins run league matches (preseason, season, championship) that verified bots join like any match and play in heats started together; those ladders are ranked by top-four margin points, per season (`AccountTests`, `LeagueMatchTests`). |
 | 068 Error codes | Uniform `{code, message}` bodies; per-command codes listed in the bot guide. |
 | 069 Concurrent matches | One `MatchHost` per match; `Ten_concurrent_matches_all_progress`. |
 

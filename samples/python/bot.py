@@ -182,7 +182,10 @@ def get_into_match(api, args):
     settings = {k: v for k, v in {"tickIntervalMs": args.tick_ms, "maxTicks": args.max_ticks,
                                   "seed": args.seed}.items() if v is not None}
     if args.join:
-        match = api.call("POST", f"/api/v1/matches/{args.join}/join")
+        match_id = args.join
+        if len(match_id) != 36:  # a name, e.g. a league match like season-week3
+            match_id = api.call("GET", f"/api/v1/matches/named/{args.join}")["matchId"]
+        match = api.call("POST", f"/api/v1/matches/{match_id}/join")
         log(f"Joined match {match['matchId']}")
     elif args.create:
         match = api.call("POST", "/api/v1/matches", {"maxPlayers": args.players, "settings": settings})
@@ -253,7 +256,7 @@ def main():
     mode = ap.add_mutually_exclusive_group()
     mode.add_argument("--vs", default="sitter", help="house bot to play against (default: sitter)")
     mode.add_argument("--create", action="store_true", help="create a match for others to join")
-    mode.add_argument("--join", metavar="MATCH_ID", help="join an existing match")
+    mode.add_argument("--join", metavar="MATCH", help="join an existing match by id or name (league matches need a Discord-verified bot)")
     ap.add_argument("--players", type=int, default=2, help="seats when using --create")
     ap.add_argument("--tick-ms", type=int, help="tick interval for a match you create")
     ap.add_argument("--max-ticks", type=int, help="tick limit for a match you create")

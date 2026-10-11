@@ -13,6 +13,8 @@ using CommandLine;
 // Run it with:  dotnet run StarterBot.cs --player-name Frank                          (play a house bot)
 //          or:  dotnet run StarterBot.cs --player-name Frank --create-match our-game  (start a match for a classmate)
 //          or:  dotnet run StarterBot.cs --player-name Ann --join-match our-game      (join it, by name or by match id)
+//          or:  dotnet run StarterBot.cs --player-name Ann --join-match season-week3  (league matches too: claim your
+//               bot with Discord on the website first; play starts when the admin starts the heats)
 // Add --tick-ms 250 when starting a match to make it run faster (milliseconds per tick; 1000 = one tick a second).
 // Every option and its default value is in the Options class at the bottom of this file.
 

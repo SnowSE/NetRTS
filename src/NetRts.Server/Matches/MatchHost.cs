@@ -7,7 +7,11 @@ namespace NetRts.Server.Matches;
 
 public sealed record MatchSettings(int MapWidth, int MapHeight, int Seed, int TickIntervalMs, int MaxTicks);
 
-public sealed record Seat(Guid PlayerId, string Name, bool IsHouseBot);
+/// <summary>
+/// A player in a match. <c>Verified</c>: a Discord-verified person has claimed this bot;
+/// <c>OwnerName</c>, <c>OwnerAccountId</c>: that person's server nickname (or Discord name) and account.
+/// </summary>
+public sealed record Seat(Guid PlayerId, string Name, bool IsHouseBot, bool Verified = false, string? OwnerName = null, Guid? OwnerAccountId = null);
 
 /// <summary>
 /// Owns one match: its seats while waiting, then the simulation, its tick loop and any house bots.
@@ -34,8 +38,10 @@ public sealed class MatchHost
     private DateTime? _pausedAt;
     private PeriodicTimer? _timer;
 
-    public MatchHost(Guid id, string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics)
+    public MatchHost(Guid id, string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics,
+        MatchCategory category = MatchCategory.Practice)
     {
+        Category = category;
         Id = id;
         Name = name;
         CreatorId = creatorId;
@@ -54,6 +60,10 @@ public sealed class MatchHost
     public int MaxPlayers { get; }
     public MatchSettings Settings { get; }
     public bool IsExhibition { get; }
+    public MatchCategory Category { get; }
+
+    /// <summary>For a heat: the league match it belongs to. Heats start when the admin starts that match.</summary>
+    public Guid? ParentMatchId { get; set; }
     public DateTime CreatedAt { get; }
     public DateTime? CompletedAt { get; private set; }
     public bool Recorded { get; set; }
@@ -81,24 +91,29 @@ public sealed class MatchHost
         }
     }
 
-    /// <summary>Only matches with at most one real player can be sped up, slowed down or paused.</summary>
+    /// <summary>
+    /// Only practice matches with at most one real player can be sped up, slowed down or paused.
+    /// Season and championship matches always run at the speed they were created with.
+    /// </summary>
     public bool SpeedAdjustable
     {
         get
         {
             lock (_gate)
             {
-                return _seats.Count(s => !s.IsHouseBot) <= 1;
+                return SpeedAdjustableLocked;
             }
         }
     }
+
+    private bool SpeedAdjustableLocked => Category == MatchCategory.Practice && _seats.Count(s => !s.IsHouseBot) <= 1;
 
     /// <summary>Changes the speed and/or pauses. Returns an error code, or null on success.</summary>
     public string? SetSpeed(int? tickIntervalMs, bool? paused, DateTime now)
     {
         lock (_gate)
         {
-            if (_seats.Count(s => !s.IsHouseBot) > 1)
+            if (!SpeedAdjustableLocked)
             {
                 return "SPEED_LOCKED";
             }
@@ -133,7 +148,7 @@ public sealed class MatchHost
     {
         lock (_gate)
         {
-            if (_seats.Count(s => !s.IsHouseBot) > 1)
+            if (!SpeedAdjustableLocked)
             {
                 return "SPEED_LOCKED";
             }
@@ -381,7 +396,7 @@ public sealed class MatchHost
             {
                 TickIntervalMs = _tickIntervalMs,
                 Paused = _pausedAt is not null,
-                SpeedAdjustable = _seats.Count(s => !s.IsHouseBot) <= 1,
+                SpeedAdjustable = SpeedAdjustableLocked,
             };
         }
     }
@@ -429,11 +444,16 @@ public sealed class MatchHost
                 MapHeight = Settings.MapHeight,
                 Seed = Settings.Seed,
                 CreatedAt = new DateTimeOffset(CreatedAt, TimeSpan.Zero),
-                Players = _seats.Select((s, i) => new MatchPlayerDto { PlayerId = s.PlayerId, Name = s.Name, Slot = i, IsHouseBot = s.IsHouseBot }).ToList(),
+                Players = _seats.Select((s, i) => new MatchPlayerDto
+                {
+                    PlayerId = s.PlayerId, Name = s.Name, Slot = i, IsHouseBot = s.IsHouseBot, Verified = s.Verified, OwnerName = s.OwnerName,
+                }).ToList(),
                 Outcome = _sim?.Outcome,
                 Name = Name,
                 Paused = _pausedAt is not null,
-                SpeedAdjustable = _seats.Count(s => !s.IsHouseBot) <= 1,
+                SpeedAdjustable = SpeedAdjustableLocked,
+                Category = Category,
+                ParentMatchId = ParentMatchId,
             };
         }
     }

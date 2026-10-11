@@ -18,12 +18,14 @@ builder.Services.Configure<NetRtsOptions>(builder.Configuration.GetSection(NetRt
 // Microsoft Entra ID via the app's managed identity when it doesn't (Azure Database for PostgreSQL).
 if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("netrtsdb")))
 {
-    builder.AddAzureNpgsqlDbContext<NetRtsDb>("netrtsdb");
+    builder.AddAzureNpgsqlDbContext<PostgresNetRtsDb>("netrtsdb");
+    builder.Services.AddScoped<NetRtsDb>(sp => sp.GetRequiredService<PostgresNetRtsDb>());
 }
 else
 {
-    builder.Services.AddDbContext<NetRtsDb>(db =>
+    builder.Services.AddDbContext<SqliteNetRtsDb>(db =>
         db.UseSqlite(builder.Configuration.GetConnectionString("sqlite") ?? "Data Source=netrts.db"));
+    builder.Services.AddScoped<NetRtsDb>(sp => sp.GetRequiredService<SqliteNetRtsDb>());
 }
 
 builder.Services.AddSingleton(TimeProvider.System);
@@ -33,11 +35,16 @@ builder.Services.AddSingleton<MatchMetrics>();
 builder.Services.AddSingleton<MatchRecorder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchRecorder>());
 builder.Services.AddSingleton<MatchManager>();
+builder.Services.AddSingleton<LeagueMatchManager>();
+builder.Services.AddSingleton<Presence>();
 builder.Services.AddHostedService<MatchHousekeeper>();
 
-builder.Services.AddAuthentication(ApiKeys.Scheme)
+// Bots authenticate with API keys (the default scheme); people sign in to the website with Discord.
+var discord = builder.Configuration.GetSection(DiscordOptions.Section).Get<DiscordOptions>() ?? new DiscordOptions();
+builder.Services.Configure<DiscordOptions>(builder.Configuration.GetSection(DiscordOptions.Section));
+var auth = builder.Services.AddAuthentication(ApiKeys.Scheme)
     .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeys.Scheme, null);
-builder.Services.AddAuthorization();
+builder.Services.AddNetRtsAccounts(auth, discord);
 builder.Services.AddNetRtsRateLimits(options);
 builder.Services.AddCors(cors => cors.AddDefaultPolicy(policy => policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod()));
 builder.Services.AddNetRtsOpenApi();
@@ -64,6 +71,7 @@ app.MapNetRtsApiReference();
 app.MapDefaultEndpoints();
 app.MapPlayerEndpoints();
 app.MapMatchEndpoints();
+app.MapAccountEndpoints();
 app.MapFallback("/api/{**path}", () => ApiErrors.Error(404, "NOT_FOUND", "No such API endpoint. See /scalar."));
 
 await app.RunAsync();
@@ -72,7 +80,7 @@ static async Task InitializeDatabaseAsync(IServiceProvider services)
 {
     await using var scope = services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
-    await db.Database.EnsureCreatedAsync();
+    await DatabaseMigrator.MigrateAsync(db, scope.ServiceProvider.GetRequiredService<ILogger<NetRtsDb>>());
 
     var directory = services.GetRequiredService<HouseBotDirectory>();
     foreach (var bot in HouseBots.All)

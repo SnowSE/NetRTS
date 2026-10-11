@@ -24,7 +24,7 @@ public sealed class RunnerOptions
 
         Usage:
           netrts-bot --server http://localhost:5080 --name mybot [--key <apiKey>] --strategy balanced
-                     (--vs <houseBot> | --create [--players 2] | --join <matchId>)
+                     (--vs <houseBot> | --create [--players 2] | --join <match>)
                      [--tick-ms 1000] [--max-ticks 1800] [--seed N]
 
         Options:
@@ -35,7 +35,8 @@ public sealed class RunnerOptions
           --vs <houseBot>      Create a match against a house bot; it starts right away
           --create             Create a waiting match and print its id for others to --join
           --players <n>        Seats in a --create match, 2-16 (default: 2)
-          --join <matchId>     Join an existing waiting match
+          --join <match>       Join a waiting match by id or name, e.g. a league match like season-week3
+                               (league matches need a Discord-verified bot; play starts when the admin says)
           --tick-ms <ms>       Tick interval for matches you create
           --max-ticks <n>      Tick limit for matches you create
           --seed <n>           Map seed for matches you create
@@ -45,6 +46,7 @@ public sealed class RunnerOptions
           netrts-bot --name mybot --strategy rusher --vs sitter --tick-ms 200
           netrts-bot --key $KEY --create --players 2          (prints a match id)
           netrts-bot --name friend --strategy economist --join <matchId>
+          netrts-bot --key $KEY --strategy balanced --join season-week3
         """;
 
     public Uri Server { get; private set; } = new("http://localhost:5080/");
@@ -54,6 +56,7 @@ public sealed class RunnerOptions
     public MatchMode Mode { get; private set; }
     public string? VersusBot { get; private set; }
     public Guid JoinMatchId { get; private set; }
+    public string? JoinMatchName { get; private set; }
     public int Players { get; private set; } = 2;
     public int? TickMs { get; private set; }
     public int? MaxTicks { get; private set; }
@@ -109,7 +112,15 @@ public sealed class RunnerOptions
                     break;
                 case "--join":
                     var id = Value();
-                    o.JoinMatchId = Guid.TryParse(id, out var g) ? g : throw new ArgumentException($"'{id}' is not a valid match id.");
+                    if (Guid.TryParse(id, out var g))
+                    {
+                        o.JoinMatchId = g;
+                    }
+                    else
+                    {
+                        o.JoinMatchName = id;
+                    }
+
                     modes.Add(MatchMode.Join);
                     break;
                 case "--players":
@@ -158,7 +169,7 @@ public sealed class RunnerOptions
 
         if (modes.Count != 1)
         {
-            throw new ArgumentException("Choose exactly one of --vs <houseBot>, --create or --join <matchId>.");
+            throw new ArgumentException("Choose exactly one of --vs <houseBot>, --create or --join <match>.");
         }
 
         o.Mode = modes[0];

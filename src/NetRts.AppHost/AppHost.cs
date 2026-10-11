@@ -38,7 +38,7 @@ dataSubnet.AddPrivateEndpoint(postgres);
 
 var db = postgres.AddDatabase("netrtsdb");
 
-builder.AddProject<Projects.NetRts_Server>("server")
+var server = builder.AddProject<Projects.NetRts_Server>("server")
     .WithReference(db)
     .WaitFor(db)
     .WithExternalHttpEndpoints()
@@ -50,6 +50,15 @@ builder.AddProject<Projects.NetRts_Server>("server")
 
 if (builder.ExecutionContext.IsPublishMode)
 {
+    // Discord sign-in (see docs/deploying.md). Locally the server reads these from its own user secrets.
+    server
+        .WithEnvironment("Discord__ClientId", builder.AddParameter("discord-client-id"))
+        .WithEnvironment("Discord__ClientSecret", builder.AddParameter("discord-client-secret", secret: true))
+        .WithEnvironment("Discord__ServerId", builder.AddParameter("discord-server-id"))
+        // App Service terminates HTTPS in front of the app; trust its X-Forwarded-Proto so the Discord
+        // callback URL and the sign-in cookie use https.
+        .WithEnvironment("ASPNETCORE_FORWARDEDHEADERS_ENABLED", "true");
+
     // A pgweb console inside the network, so the private database can still be inspected.
     // Only the addresses in NetRts:AdminIpAddresses (CIDR, e.g. "203.0.113.7/32") can open it.
     var adminIps = builder.Configuration.GetSection("NetRts:AdminIpAddresses").GetChildren()

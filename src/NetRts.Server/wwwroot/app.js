@@ -1,7 +1,9 @@
 // Spectator UI: hash router + home view.
-import { api, html, raw, setHtml, slotVar, displayName, timeAgo, fmt, outcomeHtml, esc } from './util.js';
+import { api, html, raw, setHtml, slotVar, displayName, playerLabel, verifiedBadge, timeAgo, fmt, outcomeHtml, esc } from './util.js';
 import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
+import { mountAccount } from './account.js';
+import { mountLeague } from './league.js';
 
 const main = document.getElementById('main');
 let teardown = null;
@@ -12,13 +14,17 @@ function route() {
   const hash = location.hash || '#/';
   // A match id, or the name a bot gave its match.
   const m = hash.match(/^#\/match\/([0-9a-fA-F-]{36}|[A-Za-z0-9_-]{3,32})\/?$/);
-  document.querySelectorAll('.topbar nav a[href^="#"]').forEach((a) => {
-    if (m) a.removeAttribute('aria-current'); else a.setAttribute('aria-current', 'page');
+  const account = /^#\/account(\/|\?|$)/.test(hash);
+  const section = m ? 'match' : account ? 'account' : 'home';
+  document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
+    if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
   // The battle view uses the whole screen; the home page keeps a readable width.
   main.classList.toggle('wide', Boolean(m));
   if (m) {
-    teardown = mountSpectate(main, m[1]);
+    teardown = mountMatch(main, m[1]);
+  } else if (account) {
+    teardown = mountAccount(main, showAccountLink);
   } else {
     teardown = mountHome(main);
   }
@@ -27,7 +33,47 @@ function route() {
 
 window.addEventListener('hashchange', () => { route(); main.focus({ preventScroll: true }); });
 
+/**
+ * A match page: league matches (played in heats) get the queue / heats / scoreboard page, every other
+ * match the battle view.
+ */
+function mountMatch(root, key) {
+  let inner = null;
+  let alive = true;
+  const byId = /^[0-9a-fA-F-]{36}$/.test(key);
+  api(byId ? `/api/v1/matches/${key}` : `/api/v1/matches/named/${encodeURIComponent(key)}`)
+    .then((summary) => summary?.heats ? mountLeague(root, summary) : mountSpectate(root, key))
+    .catch(() => mountSpectate(root, key))   // the battle view explains a missing match
+    .then((teardown) => { if (alive) inner = teardown; else teardown?.(); });
+  return () => { alive = false; inner?.(); };
+}
+
+/** The top bar's account link: who is signed in (with their blue check), or an invitation to sign in. */
+function showAccountLink(info) {
+  const link = document.getElementById('account-link');
+  if (!info?.discordEnabled) { link.hidden = true; return; }
+  link.hidden = false;
+  const a = info.account;
+  setHtml(link, info.signedIn && a
+    ? html`${a.avatarUrl ? html`<img class="avatar" src="${a.avatarUrl}" alt="" width="22" height="22">` : ''}${a.displayName}${verifiedBadge({ verified: a.verified })}`
+    : html`Sign in with Discord`);
+}
+api('/api/v1/account').then(showAccountLink).catch(() => {});
+
 /* ------------------------------------------------------------------ home */
+
+/** Each category is its own leaderboard. */
+const CATEGORIES = [
+  { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: each heat\'s top four score their margins over the players below them.' },
+  { key: 'Championship', label: say('Championship', 'Championship'), note: 'Championship matches; Discord-verified bots only. Ranked by points, like the season.' },
+  { key: 'Preseason', label: say('Preseason', 'Preseason'), note: 'Warm-up league matches (beta testing). Ranked by points; they don\'t count toward the season.' },
+  { key: 'Practice', label: say('Practice', 'Scrimmage'), note: 'Every match bots start themselves. Open to everyone.' },
+];
+const ladderCategory = () => {
+  let c = null;
+  try { c = localStorage.getItem('netrts-ladder'); } catch {}
+  return CATEGORIES.some((x) => x.key === c) ? c : 'Season';
+};
 
 const SPEEDS = [
   { ms: 250, label: say('Fast', 'Honey badger') },
@@ -92,6 +138,15 @@ function mountHome(root) {
       <div>
         <section aria-labelledby="ladder-h">
           <h2 id="ladder-h">${say('Leaderboard', 'Top Badgers')}</h2>
+          <fieldset class="ladder-tabs">
+            <legend class="visually-hidden">Leaderboard</legend>
+            <div class="segmented">
+              ${CATEGORIES.map((c) => html`
+                <input type="radio" name="ladder-cat" id="cat-${c.key}" value="${c.key}" ${c.key === ladderCategory() ? html`checked` : ''}>
+                <label for="cat-${c.key}">${c.label}</label>`)}
+            </div>
+          </fieldset>
+          <p class="muted small" id="ladder-note" style="margin:8px 0 0"></p>
           <div id="ladder"><p class="empty">Loading leaderboard…</p></div>
         </section>
         <section aria-labelledby="bot-h" id="write-a-bot">
@@ -200,7 +255,7 @@ Authorization: Bearer &lt;apiKey&gt;
       const all = await api('/api/v1/matches');
       if (!alive) return;
       // Finished matches move to "Recent results"; keep this list to what you can watch live.
-      const list = all.filter((m) => m.status !== 'Completed');
+      const list = all.filter((m) => m.status !== 'Completed' && !m.parentMatchId);
       // A brawl that just finished belongs in the results and may have moved the ladder: refresh them now.
       const ids = new Set(list.map((m) => m.matchId));
       if (liveIds && [...liveIds].some((id) => !ids.has(id))) {
@@ -234,22 +289,31 @@ Authorization: Bearer &lt;apiKey&gt;
     }
   }
 
+  root.querySelector('.ladder-tabs').addEventListener('change', (e) => {
+    try { localStorage.setItem('netrts-ladder', e.target.value); } catch {}
+    loadLadder();
+  });
+
   async function loadLadder() {
     const el = $('ladder');
+    const category = root.querySelector('input[name="ladder-cat"]:checked')?.value || 'Season';
+    $('ladder-note').textContent = CATEGORIES.find((c) => c.key === category)?.note ?? '';
     try {
-      const list = await api('/api/v1/leaderboard');
-      if (!alive) return;
+      const list = await api(`/api/v1/leaderboard?category=${category}`);
+      if (!alive || category !== root.querySelector('input[name="ladder-cat"]:checked')?.value) return;
       setHtml(el, list.length ? html`
         <table class="ladder">
           <caption class="visually-hidden">${say('Players ranked by rating', 'Badgers ranked by rating')}</caption>
-          <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Rating</th>
+          <thead><tr><th scope="col">#</th><th scope="col">Player</th>${category !== 'Practice' ? html`<th scope="col"><abbr title="League points: score margins over the rest of each match's top four">Pts</abbr></th>` : ''}<th scope="col">Rating</th>
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
           <tbody>${list.map((p) => html`
             <tr><td>${p.rank}</td>
-              <td>${displayName(p.name)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
-              <td class="rating">${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
+              <td>${playerLabel(p)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
+              ${category !== 'Practice' ? html`<td class="rating">${fmt(p.points)}</td>` : ''}<td class="${category === 'Practice' ? 'rating' : ''}">${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
           </tbody>
-        </table>` : html`<p class="empty">${say('No ranked players yet.', 'No ranked badgers yet.')}</p>`);
+        </table>` : html`<p class="empty">${category === 'Practice'
+          ? say('No ranked players yet.', 'No ranked badgers yet.')
+          : `No ${category.toLowerCase()} matches have finished yet.`}</p>`);
     } catch (e) {
       if (alive) setHtml(el, html`<p class="error">Could not load the leaderboard: ${e.message}</p>`);
     }
@@ -263,12 +327,21 @@ Authorization: Bearer &lt;apiKey&gt;
 /** One row of a match list. Finished matches leave out the status column: they all say "Completed". */
 function matchRow(m, { status = true } = {}) {
   const players = [...(m.players || [])].sort((a, b) => a.slot - b.slot);
-  const names = players.length
-    ? players.map((p, i) => html`${i ? html`<span class="vs-sep">vs</span>` : ''}<span class="pname" style="--pc:${slotVar(p.slot)}">${displayName(p.name)}</span>`)
-    : html`<span class="muted">${say('no players yet', 'no badgers yet')}</span>`;
+  // A league match lists who has joined (they're split into heats later), not a matchup.
+  const shown = m.heats ? players.slice(0, 12) : players;
+  const names = !players.length
+    ? html`<span class="muted">${say('no players yet', 'no badgers yet')}</span>`
+    : m.heats
+      ? html`${shown.map((p, i) => html`${i ? ', ' : ''}${playerLabel(p, { owner: false })}`)}${players.length > shown.length ? html` <span class="muted">+${players.length - shown.length} more</span>` : ''}`
+      : players.map((p, i) => html`${i ? html`<span class="vs-sep">vs</span>` : ''}<span class="pname" style="--pc:${slotVar(p.slot)}">${playerLabel(p, { owner: false })}</span>`);
   const open = m.maxPlayers - players.length;
   let meta;
-  if (m.status === 'Completed' && m.outcome) {
+  if (m.heats) {
+    // A league match, played in heats.
+    meta = m.status === 'Waiting'
+      ? (m.heats.length ? html`${m.heats.length} heats · starting soon` : html`<b>${players.length}</b> joined · verified bots, join now`)
+      : html`${m.heats.filter((h) => h.status !== 'Completed').length} of ${m.heats.length} heats live`;
+  } else if (m.status === 'Completed' && m.outcome) {
     meta = html`${outcomeHtml(m.outcome, m.players)}<br>${timeAgo(m.createdAt)}`;
   } else if (m.status === 'Waiting') {
     meta = html`${open} seat${open === 1 ? '' : 's'} open`;
@@ -280,7 +353,7 @@ function matchRow(m, { status = true } = {}) {
   const key = m.name && m.status !== 'Completed' ? m.name : m.matchId;
   return html`<li><a class="match-row ${status ? '' : 'no-status'}" href="#/match/${key}" aria-label="${m.status} ${say('match', 'brawl')}: ${players.map((p) => displayName(p.name)).join(' versus ')}">
     ${status ? html`<span class="status ${m.status}">${m.status === 'Active' ? 'Live' : m.status}</span>` : ''}
-    <span class="who">${m.name ? html`<b style="margin-right:8px">${m.name}</b>` : ''}${names}<span class="muted small" style="margin-left:8px">${m.mapWidth}×${m.mapHeight}</span></span>
+    <span class="who">${m.category && m.category !== 'Practice' ? html`<span class="tag cat ${m.category}">${m.category}</span>` : ''}${m.name ? html`<b style="margin-right:8px">${m.name}</b>` : ''}${names}${m.heats ? '' : html`<span class="muted small" style="margin-left:8px">${m.mapWidth}×${m.mapHeight}</span>`}</span>
     <span class="meta">${meta}</span></a></li>`;
 }
 

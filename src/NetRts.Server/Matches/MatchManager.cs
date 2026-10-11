@@ -76,8 +76,10 @@ public sealed partial class MatchManager(
 
     public IReadOnlyList<MatchHost> All => _matches.Values.OrderByDescending(m => m.CreatedAt).ToList();
 
-    public MatchHost Create(Guid creatorId, string creatorName, CreateMatchRequest request)
+    /// <summary>A practice match; the creator takes slot 0.</summary>
+    public MatchHost Create(Seat creator, CreateMatchRequest request)
     {
+        var creatorId = creator.PlayerId;
         var maxPlayers = request.MaxPlayers ?? 2;
         if (maxPlayers is < 2 or > MapGenerator.MaxPlayers)
         {
@@ -113,7 +115,7 @@ public sealed partial class MatchManager(
             }
 
             var host = NewHost(name, creatorId, maxPlayers, settings, isExhibition: false);
-            host.TryJoin(new Seat(creatorId, creatorName, IsHouseBot: false));
+            host.TryJoin(creator);
             foreach (var (seat, strategy) in houseBots.SeatsFor(bots))
             {
                 host.TryJoin(seat, strategy);
@@ -123,6 +125,63 @@ public sealed partial class MatchManager(
             StartIfFull(host);
             return host;
         }
+    }
+
+    /// <summary>
+    /// A heat of a league match, with its players already seated. It stays waiting, full but not
+    /// started, until the admin starts the league match (<see cref="StartHeat"/>).
+    /// </summary>
+    public MatchHost CreateHeat(Guid parentMatchId, string name, MatchCategory category, IReadOnlyList<Seat> seats, int? tickIntervalMs, int? maxTicks)
+    {
+        if (seats.Count is < 2 or > MapGenerator.MaxPlayers)
+        {
+            throw new MatchException(400, "INVALID_SETTINGS", $"A match needs 2 to {MapGenerator.MaxPlayers} players.");
+        }
+
+        var settings = ResolveSettings(new MatchSettingsDto { TickIntervalMs = tickIntervalMs, MaxTicks = maxTicks }, seats.Count);
+        lock (_createGate)
+        {
+            EnsureCapacity();
+            if (_matches.Values.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase) && m.Status != MatchStatus.Completed))
+            {
+                throw new MatchException(409, "MATCH_NAME_TAKEN", $"A match named '{name}' is already waiting or running.");
+            }
+
+            var host = NewHost(name, null, seats.Count, settings, isExhibition: false, category);
+            host.ParentMatchId = parentMatchId;
+            foreach (var seat in seats)
+            {
+                host.TryJoin(seat);
+            }
+
+            _matches[host.Id] = host;
+            return host;
+        }
+    }
+
+    /// <summary>Starts a heat (see <see cref="CreateHeat"/>).</summary>
+    public void StartHeat(MatchHost host) => host.Start(_options.AutoTick, TimeSpan.FromMilliseconds(_options.StartDelayMs));
+
+    /// <summary>Checks the settings a league match will give its heats, before anyone joins it.</summary>
+    public void ValidateLeagueSettings(int? tickIntervalMs, int? maxTicks) =>
+        ResolveSettings(new MatchSettingsDto { TickIntervalMs = tickIntervalMs, MaxTicks = maxTicks }, 2);
+
+    /// <summary>Drops a match that hasn't started (admins tidying up league matches).</summary>
+    public MatchHost Cancel(Guid matchId)
+    {
+        var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
+        if (host.Status != MatchStatus.Waiting)
+        {
+            throw new MatchException(409, "MATCH_ALREADY_STARTED", "Only matches that haven't started can be cancelled.");
+        }
+
+        if (_matches.TryRemove(matchId, out _))
+        {
+            host.Stop();
+            _logger.LogInformation("Cancelled match {MatchId}", matchId);
+        }
+
+        return host;
     }
 
     public MatchHost CreateExhibition(CreateExhibitionRequest request)
@@ -156,10 +215,15 @@ public sealed partial class MatchManager(
         }
     }
 
-    public MatchHost Join(Guid matchId, Guid playerId, string playerName)
+    public MatchHost Join(Guid matchId, Seat seat)
     {
         var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
-        var error = host.TryJoin(new Seat(playerId, playerName, IsHouseBot: false));
+        if (host.ParentMatchId is { } parent)
+        {
+            throw new MatchException(409, "HEAT_MATCH", $"This is a heat of a {host.Category.ToString().ToLowerInvariant()} match; join that match ({parent}) instead.");
+        }
+
+        var error = host.TryJoin(seat);
         if (error is not null)
         {
             throw new MatchException(409, error, error switch
@@ -177,6 +241,11 @@ public sealed partial class MatchManager(
     public MatchHost Leave(Guid matchId, Guid playerId)
     {
         var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
+        if (host.ParentMatchId is not null)
+        {
+            throw new MatchException(409, "CANNOT_LEAVE", "Heats are arranged by the admin; surrender once it starts instead.");
+        }
+
         if (!host.TryLeave(playerId))
         {
             throw new MatchException(409, "CANNOT_LEAVE", "You can only leave a match you joined that hasn't started. Use surrender instead.");
@@ -218,7 +287,7 @@ public sealed partial class MatchManager(
             case null:
                 return;
             case "SPEED_LOCKED":
-                throw new MatchException(403, error, "Only matches with at most one real player (exhibitions and games against house bots) can change speed.");
+                throw new MatchException(403, error, "Only practice matches with at most one real player (exhibitions and games against house bots) can change speed.");
             case "NOT_PAUSED":
                 throw new MatchException(409, error, "Pause the match before stepping it.");
             default:
@@ -232,7 +301,8 @@ public sealed partial class MatchManager(
         foreach (var host in _matches.Values)
         {
             var status = host.Status;
-            var expiredWaiting = status == MatchStatus.Waiting && now - host.CreatedAt > TimeSpan.FromMinutes(_options.WaitingMatchTimeoutMinutes);
+            var timeout = host.Category == MatchCategory.Practice ? _options.WaitingMatchTimeoutMinutes : _options.LeagueMatchTimeoutMinutes;
+            var expiredWaiting = status == MatchStatus.Waiting && now - host.CreatedAt > TimeSpan.FromMinutes(timeout);
             var agedOut = status == MatchStatus.Completed && host.Recorded && host.CompletedAt is { } done
                           && now - done > TimeSpan.FromMinutes(_options.CompletedMatchRetentionMinutes);
             if ((expiredWaiting || agedOut) && _matches.TryRemove(host.Id, out _))
@@ -243,10 +313,11 @@ public sealed partial class MatchManager(
         }
     }
 
-    private MatchHost NewHost(string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition)
+    private MatchHost NewHost(string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition,
+        MatchCategory category = MatchCategory.Practice)
     {
         var host = new MatchHost(Guid.NewGuid(), name, creatorId, maxPlayers, settings, isExhibition, DateTime.UtcNow,
-            loggerFactory.CreateLogger<MatchHost>(), metrics);
+            loggerFactory.CreateLogger<MatchHost>(), metrics, category);
         host.Completed += recorder.Enqueue;
         return host;
     }
@@ -325,8 +396,8 @@ public sealed partial class MatchManager(
     }
 }
 
-/// <summary>Periodically tidies <see cref="MatchManager"/>.</summary>
-public sealed class MatchHousekeeper(MatchManager manager, TimeProvider time) : BackgroundService
+/// <summary>Periodically tidies <see cref="MatchManager"/> and <see cref="LeagueMatchManager"/>.</summary>
+public sealed class MatchHousekeeper(MatchManager manager, LeagueMatchManager leagues, TimeProvider time) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -334,6 +405,7 @@ public sealed class MatchHousekeeper(MatchManager manager, TimeProvider time) : 
         while (await timer.WaitForNextTickAsync(stoppingToken))
         {
             manager.Housekeep(time.GetUtcNow().UtcDateTime);
+            leagues.Housekeep(time.GetUtcNow().UtcDateTime);
         }
     }
 }

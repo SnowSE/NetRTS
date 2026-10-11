@@ -75,26 +75,76 @@ Authorization: Bearer nrts_…
 (`X-Api-Key: nrts_…` also works.) Names are 3–32 letters, digits, `_` or `-`. Registration is
 limited to 5 per minute per IP address, so register once and reuse the key.
 
+### Verify your bot with Discord
+
+On the website, **Sign in with Discord** (top right) and either claim a bot by pasting its API key or
+register a new one there. Claimed bots get a blue check, show your nickname from our Discord server
+next to their name, and can play **league matches** (preseason, season and championship). You must be a member of
+the Discord server to be verified. The account page also replaces a lost or leaked API key.
+Bots never use Discord themselves: they keep sending their API key.
+
 ## Matches
 
 | Call | What it does |
 |---|---|
-| `POST /api/v1/matches` | Create a match. Body (all optional): `{"name":"cs1400-lab", "maxPlayers":2, "houseBots":["balanced"], "settings":{"tickIntervalMs":1000,"maxTicks":1800,"mapWidth":64,"mapHeight":64,"seed":42}}`. It starts as soon as every seat is filled — with `houseBots` that is immediately. A `name` (3–32 letters, digits, `_` or `-`) lets others find the match; no two unfinished matches share one (`409 MATCH_NAME_TAKEN`). |
+| `POST /api/v1/matches` | Create a practice match. Body (all optional): `{"name":"cs1400-lab", "maxPlayers":2, "houseBots":["balanced"], "settings":{"tickIntervalMs":1000,"maxTicks":1800,"mapWidth":64,"mapHeight":64,"seed":42}}`. It starts as soon as every seat is filled — with `houseBots` that is immediately. A `name` (3–32 letters, digits, `_` or `-`) lets others find the match; no two unfinished matches share one (`409 MATCH_NAME_TAKEN`). |
 | `GET /api/v1/matches?status=Waiting` | Open matches you can join, with their `name` if they have one. |
 | `GET /api/v1/matches/named/{name}` | The match with that name: the one waiting or running, otherwise the most recent. The spectator page takes names too: `/#/match/{name}`. |
-| `POST /api/v1/matches/{id}/join` | Take a free seat. |
+| `POST /api/v1/matches/{id}/join` | Take a free seat. League matches (preseason, season, championship) take Discord-verified bots only (`403 NOT_VERIFIED`), one per person. |
 | `POST /api/v1/matches/{id}/leave` | Give up your seat before the match starts. |
 | `GET /api/v1/matches/{id}/map` | Terrain and every start position (public knowledge). |
 | `GET /api/v1/matches/{id}/state` | Your fog-of-war view (see below). |
 | `POST /api/v1/matches/{id}/commands` | Queue commands. |
 | `DELETE /api/v1/matches/{id}/commands` | Drop everything still waiting in your queue. |
 | `POST /api/v1/matches/{id}/surrender` | Concede. |
-| `POST /api/v1/matches/{id}/speed` | Change a running match's speed: `{"tickIntervalMs":250}`, `{"paused":true}` or both. Only matches with at most one real player (exhibitions and games against house bots), so nobody's opponent can be sped up or paused; anyone may call it, and the spectator page has buttons for it. A pause lifts itself after five minutes. Your state's `tickIntervalMs` and `paused` show the current speed. |
+| `POST /api/v1/matches/{id}/speed` | Change a running match's speed: `{"tickIntervalMs":250}`, `{"paused":true}` or both. Only practice matches with at most one real player (exhibitions and games against house bots), so nobody's opponent can be sped up or paused; anyone may call it, and the spectator page has buttons for it. A pause lifts itself after five minutes. Your state's `tickIntervalMs` and `paused` show the current speed. |
 | `POST /api/v1/matches/{id}/step` | Run one tick of a paused match. |
 | `GET /api/v1/matches/{id}/result` | Winner, end reason, score breakdown and stats (`409` until it ends). |
 | `GET /api/v1/matches/{id}/replay` | Seed + every executed command — enough to re-simulate the match exactly. |
 | `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |
-| `GET /api/v1/leaderboard` | Elo ladder. Only player-vs-player 1v1 matches change ratings; games against house bots count toward your win/loss record but not your rating. |
+| `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then rating). Add `&season=2026-27` for a past season. |
+| `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has all three categories, and `verified`/`ownerName` your blue check. |
+| `GET /api/v1/matches/history?category=Season` | Finished matches, optionally one category only. |
+
+**Practice and league matches.** Every match has a `category`, and each category is its own
+leaderboard. Matches your bot creates are `Practice`, ranked by Elo rating, which only
+player-vs-player 1v1s move.
+
+`Preseason`, `Season` and `Championship` are **league matches**, run by the admins
+(administrators of our Discord server). They work like any named match, with one difference: when
+everyone is in, the admin splits the players into **heats**, separate games of a few players each,
+and starts every heat at once.
+
+1. An admin creates the match, e.g. `season-week3`. It shows up in `GET /api/v1/matches` and on the
+   home page.
+2. Your verified bot joins it like any match: `GET /api/v1/matches/named/season-week3`, then
+   `POST /api/v1/matches/{id}/join`. Each person may enter one bot.
+3. Long-poll `GET /api/v1/matches/{id}/state?waitForTick=0` as usual. It keeps answering
+   `409 MATCH_NOT_STARTED` until the admin starts the heats. Long-polling also shows the admin your
+   bot is connected: a bot counts as connected if it made any API call in the last 40 seconds.
+4. Once started, keep using the **same match id**. `state`, `commands`, `surrender`, `map` and
+   `result` all answer for your heat; you'll see only the players in it. Nothing else changes.
+
+Spectators watch on the match's page, `/#/match/season-week3`. They see who has joined, how the
+admin splits everyone into heats, and then a live scoreboard per heat that links to each heat's
+battle view. A heat has its own id and name (`season-week3-h2`) and its own result and replay.
+
+Heats can't be sped up or paused. Everyone in a heat is rated by finishing place: the winner first,
+then everyone else by final score. Every pair of players counts as a mini 1v1, scaled so that a big
+heat moves a rating about as much as one 1v1. League leaderboards are ranked by **points**. In each
+heat the top four earn their score margins over everyone below them in that four:
+
+| Place | Points |
+|---|---|
+| 1st | (s1 − s2) + (s1 − s3) + (s1 − s4) |
+| 2nd | (s2 − s3) + (s2 − s4) |
+| 3rd | s3 − s4 |
+| 4th and below | 0 |
+
+So running away with a heat pays a lot, and scraping a win pays a little. A margin is never
+negative. `Preseason` keeps warm-up and beta-test matches off the season's leaderboard.
+`GET /api/v1/matches/{id}/standings` returns the live scoreboard per heat, with the points each
+player would earn if it ended now.
 
 Seats are shuffled when a match starts, so your slot (and with it your start position and colour)
 doesn't depend on when you joined; read `you.slot` from your state. The shuffle uses the match
@@ -281,7 +331,8 @@ Every non-2xx response has the same body:
 { "code": "NOT_A_PARTICIPANT", "message": "You are not playing in this match." }
 ```
 
-Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `404 MATCH_NOT_FOUND`,
+Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `403 NOT_VERIFIED` (claim your bot with
+Discord first), `409 MATCH_CLOSED` (the league match has been split into heats), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
 `409 MATCH_NOT_STARTED` (keep long-polling with `waitForTick=0`), `409 MATCH_FULL`,
 `400 INVALID_JSON`, `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and
 120/second across all of a bot's matches).

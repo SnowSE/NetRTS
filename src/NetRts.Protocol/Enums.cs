@@ -55,6 +55,23 @@ public enum CommandType
     Rally,
 }
 
+/// <summary>Which leaderboard a match counts toward. Each category keeps its own ratings and records.</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<MatchCategory>))]
+public enum MatchCategory
+{
+    /// <summary>Any match a bot creates. Open to everyone.</summary>
+    Practice,
+
+    /// <summary>Warm-up league matches (e.g. beta testing) that keep the season's ladder clean. Verified bots only.</summary>
+    Preseason,
+
+    /// <summary>Regular-season league match, created by an admin and played in heats. Verified bots only.</summary>
+    Season,
+
+    /// <summary>Championship league match, created by an admin and played in heats. Verified bots only.</summary>
+    Championship,
+}
+
 [JsonConverter(typeof(JsonStringEnumConverter<MatchStatus>))]
 public enum MatchStatus
 {
