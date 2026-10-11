@@ -98,6 +98,11 @@ function mountHome(root) {
           <a class="btn ghost" href="/scalar">Read the API docs</a>
           <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger')}</a>
         </div>
+        <div class="promo">
+          <iframe src="https://www.youtube-nocookie.com/embed/n55mFh3wFiA?rel=0" title="${say('NetRts in action', 'Badger Brawl: the trailer')}"
+            loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+        </div>
       </div>
       <form class="launch" id="launch" novalidate>
         <h2>${say('Start an exhibition', 'Start a scrimmage')}</h2>
