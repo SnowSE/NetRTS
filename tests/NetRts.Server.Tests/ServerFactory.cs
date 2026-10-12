@@ -20,6 +20,8 @@ public class ServerFactory : WebApplicationFactory<Program>
 
     protected virtual bool AutoTick => false;
 
+    public const string TestAppInsights = "/subscriptions/sub/resourceGroups/rg/providers/microsoft.insights/components/ai";
+
     public MatchManager Matches => Services.GetRequiredService<MatchManager>();
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -33,6 +35,7 @@ public class ServerFactory : WebApplicationFactory<Program>
         builder.UseSetting("NetRts:MaxLongPollSeconds", "5");
         builder.UseSetting("NetRts:RequestsPerSecond", "100000");
         builder.UseSetting("NetRts:RegistrationsPerMinutePerIp", "100000");
+        builder.UseSetting("NetRts:AppInsightsResourceId", TestAppInsights);
     }
 
     /// <summary>Stores a Discord account, as a Discord sign-in would.</summary>

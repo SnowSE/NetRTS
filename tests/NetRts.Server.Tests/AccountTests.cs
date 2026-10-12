@@ -140,4 +140,21 @@ public class AccountTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     private NetRtsClient Client(string apiKey) => new(factory.CreateClient(), apiKey);
+
+    [Fact]
+    public async Task Only_admins_get_the_telemetry_links()
+    {
+        var admin = await factory.ClientFor(await factory.NewAccountAsync(admin: true))
+            .GetFromJsonAsync<AccountDto>("/api/v1/account", NetRtsClient.JsonOptions, Ct);
+        var player = await factory.ClientFor(await factory.NewAccountAsync())
+            .GetFromJsonAsync<AccountDto>("/api/v1/account", NetRtsClient.JsonOptions, Ct);
+
+        Assert.Empty(player!.TelemetryLinks);
+        Assert.Contains(admin!.TelemetryLinks, l => l.Label == "Failures" &&
+            l.Url == $"https://portal.azure.com/#/resource{ServerFactory.TestAppInsights}/failures");
+        var exceptions = admin.TelemetryLinks.Single(l => l.Label == "Exceptions").Url;
+        var q = Uri.UnescapeDataString(exceptions.Split("/q/")[1].Split('/')[0]);
+        using var gzip = new System.IO.Compression.GZipStream(new MemoryStream(Convert.FromBase64String(q)), System.IO.Compression.CompressionMode.Decompress);
+        Assert.StartsWith("exceptions\n| project", new StreamReader(gzip).ReadToEnd());
+    }
 }

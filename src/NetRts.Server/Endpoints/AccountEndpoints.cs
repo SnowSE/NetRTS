@@ -22,6 +22,9 @@ public sealed record AccountDto
 
     /// <summary>The bots this account has claimed.</summary>
     public IReadOnlyList<PlayerProfileDto> Bots { get; init; } = [];
+
+    /// <summary>Admins only: Azure portal links to the server's telemetry (empty when not configured).</summary>
+    public IReadOnlyList<TelemetryLinkDto> TelemetryLinks { get; init; } = [];
 }
 
 public sealed record AccountProfileDto
@@ -96,7 +99,8 @@ public static class AccountEndpoints
             .WithSummary("Give up ownership of one of your bots (it loses its blue check).");
     }
 
-    private static async Task<AccountDto> Get(HttpContext context, NetRtsDb db, IOptions<DiscordOptions> options, CancellationToken ct)
+    private static async Task<AccountDto> Get(
+        HttpContext context, NetRtsDb db, IOptions<DiscordOptions> options, IOptions<NetRtsOptions> netRts, CancellationToken ct)
     {
         var discord = options.Value;
         var auth = await context.AuthenticateAsync(Accounts.CookieScheme);
@@ -125,6 +129,7 @@ public static class AccountEndpoints
                 IsAdmin = record.IsAdmin,
             },
             Bots = await PlayerEndpoints.ProfilesAsync(db, discord, db.Players.Where(p => p.OwnerAccountId == record.Id), ct),
+            TelemetryLinks = record.IsAdmin ? Endpoints.TelemetryLinks.For(netRts.Value) : [],
         };
     }
 

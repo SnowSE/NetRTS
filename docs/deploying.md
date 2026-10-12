@@ -291,5 +291,14 @@ In the portal, open `netrts-insights` for **Live metrics**, **Failures**, **Perf
 | `netrts.house_bot.failures` (by bot) | House bot turns that threw. |
 | `netrts.recorder.queue`, `netrts.recorder.failures`, `netrts.recorder.duration` | Finished matches not yet saved are lost on restart; alert on failures. |
 
+Admins get links to these portal pages, plus saved Logs queries (exceptions, warnings and errors,
+failed requests, slowest endpoints, game metrics, tick health), in a **Telemetry** section on their
+account page once two app settings are set on the web app:
+
+| Setting | Value |
+|---|---|
+| `NetRts__AppInsightsResourceId` | `/subscriptions/<subscription id>/resourceGroups/rg-netrts/providers/microsoft.insights/components/netrts-insights` |
+| `NetRts__AzureTenant` | the subscription's tenant ID, so the links open in that directory |
+
 Per-tick requests (state long-polls, command submissions, spectator polls and streams) and health
 probes are left out of traces to keep volume down; the standard HTTP request metrics still count them.

@@ -99,6 +99,7 @@ export function mountAccount(root, onAccount) {
       </div>
 
       ${a.isAdmin ? adminHtml() : ''}
+      ${a.isAdmin && info.telemetryLinks?.length ? telemetryHtml(info.telemetryLinks) : ''}
     </div>`);
 
     wire();
@@ -130,6 +131,20 @@ export function mountAccount(root, onAccount) {
       </form>
       <h3 style="margin-top:20px">Current league matches</h3>
       <div id="league-matches"><p class="empty">Loading…</p></div>
+    </section>`;
+  }
+
+  function telemetryHtml(links) {
+    const group = (name, heading) => html`<h3>${heading}</h3>
+      <ul class="telemetry-links">${links.filter((l) => l.group === name).map((l) => html`
+        <li><a href="${l.url}" target="_blank" rel="noopener">${l.label}</a> <span class="muted small">${l.description}</span></li>`)}
+      </ul>`;
+    return html`<section aria-labelledby="telemetry-h" class="admin">
+      <h2 id="telemetry-h">Telemetry</h2>
+      <p class="muted small">The server's logs, traces, errors and metrics in Application Insights (Azure portal; sign in with the
+        account that owns the subscription). Queries open in Logs over the last 24 hours.</p>
+      ${group('Pages', 'Application Insights')}
+      ${group('Queries', 'Saved queries')}
     </section>`;
   }
 

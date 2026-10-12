@@ -8,6 +8,16 @@ public sealed class NetRtsOptions
     /// <summary>The site's public address, e.g. https://netrts.snowse.io, for links in Discord announcements.</summary>
     public string? PublicUrl { get; set; }
 
+    /// <summary>
+    /// Azure resource ID of the Application Insights resource the server exports to
+    /// (/subscriptions/…/resourceGroups/…/providers/microsoft.insights/components/…). When set, admins
+    /// get links to its portal pages and saved log queries on their account page.
+    /// </summary>
+    public string? AppInsightsResourceId { get; set; }
+
+    /// <summary>Tenant ID or domain the portal links sign in to, so they open in the right directory.</summary>
+    public string? AzureTenant { get; set; }
+
     public int DefaultTickIntervalMs { get; set; } = 1000;
     public int MinTickIntervalMs { get; set; } = 100;
     public int MaxTickIntervalMs { get; set; } = 10_000;

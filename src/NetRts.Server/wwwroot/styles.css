@@ -1089,6 +1089,9 @@ html.map-full { overflow: hidden; }
 .form-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
 .admin { border-top: 1px solid var(--line); padding-top: 20px; display: grid; gap: 12px; }
 .admin h2, .admin p { margin: 0; }
+.admin h3 { margin: 8px 0 0; }
+.telemetry-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.telemetry-links a { font-weight: 600; }
 .league-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
 
 /* ---------- league matches and heats ---------- */
