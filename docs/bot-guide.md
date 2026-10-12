@@ -106,6 +106,8 @@ practice against house bots in an hourly digest. To practise privately, run your
 | `POST /api/v1/matches/{id}/step` | Run one tick of a paused match. |
 | `GET /api/v1/matches/{id}/result` | Winner, end reason, score breakdown and stats (`409` until it ends). |
 | `GET /api/v1/matches/{id}/replay` | Seed + every executed command — enough to re-simulate the match exactly. |
+| `GET /api/v1/matches/{id}/frames` | A finished match, tick by tick, as spectators saw it: the map, the whole play-by-play (`events`), and `chunkCount` chunks of `chunkTicks` (100) ticks. This is what the website's replay viewer plays. |
+| `GET /api/v1/matches/{id}/frames/{n}` | Chunk `n`: one spectator state per line (newline-delimited JSON) for ticks `n × chunkTicks` onward. Sent Brotli-compressed when your client accepts `br`. |
 | `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |
 | `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then rating). Add `&season=2026-27` for a past season. |
 | `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has all three categories, and `verified`/`ownerName` your blue check. |
@@ -355,5 +357,8 @@ Discord first), `409 MATCH_CLOSED` (the league match has been split into heats),
   dotnet run --project src/NetRts.BotRunner -- --server http://localhost:5080 --name my-bot --strategy balanced --vs rusher
   ```
 
-- **Replays:** `GET /result` + `GET /replay` give you everything to analyse a loss. In C#,
-  `GameSimulation.FromReplay(replay)` re-runs the match tick for tick.
+- **Replays:** open any finished match on the website to watch it again, with play, pause,
+  speed, step and a timeline. For analysis in code, `GET /frames` gives you every tick's full state,
+  and `GET /result` + `GET /replay` the outcome and every command. In C#,
+  `GameSimulation.FromReplay(replay)` re-runs the match tick for tick (under the current rules;
+  `/frames` always shows what actually happened).

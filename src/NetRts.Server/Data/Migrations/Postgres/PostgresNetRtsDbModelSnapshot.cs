@@ -89,6 +89,57 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.ToTable("accounts", (string)null);
                 });
 
+            modelBuilder.Entity("NetRts.Server.Data.MatchFrameChunkRecord", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("MatchId", "Index");
+
+                    b.ToTable("match_frame_chunks", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchFramesRecord", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("ChunkCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ChunkTicks")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("LastTick")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Manifest")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<bool>("Rebuilt")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("RulesVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.HasKey("MatchId");
+
+                    b.ToTable("match_frames", (string)null);
+                });
+
             modelBuilder.Entity("NetRts.Server.Data.MatchRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -132,6 +183,10 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<string>("ResultJson")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("RulesVersion")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<string>("Season")
                         .IsRequired()
@@ -238,6 +293,24 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.HasIndex("Category", "Season", "Rating");
 
                     b.ToTable("player_stats", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchFrameChunkRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.MatchFramesRecord", null)
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchFramesRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.MatchRecord", null)
+                        .WithOne()
+                        .HasForeignKey("NetRts.Server.Data.MatchFramesRecord", "MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("NetRts.Server.Data.PlayerRecord", b =>

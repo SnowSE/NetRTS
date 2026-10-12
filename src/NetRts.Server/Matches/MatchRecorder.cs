@@ -3,13 +3,14 @@ using System.Text.Json;
 using System.Threading.Channels;
 using Microsoft.EntityFrameworkCore;
 using NetRts.Bots;
+using NetRts.Engine;
 using NetRts.Protocol;
 using NetRts.Server.Data;
 
 namespace NetRts.Server.Matches;
 
 /// <summary>
-/// Persists finished matches (summary, result, replay) and updates win/loss records and Elo
+/// Persists finished matches (summary, result, replay, frames) and updates win/loss records and Elo
 /// ratings. Runs off the tick loop so a slow database never stalls a game.
 /// </summary>
 public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchRecorder> logger, MatchMetrics metrics, MatchAnnouncer announcer) : BackgroundService
@@ -80,7 +81,12 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
             SummaryJson = JsonSerializer.Serialize(summary, NetRtsClient.JsonOptions),
             ResultJson = JsonSerializer.Serialize(result, NetRtsClient.JsonOptions),
             ReplayJson = JsonSerializer.Serialize(replay, NetRtsClient.JsonOptions),
+            RulesVersion = GameRules.Version,
         });
+        if (host.Frames is { } frames)
+        {
+            ReplayFrameStore.Add(db, host.Id, frames, DateTime.UtcNow);
+        }
 
         // Exhibitions between house bots are entertainment, not ladder games.
         if (seats.Any(s => !s.IsHouseBot))

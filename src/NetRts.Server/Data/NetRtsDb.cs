@@ -109,6 +109,38 @@ public sealed class MatchRecord
 
     /// <summary>Serialized ReplayDto.</summary>
     public string ReplayJson { get; set; } = "";
+
+    /// <summary>
+    /// The <c>GameRules.Version</c> the match was played under; null for matches recorded before
+    /// versions were kept.
+    /// </summary>
+    public string? RulesVersion { get; set; }
+}
+
+/// <summary>A finished match's recorded frames (see <c>ReplayFrameRecorder</c>): the manifest, with its chunks alongside.</summary>
+public sealed class MatchFramesRecord
+{
+    public Guid MatchId { get; set; }
+    public string RulesVersion { get; set; } = "";
+    public int ChunkTicks { get; set; }
+    public int ChunkCount { get; set; }
+    public int LastTick { get; set; }
+
+    /// <summary>Rebuilt from the replay because the match was played before frames were recorded.</summary>
+    public bool Rebuilt { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+
+    /// <summary>Brotli-compressed ReplayFramesDto JSON (map and play-by-play included), served as is.</summary>
+    public byte[] Manifest { get; set; } = [];
+}
+
+/// <summary>One chunk of frames: Brotli-compressed, newline-separated SpectatorStateDto JSON.</summary>
+public sealed class MatchFrameChunkRecord
+{
+    public Guid MatchId { get; set; }
+    public int Index { get; set; }
+    public byte[] Data { get; set; } = [];
 }
 
 /// <summary>
@@ -122,6 +154,8 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
     public DbSet<MatchRecord> Matches => Set<MatchRecord>();
     public DbSet<AccountRecord> Accounts => Set<AccountRecord>();
     public DbSet<PlayerStatsRecord> PlayerStats => Set<PlayerStatsRecord>();
+    public DbSet<MatchFramesRecord> MatchFrames => Set<MatchFramesRecord>();
+    public DbSet<MatchFrameChunkRecord> MatchFrameChunks => Set<MatchFrameChunkRecord>();
 
     /// <summary>Keys for sign-in cookies, kept in the database so a restart or redeploy doesn't sign everyone out.</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -174,6 +208,22 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
             e.Property(m => m.Category).HasConversion<string>().HasMaxLength(16).HasDefaultValue(MatchCategory.Practice);
             e.HasIndex(m => new { m.Category, m.CompletedAt });
             e.Property(m => m.Season).HasMaxLength(32).HasDefaultValue(Seasons.Current);
+            e.Property(m => m.RulesVersion).HasMaxLength(32);
+        });
+
+        modelBuilder.Entity<MatchFramesRecord>(e =>
+        {
+            e.ToTable("match_frames");
+            e.HasKey(f => f.MatchId);
+            e.Property(f => f.RulesVersion).HasMaxLength(32);
+            e.HasOne<MatchRecord>().WithOne().HasForeignKey<MatchFramesRecord>(f => f.MatchId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MatchFrameChunkRecord>(e =>
+        {
+            e.ToTable("match_frame_chunks");
+            e.HasKey(c => new { c.MatchId, c.Index });
+            e.HasOne<MatchFramesRecord>().WithMany().HasForeignKey(c => c.MatchId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

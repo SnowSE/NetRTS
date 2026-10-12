@@ -216,6 +216,31 @@ UPDATE matches      SET "Season" = '2026-27' WHERE "Season" = '';
 The same works for a beta test: play `Preseason` matches, then label them (e.g. `beta-2026`) or
 just leave them on the separate preseason leaderboard.
 
+## Replays and storage
+
+Every finished match stores, besides its summary and replay (the seed and every command, in
+`matches`), its frames: what spectators saw on every tick, Brotli-compressed in chunks of 100 ticks
+(`match_frame_chunks`), with a manifest holding the map and play-by-play (`match_frames`). The
+website's replay viewer plays these, so a replay always shows what happened, even after the rules
+change. Sizes measured on real matches:
+
+| Match | Frames |
+|---|---|
+| 1v1, ~1,000 ticks | ~170 KB |
+| 16 players, 1,800 ticks | ~770 KB |
+
+Matches recorded before frames existed get theirs rebuilt from the replay the first time someone
+opens them (a few seconds; a long 16-player match ~15 s), kept only if the re-run ends exactly as
+the match did. Each match also records the `GameRules.Version` it was played under; bump
+`GameSimulation.Revision` when a change would make old replays play out differently.
+
+To see how much space frames use, and to drop old ones (their matches, results and replays stay):
+
+```sql
+SELECT count(*), pg_size_pretty(sum(octet_length("Data"))) FROM match_frame_chunks;  -- PostgreSQL
+DELETE FROM match_frames WHERE "CreatedAt" < now() - interval '180 days';            -- chunks go with them
+```
+
 ## Database migrations
 
 The schema is managed by EF Core migrations, one set per provider, because generated migrations use

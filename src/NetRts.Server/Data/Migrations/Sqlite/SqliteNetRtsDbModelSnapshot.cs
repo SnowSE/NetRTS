@@ -82,6 +82,57 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.ToTable("accounts", (string)null);
                 });
 
+            modelBuilder.Entity("NetRts.Server.Data.MatchFrameChunkRecord", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Index")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Data")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.HasKey("MatchId", "Index");
+
+                    b.ToTable("match_frame_chunks", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchFramesRecord", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ChunkCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ChunkTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("LastTick")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Manifest")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<bool>("Rebuilt")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RulesVersion")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("MatchId");
+
+                    b.ToTable("match_frames", (string)null);
+                });
+
             modelBuilder.Entity("NetRts.Server.Data.MatchRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -124,6 +175,10 @@ namespace NetRts.Server.Data.Migrations.Sqlite
 
                     b.Property<string>("ResultJson")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RulesVersion")
+                        .HasMaxLength(32)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Season")
@@ -231,6 +286,24 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.HasIndex("Category", "Season", "Rating");
 
                     b.ToTable("player_stats", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchFrameChunkRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.MatchFramesRecord", null)
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchFramesRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.MatchRecord", null)
+                        .WithOne()
+                        .HasForeignKey("NetRts.Server.Data.MatchFramesRecord", "MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("NetRts.Server.Data.PlayerRecord", b =>

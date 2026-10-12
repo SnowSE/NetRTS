@@ -34,6 +34,8 @@ public sealed class MatchHost
     private TaskCompletionSource _tickSignal = NewSignal();
     private GameSimulation? _sim;
     private MapDto? _map;
+    private ReplayFrameRecorder? _frameRecorder;
+    private RecordedFrames? _frames;
     private int _tickIntervalMs;
     private DateTime? _pausedAt;
     private PeriodicTimer? _timer;
@@ -285,6 +287,8 @@ public sealed class MatchHost
                 },
                 _seats.Select(s => new PlayerSeat(s.PlayerId, s.Name)).ToList());
             _map = _sim.Map.ToDto();
+            _frameRecorder = new ReplayFrameRecorder();
+            RecordFrame();
         }
 
         var seats = Seats;
@@ -316,6 +320,7 @@ public sealed class MatchHost
                 var started = Stopwatch.GetTimestamp();
                 RunHouseBots();
                 _sim.Step();
+                RecordFrame();
                 _metrics.TickRan(Stopwatch.GetElapsedTime(started), _tickIntervalMs);
                 if (_sim.Status == MatchStatus.Completed)
                 {
@@ -363,6 +368,7 @@ public sealed class MatchHost
             }
 
             _sim.Surrender(slot);
+            RecordFrame();
             finished = _sim.Status == MatchStatus.Completed;
             if (finished)
             {
@@ -417,6 +423,18 @@ public sealed class MatchHost
         lock (_gate)
         {
             return _sim?.GetResult();
+        }
+    }
+
+    /// <summary>Every tick as spectators saw it, once the match has ended.</summary>
+    public RecordedFrames? Frames
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _frames;
+            }
         }
     }
 
@@ -545,6 +563,22 @@ public sealed class MatchHost
             }
 
             return _pausedAt is not null;
+        }
+    }
+
+    /// <summary>Adds the current tick to the recorded frames; seals them when the match is over. Call under the lock.</summary>
+    private void RecordFrame()
+    {
+        if (_frameRecorder is null)
+        {
+            return;
+        }
+
+        _frameRecorder.Add(_sim!.GetSpectatorView(_sim.Tick - 1));
+        if (_sim.Status == MatchStatus.Completed)
+        {
+            _frames = _frameRecorder.Finish(Id, _map!, GameRules.Version);
+            _frameRecorder = null;
         }
     }
 

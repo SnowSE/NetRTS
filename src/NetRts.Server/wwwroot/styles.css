@@ -633,7 +633,26 @@ pre.snippet {
 .banner h2 { margin: 0; font-size: clamp(1.4rem, 3vw, 2rem); font-stretch: 75%; }
 .banner p { margin: 0; color: var(--muted); }
 .banner.win { border-color: var(--pc, var(--ink)); box-shadow: inset 6px 0 0 var(--pc, var(--ink)); }
+.banner-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 @keyframes drop { from { transform: translateY(-6px); opacity: 0; } }
+
+/* Replay: play back a finished match from its recorded frames. */
+.status.Replay { color: var(--signal); }
+.replay-bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px;
+  margin: 0 0 10px; padding: 8px 10px;
+  background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--ink);
+}
+.replay-bar[hidden] { display: none; }
+.replay-bar .btn { min-height: 34px; padding: 4px 10px; }
+.replay-bar .replay-play { min-width: 5.5em; }
+.replay-tag { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-right: 2px; }
+.replay-scrub { flex: 1 1 160px; min-width: 120px; accent-color: var(--ink); }
+.replay-time { min-width: 7.5em; font-variant-numeric: tabular-nums; }
+.replay-speed-label { display: inline-flex; align-items: center; gap: 6px; }
+.replay-speed { width: auto; min-height: 34px; padding: 4px 8px; }
+.replay-bar.compact { margin: 8px 0; padding: 6px 0; background: none; border: 0; }
+.replay-bar.compact .replay-tag { display: none; }
 
 .side { display: grid; gap: 20px; min-width: 0; }
 

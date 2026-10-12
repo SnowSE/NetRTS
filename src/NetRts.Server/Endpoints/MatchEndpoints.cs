@@ -217,6 +217,30 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Seed plus every executed command: enough to re-simulate the match exactly.");
 
+        matches.MapGet("/{matchId:guid}/frames", async (Guid matchId, HttpContext http, ReplayFrameStore frames, CancellationToken ct) =>
+            {
+                var (status, manifest) = await frames.ManifestAsync(matchId, ct);
+                return status switch
+                {
+                    FramesStatus.Ok => Brotli(http, manifest!, "application/json"),
+                    FramesStatus.NotCompleted => ApiErrors.Error(409, "MATCH_NOT_COMPLETED", "Frames are available once the match ends."),
+                    FramesStatus.Unavailable => ApiErrors.Error(409, "FRAMES_UNAVAILABLE",
+                        "This match was played before frames were recorded, under rules that have changed since, so it can't be shown frame by frame. Its replay is still available."),
+                    _ => ApiErrors.NotFound("Match"),
+                };
+            })
+            .Produces<ReplayFramesDto>()
+            .ProducesErrors()
+            .WithSummary("How to play a finished match back tick by tick: its map, its play-by-play and how many chunks of frames there are.");
+
+        matches.MapGet("/{matchId:guid}/frames/{index:int}", async (Guid matchId, int index, HttpContext http, ReplayFrameStore frames, CancellationToken ct) =>
+                await frames.ChunkAsync(matchId, index, ct) is { } chunk
+                    ? Brotli(http, chunk, "application/x-ndjson")
+                    : ApiErrors.NotFound("Frames"))
+            .Produces(200, contentType: "application/x-ndjson")
+            .ProducesErrors()
+            .WithSummary("One chunk of a finished match's frames: a SpectatorStateDto per line, from tick index × chunkTicks.");
+
         matches.MapGet("/{matchId:guid}/spectate", (Guid matchId, MatchManager manager, LeagueMatchManager leagues, int? sinceTick, bool? fog) =>
             {
                 var host = manager.Get(NotLeague(matchId, leagues));
@@ -294,6 +318,23 @@ public static class MatchEndpoints
             .Produces<MatchSummaryDto>(201)
             .ProducesErrors()
             .WithSummary("Start a house-bot-vs-house-bot match to watch.");
+    }
+
+    /// <summary>
+    /// Sends stored Brotli-compressed bytes as they are when the client accepts Brotli, decompressed
+    /// otherwise. Recorded frames never change, so they can be cached for good.
+    /// </summary>
+    private static IResult Brotli(HttpContext http, byte[] data, string contentType)
+    {
+        http.Response.Headers.Vary = "Accept-Encoding";
+        http.Response.Headers.CacheControl = "public, max-age=31536000, immutable";
+        if (http.Request.Headers.AcceptEncoding.ToString().Contains("br", StringComparison.OrdinalIgnoreCase))
+        {
+            http.Response.Headers.ContentEncoding = "br";
+            return Results.Bytes(data, contentType);
+        }
+
+        return Results.Bytes(ReplayFrameRecorder.Decompress(data), contentType);
     }
 
     private static async Task<IResult> GetState(

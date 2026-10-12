@@ -199,3 +199,35 @@ public sealed record ReplayDto
 public sealed record ReplayCommandDto(int Tick, int Slot, CommandRequest Command);
 
 public sealed record ReplaySurrenderDto(int Tick, int Slot);
+
+/// <summary>
+/// How to play back a finished match frame by frame: what spectators saw on every tick, in chunks of
+/// <see cref="ChunkTicks"/> ticks. Fetch chunk <c>n</c> from <c>/frames/{n}</c>: newline-separated
+/// <see cref="SpectatorStateDto"/>s for ticks <c>n * ChunkTicks</c> onward, one per line.
+/// </summary>
+public sealed record ReplayFramesDto
+{
+    public Guid MatchId { get; init; }
+    public int ChunkTicks { get; init; }
+    public int ChunkCount { get; init; }
+
+    /// <summary>The last tick with a frame: where the match ended.</summary>
+    public int LastTick { get; init; }
+
+    /// <summary>
+    /// The game rules the match was played under. Frames show what happened then, whatever the rules
+    /// are now.
+    /// </summary>
+    public string RulesVersion { get; init; } = "";
+
+    /// <summary>
+    /// The match was played before frames were recorded, so they were rebuilt from its replay
+    /// (and checked against the recorded result).
+    /// </summary>
+    public bool Rebuilt { get; init; }
+
+    public required MapDto Map { get; init; }
+
+    /// <summary>The whole play-by-play, oldest first.</summary>
+    public IReadOnlyList<GameEventDto> Events { get; init; } = [];
+}

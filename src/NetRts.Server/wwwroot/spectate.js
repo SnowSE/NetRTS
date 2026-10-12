@@ -35,6 +35,7 @@ export function mountSpectate(root, matchKey) {
           </fieldset>
           <ul class="legend" aria-label="Map key">${legendItems()}</ul>
         </div>
+        <div class="replay-bar" id="replay" role="group" aria-label="Replay" hidden></div>
         <div class="map-frame" id="frame">
           <canvas id="map" tabindex="0" role="img" aria-label="${say('Battle', 'Brawl')} map. Use the arrow keys to inspect tiles, plus and minus to zoom."
             aria-describedby="tooltip"></canvas>
@@ -68,6 +69,7 @@ export function mountSpectate(root, matchKey) {
             <div class="fs-body" id="info-body">
               <p class="fs-matchup" id="fs-matchup"></p>
               <div class="speed" id="fs-speed" role="group" aria-label="Match speed" hidden></div>
+              <div class="replay-bar compact" id="fs-replay" role="group" aria-label="Replay" hidden></div>
               <h3 class="fs-h">${say('Battle log', 'Play-by-play')}</h3>
               <ol class="fs-feed" id="fs-feed"></ol>
             </div>
@@ -101,6 +103,8 @@ export function mountSpectate(root, matchKey) {
   let result = null;
   let finished = false;
   let visionSlots = '';
+  let replay = null;       // playing back recorded frames (see startReplay)
+  let replayNote = '';     // why there is no replay, when there isn't one
   const events = [];
   const eventKeys = new Set();
 
@@ -326,14 +330,14 @@ export function mountSpectate(root, matchKey) {
     $('fs-matchup').textContent = summary?.name ? matchup : '';
     document.title = `${title} – ${GAME}`;
     if (summary) {
-      $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${state?.tickIntervalMs ?? summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;
+      $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${state?.tickIntervalMs || summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;
     }
   }
 
   function renderClock() {
     const tick = state?.tick ?? summary?.tick ?? 0;
     const max = state?.maxTicks ?? summary?.maxTicks ?? 0;
-    const status = finished ? 'Completed' : (state?.status ?? summary?.status ?? 'Waiting');
+    const status = replay ? 'Replay' : finished ? 'Completed' : (state?.status ?? summary?.status ?? 'Waiting');
     const paused = status === 'Active' && (state?.paused ?? summary?.paused);
     const pct = max ? Math.min(100, (tick / max) * 100) : 0;
     setHtml($('clock'), html`
@@ -401,8 +405,9 @@ export function mountSpectate(root, matchKey) {
 
   function renderPlayers() {
     const winnerId = (state?.outcome || result?.outcome || summary?.outcome)?.winnerId;
-    const done = finished || !!result;
-    const byId = new Map((result?.players || []).map((p) => [p.playerId, p]));
+    const atEnd = !replay || replay.tick >= replay.last;
+    const done = (finished || !!result) && atEnd;
+    const byId = new Map((atEnd ? result?.players || [] : []).map((p) => [p.playerId, p]));
     // The summary knows who verified their bot with Discord; the live state doesn't.
     const seat = new Map((summary?.players || []).map((p) => [p.playerId, p]));
     const label = (p) => playerLabel({ ...p, ...seat.get(p.playerId) });
@@ -474,6 +479,10 @@ export function mountSpectate(root, matchKey) {
   }
 
   function renderBanner() {
+    if (replay && replay.tick < replay.last) {
+      if ($('banner-slot').childElementCount) setHtml($('banner-slot'), html``);
+      return;
+    }
     if ($('banner-slot').childElementCount) return;
     const outcome = state?.outcome || result?.outcome || summary?.outcome;
     if (!finished || !outcome) return;
@@ -486,7 +495,11 @@ export function mountSpectate(root, matchKey) {
       <div class="banner ${winner ? 'win' : ''}" style="${winner ? `--pc:${slotVar(winner.slot)}` : ''}">
         <h2>${winner ? `${displayName(winner.name)} ${say('wins', 'wins the brawl')}` : say('Draw', 'A tie in Ephraim')}</h2>
         <p>${outcomeText(outcome, players)}. ${reason}</p>
-        <a class="btn ghost" href="#/">${say('Back to matches', 'Back to the brawls')}</a>
+        <div class="banner-actions">
+          ${replay ? html`<button type="button" class="btn" data-replay="restart">Watch it again</button>`
+            : replayNote ? '' : html`<button type="button" class="btn" data-replay="start">Watch the replay</button>`}
+          <a class="btn ghost" href="#/">${say('Back to matches', 'Back to the brawls')}</a>
+        </div>
       </div>`);
     fit();
   }
@@ -605,6 +618,7 @@ export function mountSpectate(root, matchKey) {
       later(start, 2000);
       return;
     }
+    if (summary.status === 'Completed' && await startReplay()) return;
     if (!(await loadMap())) {
       later(start, 2000);
       return;
@@ -682,9 +696,207 @@ export function mountSpectate(root, matchKey) {
     }
     renderAll();
     if (!state && events.length === 0) {
-      setHtml($('feed'), html`<li class="muted"><span></span><span>The log is not kept once a match is archived.</span></li>`);
+      setHtml($('feed'), html`<li class="muted"><span></span><span>${replayNote || 'The log is not kept once a match is archived.'}</span></li>`);
     }
   }
+
+  // ---------- replay: finished matches play back from their recorded frames, a chunk at a time
+  const REPLAY_SPEEDS = [1, 2, 4, 8, 16, 32];
+  const KEEP_CHUNKS = 4;
+  let scrubbing = false;
+
+  async function startReplay() {
+    let manifest;
+    // Older matches are re-simulated the first time anyone watches them, which can take a while.
+    const slow = setTimeout(() => alive && setOverlay('Preparing the replay…',
+      'Matches played before replays were recorded are rebuilt the first time someone watches them. This can take a few seconds.'), 700);
+    try {
+      manifest = await api(`/api/v1/matches/${matchId}/frames`);
+    } catch (e) {
+      replayNote = e.code === 'FRAMES_UNAVAILABLE' ? e.message : '';
+      return false;
+    } finally {
+      clearTimeout(slow);
+    }
+    if (!alive) return true;
+    replay = {
+      m: manifest, last: manifest.lastTick, chunkTicks: manifest.chunkTicks,
+      chunks: new Map(), pending: new Map(), tick: 0, playing: false, speed: startSpeed(),
+      timer: null, seq: 0, feedTick: -1,
+    };
+    finished = true;
+    es?.close();
+    es = null;
+    setHtml($('banner-slot'), html``);
+    view.setMap(manifest.map);
+    fit();
+    setOverlay(null);
+    renderReplayControls();
+    if (!result) api(`/api/v1/matches/${matchId}/result`).then((r) => { result = r; if (alive) renderAll(); }).catch(() => {});
+    await seekReplay(0);
+    playReplay(true);
+    return true;
+  }
+
+  /** 1x is the match's own pace; start near 8 ticks a second, whatever that was. */
+  function startSpeed() {
+    const want = (summary?.tickIntervalMs || 1000) / 125;
+    return REPLAY_SPEEDS.reduce((best, x) => (Math.abs(x - want) < Math.abs(best - want) ? x : best), 1);
+  }
+
+  function chunk(i) {
+    if (replay.chunks.has(i)) {
+      const frames = replay.chunks.get(i);
+      replay.chunks.delete(i);          // most recently used goes last
+      replay.chunks.set(i, frames);
+      return Promise.resolve(frames);
+    }
+    if (!replay.pending.has(i)) {
+      replay.pending.set(i, fetch(`/api/v1/matches/${matchId}/frames/${i}`)
+        .then((r) => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.text(); })
+        .then((text) => {
+          const frames = text.split('\n').filter(Boolean).map((line) => JSON.parse(line));
+          replay.chunks.set(i, frames);
+          while (replay.chunks.size > KEEP_CHUNKS) replay.chunks.delete(replay.chunks.keys().next().value);
+          return frames;
+        })
+        .finally(() => replay.pending.delete(i)));
+    }
+    return replay.pending.get(i);
+  }
+
+  async function seekReplay(t) {
+    t = Math.max(0, Math.min(replay.last, Math.round(t)));
+    replay.tick = t;
+    const seq = ++replay.seq;
+    const i = Math.floor(t / replay.chunkTicks);
+    let frames = replay.chunks.get(i);
+    if (!frames) {
+      updateReplayControls(true);
+      try {
+        frames = await chunk(i);
+      } catch (e) {
+        if (seq !== replay.seq || !alive) return;
+        playReplay(false);
+        setOverlay('Could not load the replay', e.message);
+        later(() => { setOverlay(null); seekReplay(replay.tick); }, 3000);
+        return;
+      }
+    }
+    if (seq !== replay.seq || !alive) return;   // a later seek has taken over
+    const frame = frames[t - i * replay.chunkTicks];
+    state = frame;
+    view.setState(frame);
+    replayFeed(t);
+    renderAll();
+    refreshTooltip();
+    updateReplayControls(false);
+    // Fetch the next chunk ahead of time.
+    if (i + 1 < replay.m.chunkCount && t - i * replay.chunkTicks >= replay.chunkTicks / 2) chunk(i + 1).catch(() => {});
+  }
+
+  function playReplay(on) {
+    clearTimeout(replay.timer);
+    if (on && replay.tick >= replay.last) seekReplay(0);
+    replay.playing = on;
+    updateReplayControls(false);
+    if (on) nextReplayTick();
+  }
+
+  function nextReplayTick() {
+    const ms = Math.max(16, (summary?.tickIntervalMs || 1000) / replay.speed);
+    replay.timer = setTimeout(async () => {
+      if (!alive || !replay.playing) return;
+      if (replay.tick >= replay.last) { playReplay(false); return; }
+      await seekReplay(replay.tick + 1);
+      if (alive && replay.playing) nextReplayTick();
+    }, ms);
+    timers.push(replay.timer);
+  }
+
+  /** The play-by-play up to the current tick (the newest 200). */
+  function replayFeed(t) {
+    if (replay.feedTick === t) return;
+    replay.feedTick = t;
+    events.length = 0;
+    eventKeys.clear();
+    const all = replay.m.events;
+    let n = 0;
+    while (n < all.length && all[n].tick <= t) n++;
+    addEvents(all.slice(Math.max(0, n - 200), n));
+  }
+
+  function renderReplayControls() {
+    const speedOptions = REPLAY_SPEEDS.map((x) => html`<option value="${x}" ${x === replay.speed ? html`selected` : ''}>${x}×</option>`);
+    for (const box of [$('replay'), $('fs-replay')]) {
+      box.hidden = false;
+      setHtml(box, html`
+        <span class="replay-tag">Replay</span>
+        <button type="button" class="btn ghost" data-act="start" aria-label="Back to the start" title="Back to the start (Home)">⏮</button>
+        <button type="button" class="btn ghost" data-act="back" aria-label="One tick back" title="One tick back (,)">−1</button>
+        <button type="button" class="btn replay-play" data-act="play" aria-pressed="false">Play</button>
+        <button type="button" class="btn ghost" data-act="fwd" aria-label="One tick forward" title="One tick forward (.)">+1</button>
+        <button type="button" class="btn ghost" data-act="end" aria-label="Jump to the end" title="Jump to the end (End)">⏭</button>
+        <input type="range" class="replay-scrub" min="0" max="${replay.last}" step="1" value="0" aria-label="Replay position (tick)">
+        <span class="replay-time small muted" aria-hidden="true"></span>
+        <label class="small muted replay-speed-label">Speed
+          <select class="replay-speed">${speedOptions}</select>
+        </label>`);
+    }
+  }
+
+  function updateReplayControls(buffering) {
+    if (!replay) return;
+    for (const box of [$('replay'), $('fs-replay')]) {
+      const play = box.querySelector('[data-act="play"]');
+      if (!play) continue;
+      play.textContent = replay.playing ? 'Pause' : replay.tick >= replay.last ? 'Replay' : 'Play';
+      play.setAttribute('aria-pressed', String(replay.playing));
+      const scrub = box.querySelector('.replay-scrub');
+      if (!(scrubbing && document.activeElement === scrub)) scrub.value = String(replay.tick);
+      scrub.setAttribute('aria-valuetext', `Tick ${replay.tick} of ${replay.last}`);
+      box.querySelector('.replay-time').textContent = buffering ? 'Loading…' : `${fmt(replay.tick)} / ${fmt(replay.last)}`;
+    }
+  }
+
+  const replayAct = (act) => {
+    if (!replay || !act) return;
+    if (act === 'play') playReplay(!replay.playing);
+    else if (act === 'start') seekReplay(0);
+    else if (act === 'end') { playReplay(false); seekReplay(replay.last); }
+    else if (act === 'back') { playReplay(false); seekReplay(replay.tick - 1); }
+    else if (act === 'fwd') { playReplay(false); seekReplay(replay.tick + 1); }
+  };
+  for (const box of [$('replay'), $('fs-replay')]) {
+    box.addEventListener('click', (e) => replayAct(e.target.closest('button')?.dataset.act));
+    box.addEventListener('input', (e) => {
+      if (e.target.matches('.replay-scrub')) { scrubbing = true; seekReplay(Number(e.target.value)); }
+    });
+    box.addEventListener('change', (e) => {
+      if (e.target.matches('.replay-scrub')) scrubbing = false;
+      if (e.target.matches('.replay-speed')) {
+        replay.speed = Number(e.target.value);
+        root.querySelectorAll('.replay-speed').forEach((sel) => { sel.value = e.target.value; });
+        if (replay.playing) playReplay(true);
+      }
+    });
+  }
+  $('banner-slot').addEventListener('click', async (e) => {
+    const which = e.target.closest('[data-replay]')?.dataset.replay;
+    if (!which) return;
+    if (which === 'restart') { seekReplay(0); playReplay(true); return; }
+    if (!(await startReplay())) {
+      setOverlay('No replay for this match', replayNote || 'Try again in a moment.');
+      later(() => setOverlay(null), 3000);
+    }
+  });
+  canvas.addEventListener('keydown', (e) => {
+    if (!replay) return;
+    const act = { ' ': 'play', ',': 'back', '.': 'fwd', Home: 'start', End: 'end' }[e.key];
+    if (!act) return;
+    e.preventDefault();
+    replayAct(act);
+  });
 
   start();
 

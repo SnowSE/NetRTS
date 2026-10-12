@@ -84,6 +84,13 @@ public static class GameRules
         [UpgradeType.Harvesting2] = new(200, 45, UpgradeType.Harvesting1, $"+{HarvestingBonusPerTier} more ore per mining tick"),
     };
 
+    /// <summary>
+    /// Identifies these rules and this simulation, e.g. "1-3f9a0c2b7d41". Recorded with every match: a
+    /// replay re-simulated under a different version may not play out the way the match did.
+    /// </summary>
+    public static string Version { get; } = $"{GameSimulation.Revision}-{Convert.ToHexStringLower(
+        System.Security.Cryptography.SHA256.HashData(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(ToDto())))[..12]}";
+
     public static RulesDto ToDto() => new()
     {
         Units = Units.Select(kv => new UnitStatsDto

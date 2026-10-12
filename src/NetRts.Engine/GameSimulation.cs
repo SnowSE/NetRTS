@@ -160,8 +160,17 @@ public sealed partial class GameSimulation
         _visibility = null;
     }
 
+    /// <summary>
+    /// Bump when a change to the simulation would make an old replay play out differently, even if no
+    /// number in <see cref="GameRules"/> changed. Part of <see cref="GameRules.Version"/>.
+    /// </summary>
+    public const int Revision = 1;
+
     /// <summary>Re-simulates a recorded match from its replay.</summary>
-    public static GameSimulation FromReplay(ReplayDto replay)
+    /// <param name="replay">The match to re-simulate.</param>
+    /// <param name="names">Player names by slot (default P0, P1, ...).</param>
+    /// <param name="onTick">Called with the simulation at tick 0, after every tick, and again whenever a surrender changes a tick.</param>
+    public static GameSimulation FromReplay(ReplayDto replay, IReadOnlyList<string>? names = null, Action<GameSimulation>? onTick = null)
     {
         ArgumentNullException.ThrowIfNull(replay);
         var config = new GameConfig
@@ -172,7 +181,9 @@ public sealed partial class GameSimulation
             MaxTicks = replay.MaxTicks,
             QueueCapacity = int.MaxValue,
         };
-        var sim = new GameSimulation(replay.MatchId, config, replay.Players.Select((id, i) => new PlayerSeat(id, $"P{i}")).ToList());
+        var sim = new GameSimulation(replay.MatchId, config,
+            replay.Players.Select((id, i) => new PlayerSeat(id, names is not null && i < names.Count ? names[i] : $"P{i}")).ToList());
+        onTick?.Invoke(sim);
 
         var commandsByTick = replay.Commands.ToLookup(c => c.Tick);
         var surrendersByTick = replay.Surrenders.ToLookup(s => s.Tick);
@@ -183,12 +194,23 @@ public sealed partial class GameSimulation
                 sim.Enqueue(c.Slot, c.Command);
             }
 
-            foreach (var s in surrendersByTick[sim.Tick])
+            var surrenders = surrendersByTick[sim.Tick].ToList();
+            foreach (var s in surrenders)
             {
                 sim.Surrender(s.Slot);
             }
 
+            if (surrenders.Count > 0)
+            {
+                onTick?.Invoke(sim);
+                if (sim.Status != MatchStatus.Active)
+                {
+                    break;
+                }
+            }
+
             sim.Step();
+            onTick?.Invoke(sim);
         }
 
         return sim;
