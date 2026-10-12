@@ -144,7 +144,7 @@ function campusHall() {
   foundation(b);
   b.add(box(0.8, 0.42, 0.58), K.brick, { at: [0, 0.29, -0.02] })
     .add(box(0.84, 0.04, 0.62), K.white, { at: [0, 0.52, -0.02] })
-    .add(cone(0.54, 0.24, 4), K.team, { team: 1, at: [0, 0.66, -0.02], rot: [0, Math.PI / 4, 0], scale: [1.05, 1, 0.78] });
+    .add(cone(Math.SQRT1_2, 0.24, 4).rotateY(Math.PI / 4), K.team, { team: 1, at: [0, 0.66, -0.02], scale: [0.88, 1, 0.66] });
   for (const x of [-0.21, -0.07, 0.07, 0.21]) b.add(cyl(0.024, 0.028, 0.34, 7), K.white, { at: [x, 0.25, 0.33] });
   b.add(box(0.52, 0.035, 0.12), K.white, { at: [0, 0.43, 0.32] })
     .add(prism(0.54, 0.12, 0.12), K.white, { at: [0, 0.5, 0.32] })
@@ -462,7 +462,9 @@ export function entityMaterial() {
       .replace('#include <clipping_planes_fragment>', `#include <clipping_planes_fragment>
         if (vLocalY > vCut) discard;`)
       .replace('#include <color_fragment>', `#include <color_fragment>
-        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vTeamCol, vTeam);`)
+        diffuseColor.rgb = mix(diffuseColor.rgb, diffuseColor.rgb * vTeamCol, vTeam);
+        // Contact shading: models darken toward the ground, so they sit in the land rather than on it.
+        diffuseColor.rgb *= mix(0.72, 1.0, smoothstep(-0.02, 0.16, vLocalY));`)
       .replace('#include <emissivemap_fragment>', `#include <emissivemap_fragment>
         totalEmissiveRadiance += diffuseColor.rgb * vGlow * 2.6;
         totalEmissiveRadiance += vec3(1.0, 0.45, 0.3) * vFlash * 1.8;

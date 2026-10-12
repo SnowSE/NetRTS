@@ -499,25 +499,39 @@ export class View3D {
       attackers.get(u.targetId).push(u);
     }
     const flight = Math.min(0.6, this.interval * 0.0009 + 0.12);
-    const strike = (targetId, targetPos, height) => {
-      const list = attackers.get(targetId) || [];
-      for (const att of list) {
-        const aa = this.units.get(att.id);
-        if (!aa) continue;
-        if (att.type === 'Archer') {
-          // Draw, then loose: the arrow leaves a moment into the archer's pull.
-          aa.strikeT = now + lag;
-          const from = this.ground(aa.tx, aa.tz).add(new THREE.Vector3(0, 0.32, 0));
-          q(() => this.effects.arrow(from, targetPos.clone().add(new THREE.Vector3(0, height * 0.5, 0)), flight), 140);
-        } else {
-          aa.strikeT = now + lag;
-          const tp = targetPos.clone().add(new THREE.Vector3(0, height * 0.45, 0))
-            .lerp(this.ground(aa.tx, aa.tz).add(new THREE.Vector3(0, 0.25, 0)), 0.35);
-          q(() => this.effects.spark(tp, 7), 150);   // when the blade lands, mid-swing
+    // Fighters swing on their own rhythm (see updateUnits); here we only need to know whether units
+    // were behind a hit, or whether it came from a tower.
+    const strike = (targetId) => (attackers.get(targetId) || []).length;
+
+    // What each fighter is hitting: its target, or, attack-moving, the nearest enemy within reach.
+    for (const u of s.units) {
+      const a = this.units.get(u.id);
+      if (u.activity !== 'Attacking') { a.tgt = null; continue; }
+      const t = u.targetId != null ? where.get(u.targetId) : null;
+      if (t && !t.resource) {
+        a.tgt = t.unit ? { id: u.targetId, unit: true }
+          : { id: u.targetId, x: t.x, z: t.z, h: this.models.building(t.building.type, t.building.owner).height * this.buildingScale };
+        continue;
+      }
+      // Frames don't always name the target while a unit is attack-moving, and a crowd stacked on one
+      // tile beside a building fights from a little further back, so look a tile beyond reach.
+      const reach = (u.type === 'Archer' ? 4 : 1) + 1;
+      let best = null, bd = Infinity;
+      for (const o of s.units) {
+        if (o.owner === u.owner) continue;
+        const d = Math.max(Math.abs(o.x - u.x), Math.abs(o.y - u.y));
+        if (d <= reach && d < bd) { bd = d; best = { id: o.id, unit: true }; }
+      }
+      for (const b of s.buildings) {
+        if (b.owner === u.owner) continue;
+        const d = Math.max(Math.abs(b.x - u.x), Math.abs(b.y - u.y));
+        if (d <= reach && d < bd) {
+          bd = d;
+          best = { id: b.id, x: b.x + 0.5, z: b.y + 0.5, h: this.models.building(b.type, b.owner).height * this.buildingScale };
         }
       }
-      return list.length;
-    };
+      a.tgt = best;
+    }
     for (const u of hurt) {
       const a = this.units.get(u.id);
       const archer = this.anyArcher(attackers.get(u.id));
@@ -721,15 +735,23 @@ export class View3D {
       const working = !moving && (u.activity === 'Gathering' || u.activity === 'Building');
       const carrying = u.carrying > 0;
 
+      // What a fighter is hitting, where it is right now (it may be moving too).
+      let tp = null;
+      if (u.activity === 'Attacking' && a.tgt) {
+        const tu = a.tgt.unit && positions.get(a.tgt.id);
+        tp = tu ? { x: tu.x, z: tu.z, h: 0.45 * this.unitScale } : { x: a.tgt.x, z: a.tgt.z, h: a.tgt.h };
+      }
+
       // Face where we're going, or what we're working on or hitting; glance about when idle.
       let want = a.yaw;
       if (moving) want = Math.atan2(p.vx, p.vz);
-      else if (u.targetId != null && (u.activity === 'Attacking' || working)) {
-        const tp = positions.get(u.targetId);
+      else if (tp) {
+        if (Math.hypot(tp.x - p.x, tp.z - p.z) > 0.05) want = Math.atan2(tp.x - p.x, tp.z - p.z);
+      } else if (u.targetId != null && working) {
         const tb = this.buildings.get(u.targetId)?.b;
         const tr = this.state.resources.find((r) => r.id === u.targetId);
-        const tx = tp ? tp.x : tb ? tb.x + 0.5 : tr ? tr.x + 0.5 : null;
-        const tz = tp ? tp.z : tb ? tb.y + 0.5 : tr ? tr.y + 0.5 : null;
+        const tx = tb ? tb.x + 0.5 : tr ? tr.x + 0.5 : null;
+        const tz = tb ? tb.y + 0.5 : tr ? tr.y + 0.5 : null;
         if (tx != null && Math.hypot(tx - p.x, tz - p.z) > 0.05) want = Math.atan2(tx - p.x, tz - p.z);
       }
       const turn = Math.atan2(Math.sin(want - a.yaw), Math.cos(want - a.yaw));
@@ -741,16 +763,22 @@ export class View3D {
       const phase = now * 0.001 + a.id * 0.37;
       let y = this.terrain.heightAt(p.x, p.z), pitch = 0, roll = 0, fwd = 0, side = 0, squash = 1;
       let legGoal = 0, armGoal = 0, rate = 4, chop = -1;   // chop: 0..1 arms raised overhead, -1 = not chopping
+      const fighting = u.activity === 'Attacking' && !moving && tp;
 
       if (moving) {
-        // Stride: bob twice per step, lean into the pace, bank into turns. Loads make for a heavier gait.
+        // A proper walk: legs and arms swing in opposition, the body bobs on every step and sways at the
+        // hips, leaning into the pace and banking into turns. The stride quickens with speed so feet
+        // keep up with the ground; scouts' mounts gallop. Loads make for a heavier, shorter gait.
         const w = a.walk ?? 0;
-        y += Math.abs(Math.cos(w)) * (u.type === 'Scout' ? 0.045 : carrying ? 0.022 : 0.03);
-        pitch = u.type === 'Scout' ? Math.sin(w * 2) * 0.08 + 0.04 : clamp(0.04 + speed * 0.05, 0, 0.16) + (carrying ? 0.08 : 0);
-        roll = Math.sin(w) * 0.035 - clamp(turn * 0.25, -0.18, 0.18);
-        legGoal = u.type === 'Scout' ? 0.8 : carrying ? 0.55 : 0.7;
-        armGoal = carrying ? 0.15 : 0.55;
-        rate = clamp(speed * 9, 6, u.type === 'Scout' ? 16 : 12);
+        const scout = u.type === 'Scout';
+        y += Math.abs(Math.sin(w)) * (scout ? 0.05 : carrying ? 0.028 : 0.04) * this.unitScale;
+        squash = 1 - Math.abs(Math.cos(w)) * 0.03;
+        pitch = scout ? Math.sin(w * 2) * 0.1 + 0.05 : clamp(0.06 + speed * 0.04, 0, 0.18) + (carrying ? 0.1 : 0);
+        roll = Math.sin(w) * (scout ? 0.03 : 0.06) - clamp(turn * 0.25, -0.18, 0.18);
+        side = Math.sin(w) * 0.008 * this.unitScale;
+        legGoal = scout ? 0.9 : carrying ? 0.7 : 0.95;
+        armGoal = carrying ? 0.2 : 0.75;
+        rate = clamp(speed * (scout ? 5 : 7), 7, scout ? 40 : 34);
       } else if (working) {
         // Pickaxe or hammer: a slow wind-up, a fast blow, a beat of rest; dirt and chips fly on the blow.
         const period = u.activity === 'Building' ? 0.48 : 0.9;
@@ -772,8 +800,57 @@ export class View3D {
             if (Math.random() < 0.5) this.effects.spark(tip, 2);
           }
         }
+      } else if (fighting) {
+        // Fighting: a steady rhythm of blows at the unit's own attack rate (never so fast you can't
+        // follow it). Melee units wind up, lunge and hack, with sparks where the blow lands; archers
+        // draw, loose an arrow and recover; scouts' mounts rear while the rider cuts down.
+        const archer = u.type === 'Archer';
+        const cooldown = archer ? 2 : 1;
+        const period = Math.max(archer ? 1.0 : 0.62, (cooldown * this.interval) / 1000);
+        if (a.atk == null) { a.atk = (a.id * 0.618) % 1; a.lastAtk = Math.floor(a.atk - 0.5); }
+        a.atk += dt / period;
+        const c = a.atk % 1;
+        // Between blows, weight shifts from foot to foot.
+        side = Math.sin(phase * 3.2) * 0.01 * this.unitScale;
+        roll = Math.sin(phase * 3.2) * 0.04;
+        armGoal = 0.15;
+        rate = 5;
+        if (archer) {
+          const draw = c < 0.5 ? smooth(c / 0.5) : c < 0.6 ? 1 - (c - 0.5) / 0.1 : 0;
+          pitch -= draw * 0.18;
+          fwd = (-draw * 0.04 + (c > 0.5 && c < 0.7 ? Math.sin(((c - 0.5) / 0.2) * Math.PI) * 0.025 : 0)) * this.unitScale;
+        } else if (u.type === 'Scout') {
+          const rear = c < 0.55 ? Math.sin((c / 0.55) * Math.PI) : 0;
+          pitch -= rear * 0.38;
+          fwd = rear * 0.05 * this.unitScale;
+          y += rear * 0.03;
+        } else {
+          chop = c < 0.38 ? smooth(c / 0.38) : c < 0.5 ? 1 - (c - 0.38) / 0.12 : 0;
+          const lunge = c < 0.38 ? -0.3 * smooth(c / 0.38) : c < 0.75 ? Math.sin(((c - 0.38) / 0.37) * Math.PI) : 0;
+          fwd = lunge * 0.1 * this.unitScale;
+          pitch += lunge * 0.3;
+          squash = 1 - Math.max(0, lunge) * 0.04;
+        }
+        const blow = Math.floor(a.atk - 0.5);
+        if (blow > a.lastAtk) {
+          a.lastAtk = blow;
+          if (archer) {
+            const from = new THREE.Vector3(p.x, y + 0.32 * this.unitScale, p.z);
+            const to = new THREE.Vector3(tp.x, this.terrain.heightAt(tp.x, tp.z) + tp.h * 0.6, tp.z);
+            this.effects.arrow(from, to, clamp(Math.hypot(tp.x - p.x, tp.z - p.z) * 0.09, 0.18, 0.5));
+          } else {
+            const at = new THREE.Vector3(p.x, y + 0.25 * this.unitScale, p.z)
+              .lerp(new THREE.Vector3(tp.x, this.terrain.heightAt(tp.x, tp.z) + tp.h * 0.5, tp.z), 0.6);
+            if (a.tgt.unit) this.effects.spark(at, 7, undefined, this.unitScale);
+            else {
+              this.effects.chip(at, this.unitScale);
+              const rec = this.buildings.get(a.tgt.id);
+              if (rec) rec.hitT = now;   // the wall flashes and shudders
+            }
+          }
+        }
       } else if (u.activity === 'Attacking') {
-        // Between blows: a fighter's stance, weight shifting from foot to foot.
+        // Waiting for a target in reach: a fighter's stance.
         side = Math.sin(phase * 3.2) * 0.012;
         roll = Math.sin(phase * 3.2) * 0.04;
         armGoal = 0.18;
@@ -781,28 +858,6 @@ export class View3D {
         squash = 1 - Math.abs(Math.sin(phase * 3.2)) * 0.02;
       } else {
         squash = 1 + Math.sin(phase * 2.4) * 0.015;   // breathing
-      }
-
-      // A blow: wind up, strike (landing ~150 ms in, with the sparks), recover.
-      const since = now - a.strikeT;
-      if (since >= 0 && since < 420) {
-        const t = since / 420;
-        if (u.type === 'Archer') {
-          // Draw: lean back as the string comes to the cheek; release with a snap forward.
-          const draw = since < 140 ? smooth(since / 140) : Math.max(0, 1 - (since - 140) / 60);
-          pitch -= draw * 0.16;
-          fwd = -draw * 0.035 + (since > 140 && since < 260 ? Math.sin(((since - 140) / 120) * Math.PI) * 0.02 : 0);
-        } else if (u.type === 'Scout') {
-          // The mount rears and the rider cuts down.
-          pitch -= Math.sin(Math.min(1, t * 1.6) * Math.PI) * 0.35;
-          fwd = Math.sin(Math.min(1, t * 1.6) * Math.PI) * 0.05;
-        } else {
-          chop = since < 110 ? smooth(since / 110) : since < 160 ? 1 - (since - 110) / 50 : 0;
-          const lunge = since < 110 ? -0.25 * smooth(since / 110) : since < 260 ? Math.sin(((since - 110) / 150) * Math.PI) : 0;
-          fwd = lunge * 0.1;
-          pitch += lunge * 0.28;
-          legGoal = 0;
-        }
       }
 
       // Taking a hit: a flash and a stagger away from whoever landed it.
@@ -934,8 +989,11 @@ export class View3D {
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
       const goal = b.completed ? NO_CUT : def.height * Math.max(0.04, b.constructionPercent / 100);
       rec.cut = goal === NO_CUT || rec.cut === NO_CUT ? goal : rec.cut + (goal - rec.cut) * k;
-      const flash = Math.max(0, 1 - Math.abs(now - rec.hitT) / 120) * 0.22;
-      m.compose(v.set(x, y, z), q, sc.setScalar(this.buildingScale));
+      const hit = Math.max(0, 1 - Math.abs(now - rec.hitT) / 120);
+      const flash = hit * 0.07;
+      // A blow makes the building shudder.
+      const sh = hit * 0.012 * this.buildingScale;
+      m.compose(v.set(x + Math.sin(now * 0.09) * sh, y, z + Math.cos(now * 0.11) * sh), q, sc.setScalar(this.buildingScale));
       this.buildingLayer(def).push(m, teamOf(b.owner), flash, rec.cut);
       if (!b.completed) L.scaffold.push(m, white);
       if (b.completed && b.hp < b.maxHp) {

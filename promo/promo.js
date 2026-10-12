@@ -429,7 +429,8 @@ function codeExec({ dur, start }) {
 /** Editor: type MobAttack in. */
 function typeMob({ dur, start }) {
   const total = MOB_CODE.join('\n').length;
-  const a = 0.5, b = dur - 0.9;
+  // The idea goes up first and stays a beat so it can be read; then the code types in below it.
+  const a = 1.6, b = dur - 0.9;
   typeCues(start + a, start + b, total, 3);
   return {
     dur,
@@ -437,10 +438,13 @@ function typeMob({ dur, start }) {
       show3d(false); show2d(false);
       const n = Math.floor(total * eIO(prog(t, a, b)) * 0.15 + total * prog(t, a, b) * 0.85);
       const body = codeBlock(MOB_CODE, MOB_FIRST_LINE, { typed: n, lineClass: () => 'add' });
-      const p = eOut(prog(t, 0, 0.4));
+      const p = eOut(prog(t, 0.2, 0.7));
+      const q = eOut(prog(t, 0, 0.35));
       ui.innerHTML = `<div class="bg"></div>
-        ${win({ x: 120, y: 90, w: 1680, h: 820, tabs: [{ name: 'StarterBot.cs ●' }, { name: 'PowerShell', dot: 'b' }], body, alpha: p, scale: 0.96 + 0.04 * p, ry: -2 + 2 * eOut(prog(t, 0, dur)) })}
-        <div class="lower" style="bottom:40px;left:140px;opacity:${prog(t, 0.6, 1)}"><div class="l2" style="font-size:30px">Idea: when an enemy shows up, everybody charges it.</div></div>`;
+        <div class="lower" style="top:58px;bottom:auto;left:120px;opacity:${q};transform:translateY(${(1 - q) * -16}px)">
+          <div class="bar" style="width:${120 * q}px"></div>
+          <div class="l1" style="font-size:52px">Idea: <span style="color:var(--orange)">when an enemy shows up, everybody charges it.</span></div></div>
+        ${win({ x: 120, y: 210, w: 1680, h: 820, tabs: [{ name: 'StarterBot.cs ●' }, { name: 'PowerShell', dot: 'b' }], body, alpha: p, scale: 0.96 + 0.04 * p, ry: -2 + 2 * eOut(prog(t, 0, dur)) })}`;
       ui.querySelector('.win pre').style.fontSize = '27px';
     },
   };

@@ -175,12 +175,22 @@ export class Effects {
   // ---------------------------------------------------------------- bursts
 
   /** Sparks where a blade or arrow lands. */
-  spark(p, n = 8, colour = [2.2, 1.7, 0.9]) {
+  spark(p, n = 8, colour = [2.2, 1.7, 0.9], s = 1) {
     for (let i = 0; i < n; i++) {
-      this.glow.emit(p.x, p.y, p.z, rand(-1.4, 1.4), rand(0.4, 2.0), rand(-1.4, 1.4),
-        { life: rand(0.18, 0.4), size: rand(0.03, 0.06), color: colour, gravity: 6, drag: 2 });
+      this.glow.emit(p.x, p.y, p.z, rand(-1.4, 1.4) * s, rand(0.4, 2.0) * s, rand(-1.4, 1.4) * s,
+        { life: rand(0.18, 0.4), size: rand(0.03, 0.06) * s, color: colour, gravity: 6 * s, drag: 2 });
     }
-    this.glow.emit(p.x, p.y, p.z, 0, 0, 0, { life: 0.12, size: 0.35, color: [1, 0.85, 0.6], alpha: 0.8 });
+    this.glow.emit(p.x, p.y, p.z, 0, 0, 0, { life: 0.12, size: 0.35 * s, color: [1, 0.85, 0.6], alpha: 0.8 });
+  }
+
+  /** A blow landing on a wall: a flash, sparks, and chips of brick and dust thrown back. */
+  chip(p, s = 1) {
+    this.spark(p, 10, [2.2, 1.6, 0.8], s * 1.3);
+    for (let i = 0; i < 5; i++) {
+      this.soft.emit(p.x, p.y, p.z, rand(-1.2, 1.2) * s, rand(0.6, 1.8) * s, rand(-1.2, 1.2) * s,
+        { life: rand(0.35, 0.6), size: rand(0.04, 0.07) * s, color: [0.45, 0.25, 0.18], alpha: 0.95, gravity: 7 * s, drag: 1 });
+    }
+    this.dust(p, 3, [0.6, 0.52, 0.44], 0.5 * s);
   }
 
   /** A puff of dust at a unit's feet. */
