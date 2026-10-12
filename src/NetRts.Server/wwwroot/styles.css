@@ -306,6 +306,8 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
   max-width: 100%;
 }
 .launch .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
+.launch .segmented label { flex-direction: column; line-height: 1.2; padding: 6px 4px; }
+.launch .segmented .ms { margin-left: 0; }
 .segmented input { position: absolute; opacity: 0; pointer-events: none; }
 .segmented label {
   padding: 8px 14px;
@@ -336,9 +338,9 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 
 .hero {
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(300px, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
   gap: clamp(24px, 4vw, 56px);
-  align-items: start;
+  align-items: center;
   padding-bottom: clamp(24px, 4vw, 48px);
   border-bottom: 1px solid var(--line);
 }
@@ -346,7 +348,6 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .hero-links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 24px; }
 
 .promo {
-  margin-top: 28px;
   aspect-ratio: 16 / 9;
   background: var(--panel);
   border: 1px solid var(--line);
@@ -678,7 +679,6 @@ pre.snippet {
   .match-row .meta { text-align: left; white-space: normal; }
   .versus { grid-template-columns: minmax(0, 1fr); }
   .versus .vs { display: none; }
-  .launch .segmented label { flex-direction: column; line-height: 1.2; padding: 6px 4px; }
   .segmented .ms { margin-left: 0; }
   :not(.table-scroll) > .ladder th:nth-child(n+5), :not(.table-scroll) > .ladder td:nth-child(n+5) { display: none; }
   /* Scrolling tables keep every column; numbers stay on one line so the table scrolls instead of squashing. */

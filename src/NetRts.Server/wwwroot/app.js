@@ -105,32 +105,12 @@ function mountHome(root) {
           <a class="btn ghost" href="/scalar">Read the API docs</a>
           <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger')}</a>
         </div>
-        <div class="promo">
-          <iframe src="https://www.youtube-nocookie.com/embed/n55mFh3wFiA?rel=0" title="${say('NetRts in action', 'Badger Brawl: the trailer')}"
-            loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
-        </div>
       </div>
-      <form class="launch" id="launch" novalidate>
-        <h2>${say('Start an exhibition', 'Start a scrimmage')}</h2>
-        <p class="muted small" style="margin:0">${say('Pick 2 to 16 house bots (as many copies of each as you like) and watch them play each other.', 'Pick 2 to 16 house badgers (as many copies of each as you like) and watch them have it out.')}</p>
-        <fieldset class="field">
-          <legend>${say('House bots', 'House badgers')}</legend>
-          <div class="bot-counts" id="bot-counts"><p class="muted small" style="margin:0">Loading…</p></div>
-          <p class="muted small" id="bot-total" aria-live="polite" style="margin:0"></p>
-        </fieldset>
-        <p class="bot-desc muted small" id="bot-desc" aria-live="polite"></p>
-        <fieldset class="field">
-          <legend>${say('Tick speed', 'Pace')}</legend>
-          <div class="segmented">
-            ${SPEEDS.map((s, i) => html`
-              <input type="radio" name="speed" id="speed-${s.ms}" value="${s.ms}" ${i === 1 ? html`checked` : ''}>
-              <label for="speed-${s.ms}">${s.label} <span class="muted small ms">${s.ms} ms</span></label>`)}
-          </div>
-        </fieldset>
-        <div><button class="btn" type="submit" id="launch-btn">${say('Start match', 'Let them brawl')}</button></div>
-        <p class="error" id="launch-error" role="alert" hidden></p>
-      </form>
+      <div class="promo">
+        <iframe src="https://www.youtube-nocookie.com/embed/n55mFh3wFiA?rel=0" title="${say('NetRts in action', 'Badger Brawl: the trailer')}"
+          loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+      </div>
     </div>
 
     <div class="board">
@@ -148,6 +128,28 @@ function mountHome(root) {
         </section>
       </div>
       <div>
+        <section>
+          <form class="launch" id="launch" novalidate>
+            <h2>${say('Start an exhibition', 'Start a scrimmage')}</h2>
+            <p class="muted small" style="margin:0">${say('Pick 2 to 16 house bots (as many copies of each as you like) and watch them play each other.', 'Pick 2 to 16 house badgers (as many copies of each as you like) and watch them have it out.')}</p>
+            <fieldset class="field">
+              <legend>${say('House bots', 'House badgers')}</legend>
+              <div class="bot-counts" id="bot-counts"><p class="muted small" style="margin:0">Loading…</p></div>
+              <p class="muted small" id="bot-total" aria-live="polite" style="margin:0"></p>
+            </fieldset>
+            <p class="bot-desc muted small" id="bot-desc" aria-live="polite"></p>
+            <fieldset class="field">
+              <legend>${say('Tick speed', 'Pace')}</legend>
+              <div class="segmented">
+                ${SPEEDS.map((s, i) => html`
+                  <input type="radio" name="speed" id="speed-${s.ms}" value="${s.ms}" ${i === 1 ? html`checked` : ''}>
+                  <label for="speed-${s.ms}">${s.label} <span class="muted small ms">${s.ms} ms</span></label>`)}
+              </div>
+            </fieldset>
+            <div><button class="btn" type="submit" id="launch-btn">${say('Start match', 'Let them brawl')}</button></div>
+            <p class="error" id="launch-error" role="alert" hidden></p>
+          </form>
+        </section>
         <section aria-labelledby="ladder-h">
           <h2 id="ladder-h">${say('Leaderboard', 'Top Badgers')}</h2>
           <fieldset class="ladder-tabs">
@@ -279,7 +281,7 @@ Authorization: Bearer &lt;apiKey&gt;
       list.sort((a, b) => (order[a.status] - order[b.status]) || (Date.parse(b.createdAt) - Date.parse(a.createdAt)));
       setHtml(el, list.length
         ? html`<ul class="match-list">${list.map((m) => matchRow(m))}</ul>`
-        : html`<p class="empty">${say('No matches running. Start an exhibition above, or point a bot at the API.', 'The field is empty. Start a scrimmage above, or point a bot at the API.')}</p>`);
+        : html`<p class="empty">${say('No matches running. Start an exhibition, or point a bot at the API.', 'The field is empty. Start a scrimmage, or point a bot at the API.')}</p>`);
       $('live-updated').textContent = `updated ${new Date().toLocaleTimeString()}`;
     } catch (e) {
       if (alive) setHtml(el, html`<p class="error">Could not load live ${say('matches', 'brawls')}: ${e.message}</p>`);
