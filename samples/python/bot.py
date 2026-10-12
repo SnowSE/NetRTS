@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NetRts reference bot in plain Python 3 (standard library only).
+"""NetRTS reference bot in plain Python 3 (standard library only).
 
 The whole protocol in one file:
   1. register a player (or reuse an API key)       POST /api/v1/players
@@ -255,7 +255,7 @@ def print_result(api, match_id):
 
 
 def main():
-    ap = argparse.ArgumentParser(description="NetRts reference bot (Python, stdlib only)")
+    ap = argparse.ArgumentParser(description="NetRTS reference bot (Python, stdlib only)")
     ap.add_argument("--server", default=os.environ.get("NETRTS_SERVER", "http://localhost:5080"))
     ap.add_argument("--name", help="bot name to register (needed unless --key is given)")
     ap.add_argument("--key", default=os.environ.get("NETRTS_API_KEY"), help="existing API key")

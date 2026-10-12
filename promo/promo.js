@@ -1,6 +1,6 @@
 // Badger Brawl commercials: a frame-exact timeline. window.seek(t) renders the frame at t seconds, so the
 // same page plays live in a browser (?cut=short|long) or renders to video one frame at a time (render.mjs).
-import { Battle3D, unitPos, frameAt, TEAM } from './battle3d.js';
+import { Battle3D, unitPos, frameAt, TEAM } from './game3d.js';
 import { MapView } from '/src/NetRts.Server/wwwroot/mapview.js';
 
 const $ = (s) => document.querySelector(s);
@@ -144,7 +144,7 @@ function typeCues(a, b, chars, every = 2) {
 
 // ---------- the shared pieces
 
-const SERVER = 'https://netrts.snowse.io';
+const SERVER = 'https://NetRTS.snowse.io';   // as the starter bot prints it
 const RUN = 'dotnet run StarterBot.cs --player-name Frank';
 const CURL = 'curl -O https://raw.githubusercontent.com/SnowSE/NetRTS/main/samples/csharp/StarterBot.cs';
 
@@ -289,17 +289,48 @@ function rulesCard({ dur }) {
     dur,
     render(t) {
       show3d(false); show2d(false);
-      const r1 = eOut(prog(t, 0.1, 0.6)), r2 = eOut(prog(t, dur * 0.36, dur * 0.36 + 0.5)), r3 = eOut(prog(t, dur * 0.66, dur * 0.66 + 0.5));
+      const r1 = eOut(prog(t, 0.1, 0.6)), r2 = eOut(prog(t, dur * 0.42, dur * 0.42 + 0.5));
       ui.innerHTML = `<div class="bg"></div>
-        <div class="kicker" style="position:absolute;left:150px;top:110px;opacity:${r1}">House rules · just two</div>
-        <div class="rule" style="position:absolute;left:150px;top:200px;width:1620px;opacity:${r1};transform:translateX(${(1 - r1) * 80}px)">
+        <div class="kicker" style="position:absolute;left:150px;top:150px;opacity:${r1}">House rules · just two</div>
+        <div class="rule" style="position:absolute;left:150px;top:260px;width:1620px;opacity:${r1};transform:translateX(${(1 - r1) * 80}px)">
           <div class="num">1</div><div><h3>Write the code you run.</h3><p>Use AI as a teaching assistant, not a ghostwriter. The whole point is that <b style="color:#fff">you</b> write the code, and have fun doing it.</p></div></div>
-        <div class="rule" style="position:absolute;left:150px;top:480px;width:1620px;opacity:${r2};transform:translateX(${(1 - r2) * 80}px)">
-          <div class="num">2</div><div><h3>Don't mess with anyone else's game.</h3><p>Find a loophole? Use it on the field, not on the server.</p></div></div>
-        <div style="position:absolute;left:150px;right:150px;top:780px;display:flex;gap:40px;opacity:${r3};transform:translateY(${(1 - r3) * 30}px)">
-          <div class="card" style="position:relative;flex:1;padding:28px 36px;border-color:rgba(255,138,122,0.5)"><div style="font:700 44px var(--head)" class="no">✕ The Thanos exploit</div><div style="font:30px var(--head);color:#b8c7d8;margin-top:8px">Snap, and the other players vanish. Not cool.</div></div>
-          <div class="card" style="position:relative;flex:1;padding:28px 36px;border-color:rgba(95,211,168,0.5)"><div style="font:700 44px var(--head)" class="yes">✓ The Captain America exploit</div><div style="font:30px var(--head);color:#b8c7d8;margin-top:8px">Super-soldier serum for your badgers. Game on.</div></div>
+        <div class="rule" style="position:absolute;left:150px;top:560px;width:1620px;opacity:${r2};transform:translateX(${(1 - r2) * 80}px)">
+          <div class="num">2</div><div><h3>Don't mess with anyone else's game.</h3><p>Find an edge? Use it on the field, never against another player's chance to play.</p></div></div>`;
+    },
+  };
+}
+
+/** Rule 2 in practice: the Thanos exploit (out) against the Captain America exploit (in). */
+function exploitCards({ dur, start }) {
+  const tA = 0.3, tB = dur * 0.36, tC = dur * 0.7;
+  cue(start + tA, 'glitch');
+  cue(start + tB, 'hit');
+  cue(start + tC, 'whoosh');
+  const item = (s) => `<li style="margin:10px 0">${s}</li>`;
+  return {
+    dur,
+    render(t) {
+      show3d(false); show2d(false);
+      const k = eOut(prog(t, 0, 0.4)), a = eOut(prog(t, tA, tA + 0.5)), b = eOut(prog(t, tB, tB + 0.5)), c = eOut(prog(t, tC, tC + 0.5));
+      const card = (o, border, title, cls, line, items, verdict, vcol) => `
+        <div class="card" style="position:relative;flex:1;padding:36px 44px;border-width:2px;border-color:${border};opacity:${o};transform:translateY(${(1 - o) * 40}px)">
+          <div style="font:700 48px var(--head);white-space:nowrap" class="${cls}">${title}</div>
+          <div style="font:600 36px var(--head);color:#fff;margin-top:14px">${line}</div>
+          <ul style="font:32px var(--head);color:#b8c7d8;margin:20px 0 0;padding-left:34px">${items.map(item).join('')}</ul>
+          <div style="font:700 34px var(--head);color:${vcol};margin-top:22px">${verdict}</div>
         </div>`;
+      ui.innerHTML = `<div class="bg"></div>
+        <div class="kicker" style="position:absolute;left:150px;top:90px;opacity:${k}">Rule 2, in practice</div>
+        <div style="position:absolute;left:150px;right:150px;top:160px;display:flex;gap:50px">
+          ${card(a, 'rgba(255,138,122,0.75)', '✕ The Thanos exploit', 'no', 'Snap, and other players can’t play.',
+            ['Crashing or flooding the server', 'Breaking or blocking someone else’s bot', 'Using another player’s key'],
+            'Not OK: it takes away someone’s chance to compete.', '#ff8a7a')}
+          ${card(b, 'rgba(95,211,168,0.75)', '✓ The Captain America exploit', 'yes', 'Super-soldier serum, for <i>your</i> badgers.',
+            ['A strategy nobody saw coming', 'A rule interaction you found in GameRules.cs', 'Squeezing more out of every tick'],
+            'OK: you get stronger, and everyone still gets to play.', '#5fd3a8')}
+        </div>
+        <div style="position:absolute;left:0;right:0;top:900px;text-align:center;opacity:${c};transform:scale(${0.96 + 0.04 * c})">
+          <div style="font:700 62px var(--head);color:#fff">Gain an <span class="orange">edge</span>. Never take away someone else’s game.</div></div>`;
     },
   };
 }
@@ -338,7 +369,7 @@ function endCard({ dur }) {
           <div style="font:700 150px/1 var(--head);letter-spacing:-0.03em;margin-top:12px">BADGER <span class="orange">BRAWL</span></div></div>
         <div style="position:absolute;left:0;right:0;top:700px;text-align:center;opacity:${q}">
           <div class="codeword" style="font-size:46px;color:var(--sky)">github.com/SnowSE/NetRTS</div>
-          <div class="codeword" style="font-size:34px;color:#b8c7d8;margin-top:16px">netrts.snowse.io · first brawl Oct 22</div>
+          <div class="codeword" style="font-size:34px;color:#b8c7d8;margin-top:16px">NetRTS.snowse.io · first brawl Oct 22</div>
           <div style="font:600 30px var(--head);color:var(--orange);margin-top:30px;letter-spacing:0.3em">GO BADGERS</div></div></div>`;
     },
   };
@@ -429,7 +460,8 @@ function codeExec({ dur, start }) {
 /** Editor: type MobAttack in. */
 function typeMob({ dur, start }) {
   const total = MOB_CODE.join('\n').length;
-  const a = 0.5, b = dur - 0.9;
+  // The idea goes up first and stays a beat so it can be read; then the code types in below it.
+  const a = 1.6, b = dur - 0.9;
   typeCues(start + a, start + b, total, 3);
   return {
     dur,
@@ -437,10 +469,13 @@ function typeMob({ dur, start }) {
       show3d(false); show2d(false);
       const n = Math.floor(total * eIO(prog(t, a, b)) * 0.15 + total * prog(t, a, b) * 0.85);
       const body = codeBlock(MOB_CODE, MOB_FIRST_LINE, { typed: n, lineClass: () => 'add' });
-      const p = eOut(prog(t, 0, 0.4));
+      const p = eOut(prog(t, 0.2, 0.7));
+      const q = eOut(prog(t, 0, 0.35));
       ui.innerHTML = `<div class="bg"></div>
-        ${win({ x: 120, y: 90, w: 1680, h: 820, tabs: [{ name: 'StarterBot.cs ●' }, { name: 'PowerShell', dot: 'b' }], body, alpha: p, scale: 0.96 + 0.04 * p, ry: -2 + 2 * eOut(prog(t, 0, dur)) })}
-        <div class="lower" style="bottom:40px;left:140px;opacity:${prog(t, 0.6, 1)}"><div class="l2" style="font-size:30px">Idea: when an enemy shows up, everybody charges it.</div></div>`;
+        <div class="lower" style="top:58px;bottom:auto;left:120px;opacity:${q};transform:translateY(${(1 - q) * -16}px)">
+          <div class="bar" style="width:${120 * q}px"></div>
+          <div class="l1" style="font-size:52px">Idea: <span style="color:var(--orange)">when an enemy shows up, everybody charges it.</span></div></div>
+        ${win({ x: 120, y: 210, w: 1680, h: 820, tabs: [{ name: 'StarterBot.cs ●' }, { name: 'PowerShell', dot: 'b' }], body, alpha: p, scale: 0.96 + 0.04 * p, ry: -2 + 2 * eOut(prog(t, 0, dur)) })}`;
       ui.querySelector('.win pre').style.fontSize = '27px';
     },
   };
@@ -626,13 +661,14 @@ function buildShort() {
       map2d(FOUR, 380 + t * 4, { zoom: 1.4, alpha: 0.25 });
       const a = eOut(prog(t, 0.05, 0.4)), b = eOut(prog(t, 0.9, 1.3)), c = eOut(prog(t, 1.8, 2.2));
       ui.innerHTML = `
-        <div style="position:absolute;left:150px;top:150px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">The server is already up</div><div class="codeword" style="font-size:84px;margin-top:10px;color:#fff">netrts.snowse.io</div></div>
+        <div style="position:absolute;left:150px;top:150px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">The server is already up</div><div class="codeword" style="font-size:84px;margin-top:10px;color:#fff">NetRTS.snowse.io</div></div>
         <div style="position:absolute;left:150px;top:440px;opacity:${b};transform:translateX(${(1 - b) * -50}px)"><div class="kicker">Or run your own</div><div class="codeword" style="font-size:46px;margin-top:14px;color:#d6e2f0">docker run -p 8080:8080 snowcollege/netrts</div></div>
         <div style="position:absolute;left:150px;top:690px;opacity:${c};transform:translateX(${(1 - c) * -50}px)"><div class="kicker">It's open source</div><div style="font:700 70px var(--head);margin-top:12px">Read the server. Find an <span class="orange">edge</span>.</div></div>`;
     },
   }), 3.0);
   cue(at, 'hit');
   add(({ dur }) => rulesCard({ dur }), 4.5);
+  add(({ dur, start }) => exploitCards({ dur, start }), 6);
   cue(at, 'boom');
   add(({ dur }) => ({
     dur,
@@ -658,7 +694,7 @@ function buildLong() {
     const p = eExpo(prog(t, 1.2, 1.9)), o = 1 - prog(t, dur - 0.4, dur);
     return `<div style="position:absolute;left:0;right:0;top:330px;text-align:center;opacity:${p * o}">
       <div style="font:700 200px/0.95 var(--head);letter-spacing:-0.03em;transform:scale(${1.15 - 0.15 * p});text-shadow:0 0 50px rgba(0,0,0,0.8),0 0 60px rgba(124,192,255,0.4)">BADGER <span class="orange">BRAWL</span></div>
-      <div style="font:600 44px var(--head);margin-top:24px;color:#e6eef7;text-shadow:0 2px 20px #000">${words('A real-time strategy game where nobody touches a mouse.', t, { at: 2.4, step: 0.06 })}</div></div>`;
+      <div style="font:600 44px var(--head);margin-top:24px;color:#e6eef7;text-shadow:0 2px 20px #000">${words('A network real-time strategy game where nobody touches a mouse.', t, { at: 2.4, step: 0.06 })}</div></div>`;
   }), 7.5);
   cue(at, 'whoosh');
 
@@ -667,8 +703,8 @@ function buildLong() {
   const roster = [
     [DUEL, 64, 66, 'unit', 'Worker', '<span>digs up grubs, builds the campus</span>', { r: 6.5, h: 3.2 }],
     [DUEL, 259, 105, 'unit', 'Soldier', '110 HP · tough, close-up', { r: 6, h: 2.8, deg0: 200, deg1: 240 }],
-    [DUEL, 262, 117, 'unit', 'Archer', 'shoots from four tiles away', { r: 6, h: 3, deg0: 250, deg1: 210 }],
-    [FOUR, 112, 126, 'unit', 'Scout', '<span>twice as fast · sees furthest</span>', { r: 7, h: 3.6 }],
+    [DUEL, 268, 117, 'unit', 'Archer', 'shoots from four tiles away', { r: 4.5, h: 1.8, deg0: 320, deg1: 345 }],
+    [FOUR, 120, 126, 'unit', 'Scout', '<span>twice as fast · sees furthest</span>', { r: 4.5, h: 2.2 }],
     [DUEL, RT, 65, 'building', 'Noyes Building', '<span>your HQ · lose it and you\'re out</span>', { r: 9, h: 5.5, label: 'Noyes Building' }],
     [DUEL, RT, 96, 'building', 'Suites at Academy Square', '<span>housing · trains soldiers, archers, scouts</span>', { r: 8, h: 4.6 }],
     [DUEL, RT, 103, 'building', 'GRSC Makerspace', '<span>upgrades are coursework: Organic Chemistry = +damage</span>', { r: 8, h: 4.4 }],
@@ -790,7 +826,7 @@ function buildLong() {
       map2d(RING, 300 + t * 6, { zoom: 1.05, alpha: 0.22 });
       const a = eOut(prog(t, 0.05, 0.45)), b = eOut(prog(t, 1.5, 1.9)), c = eOut(prog(t, 3.3, 3.7));
       ui.innerHTML = `
-        <div style="position:absolute;left:150px;top:110px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">A server is already up and running</div><div class="codeword" style="font-size:88px;margin-top:10px;color:#fff">netrts.snowse.io</div></div>
+        <div style="position:absolute;left:150px;top:110px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">A server is already up and running</div><div class="codeword" style="font-size:88px;margin-top:10px;color:#fff">NetRTS.snowse.io</div></div>
         <div style="position:absolute;left:150px;top:380px;opacity:${b};transform:translateX(${(1 - b) * -50}px)"><div class="kicker">Want your own? Run it locally</div>
           <div class="codeword" style="font-size:40px;margin-top:16px;color:#d6e2f0;line-height:1.6"><span class="prompt">PS&gt;</span> docker run -p 8080:8080 snowcollege/netrts<br><span class="mutedc">or</span>  <span class="prompt">PS&gt;</span> dotnet run --project src/NetRts.Server</div></div>
         <div style="position:absolute;left:150px;top:690px;opacity:${c};transform:translateX(${(1 - c) * -50}px)"><div class="kicker">The server is open source</div>
@@ -800,6 +836,7 @@ function buildLong() {
   }), 6);
   cue(at, 'hit');
   add(({ dur }) => rulesCard({ dur }), 7);
+  add(({ dur, start }) => exploitCards({ dur, start }), 8);
   cue(at, 'whoosh');
   add(({ dur }) => scheduleCard({ dur }), 6.5);
   cue(at, 'boom');
@@ -821,6 +858,7 @@ function fx(T) {
 
 let current = null;
 window.seek = (T) => {
+  window.videoTime = T;   // game3d animates on video time
   const s = scenes.find((x) => T >= x.start && T < x.start + x.dur) || scenes.at(-1);
   if (s !== current) { barsT.style.height = barsB.style.height = '0px'; current = s; }
   s.render(clamp(T - s.start, 0, s.dur - 1e-4));

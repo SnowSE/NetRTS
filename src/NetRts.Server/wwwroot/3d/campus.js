@@ -14,8 +14,8 @@ const C = {
   shingleGrey: col('#6a625a'), shingleBrown: col('#6e6358'), stucco: col('#c9b49a'), stuccoLight: col('#cdbba3'),
   siding: col('#e8e2d2'), sidingGrey: col('#d4d6d4'), metalGrey: col('#8e959b'), woodStrip: col('#7a4e33'),
   stone: col('#4a4a4a'), glass: col('#4a6070'), glassTeal: col('#3e8c9a'), glassNavy: col('#2e3f5c'),
-  unlit: col('#36414c'), lit: col('#ffcf7a'), orangePanel: col('#d9502a'), mint: col('#9fd3b0'),
-  maroon: col('#7a2a2a'), railGreen: col('#3f6b45'), lawn: col('#5f8a3c'), roofMembrane: col('#c4c4c4'),
+  unlit: col('#56708a'), lit: col('#f5d9a0'), orangePanel: col('#d9502a'), mint: col('#9fd3b0'),
+  maroon: col('#7a2a2a'), railGreen: col('#3f6b45'), lawn: col('#5f8a3c'), roofMembrane: col('#a9adb0'), teamRoof: col('#8a8f94'),
 };
 
 const Y0 = 0.085;   // top of the foundation slab
@@ -27,19 +27,33 @@ function block(b, colour, x, z, w, h, d, opts = {}) {
   return { x, z, w, h, d, y0, top: y0 + h };
 }
 
-/** A flat roof: a team-coloured membrane with a parapet or fascia band in `trim`. */
+/**
+ * A flat roof: a parapet in `trim` round a grey membrane, with a team-coloured stripe inside the
+ * parapet and a couple of rooftop units, so teams still read from above without the roofs glaring.
+ */
 function flatRoof(b, blk, trim = C.whiteTrim, { overhang = 0.015, band = 0.03 } = {}) {
+  const top = blk.top + band;
+  const w = blk.w - 0.02, d = blk.d - 0.02;
   b.add(box(blk.w + overhang * 2, band, blk.d + overhang * 2), trim, { at: [blk.x, blk.top + band / 2 - 0.004, blk.z] })
-    .add(box(blk.w - 0.02, 0.012, blk.d - 0.02), C.roofMembrane, { team: 1, at: [blk.x, blk.top + band - 0.002, blk.z] });
+    .add(box(w, 0.012, d), C.roofMembrane, { at: [blk.x, top - 0.002, blk.z] })
+    .add(box(w + 0.004, 0.016, 0.022), K.team, { team: 1, at: [blk.x, top, blk.z + d / 2 - 0.011] })
+    .add(box(w + 0.004, 0.016, 0.022), K.team, { team: 1, at: [blk.x, top, blk.z - d / 2 + 0.011] })
+    .add(box(0.022, 0.016, d + 0.004), K.team, { team: 1, at: [blk.x + w / 2 - 0.011, top, blk.z] })
+    .add(box(0.022, 0.016, d + 0.004), K.team, { team: 1, at: [blk.x - w / 2 + 0.011, top, blk.z] });
+  if (w > 0.25 && d > 0.2) {
+    b.add(box(0.07, 0.035, 0.05), col('#9aa0a6'), { at: [blk.x - w * 0.22, top + 0.02, blk.z + d * 0.1] })
+      .add(box(0.05, 0.03, 0.05), col('#9aa0a6'), { at: [blk.x + w * 0.2, top + 0.018, blk.z - d * 0.15] });
+  }
 }
 
-/** A hipped roof over a block: a four-sided cone stretched to the block, with eaves. */
-function hipRoof(b, blk, colour, h, eave = 0.04, team = 0) {
-  const r = Math.SQRT1_2;
-  b.add(cone(r, h, 4), colour, {
-    team, at: [blk.x, blk.top + h / 2, blk.z], rot: [0, Math.PI / 4, 0],
-    scale: [(blk.w + eave * 2) / 1, 1, (blk.d + eave * 2) / 1],
-  });
+/**
+ * A hipped roof over a block, with eaves and a fascia. The four-sided cone is turned square in its own
+ * geometry before it's stretched to the block; stretching first would skew it into a lopsided diamond.
+ */
+export function hipRoof(b, blk, colour, h, eave = 0.04, team = 0, fascia = col('#e8e4dc')) {
+  const w = blk.w + eave * 2, d = blk.d + eave * 2;
+  b.add(box(w, 0.016, d), fascia, { at: [blk.x, blk.top + 0.008, blk.z] })
+    .add(cone(Math.SQRT1_2, h, 4).rotateY(Math.PI / 4), colour, { team, at: [blk.x, blk.top + 0.016 + h / 2, blk.z], scale: [w, 1, d] });
 }
 
 /** A gable roof along x (ridge parallel to the block's width). */
@@ -51,7 +65,7 @@ function gableRoof(b, blk, colour, h, eave = 0.03, team = 0) {
  * Windows on a block's faces ('f' front +z, 'b' back, 'l' left -x, 'r' right +x): `rows` storeys from
  * y0 every dy, `cols` across. Some are lit; `spandrel` adds a panel under each.
  */
-function windowsOn(b, blk, faces, rows, cols, { y0 = 0.07, dy = 0.15, ww = 0.05, wh = 0.07, seed = 1, spandrel = null, litShare = 0.6, colsSide = null } = {}) {
+function windowsOn(b, blk, faces, rows, cols, { y0 = 0.07, dy = 0.15, ww = 0.05, wh = 0.07, seed = 1, spandrel = null, litShare = 0.25, colsSide = null } = {}) {
   const F = { f: [0, 1, 0], b: [0, -1, Math.PI], r: [1, 0, Math.PI / 2], l: [-1, 0, -Math.PI / 2] };
   for (const face of faces) {
     const [nx, nz, ry] = F[face];
@@ -66,6 +80,7 @@ function windowsOn(b, blk, faces, rows, cols, { y0 = 0.07, dy = 0.15, ww = 0.05,
         const h = ((r * 7 + c * 13 + face.charCodeAt(0) * 5 + seed * 3) % 10) / 10;
         const lit = h < litShare;
         b.add(box(ww, wh, 0.01), lit ? C.lit : C.unlit, { glow: lit ? 0.3 : 0, at: [px, y, pz], rot: [0, ry, 0] });
+        b.add(box(ww * 1.3, 0.008, 0.02), C.limestone, { at: [px + (nx ? nx * 0.006 : 0), y - wh / 2 - 0.004, pz + (nz ? nz * 0.006 : 0)], rot: [0, ry, 0] });   // sill
         if (spandrel) b.add(box(ww * 1.05, wh * 0.6, 0.008), spandrel, { at: [px, y - wh * 0.85, pz], rot: [0, ry, 0] });
       }
     }
@@ -214,7 +229,7 @@ function castilleja() {
   const c = block(b, col('#b8643f'), -0.24, 0.18, 0.32, 0.26, 0.4);
   for (const blk of [a, c]) {
     b.add(box(blk.w + 0.06, 0.035, blk.d + 0.06), C.whiteTrim, { at: [blk.x, blk.top + 0.017, blk.z] })
-      .add(box(blk.w, 0.012, blk.d), C.roofMembrane, { team: 1, at: [blk.x, blk.top + 0.04, blk.z] });
+      .add(box(blk.w, 0.012, blk.d), C.teamRoof, { team: 1, at: [blk.x, blk.top + 0.04, blk.z] });
     // Stack-bond texture: a grid of pale joints.
     for (let i = -3; i <= 3; i++) b.add(box(0.006, blk.h - 0.02, 0.006), col('#d39a7a'), { at: [blk.x + i * blk.w / 7, blk.y0 + blk.h / 2, blk.z + blk.d / 2 + 0.003] });
   }
@@ -286,7 +301,7 @@ function nordicPointe() {
   block(b, C.stone, -0.39, -0.06, 0.06, 0.2, 0.44);
   // Corner tower caps over a stepped parapet.
   b.add(box(0.84, 0.03, 0.44), C.whiteTrim, { at: [0, bar.top + 0.015, bar.z] })
-    .add(box(0.8, 0.012, 0.4), C.roofMembrane, { team: 1, at: [0, bar.top + 0.032, bar.z] });
+    .add(box(0.8, 0.012, 0.4), C.teamRoof, { team: 1, at: [0, bar.top + 0.032, bar.z] });
   for (const x of [-0.36, 0.36]) b.add(box(0.12, 0.08, 0.44), C.metalGrey, { at: [x, bar.top + 0.04, bar.z] });
   return b.build();
 }
@@ -342,7 +357,7 @@ function acornOaktree() {
     flatRoof(b, bar, col('#b5a17a'));
     windowsOn(b, bar, x < 0 ? 'fbl' : 'fbr', 3, 2, { y0: 0.08, dy: 0.13, seed: x < 0 ? 1 : 7, colsSide: 5 });
     const tower = block(b, col('#b9a37b'), x + (x < 0 ? 0.19 : -0.19), 0.0, 0.08, 0.46, 0.16);
-    b.add(box(0.09, 0.015, 0.17), C.roofMembrane, { team: 1, at: [tower.x, tower.top + 0.008, tower.z] });
+    b.add(box(0.09, 0.015, 0.17), C.teamRoof, { team: 1, at: [tower.x, tower.top + 0.008, tower.z] });
     for (let f = 0; f < 3; f++) door(b, x, bar.z + bar.d / 2 + 0.006, C.maroon, 0, 0.05, 0.09, Y0 + f * 0.13);
   }
   return b.build();
@@ -542,7 +557,7 @@ function eccles() {
   const boxes = [[-0.28, -0.1, 0.26, 0.56, 0.32], [0.06, -0.1, 0.3, 0.34, 0.36], [0.32, -0.12, 0.2, 0.24, 0.3]];
   for (const [x, z, w, h, d] of boxes) {
     const blk = block(b, dark, x, z, w, h, d, { y0: base.top });
-    b.add(box(w - 0.02, 0.012, d - 0.02), C.roofMembrane, { team: 1, at: [x, blk.top + 0.006, z] });
+    b.add(box(w - 0.02, 0.012, d - 0.02), C.teamRoof, { team: 1, at: [x, blk.top + 0.006, z] });
     for (let i = 1; i < 4; i++) b.add(box(w + 0.004, 0.006, d + 0.004), col('#2e2624'), { at: [x, blk.y0 + i * h / 4, z] });
   }
   // The two-storey glass lobby with its big flat silver canopy, a third of the way along.
@@ -622,7 +637,7 @@ function socialScience() {
   const s = block(b, col('#d9b877'), 0, -0.1, 0.62, 0.3, 0.4);
   b.add(box(0.624, 0.06, 0.404), col('#e6c3a6'), { at: [0, Y0 + 0.17, -0.1] })
     .add(box(0.64, 0.03, 0.42), col('#4a3428'), { at: [0, s.top + 0.015, -0.1] })
-    .add(box(0.6, 0.012, 0.38), C.roofMembrane, { team: 1, at: [0, s.top + 0.032, -0.1] });
+    .add(box(0.6, 0.012, 0.38), C.teamRoof, { team: 1, at: [0, s.top + 0.032, -0.1] });
   for (const x of [-0.18, 0.15]) b.add(box(0.07, 0.04, 0.06), K.steel, { at: [x, s.top + 0.05, -0.15] });
   windowsOn(b, s, 'fblr', 2, 5, { y0: 0.08, dy: 0.15, ww: 0.06, wh: 0.06, seed: 2 });
   // The square entry canopy on two piers.
@@ -666,7 +681,7 @@ function healthScience() {
   // The pavilion, turned 45 degrees, with its octagonal lantern.
   b.add(box(0.28, 0.2, 0.28), col('#c49a74'), { at: [0, Y0 + 0.1, 0.2], rot: [0, Math.PI / 4, 0] })
     .add(box(0.3, 0.025, 0.3), C.whiteTrim, { at: [0, Y0 + 0.212, 0.2], rot: [0, Math.PI / 4, 0] })
-    .add(box(0.28, 0.012, 0.28), C.roofMembrane, { team: 1, at: [0, Y0 + 0.228, 0.2], rot: [0, Math.PI / 4, 0] })
+    .add(box(0.28, 0.012, 0.28), C.teamRoof, { team: 1, at: [0, Y0 + 0.228, 0.2], rot: [0, Math.PI / 4, 0] })
     .add(cyl(0.08, 0.08, 0.08, 8), C.glass, { glow: 0.45, at: [0, Y0 + 0.27, 0.2] })
     .add(cone(0.1, 0.07, 8), C.whiteTrim, { at: [0, Y0 + 0.345, 0.2] });
   for (const a of [Math.PI / 4, -Math.PI / 4]) {
@@ -681,7 +696,7 @@ function horne() {
   foundation(b);
   const gym = block(b, col('#c49a6c'), 0, -0.06, 0.84, 0.5, 0.56);
   b.add(box(0.86, 0.04, 0.58), col('#bfc3c6'), { at: [0, gym.top + 0.02, gym.z] })
-    .add(box(0.8, 0.012, 0.52), C.roofMembrane, { team: 1, at: [0, gym.top + 0.042, gym.z] });
+    .add(box(0.8, 0.012, 0.52), C.teamRoof, { team: 1, at: [0, gym.top + 0.042, gym.z] });
   b.add(box(0.84, 0.12, 0.012), col('#8e9196'), { at: [0, Y0 + 0.4, 0.225] })
     .add(box(0.012, 0.12, 0.56), col('#8e9196'), { at: [-0.425, Y0 + 0.4, gym.z] });
   // The corner bay: three tall window strips, each capped with grey.
@@ -793,7 +808,7 @@ function grahamScience() {
   for (const blk of [a, c]) {
     for (const y of [0.15, 0.3, 0.45]) b.add(box(blk.w + 0.006, 0.02, blk.d + 0.006), stone, { at: [blk.x, Y0 + y, blk.z] });
     b.add(box(blk.w + 0.1, 0.02, blk.d + 0.1), roof, { at: [blk.x, blk.top + 0.01, blk.z] })
-      .add(box(blk.w - 0.02, 0.012, blk.d - 0.02), C.roofMembrane, { team: 1, at: [blk.x, blk.top + 0.026, blk.z] });
+      .add(box(blk.w - 0.02, 0.012, blk.d - 0.02), C.teamRoof, { team: 1, at: [blk.x, blk.top + 0.026, blk.z] });
   }
   // The roof flares up at the corner like a wing.
   b.add(box(0.34, 0.015, 0.26), roof, { at: [0.28, a.top + 0.06, -0.14], rot: [0.0, 0, 0.32] });
@@ -817,7 +832,7 @@ function sevierValley() {
   const b = new Builder();
   foundation(b);
   b.add(cyl(0.3, 0.3, 0.5, 16), col('#a2462f'), { at: [0, Y0 + 0.25, -0.08] })
-    .add(cyl(0.29, 0.29, 0.012, 16), C.roofMembrane, { team: 1, at: [0, Y0 + 0.506, -0.08] });
+    .add(cyl(0.29, 0.29, 0.012, 16), C.teamRoof, { team: 1, at: [0, Y0 + 0.506, -0.08] });
   // The curved lobby band: glass with silver mullions.
   b.add(cyl(0.4, 0.4, 0.24, 20, 1, false, -Math.PI / 2, Math.PI), C.glass, { glow: 0.4, at: [0, Y0 + 0.12, -0.08] })
     .add(cyl(0.41, 0.41, 0.02, 20, 1, false, -Math.PI / 2, Math.PI), col('#c7ccd0'), { at: [0, Y0 + 0.245, -0.08] });
@@ -846,7 +861,7 @@ function sorensen() {
   for (const blk of [centre, wl, wr]) {
     b.add(box(blk.w + 0.004, 0.02, blk.d + 0.004), belt, { at: [blk.x, Y0 + 0.12, blk.z] })
       .add(box(blk.w + 0.02, 0.025, blk.d + 0.02), coping, { at: [blk.x, blk.top + 0.012, blk.z] })
-      .add(box(blk.w - 0.02, 0.012, blk.d - 0.02), C.roofMembrane, { team: 1, at: [blk.x, blk.top + 0.028, blk.z] });
+      .add(box(blk.w - 0.02, 0.012, blk.d - 0.02), C.teamRoof, { team: 1, at: [blk.x, blk.top + 0.028, blk.z] });
   }
   glassBand(b, centre, 'f', 0.3, 0.04, C.unlit, 0.15, 0.85);   // clerestory
   glassBand(b, centre, 'b', 0.3, 0.04, C.unlit, 0.15, 0.85);

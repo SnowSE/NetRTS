@@ -1,4 +1,4 @@
-// What spectators read, in either brand: the original NetRts look or the Snow College "Badger Brawl"
+// What spectators read, in either brand: the original NetRTS look or the Snow College "Badger Brawl"
 // theme. The API keeps its own names (Worker, CommandCenter, "rusher", ore) so bots never break; this
 // file only changes how the site says them.
 //
@@ -12,7 +12,7 @@ export const SNOW = document.documentElement.dataset.brand === 'snow';
 /** Pick the text for the active brand. */
 export const say = (classic, snow) => (SNOW ? snow : classic);
 
-export const GAME = say('NetRts', 'Badger Brawl');
+export const GAME = say('NetRTS', 'Badger Brawl');
 
 
 /** Each team's headquarters is a different Snow College building, by player slot. */

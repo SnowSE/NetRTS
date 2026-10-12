@@ -1,4 +1,4 @@
-// NetRts tutorial, step 3: build a Barracks and train an army.
+// NetRTS tutorial, step 3: build a Barracks and train an army.
 //
 // Step 2's economy, plus: pick a build site from the map terrain, send one worker
 // to build a Barracks, train Soldiers there, and report rejected commands and

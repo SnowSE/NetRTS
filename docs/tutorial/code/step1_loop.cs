@@ -1,4 +1,4 @@
-// NetRts tutorial, step 1: the bot loop.
+// NetRTS tutorial, step 1: the bot loop.
 //
 // Registers (or reuses a saved API key), starts a match against a house bot, then
 // follows the match tick by tick and prints what it sees. It sends no orders yet.

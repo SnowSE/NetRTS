@@ -12,7 +12,7 @@ export const K = {
   steel: col('#a9b1ba'), steelDark: col('#6f7780'), brightSteel: col('#dfe4ea'), gold: col('#e3b341'),
   wood: col('#8a6440'), woodDark: col('#5b4029'), white: col('#e6e0d4'), black: col('#1c1c1e'),
   brick: col('#a5523b'), brickTan: col('#c7a47a'), stone: col('#a59c8c'), stoneDark: col('#857c6e'),
-  slate: col('#4b5058'), window: col('#ffcf7a'), glass: col('#8fdcff'), hat: col('#f2b632'),
+  slate: col('#4b5058'), pane: col('#56708a'), window: col('#ffcf7a'), glass: col('#8fdcff'), hat: col('#f2b632'),
   badgerGrey: col('#8d9196'), deer: col('#8e6440'), deerBelly: col('#cfb08a'), team: col('#f4f4f4'),
   teamShade: col('#b8b8b8'), ore: col('#ffc94a'), grub: col('#f3e0b5'), soil: col('#6b5039'),
   bell: col('#d9a640'), ember: col('#ff8a2a'), red: col('#ff3b30'),
@@ -72,9 +72,10 @@ export function windows(b, w, d, rows, cols, y0, dy, sides = 4, seed = 1) {
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < n; c++) {
         const off = (c - (n - 1) / 2) * (span / (n + 0.4));
-        const lit = ((r * 7 + c * 13 + fi * 5 + seed) % 5) !== 0;
+        const lit = ((r * 7 + c * 13 + fi * 5 + seed) % 4) === 0;   // by day most windows show the sky
         const x = fi < 2 ? fx + off : fx, z = fi < 2 ? fz : fz + off;
-        b.add(box(0.055, 0.075, 0.01), lit ? K.window : K.slate, { glow: lit ? 0.55 : 0, at: [x, y0 + r * dy, z], rot: [0, ry, 0] });
+        b.add(box(0.055, 0.075, 0.01), lit ? K.window : K.pane, { glow: lit ? 0.55 : 0, at: [x, y0 + r * dy, z], rot: [0, ry, 0] });
+        b.add(box(0.07, 0.008, 0.02), K.white, { at: [x, y0 + r * dy - 0.042, z], rot: [0, ry, 0] });   // sill
       }
     }
   });

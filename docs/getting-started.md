@@ -10,7 +10,7 @@ C# and Python; pick your language on any example and the rest follow.
 
 > **Just want to play?** Save the one-file [C# starter bot](../samples/csharp/StarterBot.cs) and run
 > `dotnet run StarterBot.cs --player-name Frank`. It signs up, plays a house bot on
-> <https://netrts.snowse.io> and gives you a `Decide` method to improve.
+> [NetRTS.snowse.io](https://netrts.snowse.io) and gives you a `Decide` method to improve.
 > [Its README](../samples/csharp/README.md) has the details. Read on to learn the API itself.
 
 ## 1. Get a server

@@ -20,7 +20,7 @@ public enum MatchMode
 public sealed class RunnerOptions
 {
     public const string Usage = """
-        netrts-bot - play a NetRts match with one of the built-in strategies
+        netrts-bot - play a NetRTS match with one of the built-in strategies
 
         Usage:
           netrts-bot --server http://localhost:5080 --name mybot [--key <apiKey>] --strategy balanced

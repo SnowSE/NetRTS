@@ -45,7 +45,7 @@ Each C# file is a .NET 10 *file-based app*: a single `.cs` file that you run wit
 Other docs you'll want later:
 
 - [Bot guide](../bot-guide.md): the complete API and rules reference (every command, error code and stat).
-- [Getting started](../getting-started.md): other ways to set up and run NetRts.
+- [Getting started](../getting-started.md): other ways to set up and run NetRTS.
 - [How it works](../how-it-works.md): what happens inside the server.
 
 [Start: Start the server and look around →](01-start-the-server.md)

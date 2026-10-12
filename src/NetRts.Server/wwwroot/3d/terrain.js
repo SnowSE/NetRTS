@@ -16,7 +16,9 @@ const PAL = {
 };
 
 export class Terrain {
-  constructor(map) {
+  /** relief scales the plateaus (1 = full height; lower keeps low camera shots clear). */
+  constructor(map, { relief = 1 } = {}) {
+    this.relief = relief;
     this.map = map;
     this.W = map.width;
     this.H = map.height;
@@ -75,7 +77,7 @@ export class Terrain {
     const c = this.cliff(x, z);
     const ground = (fbm(x * 0.08, z * 0.08, s + 3) - 0.5) * 0.4;
     const plateau = 1.3 + fbm(x * 0.1, z * 0.1, s + 5) * 1.3 + (noise2(x * 1.1, z * 1.1, s + 9) - 0.5) * 0.14;
-    let h = ground * (1 - c * 0.6) + c * plateau;
+    let h = ground * (1 - c * 0.6) + c * plateau * this.relief;
     const d = this.outside(x, z);
     if (d > 0) {
       const k = smoothstep(0.5, 7, d);

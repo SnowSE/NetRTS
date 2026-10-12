@@ -1,6 +1,6 @@
-# NetRts Python reference bot
+# NetRTS Python reference bot
 
-A complete NetRts bot in one file (`bot.py`), using only the Python 3 standard library
+A complete NetRTS bot in one file (`bot.py`), using only the Python 3 standard library
 (`urllib.request`, `json`, `argparse`). Read it top to bottom to see the whole protocol, then
 port it to whatever language you like: it's just HTTP + JSON.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NetRts tutorial, step 4: attack and win.
+"""NetRTS tutorial, step 4: attack and win.
 
 Step 3's economy and army, plus: once ATTACK_WITH soldiers are ready, every idle
 soldier attacks the closest enemy it can see, or attack-moves to the enemy's
@@ -288,7 +288,7 @@ def print_result(match_id):
 
 def main():
     global SERVER, API_KEY
-    parser = argparse.ArgumentParser(description="NetRts tutorial bot")
+    parser = argparse.ArgumentParser(description="NetRTS tutorial bot")
     parser.add_argument("--name", required=True, help="your bot's name (3-32 letters, digits, _ or -)")
     parser.add_argument("--server", default=SERVER)
     parser.add_argument("--vs", default="sitter", help="house bot to play against")

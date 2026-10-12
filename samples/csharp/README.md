@@ -23,7 +23,7 @@ which reads the options below) the first time you run it.
    dotnet run StarterBot.cs --player-name Frank
    ```
 
-4. Open the link it prints to watch your match at <https://netrts.snowse.io>.
+4. Open the link it prints to watch your match at [NetRTS.snowse.io](https://netrts.snowse.io).
 
 The first run signs you up and saves your secret key in a file named after your bot, like
 `apikey-Frank.txt`. Keep that file; it's how the server knows the bot is you.

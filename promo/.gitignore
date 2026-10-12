@@ -6,3 +6,5 @@ apikey-*.txt
 *.wav
 # Preview frames from snap.mjs
 shots/
+# Rendered videos from render.mjs
+out/

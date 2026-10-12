@@ -1,4 +1,4 @@
-// NetRts tutorial, step 2: an economy.
+// NetRTS tutorial, step 2: an economy.
 //
 // Step 1's loop, plus a Decide() function that sends orders every tick:
 // idle workers mine ore (spread over the deposits) and the Command Center

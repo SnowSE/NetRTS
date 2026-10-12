@@ -28,8 +28,9 @@ async function segment(w, total, first, last) {
   const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
     '-c:v', 'libx264', '-preset', 'slow', '-crf', '17', '-pix_fmt', 'yuv420p', '-r', String(FPS), file], { stdio: ['pipe', 'ignore', 'inherit'] });
   const done = new Promise((r) => ff.on('exit', r));
-  // Warm up the frame before the segment so stateful bits (unit facing) match the previous segment.
-  if (first > 0) await page.evaluate((t) => window.seek(t), (first - 1) / FPS);
+  // Warm up on the two seconds before the segment so stateful bits (unit facing, smoke, debris) match
+  // the end of the previous segment.
+  for (let f = Math.max(0, first - 2 * FPS); f < first; f++) await page.evaluate((t) => window.seek(t), f / FPS);
   const t0 = Date.now();
   for (let f = first; f < last; f++) {
     await page.evaluate((t) => window.seek(t), f / FPS);
@@ -54,7 +55,7 @@ const files = await Promise.all(Array.from({ length: WORKERS }, (_, w) => segmen
 await browser.close();
 
 writeFileSync(`out/tmp/${cut}-list.txt`, files.map((f) => `file '${f.replace('out/tmp/', '')}'`).join('\n'));
-const name = cut === 'short' ? 'badger-brawl-30s' : 'badger-brawl-2min';
+const name = cut === 'short' ? 'badger-brawl-short' : 'badger-brawl-2min';
 await run(['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', `out/tmp/${cut}-list.txt`, '-i', `audio-${cut}.wav`,
   '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', 'loudnorm=I=-14:TP=-1.0:LRA=11', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000',
   '-t', String(duration), '-movflags', '+faststart', `out/${name}.mp4`]);
