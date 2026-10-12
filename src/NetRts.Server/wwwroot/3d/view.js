@@ -15,6 +15,7 @@ import { buildModels, entityMaterial } from './models.js';
 import { Effects } from './effects.js';
 import { CameraRig } from './camera.js';
 import { clamp } from './noise.js';
+import { hqName } from '../lore.js';
 
 /** Bright, colour-blind-friendly player colours (the site's dark palette): they read well in daylight. */
 const TEAM = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
@@ -268,12 +269,13 @@ export class View3D {
 
   buildLayers() {
     for (const l of Object.values(this.layers || {})) l.dispose?.();
+    for (const l of this.bLayers?.values() || []) l.dispose();
+    this.bLayers = new Map();    // building model key -> Instances, made when a model first appears
     if (this.rings) { this.scene.remove(this.rings); this.rings.dispose(); }
     if (this.bars) this.scene.remove(this.bars.mesh);
     for (const l of this.labelObjs?.values() || []) { l.removeFromParent(); }
     const L = {};
     for (const [type, def] of Object.entries(this.models.units)) L['u' + type] = new Instances(this.scene, def.geo, this.mat, this.depthMat, 64);
-    for (const [type, def] of Object.entries(this.models.buildings)) L['b' + type] = new Instances(this.scene, def.geo, this.mat, this.depthMat, 16);
     L.deposit = new Instances(this.scene, this.models.deposit, this.mat, this.depthMat, 32);
     L.nugget = new Instances(this.scene, this.models.nugget, this.mat, this.depthMat, 32);
     L.scaffold = new Instances(this.scene, this.models.scaffold, this.mat, this.depthMat, 8);
@@ -486,7 +488,7 @@ export class View3D {
       bSeen.add(b.id);
       const rec = this.buildings.get(b.id);
       const p = this.ground(b.x + 0.5, b.y + 0.5);
-      const def = this.models.buildings[b.type];
+      const def = this.models.building(b.type, b.owner);
       if (!rec) {
         if (fx) this.effects.dust(p, 14, [0.62, 0.55, 0.44], 0.9);
         this.buildings.set(b.id, { b, hitT: -1e9, cut: b.completed ? NO_CUT : def.height * Math.max(0.04, b.constructionPercent / 100) });
@@ -530,7 +532,7 @@ export class View3D {
       if (d <= 5 && d < bd) { best = b; bd = d; }
     }
     if (!best) return;
-    const top = this.ground(best.x + 0.5, best.y + 0.5).add(new THREE.Vector3(0, this.models.buildings.GuardTower.height - 0.1, 0));
+    const top = this.ground(best.x + 0.5, best.y + 0.5).add(new THREE.Vector3(0, this.models.building('GuardTower', best.owner).height - 0.1, 0));
     this.effects.bolt(top, tp.clone().add(new THREE.Vector3(0, 0.25, 0)), Math.min(0.45, this.interval * 0.0007 + 0.1));
   }
 
@@ -714,9 +716,18 @@ export class View3D {
     }
   }
 
+  buildingLayer(def) {
+    let l = this.bLayers.get(def.key);
+    if (!l) {
+      l = new Instances(this.scene, def.geo, this.mat, this.depthMat, 8);
+      this.bLayers.set(def.key, l);
+    }
+    return l;
+  }
+
   updateBuildings(now, dt) {
     const L = this.layers;
-    for (const type of Object.keys(this.models.buildings)) L['b' + type].begin();
+    for (const l of this.bLayers.values()) l.begin();
     L.deposit.begin();
     L.scaffold.begin();
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1);
@@ -726,7 +737,7 @@ export class View3D {
     const k = 1 - Math.exp(-6 * dt);
     for (const rec of this.buildings.values()) {
       const b = rec.b;
-      const def = this.models.buildings[b.type];
+      const def = this.models.building(b.type, b.owner);
       const x = b.x + 0.5, z = b.y + 0.5;
       const y = this.terrain.heightAt(x, z);
       // Buildings face the middle of the map, so their fronts are on show.
@@ -736,7 +747,7 @@ export class View3D {
       rec.cut = goal === NO_CUT || rec.cut === NO_CUT ? goal : rec.cut + (goal - rec.cut) * k;
       const flash = Math.max(0, 1 - (now - rec.hitT) / 120) * 0.22;
       m.compose(v.set(x, y, z), q, sc.set(1, 1, 1));
-      L['b' + b.type].push(m, teamOf(b.owner), flash, rec.cut);
+      this.buildingLayer(def).push(m, teamOf(b.owner), flash, rec.cut);
       if (!b.completed) L.scaffold.push(m, white);
       if (b.completed && b.hp < b.maxHp) {
         const hurt = 1 - b.hp / b.maxHp;
@@ -759,7 +770,7 @@ export class View3D {
       m.compose(v.set(x, this.terrain.heightAt(x, z), z), q, sc.set(s, s, s));
       L.deposit.push(m, white);
     }
-    for (const type of Object.keys(this.models.buildings)) L['b' + type].end();
+    for (const l of this.bLayers.values()) l.end();
     L.deposit.end();
     L.scaffold.end();
     bars.mesh.geometry.instanceCount = bars.n;
@@ -788,9 +799,19 @@ export class View3D {
         this.scene.add(obj);
         this.labelObjs.set(slot, obj);
       }
-      obj.element.textContent = names.get(slot) ?? `Player ${slot + 1}`;
+      const who = names.get(slot) ?? `Player ${slot + 1}`;
+      const where = this.badger ? hqName(slot) : '';
+      if (obj.element.dataset.text !== who + where) {
+        obj.element.dataset.text = who + where;
+        obj.element.replaceChildren(document.createTextNode(who));
+        if (where) {
+          const sub = document.createElement('small');
+          sub.textContent = where;
+          obj.element.append(sub);
+        }
+      }
       const x = b.x + 0.5, z = b.y + 0.5;
-      obj.position.set(x, this.terrain.heightAt(x, z) + this.models.buildings.CommandCenter.height + 0.45, z);
+      obj.position.set(x, this.terrain.heightAt(x, z) + this.models.building('CommandCenter', slot).height + 0.45, z);
     }
   }
 
@@ -917,6 +938,7 @@ export class View3D {
     this.rig?.dispose();
     this.effects?.dispose();
     for (const l of Object.values(this.layers || {})) l.dispose();
+    for (const l of this.bLayers?.values() || []) l.dispose();
     this.terrain?.dispose();
     this.composer?.dispose();
     this.envRT?.dispose();
