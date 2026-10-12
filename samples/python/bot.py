@@ -185,8 +185,14 @@ def get_into_match(api, args):
         match_id = args.join
         if len(match_id) != 36:  # a name, e.g. a league match like season-week3
             match_id = api.call("GET", f"/api/v1/matches/named/{args.join}")["matchId"]
-        match = api.call("POST", f"/api/v1/matches/{match_id}/join")
-        log(f"Joined match {match['matchId']}")
+        try:
+            api.call("POST", f"/api/v1/matches/{match_id}/join")
+            log(f"Joined match {match_id}")
+        except ApiError as e:
+            if e.code != "ALREADY_JOINED":  # e.g. we created it, or the bot was restarted
+                raise
+            log(f"Already seated in match {match_id}")
+        return match_id
     elif args.create:
         match = api.call("POST", "/api/v1/matches", {"maxPlayers": args.players, "settings": settings})
         log(f"Created match {match['matchId']} - waiting for {args.players - 1} more player(s) to --join it")
