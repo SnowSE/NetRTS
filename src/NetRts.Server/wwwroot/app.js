@@ -103,7 +103,7 @@ function mountHome(root) {
           Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.`)}</p>
         <div class="hero-links">
           <a class="btn ghost" href="/scalar">Read the API docs</a>
-          <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger')}</a>
+          <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger (Getting Started)')}</a>
         </div>
       </div>
       <div class="promo">
@@ -164,7 +164,7 @@ function mountHome(root) {
           <div id="ladder"><p class="empty">Loading leaderboard…</p></div>
         </section>
         <section aria-labelledby="bot-h" id="write-a-bot">
-          <h2 id="bot-h">${say('Write a bot', 'Train your badger')}</h2>
+          <h2 id="bot-h">${say('Write a bot', 'Train your badger (Getting Started)')}</h2>
           <ol class="steps">
             <li><p>Register a player and keep the <code>apiKey</code> it returns.</p>
               <pre class="snippet">POST /api/v1/players
