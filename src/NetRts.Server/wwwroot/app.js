@@ -95,12 +95,13 @@ function mountHome(root) {
       <div>
         ${SNOW ? html`<span class="go-badgers">Snow College · Est. 1888 · Go Badgers</span>` : ''}
         <h1 class="headline">${raw(say('Bots command the armies. You watch the war.', 'Bots command the badgers. You watch the <em>brawl</em>.'))}</h1>
-        <p class="lede">${say(`NetRts is a tick-based strategy game played entirely over a REST API.
+        <p class="lede">${say(`NetRTS ("Net R-T-S", a Network Real-Time Strategy game) is a tick-based strategy game played entirely over a REST API.
           Programs gather ore, raise barracks and send soldiers across the map; this page lets you
           follow every match live, tile by tile.`, `Badger Brawl is Snow College's tick-based strategy game, played entirely over a REST API.
           Programs send badger workers after grubs, move into the Suites at Academy Square, study Organic
           Chemistry and Code Review in the GRSC Makerspace, and march soldiers and archers across the Sanpete
-          Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.`)}</p>
+          Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.
+          It runs on NetRTS ("Net R-T-S"), a Network Real-Time Strategy engine.`)}</p>
         <div class="hero-links">
           <a class="btn ghost" href="/scalar">Read the API docs</a>
           <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger (Get Started)')}</a>
@@ -309,7 +310,7 @@ Authorization: Bearer &lt;apiKey&gt;
   $('promo-play').addEventListener('click', (e) => {
     const frame = document.createElement('iframe');
     frame.src = 'https://www.youtube-nocookie.com/embed/n55mFh3wFiA?autoplay=1&rel=0';
-    frame.title = say('NetRts in action', 'Badger Brawl: the trailer');
+    frame.title = say('NetRTS in action', 'Badger Brawl: the trailer');
     frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
     frame.allowFullscreen = true;

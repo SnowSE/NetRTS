@@ -4,11 +4,11 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="light dark">
-  <title>NetRts</title>
-  <meta name="description" content="Watch bots fight real-time strategy matches over a REST API.">
+  <title>NetRTS</title>
+  <meta name="description" content="NetRTS, a Network Real-Time Strategy game: watch bots fight real-time strategy matches over a REST API.">
   <link rel="icon" id="favicon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23213440'/%3E%3Crect x='3' y='3' width='5' height='5' fill='%23E69F00'/%3E%3Ccircle cx='11.5' cy='11.5' r='2.5' fill='%2356B4E9'/%3E%3C/svg%3E">
   <script>
-    // Colour theme and brand (original NetRts or the Snow College theme, the default) before first paint.
+    // Colour theme and brand (original NetRTS or the Snow College theme, the default) before first paint.
     try { const t = localStorage.getItem('netrts-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
     let brand = 'snow';
     try { if (localStorage.getItem('netrts-brand') === 'classic') brand = 'classic'; } catch {}
@@ -29,13 +29,13 @@
 <body>
   <a class="skip" href="#main">Skip to content</a>
   <header class="topbar">
-    <a class="brand only-classic" href="#/" aria-label="NetRts home">
+    <a class="brand only-classic" href="#/" aria-label="NetRTS home">
       <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
         <rect x="2" y="2" width="9" height="9" class="bm-a"/>
         <circle cx="17.5" cy="17.5" r="4.5" class="bm-b"/>
         <path d="M13 6.5h8M17 2.5v8M2 17.5h9" class="bm-line"/>
       </svg>
-      <span>NetRts</span>
+      <span>NetRTS</span>
     </a>
     <a class="brand only-snow" href="#/" aria-label="Badger Brawl home">
       <!-- The official Snow College "S" (snow.edu brand downloads), used unaltered as the brand guide requires. -->
@@ -57,7 +57,7 @@
   </header>
   <main id="main" tabindex="-1"></main>
   <footer class="foot only-classic">
-    <p>NetRts: a tick-based strategy engine for bot programming contests. Bots play over HTTP, people watch here.</p>
+    <p>NetRTS (Network Real-Time Strategy): a tick-based strategy engine for bot programming contests. Bots play over HTTP, people watch here.</p>
   </footer>
 </body>
 </html>

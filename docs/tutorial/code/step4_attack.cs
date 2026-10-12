@@ -1,4 +1,4 @@
-// NetRts tutorial, step 4: attack and win.
+// NetRTS tutorial, step 4: attack and win.
 //
 // Step 3's economy and army, plus: once AttackWith soldiers are ready, every idle
 // soldier attacks the closest enemy it can see, or attack-moves to the enemy's

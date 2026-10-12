@@ -144,7 +144,7 @@ function typeCues(a, b, chars, every = 2) {
 
 // ---------- the shared pieces
 
-const SERVER = 'https://netrts.snowse.io';
+const SERVER = 'https://NetRTS.snowse.io';   // as the starter bot prints it
 const RUN = 'dotnet run StarterBot.cs --player-name Frank';
 const CURL = 'curl -O https://raw.githubusercontent.com/SnowSE/NetRTS/main/samples/csharp/StarterBot.cs';
 
@@ -338,7 +338,7 @@ function endCard({ dur }) {
           <div style="font:700 150px/1 var(--head);letter-spacing:-0.03em;margin-top:12px">BADGER <span class="orange">BRAWL</span></div></div>
         <div style="position:absolute;left:0;right:0;top:700px;text-align:center;opacity:${q}">
           <div class="codeword" style="font-size:46px;color:var(--sky)">github.com/SnowSE/NetRTS</div>
-          <div class="codeword" style="font-size:34px;color:#b8c7d8;margin-top:16px">netrts.snowse.io · first brawl Oct 22</div>
+          <div class="codeword" style="font-size:34px;color:#b8c7d8;margin-top:16px">NetRTS.snowse.io · first brawl Oct 22</div>
           <div style="font:600 30px var(--head);color:var(--orange);margin-top:30px;letter-spacing:0.3em">GO BADGERS</div></div></div>`;
     },
   };
@@ -630,7 +630,7 @@ function buildShort() {
       map2d(FOUR, 380 + t * 4, { zoom: 1.4, alpha: 0.25 });
       const a = eOut(prog(t, 0.05, 0.4)), b = eOut(prog(t, 0.9, 1.3)), c = eOut(prog(t, 1.8, 2.2));
       ui.innerHTML = `
-        <div style="position:absolute;left:150px;top:150px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">The server is already up</div><div class="codeword" style="font-size:84px;margin-top:10px;color:#fff">netrts.snowse.io</div></div>
+        <div style="position:absolute;left:150px;top:150px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">The server is already up</div><div class="codeword" style="font-size:84px;margin-top:10px;color:#fff">NetRTS.snowse.io</div></div>
         <div style="position:absolute;left:150px;top:440px;opacity:${b};transform:translateX(${(1 - b) * -50}px)"><div class="kicker">Or run your own</div><div class="codeword" style="font-size:46px;margin-top:14px;color:#d6e2f0">docker run -p 8080:8080 snowcollege/netrts</div></div>
         <div style="position:absolute;left:150px;top:690px;opacity:${c};transform:translateX(${(1 - c) * -50}px)"><div class="kicker">It's open source</div><div style="font:700 70px var(--head);margin-top:12px">Read the server. Find an <span class="orange">edge</span>.</div></div>`;
     },
@@ -662,7 +662,7 @@ function buildLong() {
     const p = eExpo(prog(t, 1.2, 1.9)), o = 1 - prog(t, dur - 0.4, dur);
     return `<div style="position:absolute;left:0;right:0;top:330px;text-align:center;opacity:${p * o}">
       <div style="font:700 200px/0.95 var(--head);letter-spacing:-0.03em;transform:scale(${1.15 - 0.15 * p});text-shadow:0 0 50px rgba(0,0,0,0.8),0 0 60px rgba(124,192,255,0.4)">BADGER <span class="orange">BRAWL</span></div>
-      <div style="font:600 44px var(--head);margin-top:24px;color:#e6eef7;text-shadow:0 2px 20px #000">${words('A real-time strategy game where nobody touches a mouse.', t, { at: 2.4, step: 0.06 })}</div></div>`;
+      <div style="font:600 44px var(--head);margin-top:24px;color:#e6eef7;text-shadow:0 2px 20px #000">${words('A network real-time strategy game where nobody touches a mouse.', t, { at: 2.4, step: 0.06 })}</div></div>`;
   }), 7.5);
   cue(at, 'whoosh');
 
@@ -794,7 +794,7 @@ function buildLong() {
       map2d(RING, 300 + t * 6, { zoom: 1.05, alpha: 0.22 });
       const a = eOut(prog(t, 0.05, 0.45)), b = eOut(prog(t, 1.5, 1.9)), c = eOut(prog(t, 3.3, 3.7));
       ui.innerHTML = `
-        <div style="position:absolute;left:150px;top:110px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">A server is already up and running</div><div class="codeword" style="font-size:88px;margin-top:10px;color:#fff">netrts.snowse.io</div></div>
+        <div style="position:absolute;left:150px;top:110px;opacity:${a};transform:translateX(${(1 - a) * -50}px)"><div class="kicker">A server is already up and running</div><div class="codeword" style="font-size:88px;margin-top:10px;color:#fff">NetRTS.snowse.io</div></div>
         <div style="position:absolute;left:150px;top:380px;opacity:${b};transform:translateX(${(1 - b) * -50}px)"><div class="kicker">Want your own? Run it locally</div>
           <div class="codeword" style="font-size:40px;margin-top:16px;color:#d6e2f0;line-height:1.6"><span class="prompt">PS&gt;</span> docker run -p 8080:8080 snowcollege/netrts<br><span class="mutedc">or</span>  <span class="prompt">PS&gt;</span> dotnet run --project src/NetRts.Server</div></div>
         <div style="position:absolute;left:150px;top:690px;opacity:${c};transform:translateX(${(1 - c) * -50}px)"><div class="kicker">The server is open source</div>

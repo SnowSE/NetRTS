@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NetRts tutorial, step 2: an economy.
+"""NetRTS tutorial, step 2: an economy.
 
 Step 1's loop, plus a decide() function that sends orders every tick:
 idle workers mine ore (spread over the deposits) and the Command Center
@@ -168,7 +168,7 @@ def play(match_id):
 
 def main():
     global SERVER, API_KEY
-    parser = argparse.ArgumentParser(description="NetRts tutorial bot")
+    parser = argparse.ArgumentParser(description="NetRTS tutorial bot")
     parser.add_argument("--name", required=True, help="your bot's name (3-32 letters, digits, _ or -)")
     parser.add_argument("--server", default=SERVER)
     parser.add_argument("--vs", default="sitter", help="house bot to play against")

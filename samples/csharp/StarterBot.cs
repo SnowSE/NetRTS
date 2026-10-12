@@ -5,7 +5,7 @@
 using System.Net.Http.Json;
 using CommandLine;
 
-// A starter bot for Badger Brawl (NetRts).
+// A starter bot for Badger Brawl (NetRTS).
 //
 // Every tick, the server sends us everything we can see (the "state"), we decide what to do,
 // and we send back a list of commands. Change the Decide method to make your bot smarter!
@@ -305,7 +305,7 @@ class Options
     [Option("tick-ms", Default = 1000, HelpText = "Milliseconds per tick for a match you start (100-10000; 1000 = one tick a second).")]
     public int TickMs { get; set; }
 
-    [Option("server", Default = "https://netrts.snowse.io", HelpText = "The Badger Brawl server to play on.")]
+    [Option("server", Default = "https://NetRTS.snowse.io", HelpText = "The Badger Brawl server to play on.")]
     public string Server { get; set; }
 
     [Option("create-match", SetName = "create", HelpText = "Start a match with this name for a classmate to join.")]

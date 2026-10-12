@@ -98,7 +98,7 @@ house bots' source code to learn from.
 ## More reading
 
 - [Bot guide](../bot-guide.md): every endpoint, command, selector, error code and game rule.
-- [Getting started](../getting-started.md): other ways to install and run NetRts.
+- [Getting started](../getting-started.md): other ways to install and run NetRTS.
 - [How it works](../how-it-works.md): what happens inside the server each tick.
 - <http://localhost:5080/scalar>: the live, interactive API reference (page 2 shows how to use it).
 

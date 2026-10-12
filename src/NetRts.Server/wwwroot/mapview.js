@@ -1,4 +1,4 @@
-// Canvas renderer for a NetRts match: terrain, ore, buildings, units, fog — with a zoomable camera.
+// Canvas renderer for a NetRTS match: terrain, ore, buildings, units, fog — with a zoomable camera.
 // The Snow College theme swaps in its own art: grubs, claw marks, badgers, campus halls and dorms.
 //
 // Level of detail follows the on-screen tile size (Te, in device pixels):

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""NetRts tutorial, step 1: the bot loop.
+"""NetRTS tutorial, step 1: the bot loop.
 
 Registers (or reuses a saved API key), starts a match against a house bot, then
 follows the match tick by tick and prints what it sees. It sends no orders yet.
@@ -108,7 +108,7 @@ def play(match_id):
 
 def main():
     global SERVER, API_KEY
-    parser = argparse.ArgumentParser(description="NetRts tutorial bot")
+    parser = argparse.ArgumentParser(description="NetRTS tutorial bot")
     parser.add_argument("--name", required=True, help="your bot's name (3-32 letters, digits, _ or -)")
     parser.add_argument("--server", default=SERVER)
     parser.add_argument("--vs", default="sitter", help="house bot to play against")

@@ -99,7 +99,7 @@ pennant, lit-up dorms, makerspace flasks and bell towers, with health bars and b
 **Follow the brawl** and the camera chases the biggest fight on its own.
 It fills whatever screen you give it, from a phone to a wall-sized monitor, in Snow College blue,
 white and orange, light or dark. Prefer plain RTS? The **Original theme** button in the top bar
-switches the whole site back to the classic NetRts look (ore, Command Centers, barracks), and
+switches the whole site back to the classic NetRTS look (ore, Command Centers, barracks), and
 remembers your choice.
 
 Press **3D** and the same brawl plays out in a WebGL valley: sandstone plateaus, pine-covered
@@ -179,7 +179,7 @@ dotnet run StarterBot.cs --player-name Frank
 [raw file](https://raw.githubusercontent.com/SnowSE/NetRTS/main/samples/csharp/StarterBot.cs) and
 save it as `StarterBot.cs`.)
 
-It signs you up, starts a match against a house badger on <https://netrts.snowse.io> and prints a
+It signs you up, starts a match against a house badger on [NetRTS.snowse.io](https://netrts.snowse.io) and prints a
 link to watch it. Then open `StarterBot.cs`, make `Decide` smarter, and play a classmate:
 `--create-match our-game` on one computer, `--join-match our-game` on the other. The
 [starter's README](samples/csharp/README.md) has every option.
@@ -228,7 +228,9 @@ setup deploys to Azure (App Service plus a private PostgreSQL) with `azd up`.
 
 ## Under the hood
 
-The code still lives under its original `NetRts` project names.
+Under the badgers, the engine is **NetRTS** (say "Net R-T-S"): a **Net**work **R**eal-**T**ime
+**S**trategy game, played over the network by bots. The code still lives under its original
+`NetRts.*` project names.
 
 | Path | What it is |
 |---|---|

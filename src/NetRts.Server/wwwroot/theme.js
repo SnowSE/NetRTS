@@ -34,7 +34,7 @@ button.addEventListener('click', () => {
 
 apply(current);
 
-// Brand toggle: the original NetRts look or the Snow College theme. Switching reloads the page so every
+// Brand toggle: the original NetRTS look or the Snow College theme. Switching reloads the page so every
 // view re-renders in one vocabulary.
 const brandButton = document.getElementById('brand-toggle');
 const snow = document.documentElement.dataset.brand === 'snow';
