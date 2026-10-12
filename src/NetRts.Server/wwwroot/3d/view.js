@@ -140,10 +140,22 @@ function healthBars(cap) {
 }
 
 export class View3D {
-  constructor(container, { badger = false, names = () => new Map() } = {}) {
+  /**
+   * container: the element to fill. Options: badger (Snow College theme), names (slot -> name).
+   * Manual mode, for frame-exact rendering (the promo video): pass manual: true and the canvas to draw
+   * on; nothing animates by itself, the caller sets the clock (setClock), the camera, and calls
+   * renderFrame(dt) for each frame.
+   */
+  constructor(container, { badger = false, names = () => new Map(), manual = false, canvas = null, labels = true, quality: fixedQuality = null } = {}) {
     this.container = container;
     this.badger = badger;
     this.names = names;
+    this.manual = manual;
+    this.clockMs = 0;
+    this.unitScale = 1;          // promo close-ups draw units larger...
+    this.buildingScale = 1;      // ...and buildings to match
+    this.relief = 1;             // plateau height (set before setMap)
+    this.highlight = null;       // Set of unit ids whose rings pulse
     this.map = null;
     this.state = null;
     this.vision = null;
@@ -164,10 +176,11 @@ export class View3D {
 
     let quality = 'medium';
     try { quality = localStorage.getItem('netrts.3d.quality') || quality; } catch { /* storage blocked */ }
+    if (fixedQuality) quality = fixedQuality;
     this.quality = QUALITY[quality] ? quality : 'medium';
-    this.autoQuality = { frames: 0, time: 0, done: !!this.storedQuality() };
+    this.autoQuality = { frames: 0, time: 0, done: manual || !!fixedQuality || !!this.storedQuality() };
 
-    const renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance', alpha: false });
+    const renderer = new THREE.WebGLRenderer({ canvas: canvas ?? undefined, antialias: false, powerPreference: 'high-performance', alpha: false, preserveDrawingBuffer: manual });
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -177,11 +190,12 @@ export class View3D {
     renderer.domElement.tabIndex = 0;
     renderer.domElement.setAttribute('role', 'img');
     renderer.domElement.setAttribute('aria-label', '3D battlefield. Drag to pan, right-drag to turn, scroll to zoom, click a unit to follow it.');
-    container.appendChild(renderer.domElement);
+    if (!canvas) container.appendChild(renderer.domElement);
     this.renderer = renderer;
 
     this.labels = new CSS2DRenderer();
     this.labels.domElement.className = 'map3d-labels';
+    this.labels.domElement.hidden = !labels;
     container.appendChild(this.labels.domElement);
 
     this.scene = new THREE.Scene();
@@ -197,9 +211,9 @@ export class View3D {
       this.raf = requestAnimationFrame(loop);
       this.frame();
     };
-    this.raf = requestAnimationFrame(loop);
+    if (!manual) this.raf = requestAnimationFrame(loop);
     this.ro = new ResizeObserver(() => this.resize());
-    this.ro.observe(container);
+    this.ro.observe(canvas ?? container);
   }
 
   storedQuality() { try { return localStorage.getItem('netrts.3d.quality'); } catch { return null; } }
@@ -249,7 +263,7 @@ export class View3D {
     this.map = map;
     this.terrain?.dispose();
     if (this.terrain) this.scene.remove(this.terrain.group);
-    this.terrain = new Terrain(map);
+    this.terrain = new Terrain(map, { relief: this.relief });
     this.terrain.uniforms.uGrid.value = this.grid ? 1 : 0;
     this.scene.add(this.terrain.group);
     const span = Math.max(map.width, map.height);
@@ -350,12 +364,17 @@ export class View3D {
   }
 
   resize(force = false) {
-    const w = Math.max(1, this.container.clientWidth), h = Math.max(1, this.container.clientHeight);
+    // Manual mode draws at the canvas's own size and leaves its styling to the page.
+    const fixed = this.manual && this.renderer.domElement.width > 1;
+    const w = fixed ? this.renderer.domElement.width : Math.max(1, this.container.clientWidth);
+    const h = fixed ? this.renderer.domElement.height : Math.max(1, this.container.clientHeight);
     if (!force && w === this.w && h === this.h) return;
     this.w = w; this.h = h;
     this.renderer.setSize(w, h, false);
-    this.renderer.domElement.style.width = `${w}px`;
-    this.renderer.domElement.style.height = `${h}px`;
+    if (!fixed) {
+      this.renderer.domElement.style.width = `${w}px`;
+      this.renderer.domElement.style.height = `${h}px`;
+    }
     this.labels.setSize(w, h);
     this.camera.aspect = w / h;
     this.camera.updateProjectionMatrix();
@@ -387,12 +406,12 @@ export class View3D {
   get lag() { return reducedMotion() ? 0 : this.lagS; }
 
   /** Run fn when the picture catches up with the frame arriving now (plus extra ms). */
-  later(fn, extra = 0) { this.queue.push({ t: performance.now() + this.lag + extra, fn }); }
+  later(fn, extra = 0) { this.queue.push({ t: this.now() + this.lag + extra, fn }); }
 
   setState(s) {
     if (!this.terrain) return;
     const prev = this.state;
-    const now = performance.now();
+    const now = this.now();
     const step = prev && s.tick === prev.tick + 1;
     const same = prev && s.tick === prev.tick;
     const jump = !step && !same;
@@ -592,19 +611,28 @@ export class View3D {
 
   // ---------------------------------------------------------------- per frame
 
+  /** The view's clock in milliseconds: the wall clock, or whatever the caller set in manual mode. */
+  now() { return this.manual ? this.clockMs : performance.now(); }
+
+  setClock(ms) { this.clockMs = ms; }
+
   frame() {
     if (!this.terrain) {
       this.renderer.setClearColor('#9fb3c2');
       this.renderer.clear();
       return;
     }
-    const dt = Math.min(0.1, this.clock.getDelta());
-    const now = performance.now();
+    this.renderFrame(Math.min(0.1, this.clock.getDelta()));
+  }
+
+  /** Draw one frame, dt seconds after the last. In manual mode the caller has placed the camera. */
+  renderFrame(dt) {
+    const now = this.now();
     // Run two ticks behind (a little more if ticks arrive unevenly), so the curve through a unit's path
     // already knows the position after the stretch it's drawing and never bends mid-stride when a tick
     // lands. Ease toward it so speed changes don't jolt the picture.
     const lagGoal = clamp(Math.max(this.interval * 2.05, (this.gapMax ?? this.interval) * 1.05 + this.interval), 60, 2600);
-    this.lagS += (lagGoal - this.lagS) * (1 - Math.exp(-2 * dt));
+    this.lagS = this.manual ? lagGoal : this.lagS + (lagGoal - this.lagS) * (1 - Math.exp(-2 * dt));
     if (this.queue.length) {
       const due = this.queue.filter((e) => e.t <= now);
       if (due.length) {
@@ -612,7 +640,7 @@ export class View3D {
         for (const e of due) e.fn();
       }
     }
-    this.rig.update(dt, this.effects.shake);
+    if (!this.manual) this.rig.update(dt, this.effects.shake);
     this.updateUnits(now, dt);
     this.updateBuildings(now, dt);
     this.effects.update(dt);
@@ -626,8 +654,15 @@ export class View3D {
 
   /** Shadows follow the camera, sized to what's on screen. */
   updateSun() {
-    const t = this.rig.mode === 'fly' ? this.rig.fly.pos.clone().addScaledVector(this.rig.forward(), 10) : this.rig.cur.target;
-    const reach = clamp((this.rig.mode === 'fly' ? 18 : this.rig.cur.dist) * 0.9, 6, 70);
+    let t, reach;
+    if (this.manual && this.lookAt) {
+      // Manual mode: centre the shadows on what the caller's camera is looking at.
+      t = this.lookAt;
+      reach = clamp(this.camera.position.distanceTo(this.lookAt) * 0.9, 6, 70);
+    } else {
+      t = this.rig.mode === 'fly' ? this.rig.fly.pos.clone().addScaledVector(this.rig.forward(), 10) : this.rig.cur.target;
+      reach = clamp((this.rig.mode === 'fly' ? 18 : this.rig.cur.dist) * 0.9, 6, 70);
+    }
     const c = this.sun.shadow.camera;
     if (c.right !== reach) {
       c.left = -reach; c.right = reach; c.top = reach; c.bottom = -reach;
@@ -782,7 +817,7 @@ export class View3D {
       }
       const flash = Math.max(0, 1 - Math.abs(now - a.hitT) / 160);
       const born = a.bornT === -Infinity ? 1 : Math.min(1, (rt - a.bornT) / 350);
-      const s = (this.models.units[u.type].scale || 1) * a.scale * (0.4 + 0.6 * born);
+      const s = (this.models.units[u.type].scale || 1) * a.scale * this.unitScale * (0.4 + 0.6 * born);
       const yaw = a.yaw + look;
       v.set(p.x + Math.sin(yaw) * fwd + Math.cos(yaw) * side + (p.kx || 0), y, p.z + Math.cos(yaw) * fwd - Math.sin(yaw) * side + (p.kz || 0));
       e.set(pitch, yaw, roll);
@@ -807,9 +842,12 @@ export class View3D {
         L.nugget.push(m, teamOf(u.owner));
       }
       if (ri < this.rings.instanceMatrix.count) {
-        m.compose(v.set(p.x, this.terrain.heightAt(p.x, p.z) + 0.02, p.z), q.identity(), sc.set(s, 1, s));
+        // Highlighted units (promo call-outs) get a bright, pulsing ring.
+        const hl = this.highlight?.has(a.id);
+        const rs = hl ? s * (1.3 + Math.sin(now * 0.008) * 0.15) : s;
+        m.compose(v.set(p.x, this.terrain.heightAt(p.x, p.z) + 0.02, p.z), q.identity(), sc.set(rs, 1, rs));
         this.rings.setMatrixAt(ri, m);
-        this.rings.setColorAt(ri, ringCol.copy(teamOf(u.owner)));
+        this.rings.setColorAt(ri, ringCol.copy(teamOf(u.owner)).multiplyScalar(hl ? 1.8 : 1));
         ri++;
       }
       if (u.hp < u.maxHp && bars.n < bars.cap) {
@@ -897,16 +935,16 @@ export class View3D {
       const goal = b.completed ? NO_CUT : def.height * Math.max(0.04, b.constructionPercent / 100);
       rec.cut = goal === NO_CUT || rec.cut === NO_CUT ? goal : rec.cut + (goal - rec.cut) * k;
       const flash = Math.max(0, 1 - Math.abs(now - rec.hitT) / 120) * 0.22;
-      m.compose(v.set(x, y, z), q, sc.set(1, 1, 1));
+      m.compose(v.set(x, y, z), q, sc.setScalar(this.buildingScale));
       this.buildingLayer(def).push(m, teamOf(b.owner), flash, rec.cut);
       if (!b.completed) L.scaffold.push(m, white);
       if (b.completed && b.hp < b.maxHp) {
         const hurt = 1 - b.hp / b.maxHp;
-        if (hurt > 0.35) this.effects.burning(v.set(x, y + def.height * 0.4, z), clamp((hurt - 0.35) / 0.5, 0, 1), dt);
+        if (hurt > 0.35) this.effects.burning(v.set(x, y + def.height * this.buildingScale * 0.4, z), clamp((hurt - 0.35) / 0.5, 0, 1), dt);
         const d = camPos.distanceTo(v.set(x, y, z));
         const op = clamp(1.8 - d / 30, 0, 1);
         if (op > 0 && bars.n < bars.cap) {
-          bars.pos.setXYZ(bars.n, x, y + def.height + 0.18, z);
+          bars.pos.setXYZ(bars.n, x, y + def.height * this.buildingScale + 0.18, z);
           bars.data.setXYZ(bars.n, b.hp / b.maxHp, 0.7, op);
           bars.n++;
         }
@@ -915,7 +953,7 @@ export class View3D {
     for (const r of this.state?.resources || []) {
       if (r.remaining <= 0) continue;
       const frac = Math.min(1, r.remaining / (this.oreMax.get(r.id) || r.remaining));
-      const s = 0.55 + 0.6 * frac;
+      const s = (0.55 + 0.6 * frac) * Math.sqrt(this.buildingScale);
       const x = r.x + 0.5, z = r.y + 0.5;
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), r.id * 1.3);
       m.compose(v.set(x, this.terrain.heightAt(x, z), z), q, sc.set(s, s, s));
@@ -970,7 +1008,7 @@ export class View3D {
 
   /** Centre of the biggest fight right now, or a fresh explosion. */
   hotspot() {
-    const now = performance.now();
+    const now = this.now();
     this.hotspots = this.hotspots.filter((h) => now - h.t < 4000);
     if (this.hotspots.length) return this.hotspots[this.hotspots.length - 1];
     const s = this.state;
@@ -1043,7 +1081,7 @@ export class View3D {
         if (p) return new THREE.Vector3(p.x, this.terrain.heightAt(p.x, p.z) + 0.2, p.z);
         // The unit fell: linger where it went down, then let go.
         const lost = this.followedLost;
-        if (lost && performance.now() - lost.t < 2500) return new THREE.Vector3(lost.x, this.terrain.heightAt(lost.x, lost.z), lost.z);
+        if (lost && this.now() - lost.t < 2500) return new THREE.Vector3(lost.x, this.terrain.heightAt(lost.x, lost.z), lost.z);
         return null;
       });
       return;

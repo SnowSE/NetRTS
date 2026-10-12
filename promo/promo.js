@@ -1,6 +1,6 @@
 // Badger Brawl commercials: a frame-exact timeline. window.seek(t) renders the frame at t seconds, so the
 // same page plays live in a browser (?cut=short|long) or renders to video one frame at a time (render.mjs).
-import { Battle3D, unitPos, frameAt, TEAM } from './battle3d.js';
+import { Battle3D, unitPos, frameAt, TEAM } from './game3d.js';
 import { MapView } from '/src/NetRts.Server/wwwroot/mapview.js';
 
 const $ = (s) => document.querySelector(s);
