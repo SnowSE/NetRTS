@@ -14,7 +14,8 @@ export { unitPos, frameAt, TEAM };
 
 const MS = 100;          // virtual milliseconds per tick
 const LAG = MS * 2.05;   // the view's lag at a steady tick (see View3D.renderFrame)
-const UNIT_SCALE = 1.5;  // close-ups read better with bigger badgers and buildings
+const UNIT_SCALE = 1.15;      // close-ups read better with slightly bigger badgers...
+const BUILDING_SCALE = 1.55;  // ...and buildings about twice their height, as in the game
 
 export class Battle3D {
   constructor(canvas, tagLayer) {
@@ -22,7 +23,7 @@ export class Battle3D {
     this.tagLayer = tagLayer;
     this.view = new View3D(canvas.parentElement, { badger: true, manual: true, canvas, labels: false, quality: 'high' });
     this.view.unitScale = UNIT_SCALE;
-    this.view.buildingScale = UNIT_SCALE;
+    this.view.buildingScale = BUILDING_SCALE;
     this.view.relief = 0.4;   // the shots were framed for flat ground; low plateaus keep them clear
     this.match = null;
     this.fed = -1;
@@ -124,7 +125,7 @@ export class Battle3D {
         const name = bd.type === 'CommandCenter' ? hqName(bd.owner) : bd.type === 'Barracks' ? housingName(bd.owner) : BUILDING_NAME[bd.type];
         const kind = { CommandCenter: 'HQ', Barracks: 'HOUSING', ResourceDepot: 'DROP-OFF', TechLab: 'RESEARCH', GuardTower: 'DEFENCE' }[bd.type];
         const x = bd.x + 0.5, z = bd.y + 0.5;
-        info = { x, y: v.terrain.heightAt(x, z) + v.models.building(bd.type, bd.owner).height * UNIT_SCALE + 0.2, z, owner: bd.owner,
+        info = { x, y: v.terrain.heightAt(x, z) + v.models.building(bd.type, bd.owner).height * BUILDING_SCALE + 0.2, z, owner: bd.owner,
           title: (tg.label ?? name).toUpperCase(), id: bd.id, hp: bd.hp, maxHp: bd.maxHp, line: `${bd.type} · (${bd.x}, ${bd.y})`, act: tg.act ?? kind };
       }
       const s = this.project(info.x, info.y, info.z);

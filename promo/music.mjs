@@ -26,7 +26,8 @@ const SECTIONS = {
     [9.5, 15.5, { pad: 0.6, arp: 1, kick: 1, bass: 1, hats: 1, snare: 0.6 }],
     [15.5, 22.0, { pad: 0.7, arp: 0.8, kick: 1, bass: 0.9, hats: 0.8, snare: 1 }],
     [22.0, 26.5, { pad: 0.9, arp: 0.6, kick: 0.8, bass: 0.8, hats: 0.5 }],
-    [26.5, 32, { pad: 1, keys: 0.6 }],
+    [26.5, 32.5, { pad: 0.8, arp: 0.5, bass: 0.6, hats: 0.4 }],
+    [32.5, 38, { pad: 1, keys: 0.6 }],
   ],
   long: [
     [0, 5.5, { pad: 0.6, keys: 0.5 }],
@@ -40,8 +41,8 @@ const SECTIONS = {
     [70, 76, { pad: 0.9, keys: 0.6 }],
     [76, 80, { pad: 0.7, arp: 0.6, hats: 0.5 }],
     [80, 92, { pad: 0.8, arp: 1, kick: 1, bass: 1, hats: 1, snare: 1 }],
-    [92, 114, { pad: 0.6, arp: 0.8, kick: 0.9, bass: 0.9, hats: 0.8, snare: 0.7 }],
-    [114, 125, { pad: 1, keys: 0.6 }],
+    [92, 122, { pad: 0.6, arp: 0.8, kick: 0.9, bass: 0.9, hats: 0.8, snare: 0.7 }],
+    [122, 133, { pad: 1, keys: 0.6 }],
   ],
 }[cut];
 const level = (t, part) => {

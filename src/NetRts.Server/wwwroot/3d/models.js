@@ -90,9 +90,13 @@ function archer(badger) {
   const hy = badger ? 0.4 : 0.38;
   b.add(cone(0.088, 0.14, 8), K.teamShade, { team: 1, at: [0, hy + 0.02, -0.012] })
     .add(box(0.15, 0.2, 0.012), K.teamShade, { team: 1, at: [0, 0.22, -0.085], rot: [0.12, 0, 0] })
-    // Bow in the left hand, string pulled to the body.
-    .add(new THREE.TorusGeometry(0.15, 0.011, 4, 14, Math.PI * 0.86), K.woodDark, { at: [-0.13, 0.22, -0.07], rot: [0, -Math.PI / 2, -Math.PI * 0.43] })
-    .add(cyl(0.003, 0.003, 0.29, 3), K.white, { at: [-0.13, 0.22, -0.048] })
+    // The bow, held at the side (limb 4: raised to aim in the shader), its string (limb 5: drawn back)
+    // and the arrow on the string (limb 6: shown only while drawing).
+    .add(new THREE.TorusGeometry(0.15, 0.011, 4, 14, Math.PI * 0.86), K.woodDark, { limb: 4, at: [-0.13, 0.22, -0.07], rot: [0, -Math.PI / 2, -Math.PI * 0.43] })
+    .add(cyl(0.003, 0.003, 0.29, 3), K.white, { limb: 5, at: [-0.13, 0.22, -0.048] })
+    .add(box(0.008, 0.008, 0.28), col('#d8c39a'), { limb: 6, at: [-0.13, 0.22, 0.092] })
+    .add(cone(0.014, 0.04, 4), K.brightSteel, { limb: 6, at: [-0.13, 0.22, 0.25], rot: [Math.PI / 2, 0, 0] })
+    .add(box(0.003, 0.022, 0.04), K.team, { team: 1, limb: 6, at: [-0.13, 0.22, -0.03] })
     // Quiver with fletched arrows.
     .add(cyl(0.032, 0.026, 0.17, 6), K.leather, { at: [0.05, 0.26, -0.1], rot: [0.25, 0, -0.35] })
     .add(box(0.05, 0.04, 0.02), K.team, { team: 1, at: [0.085, 0.36, -0.125], rot: [0.25, 0, -0.35] });
@@ -100,36 +104,35 @@ function archer(badger) {
 }
 
 function scout(badger) {
-  // A rider on a mount: a mule deer for the Badgers, a horse otherwise.
+  // A rider on a horse: long legs, an arched neck, a dark mane and tail, a saddle blanket in team colours.
   const b = new Builder();
-  const hide = badger ? K.deer : col('#6b4a33');
-  const legs = [[-0.045, -0.11], [0.045, -0.11], [-0.045, 0.11], [0.045, 0.11]];
-  b.add(box(0.12, 0.12, 0.3), hide, { at: [0, 0.21, 0] })
-    .add(box(0.1, 0.03, 0.26), badger ? K.deerBelly : col('#5a3d2a'), { at: [0, 0.148, 0] });
-  for (const [x, z] of legs) b.add(box(0.032, 0.15, 0.034), K.woodDark, { limb: (x < 0 ? 3 : -3) * (z > 0 ? 1 : -1), at: [x, 0.075, z] });
-  b.add(box(0.06, 0.14, 0.07), hide, { at: [0, 0.3, 0.15], rot: [-0.55, 0, 0] })
-    .add(box(0.058, 0.062, 0.12), hide, { at: [0, 0.36, 0.215], rot: [0.15, 0, 0] })
-    .add(ball(0.012, 0), K.black, { at: [0, 0.35, 0.278] })
-    .add(box(0.02, 0.04, 0.012), hide, { at: [-0.03, 0.405, 0.18] })
-    .add(box(0.02, 0.04, 0.012), hide, { at: [0.03, 0.405, 0.18] })
-    .add(box(0.03, 0.06, 0.03), badger ? K.white : K.woodDark, { at: [0, 0.24, -0.16], rot: [0.6, 0, 0] })
-    .add(box(0.13, 0.025, 0.13), K.team, { team: 1, at: [0, 0.282, -0.01] });
-  if (badger) {
-    // Antlers.
-    for (const s of [-1, 1]) {
-      b.add(cyl(0.006, 0.008, 0.09, 4), K.white, { at: [s * 0.03, 0.43, 0.2], rot: [0, 0, s * -0.5] })
-        .add(cyl(0.005, 0.006, 0.05, 4), K.white, { at: [s * 0.055, 0.475, 0.21], rot: [0.5, 0, s * -0.2] });
-    }
-  } else {
-    b.add(box(0.02, 0.1, 0.1), K.black, { at: [0, 0.39, 0.13], rot: [-0.55, 0, 0] });
+  const coat = col('#7a4f30'), dark = col('#2b1d14'), hoof = col('#1e1a17'), blaze = col('#efe8dc');
+  b.add(box(0.12, 0.13, 0.32), coat, { at: [0, 0.25, 0] })                          // barrel
+    .add(ball(0.075, 1), coat, { at: [0, 0.255, -0.13], scale: [0.85, 0.9, 0.9] })    // hindquarters
+    .add(ball(0.07, 1), coat, { at: [0, 0.27, 0.13], scale: [0.85, 0.95, 0.9] });     // chest
+  for (const [x, z] of [[-0.042, -0.12], [0.042, -0.12], [-0.042, 0.12], [0.042, 0.12]]) {
+    const limb = (x < 0 ? 3 : -3) * (z > 0 ? 1 : -1);
+    b.add(box(0.03, 0.19, 0.034), coat, { limb, at: [x, 0.095, z] })
+      .add(box(0.034, 0.025, 0.04), hoof, { limb, at: [x, 0.012, z + 0.004] });
   }
+  b.add(box(0.06, 0.17, 0.08), coat, { at: [0, 0.37, 0.18], rot: [-0.6, 0, 0] })      // neck
+    .add(box(0.022, 0.16, 0.05), dark, { at: [0, 0.4, 0.15], rot: [-0.6, 0, 0] })      // mane
+    .add(box(0.055, 0.06, 0.14), coat, { at: [0, 0.44, 0.265], rot: [0.35, 0, 0] })    // head
+    .add(box(0.03, 0.03, 0.06), blaze, { at: [0, 0.445, 0.3], rot: [0.35, 0, 0] })     // blaze
+    .add(box(0.018, 0.045, 0.014), coat, { at: [-0.02, 0.5, 0.215] })                  // ears
+    .add(box(0.018, 0.045, 0.014), coat, { at: [0.02, 0.5, 0.215] })
+    .add(ball(0.01, 0), K.black, { at: [-0.029, 0.46, 0.27] })
+    .add(ball(0.01, 0), K.black, { at: [0.029, 0.46, 0.27] })
+    .add(box(0.03, 0.15, 0.035), dark, { at: [0, 0.22, -0.2], rot: [0.5, 0, 0] })      // tail
+    .add(box(0.14, 0.025, 0.14), K.team, { team: 1, at: [0, 0.322, -0.01] })            // saddle blanket
+    .add(box(0.08, 0.03, 0.09), K.leather, { at: [0, 0.345, -0.01] });                  // saddle
   // The rider sits on the saddle.
   const r = new Builder();
   body(r, { legs: false, animate: false });
   head(r, badger);
   r.add(box(0.16, 0.2, 0.012), K.teamShade, { team: 1, at: [0, 0.2, -0.08], rot: [0.35, 0, 0] })
     .add(cyl(0.08, 0.08, 0.03, 8), K.teamShade, { team: 1, at: [0, 0.29, 0] });
-  const rider = r.build().scale(0.8, 0.8, 0.8).translate(0, 0.17, -0.02);
+  const rider = r.build().scale(0.8, 0.8, 0.8).translate(0, 0.22, -0.02);
   const all = mergeGeometries([b.build(), rider]);
   all.computeBoundingSphere();
   return all;
@@ -409,7 +412,7 @@ export function buildModels(badger) {
       Worker: { geo: worker(badger), height: 0.48 },
       Soldier: { geo: soldier(badger), height: 0.52, scale: 1.08 },
       Archer: { geo: archer(badger), height: 0.52 },
-      Scout: { geo: scout(badger), height: 0.6 },
+      Scout: { geo: scout(badger), height: 0.7 },
     },
     building(type, slot) {
       if (badger && type === 'CommandCenter') {
@@ -439,15 +442,25 @@ export function entityMaterial() {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
         attribute float team; attribute float glow; attribute float limb;
-        attribute vec3 iTeam; attribute float iFlash; attribute float iCut; attribute vec3 iWalk;
+        attribute vec3 iTeam; attribute float iFlash; attribute float iCut; attribute vec3 iWalk; attribute vec2 iDraw;
         varying float vTeam; varying float vGlow; varying vec3 vTeamCol; varying float vFlash; varying float vCut; varying float vLocalY;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vTeam = team; vGlow = glow; vTeamCol = iTeam; vFlash = iFlash; vCut = iCut; vLocalY = position.y;
         // Swing limbs about the hip or shoulder: iWalk = (phase, leg swing, arm swing). A negative arm
         // swing raises both arms together, up to that many radians (a pickaxe, hammer or sword chop).
-        if (limb != 0.0) {
-          float kind = abs(limb);
-          float pivot = kind < 1.5 ? 0.13 : (kind < 2.5 ? 0.28 : 0.15);
+        float kind = abs(limb);
+        if (kind > 3.5) {
+          // An archer's bow (4), string (5) and nocked arrow (6). iDraw = (raise, pull): the bow comes up
+          // from the hip to aim out front, the string bends back toward the archer, and the arrow on it
+          // slides back with the string and only shows while there's an arrow to loose.
+          transformed += vec3(0.03, 0.07, 0.17) * iDraw.x;
+          if (kind > 4.5 && kind < 5.5) transformed.z -= iDraw.y * 0.1 * max(0.0, 1.0 - abs(position.y - 0.22) / 0.145);
+          if (kind > 5.5) {
+            transformed.z -= iDraw.y * 0.1;
+            if (iDraw.x < 0.5 || iDraw.y < 0.04) transformed = vec3(-0.13, 0.22, -0.06);
+          }
+        } else if (limb != 0.0) {
+          float pivot = kind < 1.5 ? 0.13 : (kind < 2.5 ? 0.28 : 0.19);
           bool isArm = kind > 1.5 && kind < 2.5;
           float ang = isArm && iWalk.z < 0.0
             ? (sin(iWalk.x) * 0.5 + 0.5) * iWalk.z

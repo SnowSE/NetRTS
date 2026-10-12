@@ -289,17 +289,48 @@ function rulesCard({ dur }) {
     dur,
     render(t) {
       show3d(false); show2d(false);
-      const r1 = eOut(prog(t, 0.1, 0.6)), r2 = eOut(prog(t, dur * 0.36, dur * 0.36 + 0.5)), r3 = eOut(prog(t, dur * 0.66, dur * 0.66 + 0.5));
+      const r1 = eOut(prog(t, 0.1, 0.6)), r2 = eOut(prog(t, dur * 0.42, dur * 0.42 + 0.5));
       ui.innerHTML = `<div class="bg"></div>
-        <div class="kicker" style="position:absolute;left:150px;top:110px;opacity:${r1}">House rules · just two</div>
-        <div class="rule" style="position:absolute;left:150px;top:200px;width:1620px;opacity:${r1};transform:translateX(${(1 - r1) * 80}px)">
+        <div class="kicker" style="position:absolute;left:150px;top:150px;opacity:${r1}">House rules · just two</div>
+        <div class="rule" style="position:absolute;left:150px;top:260px;width:1620px;opacity:${r1};transform:translateX(${(1 - r1) * 80}px)">
           <div class="num">1</div><div><h3>Write the code you run.</h3><p>Use AI as a teaching assistant, not a ghostwriter. The whole point is that <b style="color:#fff">you</b> write the code, and have fun doing it.</p></div></div>
-        <div class="rule" style="position:absolute;left:150px;top:480px;width:1620px;opacity:${r2};transform:translateX(${(1 - r2) * 80}px)">
-          <div class="num">2</div><div><h3>Don't mess with anyone else's game.</h3><p>Find a loophole? Use it on the field, not on the server.</p></div></div>
-        <div style="position:absolute;left:150px;right:150px;top:780px;display:flex;gap:40px;opacity:${r3};transform:translateY(${(1 - r3) * 30}px)">
-          <div class="card" style="position:relative;flex:1;padding:28px 36px;border-color:rgba(255,138,122,0.5)"><div style="font:700 44px var(--head)" class="no">✕ The Thanos exploit</div><div style="font:30px var(--head);color:#b8c7d8;margin-top:8px">Snap, and the other players vanish. Not cool.</div></div>
-          <div class="card" style="position:relative;flex:1;padding:28px 36px;border-color:rgba(95,211,168,0.5)"><div style="font:700 44px var(--head)" class="yes">✓ The Captain America exploit</div><div style="font:30px var(--head);color:#b8c7d8;margin-top:8px">Super-soldier serum for your badgers. Game on.</div></div>
+        <div class="rule" style="position:absolute;left:150px;top:560px;width:1620px;opacity:${r2};transform:translateX(${(1 - r2) * 80}px)">
+          <div class="num">2</div><div><h3>Don't mess with anyone else's game.</h3><p>Find an edge? Use it on the field, never against another player's chance to play.</p></div></div>`;
+    },
+  };
+}
+
+/** Rule 2 in practice: the Thanos exploit (out) against the Captain America exploit (in). */
+function exploitCards({ dur, start }) {
+  const tA = 0.3, tB = dur * 0.36, tC = dur * 0.7;
+  cue(start + tA, 'glitch');
+  cue(start + tB, 'hit');
+  cue(start + tC, 'whoosh');
+  const item = (s) => `<li style="margin:10px 0">${s}</li>`;
+  return {
+    dur,
+    render(t) {
+      show3d(false); show2d(false);
+      const k = eOut(prog(t, 0, 0.4)), a = eOut(prog(t, tA, tA + 0.5)), b = eOut(prog(t, tB, tB + 0.5)), c = eOut(prog(t, tC, tC + 0.5));
+      const card = (o, border, title, cls, line, items, verdict, vcol) => `
+        <div class="card" style="position:relative;flex:1;padding:36px 44px;border-width:2px;border-color:${border};opacity:${o};transform:translateY(${(1 - o) * 40}px)">
+          <div style="font:700 48px var(--head);white-space:nowrap" class="${cls}">${title}</div>
+          <div style="font:600 36px var(--head);color:#fff;margin-top:14px">${line}</div>
+          <ul style="font:32px var(--head);color:#b8c7d8;margin:20px 0 0;padding-left:34px">${items.map(item).join('')}</ul>
+          <div style="font:700 34px var(--head);color:${vcol};margin-top:22px">${verdict}</div>
         </div>`;
+      ui.innerHTML = `<div class="bg"></div>
+        <div class="kicker" style="position:absolute;left:150px;top:90px;opacity:${k}">Rule 2, in practice</div>
+        <div style="position:absolute;left:150px;right:150px;top:160px;display:flex;gap:50px">
+          ${card(a, 'rgba(255,138,122,0.75)', '✕ The Thanos exploit', 'no', 'Snap, and other players can’t play.',
+            ['Crashing or flooding the server', 'Breaking or blocking someone else’s bot', 'Using another player’s key'],
+            'Not OK: it takes away someone’s chance to compete.', '#ff8a7a')}
+          ${card(b, 'rgba(95,211,168,0.75)', '✓ The Captain America exploit', 'yes', 'Super-soldier serum, for <i>your</i> badgers.',
+            ['A strategy nobody saw coming', 'A rule interaction you found in GameRules.cs', 'Squeezing more out of every tick'],
+            'OK: you get stronger, and everyone still gets to play.', '#5fd3a8')}
+        </div>
+        <div style="position:absolute;left:0;right:0;top:900px;text-align:center;opacity:${c};transform:scale(${0.96 + 0.04 * c})">
+          <div style="font:700 62px var(--head);color:#fff">Gain an <span class="orange">edge</span>. Never take away someone else’s game.</div></div>`;
     },
   };
 }
@@ -637,6 +668,7 @@ function buildShort() {
   }), 3.0);
   cue(at, 'hit');
   add(({ dur }) => rulesCard({ dur }), 4.5);
+  add(({ dur, start }) => exploitCards({ dur, start }), 6);
   cue(at, 'boom');
   add(({ dur }) => ({
     dur,
@@ -804,6 +836,7 @@ function buildLong() {
   }), 6);
   cue(at, 'hit');
   add(({ dur }) => rulesCard({ dur }), 7);
+  add(({ dur, start }) => exploitCards({ dur, start }), 8);
   cue(at, 'whoosh');
   add(({ dur }) => scheduleCard({ dur }), 6.5);
   cue(at, 'boom');

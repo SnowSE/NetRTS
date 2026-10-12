@@ -47,10 +47,12 @@ class Instances {
     this.flash = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
     this.cut = new THREE.InstancedBufferAttribute(new Float32Array(cap).fill(NO_CUT), 1).setUsage(THREE.DynamicDrawUsage);
     this.walk = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
+    this.draw = new THREE.InstancedBufferAttribute(new Float32Array(cap * 2), 2).setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('iTeam', this.team);
     geo.setAttribute('iFlash', this.flash);
     geo.setAttribute('iCut', this.cut);
     geo.setAttribute('iWalk', this.walk);
+    geo.setAttribute('iDraw', this.draw);
     this.mesh = new THREE.InstancedMesh(geo, this.mat, cap);
     this.mesh.customDepthMaterial = this.depthMat;
     this.mesh.castShadow = true;
@@ -61,7 +63,7 @@ class Instances {
     this.n = 0;
   }
   begin() { this.n = 0; }
-  push(matrix, colour, flash = 0, cut = NO_CUT, walk = null) {
+  push(matrix, colour, flash = 0, cut = NO_CUT, walk = null, draw = null) {
     if (this.n >= this.cap) this.alloc(this.cap * 2);
     const i = this.n++;
     this.mesh.setMatrixAt(i, matrix);
@@ -70,6 +72,7 @@ class Instances {
     this.cut.setX(i, cut);
     if (walk) this.walk.setXYZ(i, walk[0], walk[1], walk[2]);
     else this.walk.setXYZ(i, 0, 0, 0);
+    this.draw.setXY(i, draw ? draw[0] : 0, draw ? draw[1] : 0);
   }
   end() {
     this.mesh.count = this.n;
@@ -78,6 +81,7 @@ class Instances {
     this.flash.needsUpdate = true;
     this.cut.needsUpdate = true;
     this.walk.needsUpdate = true;
+    this.draw.needsUpdate = true;
   }
   dispose() { this.scene.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.dispose(); }
 }
@@ -153,7 +157,9 @@ export class View3D {
     this.manual = manual;
     this.clockMs = 0;
     this.unitScale = 1;          // promo close-ups draw units larger...
-    this.buildingScale = 1;      // ...and buildings to match
+    // Buildings stand about twice a worker's height. Wider than this would spill into the next tile, where
+    // units stand.
+    this.buildingScale = 1.35;
     this.relief = 1;             // plateau height (set before setMap)
     this.highlight = null;       // Set of unit ids whose rings pulse
     this.map = null;
@@ -553,7 +559,7 @@ export class View3D {
         this.buildings.set(b.id, { b, hitT: -1e9, bornT: step ? now : -Infinity, cut: b.completed ? NO_CUT : def.height * Math.max(0.04, b.constructionPercent / 100) });
         continue;
       }
-      if (b.completed && !rec.b.completed) q(() => this.effects.completed(p, teamRGB(b.owner), def.height));
+      if (b.completed && !rec.b.completed) q(() => this.effects.completed(p, teamRGB(b.owner), def.height * this.buildingScale));
       if (!b.completed && b.constructionPercent > rec.b.constructionPercent) {
         rec.workT = now + lag;
         if (Math.random() < 0.5) q(() => this.effects.dust(p, 2, [0.7, 0.62, 0.5], 0.5));
@@ -588,7 +594,7 @@ export class View3D {
       if (d <= 5 && d < bd) { best = b; bd = d; }
     }
     if (!best) return;
-    const top = this.ground(best.x + 0.5, best.y + 0.5).add(new THREE.Vector3(0, this.models.building('GuardTower', best.owner).height - 0.1, 0));
+    const top = this.ground(best.x + 0.5, best.y + 0.5).add(new THREE.Vector3(0, this.models.building('GuardTower', best.owner).height * this.buildingScale - 0.1, 0));
     q(() => this.effects.bolt(top, tp.clone().add(new THREE.Vector3(0, 0.25, 0)), Math.min(0.45, this.interval * 0.0007 + 0.1)));
   }
 
@@ -763,6 +769,7 @@ export class View3D {
       const phase = now * 0.001 + a.id * 0.37;
       let y = this.terrain.heightAt(p.x, p.z), pitch = 0, roll = 0, fwd = 0, side = 0, squash = 1;
       let legGoal = 0, armGoal = 0, rate = 4, chop = -1;   // chop: 0..1 arms raised overhead, -1 = not chopping
+      let pull = 0;                                        // archer: how far the bowstring is drawn
       const fighting = u.activity === 'Attacking' && !moving && tp;
 
       if (moving) {
@@ -816,9 +823,10 @@ export class View3D {
         armGoal = 0.15;
         rate = 5;
         if (archer) {
-          const draw = c < 0.5 ? smooth(c / 0.5) : c < 0.6 ? 1 - (c - 0.5) / 0.1 : 0;
-          pitch -= draw * 0.18;
-          fwd = (-draw * 0.04 + (c > 0.5 && c < 0.7 ? Math.sin(((c - 0.5) / 0.2) * Math.PI) * 0.025 : 0)) * this.unitScale;
+          // Nock (a beat after the last shot), draw the string back to the cheek, hold, loose.
+          pull = c < 0.12 ? 0 : c < 0.45 ? smooth((c - 0.12) / 0.33) : c < 0.5 ? 1 : 0;
+          pitch -= pull * 0.06;
+          fwd = (c > 0.5 && c < 0.65 ? -Math.sin(((c - 0.5) / 0.15) * Math.PI) * 0.02 : 0) * this.unitScale;   // recoil
         } else if (u.type === 'Scout') {
           const rear = c < 0.55 ? Math.sin((c / 0.55) * Math.PI) : 0;
           pitch -= rear * 0.38;
@@ -835,9 +843,12 @@ export class View3D {
         if (blow > a.lastAtk) {
           a.lastAtk = blow;
           if (archer) {
-            const from = new THREE.Vector3(p.x, y + 0.32 * this.unitScale, p.z);
+            // The arrow leaves from the drawn bow, out in front of the archer.
+            const s = this.unitScale, sy = Math.sin(a.yaw), cy = Math.cos(a.yaw);
+            const lx = -0.1 * s, lz = 0.3 * s;
+            const from = new THREE.Vector3(p.x + cy * lx + sy * lz, y + 0.29 * s, p.z - sy * lx + cy * lz);
             const to = new THREE.Vector3(tp.x, this.terrain.heightAt(tp.x, tp.z) + tp.h * 0.6, tp.z);
-            this.effects.arrow(from, to, clamp(Math.hypot(tp.x - p.x, tp.z - p.z) * 0.09, 0.18, 0.5));
+            this.effects.arrow(from, to, clamp(Math.hypot(tp.x - p.x, tp.z - p.z) * 0.09, 0.2, 0.55), s);
           } else {
             const at = new THREE.Vector3(p.x, y + 0.25 * this.unitScale, p.z)
               .lerp(new THREE.Vector3(tp.x, this.terrain.heightAt(tp.x, tp.z) + tp.h * 0.5, tp.z), 0.6);
@@ -881,13 +892,20 @@ export class View3D {
 
       // Limbs: stride, sway, or both arms chopping together (a negative arm swing tells the shader so).
       a.leg = (a.leg ?? 0) + (legGoal - (a.leg ?? 0)) * k;
+      // Archers in a fight raise the bow and keep it up between shots; both arms come up to aim.
+      if (u.type === 'Archer') {
+        a.raise = (a.raise ?? 0) + ((fighting ? 1 : 0) - (a.raise ?? 0)) * (1 - Math.exp(-8 * dt));
+        if (a.raise > 0.02) chop = Math.max(chop, a.raise);
+      }
+      const draw = u.type === 'Archer' ? [a.raise ?? 0, pull] : null;
       if (chop >= 0) {
         a.arm = 0;
-        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [Math.asin(clamp(chop * 2 - 1, -1, 1)), a.leg, -2.1]);
+        const reachUp = u.type === 'Archer' ? -1.45 : -2.1;   // arms out level to aim, or overhead to chop
+        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [Math.asin(clamp(chop * 2 - 1, -1, 1)), a.leg, reachUp], draw);
       } else {
         a.arm = (a.arm ?? 0) + (armGoal - (a.arm ?? 0)) * k;
         a.walk = (a.walk ?? a.id) + dt * rate;
-        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm]);
+        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm], draw);
       }
       if (carrying) {
         const back = 0.11 * s;
@@ -1058,7 +1076,7 @@ export class View3D {
         }
       }
       const x = b.x + 0.5, z = b.y + 0.5;
-      obj.position.set(x, this.terrain.heightAt(x, z) + this.models.building('CommandCenter', slot).height + 0.45, z);
+      obj.position.set(x, this.terrain.heightAt(x, z) + this.models.building('CommandCenter', slot).height * this.buildingScale + 0.45, z);
     }
   }
 

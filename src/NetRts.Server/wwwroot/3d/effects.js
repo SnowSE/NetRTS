@@ -288,10 +288,10 @@ export class Effects {
   // ---------------------------------------------------------------- projectiles
 
   /** An arrow lobbed from a to b, landing after `flight` seconds. */
-  arrow(a, b, flight) {
+  arrow(a, b, flight, s = 1) {
     if (this.arrows.items.length >= this.arrows.max) return;
     const dist = Math.hypot(b.x - a.x, b.z - a.z);
-    this.arrows.items.push({ a: a.clone(), b: b.clone(), t: 0, flight: Math.max(0.12, flight), arc: 0.15 + dist * 0.12, kind: 'arrow' });
+    this.arrows.items.push({ a: a.clone(), b: b.clone(), t: 0, flight: Math.max(0.12, flight), arc: 0.15 + dist * 0.12, kind: 'arrow', s });
   }
 
   /** A blazing bolt from a guard tower. */
@@ -341,7 +341,9 @@ export class Effects {
         const t2 = Math.min(1, p.t + 0.02);
         m.position.set(x, y, z);
         m.lookAt(p.a.x + (p.b.x - p.a.x) * t2, p.a.y + (p.b.y - p.a.y) * t2 + Math.sin(Math.PI * t2) * p.arc, p.a.z + (p.b.z - p.a.z) * t2);
-        m.scale.setScalar(1);
+        m.scale.setScalar(p.s ?? 1);
+        // A faint streak behind it, so it reads in flight.
+        this.glow.emit(x, y, z, 0, 0, 0, { life: 0.14, size: 0.035 * (p.s ?? 1), color: [1.4, 1.3, 1.1], alpha: 0.6 });
         m.updateMatrix();
         arrows.mesh.setMatrixAt(ai++, m.matrix);
       }

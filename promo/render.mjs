@@ -55,7 +55,7 @@ const files = await Promise.all(Array.from({ length: WORKERS }, (_, w) => segmen
 await browser.close();
 
 writeFileSync(`out/tmp/${cut}-list.txt`, files.map((f) => `file '${f.replace('out/tmp/', '')}'`).join('\n'));
-const name = cut === 'short' ? 'badger-brawl-30s' : 'badger-brawl-2min';
+const name = cut === 'short' ? 'badger-brawl-short' : 'badger-brawl-2min';
 await run(['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', `out/tmp/${cut}-list.txt`, '-i', `audio-${cut}.wav`,
   '-map', '0:v', '-map', '1:a', '-c:v', 'copy', '-af', 'loudnorm=I=-14:TP=-1.0:LRA=11', '-c:a', 'aac', '-b:a', '256k', '-ar', '48000',
   '-t', String(duration), '-movflags', '+faststart', `out/${name}.mp4`]);
