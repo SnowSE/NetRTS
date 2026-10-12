@@ -309,7 +309,7 @@ Authorization: Bearer &lt;apiKey&gt;
   // The trailer is a still until it's played: YouTube (and its channel banner) only loads on click.
   $('promo-play').addEventListener('click', (e) => {
     const frame = document.createElement('iframe');
-    frame.src = 'https://www.youtube-nocookie.com/embed/n55mFh3wFiA?autoplay=1&rel=0';
+    frame.src = 'https://www.youtube-nocookie.com/embed/sVGlA3aRt90?autoplay=1&rel=0';
     frame.title = say('NetRTS in action', 'Badger Brawl: the trailer');
     frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
