@@ -103,7 +103,7 @@ function mountHome(root) {
           Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.`)}</p>
         <div class="hero-links">
           <a class="btn ghost" href="/scalar">Read the API docs</a>
-          <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger (Getting Started)')}</a>
+          <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger (Get Started)')}</a>
         </div>
       </div>
       <div class="promo">
