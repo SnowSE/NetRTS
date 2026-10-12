@@ -107,9 +107,11 @@ function mountHome(root) {
         </div>
       </div>
       <div class="promo">
-        <iframe src="https://www.youtube-nocookie.com/embed/n55mFh3wFiA?rel=0" title="${say('NetRts in action', 'Badger Brawl: the trailer')}"
-          loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+        <button type="button" class="promo-play" id="promo-play">
+          <img src="/images/trailer-poster.jpg" alt="" width="1280" height="720">
+          <span class="promo-icon" aria-hidden="true"></span>
+          <span class="promo-label">${say('Watch the trailer', 'Watch the trailer')} <span class="muted">· 2:00</span></span>
+        </button>
       </div>
     </div>
 
@@ -303,6 +305,18 @@ Authorization: Bearer &lt;apiKey&gt;
     }
   }
 
+  // The trailer is a still until it's played: YouTube (and its channel banner) only loads on click.
+  $('promo-play').addEventListener('click', (e) => {
+    const frame = document.createElement('iframe');
+    frame.src = 'https://www.youtube-nocookie.com/embed/n55mFh3wFiA?autoplay=1&rel=0';
+    frame.title = say('NetRts in action', 'Badger Brawl: the trailer');
+    frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
+    frame.referrerPolicy = 'strict-origin-when-cross-origin';
+    frame.allowFullscreen = true;
+    e.currentTarget.replaceWith(frame);
+    frame.focus();
+  });
+
   // Open on the current phase unless they've already picked a tab.
   let tabChosen = false;
   root.querySelector('.ladder-tabs').addEventListener('change', () => {
@@ -313,11 +327,18 @@ Authorization: Bearer &lt;apiKey&gt;
     if (alive && !tabChosen) root.querySelector(`#cat-${key}`).checked = true;
   });
 
+  let shownCategory = null;
   async function loadLadder() {
     await phase;
     const el = $('ladder');
     const category = root.querySelector('input[name="ladder-cat"]:checked')?.value || 'Practice';
-    $('ladder-note').textContent = CATEGORIES.find((c) => c.key === category)?.note ?? '';
+    const info = CATEGORIES.find((c) => c.key === category);
+    $('ladder-note').textContent = info?.note ?? '';
+    // A different tab: never leave the previous tab's table showing while this one loads.
+    if (category !== shownCategory) {
+      shownCategory = category;
+      setHtml(el, html`<p class="empty">Loading ${info?.label ?? ''}…</p>`);
+    }
     try {
       const list = await api(`/api/v1/leaderboard?category=${category}`);
       if (!alive || category !== root.querySelector('input[name="ladder-cat"]:checked')?.value) return;
@@ -331,9 +352,12 @@ Authorization: Bearer &lt;apiKey&gt;
               <td>${playerLabel(p)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
               ${category !== 'Practice' ? html`<td class="rating">${fmt(p.points)}</td>` : ''}<td class="${category === 'Practice' ? 'rating' : ''}">${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
           </tbody>
-        </table></div>` : html`<p class="empty">${category === 'Practice'
-          ? say('No ranked players yet.', 'No ranked badgers yet.')
-          : `No ${category.toLowerCase()} matches have finished yet.`}</p>`);
+        </table></div>` : category === 'Practice'
+        ? html`<p class="empty">${say('No ranked players yet.', 'No ranked badgers yet.')}</p>`
+        : html`<div class="coming-soon">
+            <p class="coming-soon-title">Coming soon</p>
+            <p class="muted small">The ${info.label.toLowerCase()} leaderboard opens after the first ${info.label.toLowerCase()} match is played.</p>
+          </div>`);
     } catch (e) {
       if (alive) setHtml(el, html`<p class="error">Could not load the leaderboard: ${e.message}</p>`);
     }
