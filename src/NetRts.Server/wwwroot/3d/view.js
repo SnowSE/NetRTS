@@ -44,9 +44,11 @@ class Instances {
     this.team = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
     this.flash = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1).setUsage(THREE.DynamicDrawUsage);
     this.cut = new THREE.InstancedBufferAttribute(new Float32Array(cap).fill(NO_CUT), 1).setUsage(THREE.DynamicDrawUsage);
+    this.walk = new THREE.InstancedBufferAttribute(new Float32Array(cap * 3), 3).setUsage(THREE.DynamicDrawUsage);
     geo.setAttribute('iTeam', this.team);
     geo.setAttribute('iFlash', this.flash);
     geo.setAttribute('iCut', this.cut);
+    geo.setAttribute('iWalk', this.walk);
     this.mesh = new THREE.InstancedMesh(geo, this.mat, cap);
     this.mesh.customDepthMaterial = this.depthMat;
     this.mesh.castShadow = true;
@@ -57,13 +59,15 @@ class Instances {
     this.n = 0;
   }
   begin() { this.n = 0; }
-  push(matrix, colour, flash = 0, cut = NO_CUT) {
+  push(matrix, colour, flash = 0, cut = NO_CUT, walk = null) {
     if (this.n >= this.cap) this.alloc(this.cap * 2);
     const i = this.n++;
     this.mesh.setMatrixAt(i, matrix);
     this.team.setXYZ(i, colour.r, colour.g, colour.b);
     this.flash.setX(i, flash);
     this.cut.setX(i, cut);
+    if (walk) this.walk.setXYZ(i, walk[0], walk[1], walk[2]);
+    else this.walk.setXYZ(i, 0, 0, 0);
   }
   end() {
     this.mesh.count = this.n;
@@ -71,6 +75,7 @@ class Instances {
     this.team.needsUpdate = true;
     this.flash.needsUpdate = true;
     this.cut.needsUpdate = true;
+    this.walk.needsUpdate = true;
   }
   dispose() { this.scene.remove(this.mesh); this.mesh.geometry.dispose(); this.mesh.dispose(); }
 }
@@ -617,10 +622,11 @@ export class View3D {
       const phase = now * 0.001 + a.id * 0.37;
       let y = this.terrain.heightAt(p.x, p.z), pitch = 0, roll = 0, fwd = 0, squash = 1;
       if (moving) {
-        const f = u.type === 'Scout' ? 2.6 : 2.0;
-        y += Math.abs(Math.sin(phase * Math.PI * 2 * f)) * (u.type === 'Scout' ? 0.05 : 0.035);
-        pitch = u.type === 'Scout' ? Math.sin(phase * Math.PI * 4 * f / 2) * 0.12 : 0.08;
-        roll = Math.sin(phase * Math.PI * 2 * f) * 0.05;
+        // Bob twice per stride, in step with the legs.
+        const w = a.walk ?? 0;
+        y += Math.abs(Math.cos(w)) * (u.type === 'Scout' ? 0.045 : 0.03);
+        pitch = u.type === 'Scout' ? Math.sin(w * 2) * 0.08 : 0.08;
+        roll = Math.sin(w) * 0.04;
       } else if (u.activity === 'Gathering' || u.activity === 'Building') {
         const dig = Math.sin(phase * Math.PI * 2 * 1.6);
         pitch = 0.18 + dig * 0.22;
@@ -641,7 +647,15 @@ export class View3D {
       e.set(pitch, a.yaw, roll);
       sc.set(s, s * squash, s);
       m.compose(v, q.setFromEuler(e), sc);
-      L['u' + u.type].push(m, teamOf(u.owner), flash);
+      // Limbs: stride when moving, swing tools while working, hack away in a fight.
+      const working = !moving && (u.activity === 'Gathering' || u.activity === 'Building');
+      const fighting = since >= 0 && since < 320 && u.type !== 'Archer';
+      const legGoal = moving ? (u.type === 'Scout' ? 0.75 : 0.7) : 0;
+      const armGoal = moving ? 0.55 : working ? 0.85 : fighting ? 1.1 : 0;
+      a.leg = (a.leg ?? 0) + (legGoal - (a.leg ?? 0)) * k;
+      a.arm = (a.arm ?? 0) + (armGoal - (a.arm ?? 0)) * k;
+      a.walk = (a.walk ?? a.id) + dt * (moving ? (u.type === 'Scout' ? 15 : 11) : working ? 8 : fighting ? 18 : 4);
+      L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm]);
       if (u.carrying > 0) {
         const back = 0.11 * s;
         v.set(p.x - Math.sin(a.yaw) * back, y + 0.33 * s, p.z - Math.cos(a.yaw) * back);
@@ -789,19 +803,29 @@ export class View3D {
     if (this.hotspots.length) return this.hotspots[this.hotspots.length - 1];
     const s = this.state;
     if (!s) return null;
-    let fighters = s.units.filter((u) => u.activity === 'Attacking');
-    if (!fighters.length) fighters = s.units.filter((u) => u.type !== 'Worker' && u.activity === 'Moving');
-    if (!fighters.length) fighters = s.units.filter((u) => u.type !== 'Worker');
-    if (!fighters.length) return null;
-    let best = [];
-    for (const u of fighters) {
-      const group = fighters.filter((o) => Math.max(Math.abs(o.x - u.x), Math.abs(o.y - u.y)) <= 6);
-      if (group.length > best.length) best = group;
+    if (this.hotCache?.tick === s.tick) return this.hotCache.spot;
+    const spot = this.crowd(s);
+    this.hotCache = { tick: s.tick, spot };
+    return spot;
+  }
+
+  crowd(s) {
+    // Fights first; otherwise the busiest crowd, armies counting more than workers.
+    const fighting = s.units.filter((u) => u.activity === 'Attacking');
+    const pool = fighting.length ? fighting : s.units;
+    if (!pool.length) return null;
+    const weight = (u) => (fighting.length ? 1 : u.type === 'Worker' ? 1 : u.type === 'Scout' ? 1.5 : 3);
+    let best = null, bestW = 0;
+    for (const u of pool) {
+      let w = 0;
+      for (const o of pool) if (Math.max(Math.abs(o.x - u.x), Math.abs(o.y - u.y)) <= 5) w += weight(o);
+      if (w > bestW) { bestW = w; best = u; }
     }
+    const group = pool.filter((o) => Math.max(Math.abs(o.x - best.x), Math.abs(o.y - best.y)) <= 5);
     return {
-      x: best.reduce((t, u) => t + u.x, 0) / best.length + 0.5,
-      z: best.reduce((t, u) => t + u.y, 0) / best.length + 0.5,
-      size: best.length,
+      x: group.reduce((t, u) => t + u.x, 0) / group.length + 0.5,
+      z: group.reduce((t, u) => t + u.y, 0) / group.length + 0.5,
+      size: Math.max(4, group.length),
     };
   }
 

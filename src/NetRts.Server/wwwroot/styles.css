@@ -769,6 +769,12 @@ pre.snippet {
   .map-controls #follow { font-size: 0.78rem; }
 }
 .map-controls button[hidden] { display: none; }
+@media (max-width: 560px) {
+  .map-controls #grid3d, .map-controls #quality3d, .is-3d .map-controls #zoom-in, .is-3d .map-controls #zoom-out { display: none; }
+}
+@media (pointer: coarse) and (hover: none) {
+  .map-controls #fly { display: none; }   /* free flight needs a keyboard */
+}
 
 /* 3D view */
 .map3d { position: relative; max-width: 100%; background: #9fb3c2; border-radius: var(--radius-s); overflow: hidden; }

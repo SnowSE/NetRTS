@@ -351,7 +351,7 @@ export class CameraRig {
         }
         d.spot = { x: spot.x, z: spot.z };
       }
-      this.goal.dist = clamp(4 + Math.sqrt(spot.size || 1) * 1.6, 4.5, 14);
+      this.goal.dist = clamp(3.5 + Math.sqrt(spot.size || 1) * 1.25, 4.5, 12);
     } else if (!d.spot) {
       d.spot = { x: this.terrain.W / 2, z: this.terrain.H / 2 };
       this.goal.dist = Math.max(this.terrain.W, this.terrain.H) * 0.6;

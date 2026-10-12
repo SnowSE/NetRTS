@@ -23,7 +23,7 @@ const K = {
 class Builder {
   constructor() { this.parts = []; }
 
-  add(geo, colour, { team = 0, glow = 0, at = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
+  add(geo, colour, { team = 0, glow = 0, limb = 0, at = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.deleteAttribute('uv');
     const m = new THREE.Matrix4().compose(
@@ -32,11 +32,13 @@ class Builder {
       new THREE.Vector3(...scale));
     g.applyMatrix4(m);
     const n = g.attributes.position.count;
-    const c = new Float32Array(n * 3), t = new Float32Array(n), w = new Float32Array(n);
-    for (let i = 0; i < n; i++) { c[i * 3] = colour.r; c[i * 3 + 1] = colour.g; c[i * 3 + 2] = colour.b; t[i] = team; w[i] = glow; }
+    const c = new Float32Array(n * 3), t = new Float32Array(n), w = new Float32Array(n), l = new Float32Array(n);
+    for (let i = 0; i < n; i++) { c[i * 3] = colour.r; c[i * 3 + 1] = colour.g; c[i * 3 + 2] = colour.b; t[i] = team; w[i] = glow; l[i] = limb; }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     g.setAttribute('team', new THREE.BufferAttribute(t, 1));
     g.setAttribute('glow', new THREE.BufferAttribute(w, 1));
+    // Limbs swing in the vertex shader: ±1 legs (hip pivot), ±2 arms (shoulder), ±3 a mount's legs.
+    g.setAttribute('limb', new THREE.BufferAttribute(l, 1));
     this.parts.push(g);
     return this;
   }
@@ -79,21 +81,22 @@ function head(b, badger, y = 0.34) {
   }
 }
 
-function body(b, { legs = true, arms = true, y = 0 } = {}) {
+function body(b, { legs = true, arms = true, y = 0, animate = true } = {}) {
+  const L = (side, kind) => (animate ? side * kind : 0);
   if (legs) {
-    b.add(box(0.06, 0.13, 0.07), K.trousers, { at: [-0.045, y + 0.065, 0] })
-      .add(box(0.06, 0.13, 0.07), K.trousers, { at: [0.045, y + 0.065, 0] })
-      .add(box(0.064, 0.03, 0.09), K.leather, { at: [-0.045, y + 0.015, 0.01] })
-      .add(box(0.064, 0.03, 0.09), K.leather, { at: [0.045, y + 0.015, 0.01] });
+    b.add(box(0.06, 0.13, 0.07), K.trousers, { limb: L(1, 1), at: [-0.045, y + 0.065, 0] })
+      .add(box(0.06, 0.13, 0.07), K.trousers, { limb: L(-1, 1), at: [0.045, y + 0.065, 0] })
+      .add(box(0.064, 0.03, 0.09), K.leather, { limb: L(1, 1), at: [-0.045, y + 0.015, 0.01] })
+      .add(box(0.064, 0.03, 0.09), K.leather, { limb: L(-1, 1), at: [0.045, y + 0.015, 0.01] });
   }
   b.add(cyl(0.074, 0.09, 0.16, 8), K.team, { team: 1, at: [0, y + 0.21, 0] })
     .add(cyl(0.093, 0.093, 0.024, 8), K.belt, { at: [0, y + 0.142, 0] })
     .add(box(0.018, 0.018, 0.01), K.gold, { at: [0, y + 0.142, 0.092] });
   if (arms) {
-    b.add(box(0.045, 0.13, 0.05), K.teamShade, { team: 1, at: [-0.106, y + 0.215, 0], rot: [0, 0, 0.12] })
-      .add(box(0.045, 0.13, 0.05), K.teamShade, { team: 1, at: [0.106, y + 0.215, 0], rot: [0, 0, -0.12] })
-      .add(ball(0.026, 0), K.skin, { at: [-0.118, y + 0.142, 0.005] })
-      .add(ball(0.026, 0), K.skin, { at: [0.118, y + 0.142, 0.005] });
+    b.add(box(0.045, 0.13, 0.05), K.teamShade, { team: 1, limb: L(1, 2), at: [-0.106, y + 0.215, 0], rot: [0, 0, 0.12] })
+      .add(box(0.045, 0.13, 0.05), K.teamShade, { team: 1, limb: L(-1, 2), at: [0.106, y + 0.215, 0], rot: [0, 0, -0.12] })
+      .add(ball(0.026, 0), K.skin, { limb: L(1, 2), at: [-0.118, y + 0.142, 0.005] })
+      .add(ball(0.026, 0), K.skin, { limb: L(-1, 2), at: [0.118, y + 0.142, 0.005] });
   }
 }
 
@@ -125,9 +128,9 @@ function soldier(badger) {
     .add(cyl(0.1, 0.1, 0.026, 12), K.team, { team: 1, at: [-0.14, 0.2, 0.043], rot: [Math.PI / 2, 0, 0], scale: [1, 1, 1.15] })
     .add(ball(0.026, 0), K.brightSteel, { at: [-0.14, 0.2, 0.06] })
     // Sword in the right hand.
-    .add(box(0.02, 0.25, 0.008), K.brightSteel, { at: [0.125, 0.27, 0.06], rot: [0.35, 0, 0] })
-    .add(box(0.075, 0.016, 0.022), K.gold, { at: [0.125, 0.15, 0.02], rot: [0.35, 0, 0] })
-    .add(cyl(0.01, 0.01, 0.05, 5), K.leather, { at: [0.122, 0.125, 0.01], rot: [0.35, 0, 0] });
+    .add(box(0.02, 0.25, 0.008), K.brightSteel, { limb: -2, at: [0.125, 0.27, 0.06], rot: [0.35, 0, 0] })
+    .add(box(0.075, 0.016, 0.022), K.gold, { limb: -2, at: [0.125, 0.15, 0.02], rot: [0.35, 0, 0] })
+    .add(cyl(0.01, 0.01, 0.05, 5), K.leather, { limb: -2, at: [0.122, 0.125, 0.01], rot: [0.35, 0, 0] });
   return b.build();
 }
 
@@ -154,7 +157,7 @@ function scout(badger) {
   const legs = [[-0.045, -0.11], [0.045, -0.11], [-0.045, 0.11], [0.045, 0.11]];
   b.add(box(0.12, 0.12, 0.3), hide, { at: [0, 0.21, 0] })
     .add(box(0.1, 0.03, 0.26), badger ? K.deerBelly : col('#5a3d2a'), { at: [0, 0.148, 0] });
-  for (const [x, z] of legs) b.add(box(0.032, 0.15, 0.034), K.woodDark, { at: [x, 0.075, z] });
+  for (const [x, z] of legs) b.add(box(0.032, 0.15, 0.034), K.woodDark, { limb: (x < 0 ? 3 : -3) * (z > 0 ? 1 : -1), at: [x, 0.075, z] });
   b.add(box(0.06, 0.14, 0.07), hide, { at: [0, 0.3, 0.15], rot: [-0.55, 0, 0] })
     .add(box(0.058, 0.062, 0.12), hide, { at: [0, 0.36, 0.215], rot: [0.15, 0, 0] })
     .add(ball(0.012, 0), K.black, { at: [0, 0.35, 0.278] })
@@ -173,7 +176,7 @@ function scout(badger) {
   }
   // The rider sits on the saddle.
   const r = new Builder();
-  body(r, { legs: false });
+  body(r, { legs: false, animate: false });
   head(r, badger);
   r.add(box(0.16, 0.2, 0.012), K.teamShade, { team: 1, at: [0, 0.2, -0.08], rot: [0.35, 0, 0] })
     .add(cyl(0.08, 0.08, 0.03, 8), K.teamShade, { team: 1, at: [0, 0.29, 0] });
@@ -200,7 +203,7 @@ function windows(b, w, d, rows, cols, y0, dy, sides = 4, seed = 1) {
         const off = (c - (n - 1) / 2) * (span / (n + 0.4));
         const lit = ((r * 7 + c * 13 + fi * 5 + seed) % 5) !== 0;
         const x = fi < 2 ? fx + off : fx, z = fi < 2 ? fz : fz + off;
-        b.add(box(0.055, 0.075, 0.01), lit ? K.window : K.slate, { glow: lit ? 1.1 : 0, at: [x, y0 + r * dy, z], rot: [0, ry, 0] });
+        b.add(box(0.055, 0.075, 0.01), lit ? K.window : K.slate, { glow: lit ? 0.55 : 0, at: [x, y0 + r * dy, z], rot: [0, ry, 0] });
       }
     }
   });
@@ -428,11 +431,21 @@ export function entityMaterial() {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
-        attribute float team; attribute float glow;
-        attribute vec3 iTeam; attribute float iFlash; attribute float iCut;
+        attribute float team; attribute float glow; attribute float limb;
+        attribute vec3 iTeam; attribute float iFlash; attribute float iCut; attribute vec3 iWalk;
         varying float vTeam; varying float vGlow; varying vec3 vTeamCol; varying float vFlash; varying float vCut; varying float vLocalY;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
-        vTeam = team; vGlow = glow; vTeamCol = iTeam; vFlash = iFlash; vCut = iCut; vLocalY = position.y;`);
+        vTeam = team; vGlow = glow; vTeamCol = iTeam; vFlash = iFlash; vCut = iCut; vLocalY = position.y;
+        // Swing limbs about the hip or shoulder: iWalk = (phase, leg swing, arm swing).
+        if (limb != 0.0) {
+          float kind = abs(limb);
+          float pivot = kind < 1.5 ? 0.13 : (kind < 2.5 ? 0.28 : 0.15);
+          float amp = kind < 2.5 && kind > 1.5 ? -iWalk.z : iWalk.y;
+          float ang = sin(iWalk.x) * amp * sign(limb);
+          float c = cos(ang), s = sin(ang);
+          vec3 p = transformed - vec3(0.0, pivot, 0.0);
+          transformed = vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c) + vec3(0.0, pivot, 0.0);
+        }`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
         varying float vTeam; varying float vGlow; varying vec3 vTeamCol; varying float vFlash; varying float vCut; varying float vLocalY;`)

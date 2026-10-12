@@ -84,7 +84,7 @@ export function mountSpectate(root, matchKey) {
           <div class="overlay-msg" id="overlay"><div><strong>${say('Loading map…', 'Unrolling the Sanpete Valley…')}</strong></div></div>
         </div>
         <p class="small muted" style="margin:0" id="map-help">${say('Scroll or pinch to zoom in on a battle,', 'Scroll or pinch to zoom in on a brawl,')} drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
-        <p class="small muted" style="margin:0" id="map-help-3d" hidden>Drag to pan, right-drag or Shift-drag to turn, scroll to zoom. WASD moves, Q and E turn. Click a ${say('unit', 'badger')} to ride along with it, or press Fly for free flight (Esc to land).</p>
+        <p class="small muted" style="margin:0" id="map-help-3d" hidden>Drag to pan, right-drag or Shift-drag to turn, scroll to zoom. WASD moves, Q and E turn. Click a ${say('unit', 'badger')} to ride along with it, or press Fly for free flight (Esc to land). On a touch screen, drag to pan, pinch to zoom and twist to turn.</p>
       </div>
       <aside class="side" aria-label="Players and events">
         <section aria-labelledby="players-h">
@@ -393,6 +393,7 @@ export function mountSpectate(root, matchKey) {
       view3d.setVision(view.vision);
     }
     is3d = on;
+    frame.classList.toggle('is-3d', on);
     canvas.hidden = on;
     box3d.hidden = !on;
     inspect(null);
@@ -400,7 +401,7 @@ export function mountSpectate(root, matchKey) {
     try { localStorage.setItem('netrts.view', on ? '3d' : '2d'); } catch { /* storage blocked */ }
     render3dControls();
     fit();
-    (on ? view3d.renderer.domElement : canvas).focus({ preventScroll: true });
+    if (on) view3d.renderer.domElement.focus({ preventScroll: true });
   }
   btn3d.addEventListener('click', () => set3d(!is3d));
   flyBtn.addEventListener('click', () => view3d?.setMode(view3d.mode === 'fly' ? 'orbit' : 'fly'));

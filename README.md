@@ -102,6 +102,17 @@ white and orange, light or dark. Prefer plain RTS? The **Original theme** button
 switches the whole site back to the classic NetRts look (ore, Command Centers, barracks), and
 remembers your choice.
 
+Press **3D** and the same brawl plays out in a WebGL valley: sandstone plateaus, pine-covered
+mountains, badgers in team jerseys marching, digging and trading blows, arrows in flight, bell
+towers firing, and buildings going up behind scaffolding and coming down in fire and debris. Drag,
+turn and zoom like an RTS camera, click any badger to ride along with it, press **Fly** for free
+flight, or hand the camera to **Follow the brawl** and let the director find the fighting. It works
+for live brawls and replays alike.
+
+<p align="center">
+  <img src="docs/images/spectator-3d.png" width="860" alt="The 3D view mid-brawl: a dorm and a makerspace explode in fireballs and flying debris while pink badger soldiers with shields besiege a campus hall.">
+</p>
+
 <p align="center">
   <img src="docs/images/spectator.png" width="860" alt="The spectator page mid-brawl: the map on the left, each team's grubs, income, home building and housing, score breakdown and upgrades on the right, and the play-by-play underneath.">
 </p>

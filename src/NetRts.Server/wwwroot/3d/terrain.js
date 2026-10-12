@@ -191,7 +191,13 @@ export class Terrain {
           #endif`)
         .replace('#include <common>', `#include <common>
           varying vec3 vWorld; varying vec3 vWorldN;
-          uniform float uGrid; uniform vec2 uMapSize; uniform sampler2D uVis; uniform float uVisOn;`)
+          uniform float uGrid; uniform vec2 uMapSize; uniform sampler2D uVis; uniform float uVisOn; uniform float uTime;
+          float hsh(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+          float vnoise(vec2 p) {
+            vec2 i = floor(p), f = fract(p);
+            f = f * f * (3.0 - 2.0 * f);
+            return mix(mix(hsh(i), hsh(i + vec2(1.0, 0.0)), f.x), mix(hsh(i + vec2(0.0, 1.0)), hsh(i + vec2(1.0, 1.0)), f.x), f.y);
+          }`)
         .replace('#include <color_fragment>', `#include <color_fragment>
           {
             vec2 p = vWorld.xz;
@@ -206,6 +212,10 @@ export class Terrain {
             vec2 e = min(p, uMapSize - p);
             float edge = (1.0 - smoothstep(0.0, 0.18, abs(min(e.x, e.y)))) * step(-0.2, min(e.x, e.y));
             diffuseColor.rgb = mix(diffuseColor.rgb, vec3(1.0, 0.9, 0.6), edge * 0.2);
+            // Cloud shadows drifting across the valley.
+            vec2 wind = vec2(uTime * 0.35, uTime * 0.2);
+            float cloud = vnoise((p + wind) * 0.045) * 0.65 + vnoise((p + wind * 1.4) * 0.11) * 0.35;
+            diffuseColor.rgb *= 1.0 - smoothstep(0.55, 0.78, cloud) * 0.24;
             // Fog of war for the chosen player.
             if (uVisOn > 0.5 && inMap > 0.5) {
               float vis = texture2D(uVis, p / uMapSize).r;
