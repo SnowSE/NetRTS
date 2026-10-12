@@ -39,11 +39,17 @@ export function mountSpectate(root, matchKey) {
         <div class="map-frame" id="frame">
           <canvas id="map" tabindex="0" role="img" aria-label="${say('Battle', 'Brawl')} map. Use the arrow keys to inspect tiles, plus and minus to zoom."
             aria-describedby="tooltip"></canvas>
+          <div class="map3d" id="map3d" hidden></div>
+          <div class="map3d-card" id="card3d" hidden aria-live="polite"></div>
           <div class="map-controls" role="toolbar" aria-label="Map view">
+            <button type="button" id="view3d" aria-pressed="false" title="Fly around the battlefield in 3D (3)">3D</button>
             <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
             <button type="button" id="zoom-out" aria-label="Zoom out" title="Zoom out (−)">−</button>
             <button type="button" id="zoom-fit" title="Show the whole map (0)">Fit</button>
             <button type="button" id="follow" aria-pressed="false" title="Keep the camera on the biggest fight (F)">${say('Follow the fight', 'Follow the brawl')}</button>
+            <button type="button" id="fly" aria-pressed="false" title="Free flight: mouse to look, WASD to move, E/Q up and down, Shift for speed, Esc to land" hidden>Fly</button>
+            <button type="button" id="grid3d" aria-pressed="false" title="Show the tile grid" hidden>Grid</button>
+            <button type="button" id="quality3d" title="Graphics quality" hidden>Quality</button>
             <span class="zoom-level" id="zoom-level" aria-live="polite">1×</span>
             <button type="button" id="fullscreen" aria-pressed="false" title="Full screen (G)">Full screen</button>
           </div>
@@ -77,7 +83,8 @@ export function mountSpectate(root, matchKey) {
           <div class="tooltip" id="tooltip" role="status" hidden></div>
           <div class="overlay-msg" id="overlay"><div><strong>${say('Loading map…', 'Unrolling the Sanpete Valley…')}</strong></div></div>
         </div>
-        <p class="small muted" style="margin:0">${say('Scroll or pinch to zoom in on a battle,', 'Scroll or pinch to zoom in on a brawl,')} drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
+        <p class="small muted" style="margin:0" id="map-help">${say('Scroll or pinch to zoom in on a battle,', 'Scroll or pinch to zoom in on a brawl,')} drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
+        <p class="small muted" style="margin:0" id="map-help-3d" hidden>Drag to pan, right-drag or Shift-drag to turn, scroll to zoom. WASD moves, Q and E turn. Click a ${say('unit', 'badger')} to ride along with it, or press Fly for free flight (Esc to land).</p>
       </div>
       <aside class="side" aria-label="Players and events">
         <section aria-labelledby="players-h">
@@ -94,6 +101,12 @@ export function mountSpectate(root, matchKey) {
   const $ = (id) => root.querySelector('#' + id);
   const canvas = $('map'), frame = $('frame'), overlay = $('overlay'), tooltip = $('tooltip');
   const view = new MapView(canvas);
+  const box3d = $('map3d');
+  let view3d = null;       // the 3D view, loaded the first time someone opens it
+  let is3d = false;
+  let anchor3d = null;     // where the pointer last hovered in 3D, for refreshing the tooltip
+  const showMap = (map) => { view.setMap(map); view3d?.setMap(map); };
+  const showState = (s) => { view.setState(s); view3d?.setState(s); };
 
   let alive = true;
   let es = null;
@@ -121,14 +134,18 @@ export function mountSpectate(root, matchKey) {
     const cs = getComputedStyle(frame);
     const padX = parseFloat(cs.paddingLeft) + parseFloat(cs.paddingRight);
     const w = frame.clientWidth - padX;
+    let h;
     if (frame.classList.contains('is-full')) {
-      view.fit(w, frame.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom));
-      return;
+      h = frame.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+    } else {
+      const top = frame.getBoundingClientRect().top + window.scrollY;
+      // Show the whole map without scrolling where possible; phones fall back to width.
+      h = window.innerWidth < 760 ? w : Math.max(300, window.innerHeight - top - 40);
     }
-    const top = frame.getBoundingClientRect().top + window.scrollY;
-    // Show the whole map without scrolling where possible; phones fall back to width.
-    const h = window.innerWidth < 760 ? w : Math.max(300, window.innerHeight - top - 40);
     view.fit(w, h);
+    // The 3D view fills the same space, but never taller than wide on a phone.
+    box3d.style.width = `${w}px`;
+    box3d.style.height = `${Math.round(window.innerWidth < 760 && !frame.classList.contains('is-full') ? w * 0.8 : h)}px`;
   };
   const ro = new ResizeObserver(fit);
   ro.observe(frame);
@@ -166,7 +183,7 @@ export function mountSpectate(root, matchKey) {
     setHtml(tooltip, html`<div class="tt-coord">${tile.x}, ${tile.y}: ${SNOW ? (info.terrain === 'Rock' ? 'Wasatch Plateau rock' : 'Sanpete Valley') : info.terrain}${fog}</div>${items}`);
     tooltip.hidden = false;
     const pt = anchor || view.tileCenter(tile);
-    const fr = frame.getBoundingClientRect(), cr = canvas.getBoundingClientRect();
+    const fr = frame.getBoundingClientRect(), cr = (is3d ? box3d : canvas).getBoundingClientRect();
     let left = cr.left - fr.left + pt.x + 14;
     let top = cr.top - fr.top + pt.y + 14;
     const tw = tooltip.offsetWidth, th = tooltip.offsetHeight;
@@ -179,6 +196,7 @@ export function mountSpectate(root, matchKey) {
   // ---------- zoom & pan
   const zoomLabel = $('zoom-level'), followBtn = $('follow');
   view.onCameraChange = () => {
+    if (is3d) return;
     zoomLabel.textContent = `${view.zoom >= 10 ? Math.round(view.zoom) : Math.round(view.zoom * 10) / 10}×`;
     followBtn.setAttribute('aria-pressed', String(view.follow));
     canvas.style.cursor = view.zoom > 1 ? 'grab' : 'crosshair';
@@ -186,10 +204,13 @@ export function mountSpectate(root, matchKey) {
     queueMicrotask(() => refreshTooltip()); // defined further down
   };
   view.onCameraChange(view);
-  $('zoom-in').addEventListener('click', () => view.zoomCentre(1.5));
-  $('zoom-out').addEventListener('click', () => view.zoomCentre(1 / 1.5));
-  $('zoom-fit').addEventListener('click', () => view.resetView());
-  followBtn.addEventListener('click', () => view.setFollow(!view.follow));
+  $('zoom-in').addEventListener('click', () => (is3d ? view3d.zoom(1 / 1.4) : view.zoomCentre(1.5)));
+  $('zoom-out').addEventListener('click', () => (is3d ? view3d.zoom(1.4) : view.zoomCentre(1 / 1.5)));
+  $('zoom-fit').addEventListener('click', () => (is3d ? view3d.overview() : view.resetView()));
+  followBtn.addEventListener('click', () => {
+    if (is3d) view3d.setMode(view3d.mode === 'director' ? 'orbit' : 'director');
+    else view.setFollow(!view.follow);
+  });
 
   // Full screen: the map frame fills the screen with a collapsible scoreboard. Uses the Fullscreen API
   // where there is one, and a fixed overlay where there isn't (iPhone Safari).
@@ -307,7 +328,107 @@ export function mountSpectate(root, matchKey) {
       y: Math.max(0, Math.min(view.map.height - 1, c.y + d[1] * step)),
     }, null, true);
   });
-  const refreshTooltip = () => { if (!tooltip.hidden && view.cursor) inspect(view.cursor, null); };
+  const refreshTooltip = () => {
+    if (tooltip.hidden || !view.cursor) return;
+    if (is3d) { if (anchor3d) inspect(view.cursor, anchor3d); return; }
+    inspect(view.cursor, null);
+  };
+
+  // ---------- 3D view
+  const btn3d = $('view3d'), flyBtn = $('fly'), gridBtn = $('grid3d'), qualityBtn = $('quality3d');
+  const QUALITY_NAMES = { low: 'Low', medium: 'Medium', high: 'High' };
+  const MODE_NAMES = { orbit: 'Orbit', fly: 'Flying', follow: 'Riding along', director: 'Director' };
+  let cardKey = '';
+  function render3dControls() {
+    btn3d.setAttribute('aria-pressed', String(is3d));
+    for (const b of [flyBtn, gridBtn, qualityBtn]) b.hidden = !is3d;
+    for (const id of ['zoom-in', 'zoom-out', 'zoom-fit', 'follow']) $(id).hidden = false;
+    $('map-help').hidden = is3d;
+    $('map-help-3d').hidden = !is3d;
+    if (!is3d) { view.onCameraChange(view); return; }
+    const mode = view3d?.mode ?? 'orbit';
+    followBtn.setAttribute('aria-pressed', String(mode === 'director'));
+    flyBtn.setAttribute('aria-pressed', String(mode === 'fly'));
+    gridBtn.setAttribute('aria-pressed', String(!!view3d?.grid));
+    qualityBtn.textContent = `Quality: ${QUALITY_NAMES[view3d?.quality] ?? 'Medium'}`;
+    zoomLabel.textContent = MODE_NAMES[mode] ?? '';
+  }
+  function renderCard(u) {
+    const card = $('card3d');
+    if (!u || !is3d) { card.hidden = true; cardKey = ''; return; }
+    const key = `${u.id}|${u.hp}|${u.activity}|${u.carrying}|${u.owner}`;
+    if (key === cardKey) return;
+    cardKey = key;
+    const who = names().get(u.owner) ?? `Player ${u.owner + 1}`;
+    const pct = Math.max(0, Math.min(100, (u.hp / u.maxHp) * 100));
+    setHtml(card, html`
+      <div class="card3d-top"><b>${unitName(u.type)}</b> <span class="muted">#${u.id}</span></div>
+      <div class="pname" style="--pc:${slotVar(u.owner)}">${who}</div>
+      <div class="card3d-hp" role="img" aria-label="Health ${u.hp} of ${u.maxHp}"><span style="width:${pct.toFixed(1)}%"></span></div>
+      <div class="small">HP ${fmt(u.hp)} / ${fmt(u.maxHp)} · ${u.activity.toLowerCase()}${u.carrying ? ` · carrying ${u.carrying} ${ORE}` : ''}</div>
+      <div class="small muted">Esc or drag to let go</div>`);
+    card.hidden = false;
+  }
+  async function set3d(on) {
+    if (on && !view3d) {
+      try {
+        const { View3D } = await import('./3d/view.js');
+        if (!alive) return;
+        view3d = new View3D(box3d, { badger: SNOW, names });
+        box3d.view3d = view3d;   // handy from the dev tools console
+      } catch (e) {
+        setOverlay('The 3D view could not start', e?.message || 'This browser may not support WebGL.');
+        later(() => setOverlay(null), 3500);
+        return;
+      }
+      view3d.onModeChange = () => render3dControls();
+      view3d.onQualityChange = () => render3dControls();
+      view3d.onFollowChange = (u) => renderCard(u);
+      view3d.onHoverTile = (tile, at) => {
+        anchor3d = at || null;
+        inspect(tile, at);
+      };
+      if (view.map) view3d.setMap(view.map);
+      if (view.state) view3d.setState(view.state);
+      view3d.setVision(view.vision);
+    }
+    is3d = on;
+    canvas.hidden = on;
+    box3d.hidden = !on;
+    inspect(null);
+    if (!on) renderCard(null);
+    try { localStorage.setItem('netrts.view', on ? '3d' : '2d'); } catch { /* storage blocked */ }
+    render3dControls();
+    fit();
+    (on ? view3d.renderer.domElement : canvas).focus({ preventScroll: true });
+  }
+  btn3d.addEventListener('click', () => set3d(!is3d));
+  flyBtn.addEventListener('click', () => view3d?.setMode(view3d.mode === 'fly' ? 'orbit' : 'fly'));
+  gridBtn.addEventListener('click', () => { view3d?.setGrid(!view3d.grid); render3dControls(); });
+  qualityBtn.addEventListener('click', () => {
+    if (!view3d) return;
+    const order = ['low', 'medium', 'high'];
+    view3d.setQuality(order[(order.indexOf(view3d.quality) + 1) % order.length]);
+    render3dControls();
+  });
+  box3d.addEventListener('keydown', (e) => {
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    if (e.key === 'Escape') {
+      inspect(null);
+      if (view3d && view3d.mode !== 'orbit' && view3d.mode !== 'fly') view3d.setMode('orbit');
+      else if (isFull() && !document.fullscreenElement) setFull(false);
+      return;
+    }
+    if (e.key === 'g' || e.key === 'G') { toggleFull(); return; }
+    if (e.key === 'f' || e.key === 'F') { view3d?.setMode(view3d.mode === 'director' ? 'orbit' : 'director'); return; }
+    if (e.key === '3') { set3d(false); return; }
+    if (e.key === '0') { view3d?.overview(); return; }
+    if (e.key === '+' || e.key === '=') { view3d?.zoom(1 / 1.4); return; }
+    if (e.key === '-' || e.key === '_') { view3d?.zoom(1.4); return; }
+    const act = { ' ': 'play', ',': 'back', '.': 'fwd', Home: 'start', End: 'end' }[e.key];
+    if (act && replay) { e.preventDefault(); replayAct(act); }
+  });
+  canvas.addEventListener('keydown', (e) => { if (e.key === '3' && !e.ctrlKey && !e.metaKey) set3d(true); });
 
   // ---------- rendering pieces
   function renderHeader() {
@@ -371,7 +492,9 @@ export function mountSpectate(root, matchKey) {
         <label for="v-${p.slot}"><span class="pname" style="--pc:${slotVar(p.slot)}">${displayName(p.name)}</span></label>`)}`);
   }
   $('vision').addEventListener('change', (e) => {
-    view.setVision(e.target.value === 'all' ? null : Number(e.target.value));
+    const slot = e.target.value === 'all' ? null : Number(e.target.value);
+    view.setVision(slot);
+    view3d?.setVision(slot);
     refreshTooltip();
   });
 
@@ -589,7 +712,7 @@ export function mountSpectate(root, matchKey) {
   async function loadMap() {
     try {
       const map = await api(`/api/v1/matches/${matchId}/map`);
-      view.setMap(map);
+      showMap(map);
       fit();
       return true;
     } catch (e) {
@@ -657,7 +780,7 @@ export function mountSpectate(root, matchKey) {
   function onState(s) {
     if (!alive) return;
     state = s;
-    view.setState(s);
+    showState(s);
     addEvents(s.events);
     renderAll();
     refreshTooltip();
@@ -678,7 +801,7 @@ export function mountSpectate(root, matchKey) {
       try {
         const s = await api(`/api/v1/matches/${matchId}/spectate?fog=true`);
         state = s;
-        view.setState(s);
+        showState(s);
         addEvents(s.events);
       } catch { /* archived: only the result survives */ }
     }
@@ -728,7 +851,7 @@ export function mountSpectate(root, matchKey) {
     es?.close();
     es = null;
     setHtml($('banner-slot'), html``);
-    view.setMap(manifest.map);
+    showMap(manifest.map);
     fit();
     setOverlay(null);
     renderReplayControls();
@@ -786,7 +909,7 @@ export function mountSpectate(root, matchKey) {
     if (seq !== replay.seq || !alive) return;   // a later seek has taken over
     const frame = frames[t - i * replay.chunkTicks];
     state = frame;
-    view.setState(frame);
+    showState(frame);
     replayFeed(t);
     renderAll();
     refreshTooltip();
@@ -899,9 +1022,11 @@ export function mountSpectate(root, matchKey) {
   });
 
   start();
+  try { if (localStorage.getItem('netrts.view') === '3d') set3d(true); } catch { /* storage blocked */ }
 
   return () => {
     alive = false;
+    view3d?.destroy();
     es?.close();
     timers.forEach(clearTimeout);
     ro.disconnect();

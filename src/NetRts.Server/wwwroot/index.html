@@ -19,6 +19,10 @@
     }
   </script>
   <link rel="stylesheet" href="styles.css">
+  <!-- three.js (r170, MIT) for the 3D match view, served from vendor/ and loaded only when someone opens it. -->
+  <script type="importmap">
+    { "imports": { "three": "./vendor/three/three.module.min.js", "three/addons/": "./vendor/three/addons/" } }
+  </script>
   <script type="module" src="app.js"></script>
   <script type="module" src="theme.js"></script>
 </head>
