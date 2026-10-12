@@ -107,12 +107,15 @@ function mountHome(root) {
           <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger (Get Started)')}</a>
         </div>
       </div>
-      <div class="promo">
-        <button type="button" class="promo-play" id="promo-play">
-          <img src="/images/trailer-poster.jpg" alt="" width="1280" height="720">
-          <span class="promo-icon" aria-hidden="true"></span>
-          <span class="promo-label">${say('Watch the trailer', 'Watch the trailer')} <span class="muted">· 2:00</span></span>
-        </button>
+      <div>
+        <div class="promo">
+          <button type="button" class="promo-play" id="promo-play">
+            <img src="/images/trailer-poster.jpg" alt="" width="1280" height="720">
+            <span class="promo-icon" aria-hidden="true"></span>
+            <span class="promo-label">${say('Watch the trailer', 'Watch the trailer')} <span class="muted">· 0:30</span></span>
+          </button>
+        </div>
+        <p class="promo-more small"><a href="https://youtu.be/sVGlA3aRt90" target="_blank" rel="noopener">Watch the longer introduction</a> <span class="muted">· 2:00, on YouTube</span></p>
       </div>
     </div>
 
@@ -309,7 +312,7 @@ Authorization: Bearer &lt;apiKey&gt;
   // The trailer is a still until it's played: YouTube (and its channel banner) only loads on click.
   $('promo-play').addEventListener('click', (e) => {
     const frame = document.createElement('iframe');
-    frame.src = 'https://www.youtube-nocookie.com/embed/sVGlA3aRt90?autoplay=1&rel=0';
+    frame.src = 'https://www.youtube-nocookie.com/embed/1rjdamOnF88?autoplay=1&rel=0';
     frame.title = say('NetRTS in action', 'Badger Brawl: the trailer');
     frame.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
     frame.referrerPolicy = 'strict-origin-when-cross-origin';
