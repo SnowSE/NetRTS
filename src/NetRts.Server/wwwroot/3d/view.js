@@ -31,6 +31,7 @@ const QUALITY = {
 const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(215));
 const NO_CUT = 99;
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+const smooth = (t) => t * t * (3 - 2 * t);
 
 /** An instanced mesh with the per-instance attributes the entity material reads, growing as needed. */
 class Instances {
@@ -152,6 +153,8 @@ export class View3D {
     this.oreMax = new Map();
     this.lastSet = 0;
     this.interval = 300;
+    this.lagS = 300;             // how far behind the newest frame the picture runs, eased
+    this.queue = [];             // effects waiting for the picture to catch up
     this.hotspots = [];          // recent explosions, for the director
     this.grid = false;
     this.alive = true;
@@ -376,24 +379,39 @@ export class View3D {
     this.visRows = p?.visibility?.length ? p.visibility : null;
   }
 
+  /**
+   * The view draws a little behind the newest frame (about two ticks), so every unit always has its next
+   * position in hand and can glide there on a smooth curve instead of lurching when a tick lands early
+   * or stopping when one is late. Effects are delayed by the same amount so they line up.
+   */
+  get lag() { return reducedMotion() ? 0 : this.lagS; }
+
+  /** Run fn when the picture catches up with the frame arriving now (plus extra ms). */
+  later(fn, extra = 0) { this.queue.push({ t: performance.now() + this.lag + extra, fn }); }
+
   setState(s) {
     if (!this.terrain) return;
     const prev = this.state;
     const now = performance.now();
     const step = prev && s.tick === prev.tick + 1;
     const same = prev && s.tick === prev.tick;
+    const jump = !step && !same;
     if (step) {
-      // Animate over however long ticks are really taking (live pace or replay speed).
+      // Pace the animation to however long ticks are really taking (live pace or replay speed).
       const gap = now - this.lastSet;
-      this.interval = clamp(this.interval * 0.6 + gap * 0.4, 30, 1500);
-    } else if (!same) {
+      this.interval = clamp(this.interval * 0.7 + gap * 0.3, 30, 1500);
+      // The slowest recent gap, fading: the picture must stay behind even the late ticks.
+      this.gapMax = Math.max(Math.min(gap, 1600), (this.gapMax ?? gap) * 0.96);
+    } else if (jump) {
       this.effects.clear();
       this.corpses.length = 0;
+      this.queue.length = 0;
     }
     this.lastSet = now;
     this.state = s;
     const fx = step && !reducedMotion();
-    const dur = reducedMotion() ? 0 : this.interval * (step ? 1.0 : 0);
+    const q = (fn, extra = 0) => { if (fx) this.later(fn, extra); };
+    const lag = this.lag;
 
     for (const r of s.resources) this.oreMax.set(r.id, Math.max(this.oreMax.get(r.id) || 0, r.remaining, 500));
 
@@ -421,7 +439,7 @@ export class View3D {
       });
     }
 
-    // Units: move, appear, take hits, fall.
+    // Units: record where each one will be, appear, take hits, fall.
     const seen = new Set();
     const hurt = [];
     for (const u of s.units) {
@@ -429,27 +447,29 @@ export class View3D {
       const w = where.get(u.id);
       let a = this.units.get(u.id);
       if (!a) {
-        a = { id: u.id, fx: w.x, fz: w.z, tx: w.x, tz: w.z, t0: now, dur: 0, yaw: (u.owner * 1.7) % (Math.PI * 2), hitT: -1e9, strikeT: -1e9, born: now };
+        a = { id: u.id, path: [], yaw: (u.owner * 1.7) % (Math.PI * 2), hitT: -1e9, strikeT: -1e9, bornT: step ? now : -Infinity };
         this.units.set(u.id, a);
-        if (fx) this.effects.spawn(this.ground(w.x, w.z), teamRGB(u.owner));
-      } else {
-        const p = this.unitPos(a, now);
-        a.fx = p.x; a.fz = p.z; a.tx = w.x; a.tz = w.z; a.t0 = now; a.dur = dur;
-        if (!step && !same) { a.fx = w.x; a.fz = w.z; }
-        if (fx && u.hp < a.u.hp) hurt.push(u);
+        q(() => this.effects.spawn(this.ground(w.x, w.z), teamRGB(u.owner)));
+      } else if (fx && u.hp < a.u.hp) {
+        hurt.push(u);
+      }
+      if (jump || !a.path.length) a.path = [{ t: now, x: w.x, z: w.z }];
+      else if (same) Object.assign(a.path[a.path.length - 1], { x: w.x, z: w.z });
+      else {
+        // Keep plenty: the stretch being drawn is a few ticks back and needs the points either side.
+        a.path.push({ t: now, x: w.x, z: w.z });
+        if (a.path.length > 16) a.path.shift();
       }
       a.u = u;
       a.scale = w.scale;
+      a.tx = w.x; a.tz = w.z;
     }
     for (const [id, a] of this.units) {
-      if (seen.has(id)) continue;
-      this.units.delete(id);
-      if (fx) {
-        const p = this.unitPos(a, now);
-        this.effects.death(this.ground(p.x, p.z), teamRGB(a.u.owner));
-        this.corpses.push({ a, x: p.x, z: p.z, t0: now });
-        if (this.followed === id) this.followedLost = { x: p.x, z: p.z, t: now };
-      }
+      if (seen.has(id) || a.deathT != null) continue;
+      if (jump) { this.units.delete(id); continue; }
+      // It falls when the picture reaches this tick (see updateUnits).
+      a.deathT = now;
+      a.deathFx = fx;
     }
 
     // Who hit whom: archers loose arrows, melee units strike, towers fire on what nothing else is hitting.
@@ -459,27 +479,33 @@ export class View3D {
       if (!attackers.has(u.targetId)) attackers.set(u.targetId, []);
       attackers.get(u.targetId).push(u);
     }
+    const flight = Math.min(0.6, this.interval * 0.0009 + 0.12);
     const strike = (targetId, targetPos, height) => {
       const list = attackers.get(targetId) || [];
       for (const att of list) {
         const aa = this.units.get(att.id);
         if (!aa) continue;
-        aa.strikeT = now;
         if (att.type === 'Archer') {
+          // Draw, then loose: the arrow leaves a moment into the archer's pull.
+          aa.strikeT = now + lag;
           const from = this.ground(aa.tx, aa.tz).add(new THREE.Vector3(0, 0.32, 0));
-          this.effects.arrow(from, targetPos.clone().add(new THREE.Vector3(0, height * 0.5, 0)), Math.min(0.6, this.interval * 0.0009 + 0.12));
+          q(() => this.effects.arrow(from, targetPos.clone().add(new THREE.Vector3(0, height * 0.5, 0)), flight), 140);
         } else {
-          const tp = targetPos.clone().add(new THREE.Vector3(0, height * 0.45, 0));
-          this.effects.spark(tp.lerp(this.ground(aa.tx, aa.tz).add(new THREE.Vector3(0, 0.25, 0)), 0.35), 7);
+          aa.strikeT = now + lag;
+          const tp = targetPos.clone().add(new THREE.Vector3(0, height * 0.45, 0))
+            .lerp(this.ground(aa.tx, aa.tz).add(new THREE.Vector3(0, 0.25, 0)), 0.35);
+          q(() => this.effects.spark(tp, 7), 150);   // when the blade lands, mid-swing
         }
       }
       return list.length;
     };
     for (const u of hurt) {
       const a = this.units.get(u.id);
-      a.hitT = now + (this.anyArcher(attackers.get(u.id)) ? Math.min(600, this.interval * 0.9 + 120) : 0);
+      const archer = this.anyArcher(attackers.get(u.id));
+      a.hitT = now + lag + (archer ? 140 + flight * 1000 : 150);
+      a.hitFrom = attackers.get(u.id)?.[0];
       const tp = this.ground(a.tx, a.tz);
-      if (!strike(u.id, tp, 0.45)) this.towerFire(s, u, tp);
+      if (!strike(u.id, tp, 0.45)) this.towerFire(s, u, tp, q);
     }
 
     // Buildings: rise, finish, take hits, burn, explode.
@@ -490,32 +516,29 @@ export class View3D {
       const p = this.ground(b.x + 0.5, b.y + 0.5);
       const def = this.models.building(b.type, b.owner);
       if (!rec) {
-        if (fx) this.effects.dust(p, 14, [0.62, 0.55, 0.44], 0.9);
-        this.buildings.set(b.id, { b, hitT: -1e9, cut: b.completed ? NO_CUT : def.height * Math.max(0.04, b.constructionPercent / 100) });
+        q(() => this.effects.dust(p, 14, [0.62, 0.55, 0.44], 0.9));
+        this.buildings.set(b.id, { b, hitT: -1e9, bornT: step ? now : -Infinity, cut: b.completed ? NO_CUT : def.height * Math.max(0.04, b.constructionPercent / 100) });
         continue;
       }
-      if (fx && b.completed && !rec.b.completed) this.effects.completed(p, teamRGB(b.owner), def.height);
-      if (fx && !b.completed && b.constructionPercent > rec.b.constructionPercent && Math.random() < 0.5) this.effects.dust(p, 2, [0.7, 0.62, 0.5], 0.5);
+      if (b.completed && !rec.b.completed) q(() => this.effects.completed(p, teamRGB(b.owner), def.height));
+      if (!b.completed && b.constructionPercent > rec.b.constructionPercent) {
+        rec.workT = now + lag;
+        if (Math.random() < 0.5) q(() => this.effects.dust(p, 2, [0.7, 0.62, 0.5], 0.5));
+      }
       if (fx && b.hp < rec.b.hp && b.completed) {
-        rec.hitT = now;
+        rec.hitT = now + lag + 150;
         strike(b.id, p, def.height);
       }
       rec.b = b;
     }
     for (const [id, rec] of this.buildings) {
-      if (bSeen.has(id)) continue;
-      this.buildings.delete(id);
-      if (fx) {
-        const p = this.ground(rec.b.x + 0.5, rec.b.y + 0.5);
-        const big = rec.b.type === 'CommandCenter' || rec.b.completed;
-        this.effects.explosion(p, teamRGB(rec.b.owner), big);
-        this.hotspots.push({ x: p.x, z: p.z, t: now, size: big ? 12 : 6 });
-      }
+      if (bSeen.has(id) || rec.deathT != null) continue;
+      if (jump) { this.buildings.delete(id); continue; }
+      rec.deathT = now;
+      rec.deathFx = fx;
     }
-    if (fx) {
-      for (const r of prev?.resources || []) {
-        if (!s.resources.some((x) => x.id === r.id)) this.effects.dust(this.ground(r.x + 0.5, r.y + 0.5), 10, [0.75, 0.62, 0.3], 0.6);
-      }
+    for (const r of prev?.resources || []) {
+      if (!s.resources.some((x) => x.id === r.id)) q(() => this.effects.dust(this.ground(r.x + 0.5, r.y + 0.5), 10, [0.75, 0.62, 0.3], 0.6));
     }
     this.applyVision();
     this.updateLabels();
@@ -524,7 +547,7 @@ export class View3D {
   anyArcher(list) { return (list || []).some((u) => u.type === 'Archer'); }
 
   /** Guard towers: the frames don't say what a tower shot, so fire at a hurt enemy in range. */
-  towerFire(s, u, tp) {
+  towerFire(s, u, tp, q) {
     let best = null, bd = 1e9;
     for (const b of s.buildings) {
       if (b.type !== 'GuardTower' || !b.completed || b.owner === u.owner) continue;
@@ -533,15 +556,38 @@ export class View3D {
     }
     if (!best) return;
     const top = this.ground(best.x + 0.5, best.y + 0.5).add(new THREE.Vector3(0, this.models.building('GuardTower', best.owner).height - 0.1, 0));
-    this.effects.bolt(top, tp.clone().add(new THREE.Vector3(0, 0.25, 0)), Math.min(0.45, this.interval * 0.0007 + 0.1));
+    q(() => this.effects.bolt(top, tp.clone().add(new THREE.Vector3(0, 0.25, 0)), Math.min(0.45, this.interval * 0.0007 + 0.1)));
   }
 
   ground(x, z) { return new THREE.Vector3(x, this.terrain.heightAt(x, z), z); }
 
-  unitPos(a, now) {
-    if (!a.dur) return { x: a.tx, z: a.tz, t: 1 };
-    const t = Math.min(1, (now - a.t0) / a.dur);
-    return { x: a.fx + (a.tx - a.fx) * t, z: a.fz + (a.tz - a.fz) * t, t };
+  /**
+   * Where a unit is at render time rt: a Hermite curve through its recent positions with Catmull-Rom
+   * tangents, so it eases into a move, flows through turns and eases out at the end. Also returns the
+   * velocity, in tiles per millisecond.
+   */
+  unitPos(a, rt) {
+    const P = a.path, n = P.length;
+    const last = P[n - 1];
+    if (n === 1 || rt >= last.t) return { x: last.x, z: last.z, vx: 0, vz: 0 };
+    if (rt <= P[0].t) return { x: P[0].x, z: P[0].z, vx: 0, vz: 0 };
+    let i = n - 2;
+    while (i > 0 && P[i].t > rt) i--;
+    const p0 = P[i - 1] || P[i], p1 = P[i], p2 = P[i + 1], p3 = P[i + 2] || p2;
+    const span = Math.max(1, p2.t - p1.t), u = (rt - p1.t) / span;
+    const d01 = p0 === p1 ? span : Math.max(1, p1.t - p0.t), d23 = p3 === p2 ? span : Math.max(1, p3.t - p2.t);
+    const k1 = span / (span + d01), k2 = span / (span + d23);
+    const m1x = (p2.x - p0.x) * k1, m1z = (p2.z - p0.z) * k1;
+    const m2x = (p3.x - p1.x) * k2, m2z = (p3.z - p1.z) * k2;
+    const u2 = u * u, u3 = u2 * u;
+    const h00 = 2 * u3 - 3 * u2 + 1, h10 = u3 - 2 * u2 + u, h01 = -2 * u3 + 3 * u2, h11 = u3 - u2;
+    const d00 = 6 * u2 - 6 * u, d10 = 3 * u2 - 4 * u + 1, d01b = -6 * u2 + 6 * u, d11 = 3 * u2 - 2 * u;
+    return {
+      x: h00 * p1.x + h10 * m1x + h01 * p2.x + h11 * m2x,
+      z: h00 * p1.z + h10 * m1z + h01 * p2.z + h11 * m2z,
+      vx: (d00 * p1.x + d10 * m1x + d01b * p2.x + d11 * m2x) / span,
+      vz: (d00 * p1.z + d10 * m1z + d01b * p2.z + d11 * m2z) / span,
+    };
   }
 
   // ---------------------------------------------------------------- per frame
@@ -554,6 +600,18 @@ export class View3D {
     }
     const dt = Math.min(0.1, this.clock.getDelta());
     const now = performance.now();
+    // Run two ticks behind (a little more if ticks arrive unevenly), so the curve through a unit's path
+    // already knows the position after the stretch it's drawing and never bends mid-stride when a tick
+    // lands. Ease toward it so speed changes don't jolt the picture.
+    const lagGoal = clamp(Math.max(this.interval * 2.05, (this.gapMax ?? this.interval) * 1.05 + this.interval), 60, 2600);
+    this.lagS += (lagGoal - this.lagS) * (1 - Math.exp(-2 * dt));
+    if (this.queue.length) {
+      const due = this.queue.filter((e) => e.t <= now);
+      if (due.length) {
+        this.queue = this.queue.filter((e) => e.t > now);
+        for (const e of due) e.fn();
+      }
+    }
     this.rig.update(dt, this.effects.shake);
     this.updateUnits(now, dt);
     this.updateBuildings(now, dt);
@@ -599,19 +657,39 @@ export class View3D {
     bars.n = 0;
     const camPos = this.camera.position;
     const k = 1 - Math.exp(-12 * dt);
+    const rt = now - this.lag;   // the moment the picture is showing
     const positions = new Map();
-    for (const a of this.units.values()) positions.set(a.id, this.unitPos(a, now));
+    for (const [id, a] of this.units) {
+      // A unit missing from the newest frame falls once the picture reaches that frame.
+      if (a.deathT != null && rt >= a.deathT) {
+        this.units.delete(id);
+        const p = this.unitPos(a, rt);
+        if (a.deathFx) {
+          this.effects.death(this.ground(p.x, p.z), teamRGB(a.u.owner));
+          const from = a.hitFrom && positions.get(a.hitFrom.id);
+          this.corpses.push({ a, x: p.x, z: p.z, t0: now, away: from ? Math.atan2(p.x - from.x, p.z - from.z) : a.yaw + Math.PI });
+        }
+        if (this.followed === id) this.followedLost = { x: p.x, z: p.z, t: now };
+        continue;
+      }
+      positions.set(id, this.unitPos(a, rt));
+    }
     this.positions = positions;
 
     for (const a of this.units.values()) {
       const u = a.u;
+      if (rt < a.bornT) continue;   // trained, but the picture hasn't got there yet
       if (this.vision != null && u.owner !== this.vision && !this.visibleTo(u.x, u.y)) continue;
       const p = positions.get(a.id);
-      const moving = p.t < 1 && Math.hypot(a.tx - a.fx, a.tz - a.fz) > 0.01;
-      // Face where we're going, or what we're hitting.
+      const speed = Math.hypot(p.vx, p.vz) * 1000;   // tiles per second
+      const moving = speed > 0.35;
+      const working = !moving && (u.activity === 'Gathering' || u.activity === 'Building');
+      const carrying = u.carrying > 0;
+
+      // Face where we're going, or what we're working on or hitting; glance about when idle.
       let want = a.yaw;
-      if (moving) want = Math.atan2(a.tx - a.fx, a.tz - a.fz);
-      else if (u.targetId != null && (u.activity === 'Attacking' || u.activity === 'Gathering' || u.activity === 'Building')) {
+      if (moving) want = Math.atan2(p.vx, p.vz);
+      else if (u.targetId != null && (u.activity === 'Attacking' || working)) {
         const tp = positions.get(u.targetId);
         const tb = this.buildings.get(u.targetId)?.b;
         const tr = this.state.resources.find((r) => r.id === u.targetId);
@@ -619,48 +697,112 @@ export class View3D {
         const tz = tp ? tp.z : tb ? tb.y + 0.5 : tr ? tr.y + 0.5 : null;
         if (tx != null && Math.hypot(tx - p.x, tz - p.z) > 0.05) want = Math.atan2(tx - p.x, tz - p.z);
       }
-      a.yaw += Math.atan2(Math.sin(want - a.yaw), Math.cos(want - a.yaw)) * k;
+      const turn = Math.atan2(Math.sin(want - a.yaw), Math.cos(want - a.yaw));
+      a.yaw += turn * k;
+      const idle = !moving && !working && u.activity !== 'Attacking';
+      a.idleT = idle ? (a.idleT ?? 0) + dt : 0;
+      const look = a.idleT > 1.5 ? Math.sin(now * 0.0006 + a.id * 2.1) * 0.5 * Math.min(1, (a.idleT - 1.5) / 1.5) : 0;
 
       const phase = now * 0.001 + a.id * 0.37;
-      let y = this.terrain.heightAt(p.x, p.z), pitch = 0, roll = 0, fwd = 0, squash = 1;
+      let y = this.terrain.heightAt(p.x, p.z), pitch = 0, roll = 0, fwd = 0, side = 0, squash = 1;
+      let legGoal = 0, armGoal = 0, rate = 4, chop = -1;   // chop: 0..1 arms raised overhead, -1 = not chopping
+
       if (moving) {
-        // Bob twice per stride, in step with the legs.
+        // Stride: bob twice per step, lean into the pace, bank into turns. Loads make for a heavier gait.
         const w = a.walk ?? 0;
-        y += Math.abs(Math.cos(w)) * (u.type === 'Scout' ? 0.045 : 0.03);
-        pitch = u.type === 'Scout' ? Math.sin(w * 2) * 0.08 : 0.08;
-        roll = Math.sin(w) * 0.04;
-      } else if (u.activity === 'Gathering' || u.activity === 'Building') {
-        const dig = Math.sin(phase * Math.PI * 2 * 1.6);
-        pitch = 0.18 + dig * 0.22;
-        y += Math.max(0, -dig) * 0.015;
+        y += Math.abs(Math.cos(w)) * (u.type === 'Scout' ? 0.045 : carrying ? 0.022 : 0.03);
+        pitch = u.type === 'Scout' ? Math.sin(w * 2) * 0.08 + 0.04 : clamp(0.04 + speed * 0.05, 0, 0.16) + (carrying ? 0.08 : 0);
+        roll = Math.sin(w) * 0.035 - clamp(turn * 0.25, -0.18, 0.18);
+        legGoal = u.type === 'Scout' ? 0.8 : carrying ? 0.55 : 0.7;
+        armGoal = carrying ? 0.15 : 0.55;
+        rate = clamp(speed * 9, 6, u.type === 'Scout' ? 16 : 12);
+      } else if (working) {
+        // Pickaxe or hammer: a slow wind-up, a fast blow, a beat of rest; dirt and chips fly on the blow.
+        const period = u.activity === 'Building' ? 0.48 : 0.9;
+        a.work = (a.work ?? Math.random()) + dt / period;
+        const c = a.work % 1;
+        if (c < 0.6) chop = smooth(c / 0.6);
+        else if (c < 0.72) chop = 1 - (c - 0.6) / 0.12;
+        else chop = 0;
+        pitch = 0.08 + chop * -0.12 + (c >= 0.6 && c < 0.8 ? 0.22 : 0);
+        y += c >= 0.7 && c < 0.78 ? -0.008 : 0;
+        if (Math.floor(a.work - 0.72) > (a.lastBlow ?? -1e9)) {
+          a.lastBlow = Math.floor(a.work - 0.72);
+          const tip = { x: p.x + Math.sin(a.yaw) * 0.22, y: y + 0.02, z: p.z + Math.cos(a.yaw) * 0.22 };
+          if (u.activity === 'Gathering') {
+            this.effects.dust(tip, 2, [0.58, 0.47, 0.33], 0.35);
+            this.effects.spark(tip, 3, this.badger ? [1.6, 1.5, 1.2] : [2.2, 1.7, 0.6]);
+          } else {
+            this.effects.dust(tip, 1, [0.68, 0.6, 0.5], 0.3);
+            if (Math.random() < 0.5) this.effects.spark(tip, 2);
+          }
+        }
+      } else if (u.activity === 'Attacking') {
+        // Between blows: a fighter's stance, weight shifting from foot to foot.
+        side = Math.sin(phase * 3.2) * 0.012;
+        roll = Math.sin(phase * 3.2) * 0.04;
+        armGoal = 0.18;
+        rate = 5;
+        squash = 1 - Math.abs(Math.sin(phase * 3.2)) * 0.02;
       } else {
-        squash = 1 + Math.sin(phase * 2.4) * 0.015;
+        squash = 1 + Math.sin(phase * 2.4) * 0.015;   // breathing
       }
+
+      // A blow: wind up, strike (landing ~150 ms in, with the sparks), recover.
       const since = now - a.strikeT;
-      if (since >= 0 && since < 320) {
-        const s = Math.sin((since / 320) * Math.PI);
-        if (u.type === 'Archer') { fwd = -s * 0.03; pitch -= s * 0.1; }
-        else { fwd = s * 0.11; pitch += s * 0.3; }
+      if (since >= 0 && since < 420) {
+        const t = since / 420;
+        if (u.type === 'Archer') {
+          // Draw: lean back as the string comes to the cheek; release with a snap forward.
+          const draw = since < 140 ? smooth(since / 140) : Math.max(0, 1 - (since - 140) / 60);
+          pitch -= draw * 0.16;
+          fwd = -draw * 0.035 + (since > 140 && since < 260 ? Math.sin(((since - 140) / 120) * Math.PI) * 0.02 : 0);
+        } else if (u.type === 'Scout') {
+          // The mount rears and the rider cuts down.
+          pitch -= Math.sin(Math.min(1, t * 1.6) * Math.PI) * 0.35;
+          fwd = Math.sin(Math.min(1, t * 1.6) * Math.PI) * 0.05;
+        } else {
+          chop = since < 110 ? smooth(since / 110) : since < 160 ? 1 - (since - 110) / 50 : 0;
+          const lunge = since < 110 ? -0.25 * smooth(since / 110) : since < 260 ? Math.sin(((since - 110) / 150) * Math.PI) : 0;
+          fwd = lunge * 0.1;
+          pitch += lunge * 0.28;
+          legGoal = 0;
+        }
+      }
+
+      // Taking a hit: a flash and a stagger away from whoever landed it.
+      const sinceHit = now - a.hitT;
+      if (sinceHit >= 0 && sinceHit < 220) {
+        const s = Math.sin((sinceHit / 220) * Math.PI);
+        const from = a.hitFrom && positions.get(a.hitFrom.id);
+        const away = from ? Math.atan2(p.x - from.x, p.z - from.z) : a.yaw + Math.PI;
+        p.kx = Math.sin(away) * s * 0.06;
+        p.kz = Math.cos(away) * s * 0.06;
+        pitch -= s * 0.18;
       }
       const flash = Math.max(0, 1 - Math.abs(now - a.hitT) / 160);
-      const born = Math.min(1, (now - a.born) / 350);
+      const born = a.bornT === -Infinity ? 1 : Math.min(1, (rt - a.bornT) / 350);
       const s = (this.models.units[u.type].scale || 1) * a.scale * (0.4 + 0.6 * born);
-      v.set(p.x + Math.sin(a.yaw) * fwd, y, p.z + Math.cos(a.yaw) * fwd);
-      e.set(pitch, a.yaw, roll);
+      const yaw = a.yaw + look;
+      v.set(p.x + Math.sin(yaw) * fwd + Math.cos(yaw) * side + (p.kx || 0), y, p.z + Math.cos(yaw) * fwd - Math.sin(yaw) * side + (p.kz || 0));
+      e.set(pitch, yaw, roll);
       sc.set(s, s * squash, s);
       m.compose(v, q.setFromEuler(e), sc);
-      // Limbs: stride when moving, swing tools while working, hack away in a fight.
-      const working = !moving && (u.activity === 'Gathering' || u.activity === 'Building');
-      const fighting = since >= 0 && since < 320 && u.type !== 'Archer';
-      const legGoal = moving ? (u.type === 'Scout' ? 0.75 : 0.7) : 0;
-      const armGoal = moving ? 0.55 : working ? 0.85 : fighting ? 1.1 : 0;
+
+      // Limbs: stride, sway, or both arms chopping together (a negative arm swing tells the shader so).
       a.leg = (a.leg ?? 0) + (legGoal - (a.leg ?? 0)) * k;
-      a.arm = (a.arm ?? 0) + (armGoal - (a.arm ?? 0)) * k;
-      a.walk = (a.walk ?? a.id) + dt * (moving ? (u.type === 'Scout' ? 15 : 11) : working ? 8 : fighting ? 18 : 4);
-      L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm]);
-      if (u.carrying > 0) {
+      if (chop >= 0) {
+        a.arm = 0;
+        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [Math.asin(clamp(chop * 2 - 1, -1, 1)), a.leg, -2.1]);
+      } else {
+        a.arm = (a.arm ?? 0) + (armGoal - (a.arm ?? 0)) * k;
+        a.walk = (a.walk ?? a.id) + dt * rate;
+        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm]);
+      }
+      if (carrying) {
         const back = 0.11 * s;
-        v.set(p.x - Math.sin(a.yaw) * back, y + 0.33 * s, p.z - Math.cos(a.yaw) * back);
+        const bob = moving ? Math.abs(Math.sin(a.walk ?? 0)) * 0.015 : 0;
+        v.set(v.x - Math.sin(yaw) * back, y + 0.33 * s + bob, v.z - Math.cos(yaw) * back);
         m.compose(v, q, sc.set(s, s, s));
         L.nugget.push(m, teamOf(u.owner));
       }
@@ -679,10 +821,6 @@ export class View3D {
           bars.n++;
         }
       }
-      // Gathering throws up a little dirt now and then.
-      if (u.activity === 'Gathering' && !moving && Math.random() < dt * 1.5) {
-        this.effects.dust({ x: p.x + Math.sin(a.yaw) * 0.25, y, z: p.z + Math.cos(a.yaw) * 0.25 }, 1, [0.6, 0.5, 0.35], 0.25);
-      }
     }
 
     // The fallen topple over and sink away.
@@ -691,7 +829,7 @@ export class View3D {
       const t = (now - c.t0) / 1000;
       const fall = Math.min(1, t / 0.35);
       const y = this.terrain.heightAt(c.x, c.z) - Math.max(0, t - 1.2) * 0.25;
-      e.set(-fall * Math.PI / 2 * 0.95, c.a.yaw, 0);
+      e.set(-fall * Math.PI / 2 * 0.95, c.away + Math.PI, 0);   // face the blow, topple away from it
       const s = (this.models.units[c.a.u.type].scale || 1) * (c.a.scale || 1);
       m.compose(v.set(c.x, y, c.z), q.setFromEuler(e), sc.set(s, s, s));
       L['u' + c.a.u.type].push(m, teamOf(c.a.u.owner).clone().multiplyScalar(0.5));
@@ -735,7 +873,20 @@ export class View3D {
     const bars = this.bars;
     const camPos = this.camera.position;
     const k = 1 - Math.exp(-6 * dt);
-    for (const rec of this.buildings.values()) {
+    const rt = now - this.lag;
+    for (const [id, rec] of this.buildings) {
+      // Buildings appear and fall when the picture reaches the frame that says so.
+      if (rec.deathT != null && rt >= rec.deathT) {
+        this.buildings.delete(id);
+        if (rec.deathFx) {
+          const p = this.ground(rec.b.x + 0.5, rec.b.y + 0.5);
+          const big = rec.b.type === 'CommandCenter' || rec.b.completed;
+          this.effects.explosion(p, teamRGB(rec.b.owner), big);
+          this.hotspots.push({ x: p.x, z: p.z, t: now, size: big ? 12 : 6 });
+        }
+        continue;
+      }
+      if (rt < rec.bornT) continue;
       const b = rec.b;
       const def = this.models.building(b.type, b.owner);
       const x = b.x + 0.5, z = b.y + 0.5;
@@ -745,7 +896,7 @@ export class View3D {
       q.setFromAxisAngle(new THREE.Vector3(0, 1, 0), yaw);
       const goal = b.completed ? NO_CUT : def.height * Math.max(0.04, b.constructionPercent / 100);
       rec.cut = goal === NO_CUT || rec.cut === NO_CUT ? goal : rec.cut + (goal - rec.cut) * k;
-      const flash = Math.max(0, 1 - (now - rec.hitT) / 120) * 0.22;
+      const flash = Math.max(0, 1 - Math.abs(now - rec.hitT) / 120) * 0.22;
       m.compose(v.set(x, y, z), q, sc.set(1, 1, 1));
       this.buildingLayer(def).push(m, teamOf(b.owner), flash, rec.cut);
       if (!b.completed) L.scaffold.push(m, white);

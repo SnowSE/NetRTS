@@ -230,9 +230,9 @@ function makerspace() {
   const b = new Builder();
   foundation(b);
   b.add(cyl(0.38, 0.4, 0.22, 8), K.stone, { at: [0, 0.18, 0] })
-    .add(cyl(0.33, 0.33, 0.14, 16), K.glass, { glow: 0.55, at: [0, 0.36, 0] })
+    .add(cyl(0.33, 0.33, 0.14, 16), K.glass, { glow: 0.25, at: [0, 0.36, 0] })
     .add(cyl(0.36, 0.36, 0.03, 16), K.team, { team: 1, at: [0, 0.445, 0] })
-    .add(dome(0.27, 16, 8), K.glass, { glow: 0.9, at: [0, 0.46, 0] })
+    .add(dome(0.27, 16, 8), K.glass, { glow: 0.3, at: [0, 0.46, 0] })
     .add(cyl(0.008, 0.012, 0.32, 4), K.steel, { at: [0.18, 0.72, 0.1] })
     .add(ball(0.022, 0), K.red, { glow: 2.2, at: [0.18, 0.89, 0.1] });
   for (const a of [0.6, 2.4, 4.2]) {
@@ -243,20 +243,78 @@ function makerspace() {
 }
 
 function bellTower() {
-  // Snow College's Bell Tower: brick shaft, open white belfry with a gold bell, team spire.
+  // The Snow College Bell Tower: three red brick stages, each narrower than the one below, banded in
+  // buff stone. A walk-through arch at the base, one big bell in the middle stage, three bells stacked
+  // under a clock at the top, and campus lamp posts beside it.
   const b = new Builder();
-  foundation(b, 0.6, 0.6);
-  b.add(box(0.36, 0.78, 0.36), K.brick, { at: [0, 0.46, 0] })
-    .add(box(0.4, 0.04, 0.4), K.white, { at: [0, 0.86, 0] });
-  for (const [x, z] of [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]]) {
-    b.add(box(0.05, 0.22, 0.05), K.white, { at: [x, 0.99, z] });
+  foundation(b, 0.66, 0.66);
+  const brick = col('#a8503a'), buff = col('#d9c49a'), bronze = col('#3b3330'), bellMetal = col('#5e4a32');
+  const Y = 0.085;
+  // Four piers at the corners of a w-wide square stage, from y0 to y0 + h.
+  const piers = (w, p, y0, h) => {
+    for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add(box(p, h, p), brick, { at: [sx * (w - p) / 2, y0 + h / 2, sz * (w - p) / 2] });
+  };
+  // A band all the way round a stage at height y.
+  const band = (w, y, h, colour, out = 0.004) => b.add(box(w + out * 2, h, w + out * 2), colour, { at: [0, y + h / 2, 0] });
+  // Lintels across the open faces at height y (the openings face front/back and left/right).
+  const lintels = (w, y, h, colour) => {
+    b.add(box(w, h, w * 0.98), colour, { at: [0, y + h / 2, 0] });
+  };
+  const bell = (y, s) => {
+    b.add(cyl(0.022 * s, 0.05 * s, 0.07 * s, 10), bellMetal, { glow: 0.15, at: [0, y, 0] })
+      .add(cyl(0.054 * s, 0.054 * s, 0.01 * s, 10), bellMetal, { at: [0, y - 0.035 * s, 0] })
+      .add(box(0.08 * s, 0.008, 0.012), bronze, { at: [0, y + 0.04 * s, 0] });
+  };
+
+  // Base: the arch you walk through, on buff plinths.
+  const w0 = 0.5, h0 = 0.44;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add(box(0.15, 0.07, 0.15), buff, { at: [sx * 0.175, Y + 0.035, sz * 0.175] });
+  piers(w0, 0.13, Y + 0.07, h0 - 0.07);
+  b.add(box(w0 + 0.008, 0.06, 0.13), buff, { at: [0, Y + 0.28, 0.185] })          // the buff lintels over the arches
+    .add(box(w0 + 0.008, 0.06, 0.13), buff, { at: [0, Y + 0.28, -0.185] })
+    .add(box(0.13, 0.06, w0 + 0.008), buff, { at: [0.185, Y + 0.28, 0] })
+    .add(box(0.13, 0.06, w0 + 0.008), buff, { at: [-0.185, Y + 0.28, 0] });
+  lintels(w0, Y + 0.34, h0 - 0.34, brick);
+  band(w0, Y + h0 - 0.03, 0.02, buff);
+  band(w0, Y + h0 - 0.01, 0.03, bronze, 0.022);
+  // Middle stage: one big bell in an open bay.
+  const y1 = Y + h0 + 0.02, w1 = 0.38, h1 = 0.42;
+  lintels(w1, y1, 0.08, brick);
+  band(w1, y1 + 0.08, 0.02, buff);
+  piers(w1, 0.1, y1 + 0.1, 0.22);
+  band(w1, y1 + 0.32, 0.025, buff);
+  lintels(w1, y1 + 0.345, h1 - 0.345, brick);
+  band(w1, y1 + h1, 0.03, bronze, 0.02);
+  bell(y1 + 0.2, 1.3);
+  // Top stage: three bells stacked in a tall slot, the clock above.
+  const y2 = y1 + h1 + 0.03, w2 = 0.28, h2 = 0.66;
+  lintels(w2, y2, 0.04, brick);
+  band(w2, y2 + 0.04, 0.018, buff);
+  piers(w2, 0.075, y2 + 0.058, 0.38);
+  for (let i = 0; i < 3; i++) {
+    b.add(box(w2 - 0.1, 0.012, w2 - 0.1), bronze, { at: [0, y2 + 0.16 + i * 0.12, 0] });
+    bell(y2 + 0.11 + i * 0.12, 0.8);
   }
-  b.add(box(0.42, 0.04, 0.42), K.white, { at: [0, 1.11, 0] })
-    .add(cone(0.24, 0.36, 4), K.team, { team: 1, at: [0, 1.31, 0], rot: [0, Math.PI / 4, 0] })
-    .add(cyl(0.04, 0.075, 0.12, 10), K.bell, { glow: 0.5, at: [0, 0.98, 0] })
-    .add(ball(0.025, 0), K.ember, { glow: 2, at: [0, 1.52, 0] })
-    .add(box(0.12, 0.08, 0.01), K.white, { at: [0, 0.68, 0.185] })
-    .add(box(0.06, 0.12, 0.01), K.window, { glow: 1, at: [0, 0.45, 0.185] });
+  band(w2, y2 + 0.438, 0.018, buff);
+  lintels(w2, y2 + 0.456, h2 - 0.456, brick);
+  // Clock faces on all four sides.
+  for (let i = 0; i < 4; i++) {
+    const a = (i * Math.PI) / 2, r = w2 / 2 + 0.006, cy = y2 + 0.56;
+    const cx = Math.sin(a) * r, cz = Math.cos(a) * r;
+    b.add(cyl(0.06, 0.06, 0.01, 16), col('#f2efe6'), { glow: 0.25, at: [cx, cy, cz], rot: i % 2 === 0 ? [Math.PI / 2, 0, 0] : [0, 0, Math.PI / 2] })
+      .add(box(0.006, 0.045, 0.004), K.black, { at: [cx + Math.sin(a) * 0.006, cy + 0.016, cz + Math.cos(a) * 0.006], rot: [0, a, 0] })
+      .add(box(0.032, 0.006, 0.004), K.black, { at: [cx + Math.sin(a) * 0.006 + Math.cos(a) * 0.012, cy, cz + Math.cos(a) * 0.006 - Math.sin(a) * 0.012], rot: [0, a, 0] });
+  }
+  band(w2, y2 + h2 - 0.02, 0.02, buff);
+  band(w2, y2 + h2, 0.03, bronze, 0.02);
+  b.add(cone(0.24, 0.07, 4), K.team, { team: 1, at: [0, y2 + h2 + 0.065, 0], rot: [0, Math.PI / 4, 0] });
+  // Campus lamp posts.
+  for (const [x, z] of [[-0.28, 0.28], [0.28, 0.28]]) {
+    b.add(cyl(0.022, 0.026, 0.02, 8), col('#9a968e'), { at: [x, Y + 0.01, z] })
+      .add(cyl(0.007, 0.009, 0.3, 6), K.black, { at: [x, Y + 0.16, z] })
+      .add(cyl(0.022, 0.016, 0.04, 8), col('#f2e6c8'), { glow: 1.2, at: [x, Y + 0.33, z] })
+      .add(cone(0.04, 0.02, 8), K.black, { at: [x, Y + 0.36, z] });
+  }
   return b.build();
 }
 
@@ -385,12 +443,15 @@ export function entityMaterial() {
         varying float vTeam; varying float vGlow; varying vec3 vTeamCol; varying float vFlash; varying float vCut; varying float vLocalY;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vTeam = team; vGlow = glow; vTeamCol = iTeam; vFlash = iFlash; vCut = iCut; vLocalY = position.y;
-        // Swing limbs about the hip or shoulder: iWalk = (phase, leg swing, arm swing).
+        // Swing limbs about the hip or shoulder: iWalk = (phase, leg swing, arm swing). A negative arm
+        // swing raises both arms together, up to that many radians (a pickaxe, hammer or sword chop).
         if (limb != 0.0) {
           float kind = abs(limb);
           float pivot = kind < 1.5 ? 0.13 : (kind < 2.5 ? 0.28 : 0.15);
-          float amp = kind < 2.5 && kind > 1.5 ? -iWalk.z : iWalk.y;
-          float ang = sin(iWalk.x) * amp * sign(limb);
+          bool isArm = kind > 1.5 && kind < 2.5;
+          float ang = isArm && iWalk.z < 0.0
+            ? (sin(iWalk.x) * 0.5 + 0.5) * iWalk.z
+            : sin(iWalk.x) * (isArm ? -iWalk.z : iWalk.y) * sign(limb);
           float c = cos(ang), s = sin(ang);
           vec3 p = transformed - vec3(0.0, pivot, 0.0);
           transformed = vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c) + vec3(0.0, pivot, 0.0);
