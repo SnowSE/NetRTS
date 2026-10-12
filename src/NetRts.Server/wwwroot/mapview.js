@@ -21,6 +21,7 @@ const buildingIcon = (...args) => (SNOW ? snowBuildingIcon : classicBuildingIcon
 const DETAIL = 26;
 const LABELS = 56;
 const MAX_TILE = 112; // largest on-screen tile, in device pixels
+const SHOT_BURST = 280; // ms a tower fireball's burst lasts
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export class MapView {
@@ -38,6 +39,7 @@ export class MapView {
     this.follow = false;
     this.onCameraChange = null;  // callback(view) when zoom / follow changes
     this.anim = new Map();       // unit id -> {fx, fy, tx, ty, t0, dur}
+    this.shots = [];             // guard tower fireballs in flight or bursting: {fx, fy, id, tx, ty, t0, dur}
     this.oreMax = new Map();     // deposit id -> largest remaining seen
     this.dirty = true;
     this.raf = 0;
@@ -314,6 +316,7 @@ export class MapView {
       });
     }
     this.anim = next;
+    this.towerShots(prev, state, now, dur);
     if (this.follow) {
       // Only re-aim when the fight has really moved, so the camera doesn't jitter between skirmishes.
       const spot = this.hotspot();
@@ -329,7 +332,33 @@ export class MapView {
     return { x: a.fx + (a.tx - a.fx) * t, y: a.fy + (a.ty - a.fy) * t };
   }
 
+  /**
+   * Guard towers: the frames don't say what a tower shot, so when a unit loses hit points with no
+   * unit attacking it, a fireball comes from the nearest enemy tower in range.
+   */
+  towerShots(prev, s, now, tickMs) {
+    if (!prev || s.tick !== prev.tick + 1 || reducedMotion()) { this.shots.length = 0; return; }
+    this.shots = this.shots.filter((f) => now - f.t0 < f.dur + SHOT_BURST);
+    const before = new Map(prev.units.map((u) => [u.id, u.hp]));
+    const targeted = new Set(s.units.filter((u) => u.activity === 'Attacking').map((u) => u.targetId));
+    const towers = s.buildings.filter((b) => b.type === 'GuardTower' && b.completed);
+    for (const u of s.units) {
+      if (!(u.hp < (before.get(u.id) ?? 0)) || targeted.has(u.id)) continue;
+      let best = null, bd = Infinity;
+      for (const b of towers) {
+        if (b.owner === u.owner) continue;
+        const d = Math.max(Math.abs(b.x - u.x), Math.abs(b.y - u.y));
+        if (d <= 5 && d < bd) { best = b; bd = d; }
+      }
+      if (!best) continue;
+      const a = this.anim.get(u.id);
+      this.shots.push({ fx: best.x + 0.5, fy: best.y + 0.2, id: u.id, tx: a?.tx ?? u.x + 0.5, ty: a?.ty ?? u.y + 0.5,
+        t0: now, dur: Math.min(400, Math.max(120, tickMs * 0.5)) });
+    }
+  }
+
   animating(now) {
+    if (this.shots.length) return true;
     for (const a of this.anim.values()) {
       if (a.dur && now - a.t0 < a.dur && (a.fx !== a.tx || a.fy !== a.ty)) return true;
     }
@@ -427,6 +456,7 @@ export class MapView {
       this.drawResources(g, s, Te, inView);
       this.drawBuildings(g, s, Te, inView);
       this.drawUnits(g, s, Te, now, inView);
+      this.drawShots(g, Te, now);
       if (this.vision != null) {
         if (!this.fogCache) this.buildFog();
         if (this.fogCache !== 'none') g.drawImage(this.fogCache, 0, 0, W * Te, H * Te);
@@ -579,6 +609,62 @@ export class MapView {
       if (b.hp < b.maxHp && b.completed) this.hpBar(g, b.x * T, b.y * T, T, b.hp / b.maxHp);
       if (T >= LABELS) this.label(g, `${buildingName(b.type, b.owner)} #${b.id}`, (b.x + 0.5) * T, (b.y + 1) * T + 2, T);
     }
+  }
+
+  /** Tower fireballs: a flare at the tower, a burning streak, then a burst of fire where it lands. */
+  drawShots(g, T, now) {
+    if (!this.shots.length) return;
+    this.shots = this.shots.filter((f) => now - f.t0 < f.dur + SHOT_BURST);
+    g.save();
+    g.globalCompositeOperation = 'lighter';
+    g.lineCap = 'round';
+    for (const f of this.shots) {
+      const a = this.anim.get(f.id);
+      const to = a ? this.interp(a, now) : { x: f.tx, y: f.ty };
+      const lift = Math.min(1.2, Math.hypot(to.x - f.fx, to.y - f.fy) * 0.15 + 0.3);
+      const at = (t) => ({ x: (f.fx + (to.x - f.fx) * t) * T, y: (f.fy + (to.y - f.fy) * t - Math.sin(Math.PI * t) * lift) * T });
+      const t = (now - f.t0) / f.dur;
+      if (t < 0.35) glowDot(g, f.fx * T, f.fy * T, T * 0.55 * (1 - t / 0.35), 'rgba(255,190,90,');
+      if (t < 1) {
+        // The streak: segments behind the fireball, fading and thinning toward the tail.
+        const n = 8;
+        for (let i = 0; i < n; i++) {
+          const t0 = Math.max(0, t - 0.3 * (i + 1) / n), t1 = Math.max(0, t - 0.3 * i / n);
+          if (t1 <= t0) break;
+          const p0 = at(t0), p1 = at(t1);
+          g.strokeStyle = `rgba(255,${Math.round(200 - i * 18)},${Math.round(90 - i * 10)},${0.85 * (1 - i / n)})`;
+          g.lineWidth = Math.max(1, T * 0.22 * (1 - i / n));
+          g.beginPath();
+          g.moveTo(p0.x, p0.y);
+          g.lineTo(p1.x, p1.y);
+          g.stroke();
+        }
+        const p = at(t);
+        glowDot(g, p.x, p.y, Math.max(3, T * 0.4), 'rgba(255,160,60,');
+        glowDot(g, p.x, p.y, Math.max(1.5, T * 0.14), 'rgba(255,250,220,');
+        continue;
+      }
+      // The burst: a flash, a ring of heat spreading out, and sparks flying from the centre.
+      const b = Math.min(1, (now - f.t0 - f.dur) / SHOT_BURST);
+      const cx = to.x * T, cy = to.y * T;
+      glowDot(g, cx, cy, T * (0.4 + b * 0.5) * (1 - b), 'rgba(255,170,70,');
+      g.strokeStyle = `rgba(255,140,50,${0.8 * (1 - b)})`;
+      g.lineWidth = Math.max(1, T * 0.1 * (1 - b));
+      g.beginPath();
+      g.arc(cx, cy, T * (0.15 + b * 0.75), 0, Math.PI * 2);
+      g.stroke();
+      g.strokeStyle = `rgba(255,220,140,${0.9 * (1 - b)})`;
+      g.lineWidth = Math.max(1, T * 0.05);
+      for (let i = 0; i < 8; i++) {
+        const ang = i * Math.PI / 4 + f.t0 % 1;
+        const r0 = T * (0.1 + b * 0.5), r1 = T * (0.25 + b * 0.75);
+        g.beginPath();
+        g.moveTo(cx + Math.cos(ang) * r0, cy + Math.sin(ang) * r0);
+        g.lineTo(cx + Math.cos(ang) * r1, cy + Math.sin(ang) * r1);
+        g.stroke();
+      }
+    }
+    g.restore();
   }
 
   drawUnits(g, s, T, now, inView) {
@@ -1091,4 +1177,17 @@ function classicBuildingIcon(g, type, cx, cy, s, ink, accent) {
     }
   }
   g.restore();
+}
+
+/** A soft round glow; rgba is the colour up to the alpha, e.g. 'rgba(255,160,60,'. */
+function glowDot(g, x, y, r, rgba) {
+  if (r <= 0) return;
+  const grad = g.createRadialGradient(x, y, 0, x, y, r);
+  grad.addColorStop(0, `${rgba}1)`);
+  grad.addColorStop(0.4, `${rgba}0.6)`);
+  grad.addColorStop(1, `${rgba}0)`);
+  g.fillStyle = grad;
+  g.beginPath();
+  g.arc(x, y, r, 0, Math.PI * 2);
+  g.fill();
 }

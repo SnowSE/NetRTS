@@ -294,10 +294,40 @@ export class Effects {
     this.arrows.items.push({ a: a.clone(), b: b.clone(), t: 0, flight: Math.max(0.12, flight), arc: 0.15 + dist * 0.12, kind: 'arrow', s });
   }
 
-  /** A blazing bolt from a guard tower. */
+  /** A guard tower fires: a flare at the battlements, then a fireball streaking down on its target. */
   bolt(a, b, flight) {
-    this.arrows.items.push({ a: a.clone(), b: b.clone(), t: 0, flight: Math.max(0.1, flight), arc: 0.1, kind: 'bolt' });
+    this.glow.emit(a.x, a.y, a.z, 0, 0, 0, { life: 0.22, size: 0.7, color: [2.6, 1.7, 0.8], alpha: 0.9 });
+    this.glow.emit(a.x, a.y, a.z, 0, 0, 0, { life: 0.1, size: 0.3, color: [3, 2.8, 2.4] });
+    for (let i = 0; i < 12; i++) {
+      this.glow.emit(a.x, a.y, a.z, rand(-1.2, 1.2), rand(0, 1.4), rand(-1.2, 1.2),
+        { life: rand(0.2, 0.45), size: rand(0.03, 0.06), color: [2.4, 1.5, 0.6], gravity: 3, drag: 2, cool: 1.2 });
+    }
+    this.soft.emit(a.x, a.y + 0.05, a.z, 0, 0.3, 0, { life: 0.8, size: 0.18, grow: 2.5, color: [0.25, 0.23, 0.22], alpha: 0.4, drag: 1 });
+    this.ring(a, [1, 0.65, 0.3], 0.7, 0.3, 0.7);
+    const dist = Math.hypot(b.x - a.x, b.z - a.z);
+    this.arrows.items.push({ a: a.clone(), b: b.clone(), t: 0, flight: Math.max(0.1, flight), arc: 0.2 + dist * 0.06, kind: 'bolt', last: a.clone() });
   }
+
+  /** A tower's fireball lands: a flash, a burst of fire and sparks, a ring of heat and a puff of smoke. */
+  blast(p) {
+    this.spark(p, 18, [2.6, 1.5, 0.5], 1.2);
+    for (let i = 0; i < 10; i++) {
+      this.glow.emit(p.x + rand(-0.08, 0.08), p.y + rand(0, 0.1), p.z + rand(-0.08, 0.08), rand(-0.6, 0.6), rand(0.3, 1.1), rand(-0.6, 0.6),
+        { life: rand(0.3, 0.55), size: rand(0.12, 0.22), grow: 0.8, color: [2.6, 1.9, 1.0], cool: 1.6, drag: 3 });
+    }
+    for (let i = 0; i < 4; i++) {
+      this.soft.emit(p.x + rand(-0.1, 0.1), p.y + 0.05, p.z + rand(-0.1, 0.1), rand(-0.3, 0.3), rand(0.3, 0.6), rand(-0.3, 0.3),
+        { life: rand(0.9, 1.4), size: rand(0.14, 0.22), grow: 2.5, color: [0.2, 0.18, 0.17], alpha: 0.45, drag: 1.5 });
+    }
+    this.ring(this.groundAt(p), [1, 0.55, 0.2], 0.9, 0.4, 0.75);
+    // Borrow the explosion light unless a building is going up.
+    if (this.flash.intensity < 6) {
+      this.flash.position.set(p.x, p.y + 0.5, p.z);
+      this.flash.intensity = 6;
+    }
+  }
+
+  groundAt(p) { return new THREE.Vector3(p.x, this.terrain.heightAt(p.x, p.z), p.z); }
 
   // ---------------------------------------------------------------- continuous
 
@@ -314,6 +344,7 @@ export class Effects {
   }
 
   update(dt) {
+    if (dt <= 0) return;   // paused: everything holds still, and nothing new is thrown off
     dt = Math.min(dt, 0.1);
     this.glow.update(dt);
     this.soft.update(dt);
@@ -329,14 +360,28 @@ export class Effects {
       const p = arrows.items[i];
       p.t += dt / p.flight;
       if (p.t >= 1) {
-        this.spark(p.b, p.kind === 'bolt' ? 12 : 6, p.kind === 'bolt' ? [1, 0.6, 0.25] : undefined);
+        if (p.kind === 'bolt') this.blast(p.b);
+        else this.spark(p.b, 6);
         continue;
       }
       const x = p.a.x + (p.b.x - p.a.x) * p.t, z = p.a.z + (p.b.z - p.a.z) * p.t;
       const y = p.a.y + (p.b.y - p.a.y) * p.t + Math.sin(Math.PI * p.t) * p.arc;
       if (p.kind === 'bolt') {
-        this.glow.emit(x, y, z, 0, 0, 0, { life: 0.25, size: 0.2, color: [2.6, 1.8, 0.8], cool: 1.5 });
-        this.glow.emit(x, y, z, rand(-0.2, 0.2), rand(-0.2, 0.2), rand(-0.2, 0.2), { life: 0.4, size: 0.06, color: [1, 0.6, 0.2], gravity: 1 });
+        // A white-hot core, and a burning tail laid evenly along the path flown since the last frame.
+        this.glow.emit(x, y, z, 0, 0, 0, { life: 0.05, size: 0.24, color: [3, 2.7, 2.2] });
+        const steps = Math.max(1, Math.ceil(Math.hypot(x - p.last.x, y - p.last.y, z - p.last.z) / 0.04));
+        for (let k = 1; k <= steps; k++) {
+          const f = k / steps;
+          const tx = p.last.x + (x - p.last.x) * f, ty = p.last.y + (y - p.last.y) * f, tz = p.last.z + (z - p.last.z) * f;
+          this.glow.emit(tx, ty, tz, rand(-0.1, 0.1), rand(0, 0.2), rand(-0.1, 0.1), { life: rand(0.2, 0.32), size: rand(0.12, 0.17), grow: -0.6, color: [2.6, 1.8, 0.8], cool: 1.5 });
+          if (Math.random() < 0.3) {
+            this.soft.emit(tx, ty, tz, rand(-0.1, 0.1), rand(0.1, 0.3), rand(-0.1, 0.1), { life: rand(0.5, 0.8), size: 0.08, grow: 2.5, color: [0.22, 0.2, 0.19], alpha: 0.3, drag: 1 });
+          }
+        }
+        if (Math.random() < 0.5) {
+          this.glow.emit(x, y, z, rand(-0.5, 0.5), rand(0, 0.6), rand(-0.5, 0.5), { life: rand(0.3, 0.5), size: 0.035, color: [2, 1.2, 0.4], gravity: 3, cool: 1 });
+        }
+        p.last.set(x, y, z);
       } else {
         const t2 = Math.min(1, p.t + 0.02);
         m.position.set(x, y, z);

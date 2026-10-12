@@ -30,6 +30,7 @@ const QUALITY = {
 };
 const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(215));
 const NO_CUT = 99;
+const TOWER_RANGE = 5;   // GameRules: guard towers reach 5 tiles in every direction, diagonals included
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smooth = (t) => t * t * (3 - 2 * t);
 
@@ -156,6 +157,9 @@ export class View3D {
     this.names = names;
     this.manual = manual;
     this.clockMs = 0;
+    this.gameMs = performance.now(); // the picture's clock: follows the wall clock, but stops while paused
+    this.holdAt = null;          // paused: the clock runs on to here (the newest frame on screen), then stops
+    this.range = null;           // the hovered guard tower's range outline: { id, group }
     this.unitScale = 1;          // promo close-ups draw units larger...
     // Buildings stand about twice a worker's height. Wider than this would spill into the next tile, where
     // units stand.
@@ -268,6 +272,7 @@ export class View3D {
   setMap(map) {
     if (this.map && this.map.width === map.width && this.map.height === map.height
       && this.map.terrain.join('') === map.terrain.join('')) return;
+    this.showRange(null);
     this.map = map;
     this.terrain?.dispose();
     if (this.terrain) this.scene.remove(this.terrain.group);
@@ -423,7 +428,7 @@ export class View3D {
     const step = prev && s.tick === prev.tick + 1;
     const same = prev && s.tick === prev.tick;
     const jump = !step && !same;
-    if (step) {
+    if (step && this.holdAt == null) {
       // Pace the animation to however long ticks are really taking (live pace or replay speed).
       const gap = now - this.lastSet;
       this.interval = clamp(this.interval * 0.7 + gap * 0.3, 30, 1500);
@@ -434,7 +439,9 @@ export class View3D {
       this.corpses.length = 0;
       this.queue.length = 0;
     }
+    if (this.range && !s.buildings.some((b) => b.id === this.range.id)) this.showRange(null);
     this.lastSet = now;
+    if (this.holdAt != null) this.holdAt = now + this.lag;   // paused: play this frame out, then stop
     this.state = s;
     const fx = step && !reducedMotion();
     const q = (fn, extra = 0) => { if (fx) this.later(fn, extra); };
@@ -593,7 +600,7 @@ export class View3D {
     for (const b of s.buildings) {
       if (b.type !== 'GuardTower' || !b.completed || b.owner === u.owner) continue;
       const d = Math.max(Math.abs(b.x - u.x), Math.abs(b.y - u.y));
-      if (d <= 5 && d < bd) { best = b; bd = d; }
+      if (d <= TOWER_RANGE && d < bd) { best = b; bd = d; }
     }
     if (!best) return;
     const top = this.ground(best.x + 0.5, best.y + 0.5).add(new THREE.Vector3(0, this.models.building('GuardTower', best.owner).height * this.buildingScale - 0.1, 0));
@@ -634,7 +641,22 @@ export class View3D {
   // ---------------------------------------------------------------- per frame
 
   /** The view's clock in milliseconds: the wall clock, or whatever the caller set in manual mode. */
-  now() { return this.manual ? this.clockMs : performance.now(); }
+  now() { return this.manual ? this.clockMs : this.gameMs; }
+
+  /**
+   * Pause the picture with the match (or the replay): units finish moving to the newest frame, then
+   * stand still, and effects freeze mid-air. A frame that arrives while paused (stepping) plays out,
+   * then the picture stops again. The camera keeps working.
+   */
+  setPaused(on) {
+    if (on === (this.holdAt != null)) return;
+    if (on) this.holdAt = this.lastSet + this.lag;
+    else {
+      this.holdAt = null;
+      // Time stood still for the picture, so don't count the pause as a slow tick.
+      this.lastSet = this.gameMs;
+    }
+  }
 
   setClock(ms) { this.clockMs = ms; }
 
@@ -644,17 +666,25 @@ export class View3D {
       this.renderer.clear();
       return;
     }
-    this.renderFrame(Math.min(0.1, this.clock.getDelta()));
+    const dt = Math.min(0.1, this.clock.getDelta());
+    let g = this.gameMs + dt * 1000;
+    if (this.holdAt != null) g = Math.max(this.gameMs, Math.min(g, this.holdAt));
+    const gameDt = (g - this.gameMs) / 1000;
+    this.gameMs = g;
+    this.renderFrame(dt, gameDt);
   }
 
-  /** Draw one frame, dt seconds after the last. In manual mode the caller has placed the camera. */
-  renderFrame(dt) {
+  /**
+   * Draw one frame, dt seconds after the last; gameDt is how far the picture's clock moved (less than
+   * dt while paused). In manual mode the caller has placed the camera.
+   */
+  renderFrame(dt, gameDt = dt) {
     const now = this.now();
     // Run two ticks behind (a little more if ticks arrive unevenly), so the curve through a unit's path
     // already knows the position after the stretch it's drawing and never bends mid-stride when a tick
     // lands. Ease toward it so speed changes don't jolt the picture.
     const lagGoal = clamp(Math.max(this.interval * 2.05, (this.gapMax ?? this.interval) * 1.05 + this.interval), 60, 2600);
-    this.lagS = this.manual ? lagGoal : this.lagS + (lagGoal - this.lagS) * (1 - Math.exp(-2 * dt));
+    this.lagS = this.manual ? lagGoal : this.lagS + (lagGoal - this.lagS) * (1 - Math.exp(-2 * gameDt));
     if (this.queue.length) {
       const due = this.queue.filter((e) => e.t <= now);
       if (due.length) {
@@ -663,9 +693,9 @@ export class View3D {
       }
     }
     if (!this.manual) this.rig.update(dt, this.effects.shake);
-    this.updateUnits(now, dt);
-    this.updateBuildings(now, dt);
-    this.effects.update(dt);
+    this.updateUnits(now, gameDt);
+    this.updateBuildings(now, gameDt);
+    this.effects.update(gameDt);
     this.updateSun();
     this.terrain.uniforms.uTime.value += dt;
     if (this.composer) this.composer.render(dt);
@@ -1172,14 +1202,88 @@ export class View3D {
   }
 
   hover(clientX, clientY) {
+    const hit = clientX == null || !this.map ? null : this.rig.groundAt(clientX, clientY);
+    const x = hit ? Math.floor(hit.x) : -1, y = hit ? Math.floor(hit.z) : -1;
+    const inside = hit && x >= 0 && y >= 0 && x < this.map.width && y < this.map.height;
+    this.showRange(clientX == null ? null : this.towerAt(clientX, clientY, inside ? { x, y } : null));
     if (!this.onHoverTile) return;
-    if (clientX == null) { this.onHoverTile(null); return; }
-    const hit = this.rig.groundAt(clientX, clientY);
+    if (!inside) { this.onHoverTile(null); return; }
     const r = this.renderer.domElement.getBoundingClientRect();
-    if (!hit || !this.map) { this.onHoverTile(null); return; }
-    const x = Math.floor(hit.x), y = Math.floor(hit.z);
-    if (x < 0 || y < 0 || x >= this.map.width || y >= this.map.height) { this.onHoverTile(null); return; }
     this.onHoverTile({ x, y }, { x: clientX - r.left, y: clientY - r.top });
+  }
+
+  /** The guard tower under the cursor: on the hovered tile, or whose tower is drawn under the cursor. */
+  towerAt(clientX, clientY, tile) {
+    const towers = (this.state?.buildings || []).filter((b) => b.type === 'GuardTower'
+      && (this.vision == null || b.owner === this.vision || this.visibleTo(b.x, b.y)));
+    const onTile = tile && towers.find((b) => b.x === tile.x && b.y === tile.y);
+    if (onTile) return onTile;
+    const r = this.renderer.domElement.getBoundingClientRect();
+    const v = new THREE.Vector3();
+    let best = null, bd = 28;
+    for (const b of towers) {
+      const h = this.models.building('GuardTower', b.owner).height * this.buildingScale;
+      for (const up of [0.3, 0.65, 0.95]) {
+        v.copy(this.ground(b.x + 0.5, b.y + 0.5)).setY(this.terrain.heightAt(b.x + 0.5, b.y + 0.5) + h * up).project(this.camera);
+        if (v.z > 1) continue;
+        const d = Math.hypot(r.left + (v.x + 1) / 2 * r.width - clientX, r.top + (1 - v.y) / 2 * r.height - clientY);
+        if (d < bd) { bd = d; best = b; }
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Outline what a guard tower can hit: a square, since its reach counts diagonal steps like straight
+   * ones. Draped over the ground in the owner's colour, faint, with a fainter wash inside.
+   */
+  showRange(b) {
+    if (this.range?.id === (b?.id ?? null)) return;
+    if (this.range) {
+      this.scene.remove(this.range.group);
+      this.range.group.traverse((o) => { o.geometry?.dispose(); o.material?.dispose(); });
+      this.range = null;
+    }
+    if (!b || !this.terrain) return;
+    const x0 = Math.max(0, b.x - TOWER_RANGE), z0 = Math.max(0, b.y - TOWER_RANGE);
+    const x1 = Math.min(this.map.width, b.x + TOWER_RANGE + 1), z1 = Math.min(this.map.height, b.y + TOWER_RANGE + 1);
+    const lift = 0.05;
+    const col = teamOf(b.owner);
+    const group = new THREE.Group();
+
+    // The wash: a grid of quads, four to a tile, following the ground.
+    const nx = (x1 - x0) * 4, nz = (z1 - z0) * 4;
+    const fill = new THREE.PlaneGeometry(x1 - x0, z1 - z0, nx, nz).rotateX(-Math.PI / 2).translate((x0 + x1) / 2, 0, (z0 + z1) / 2);
+    const fp = fill.attributes.position;
+    for (let i = 0; i < fp.count; i++) fp.setY(i, this.terrain.heightAt(fp.getX(i), fp.getZ(i)) + lift);
+    group.add(new THREE.Mesh(fill, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.07, depthWrite: false })));
+
+    // The edge: a narrow ribbon around the square, inset so it sits inside the outermost tiles.
+    const w = 0.07, pts = [];
+    const side = (ax, az, bx, bz) => {
+      const n = Math.max(1, Math.round(Math.hypot(bx - ax, bz - az) * 4));
+      for (let i = 0; i < n; i++) pts.push([ax + (bx - ax) * i / n, az + (bz - az) * i / n]);
+    };
+    side(x0, z0, x1, z0); side(x1, z0, x1, z1); side(x1, z1, x0, z1); side(x0, z1, x0, z0);
+    const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
+    const pos = [], idx = [];
+    for (const [px, pz] of pts) {
+      // Step the inner edge toward the centre along both axes, so corners stay square.
+      const ix = px + Math.sign(cx - px) * w, iz = pz + Math.sign(cz - pz) * w;
+      pos.push(px, this.terrain.heightAt(px, pz) + lift + 0.01, pz, ix, this.terrain.heightAt(ix, iz) + lift + 0.01, iz);
+    }
+    for (let i = 0; i < pts.length; i++) {
+      const a = i * 2, c = ((i + 1) % pts.length) * 2;
+      idx.push(a, c, a + 1, a + 1, c, c + 1);
+    }
+    const edge = new THREE.BufferGeometry();
+    edge.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    edge.setIndex(idx);
+    group.add(new THREE.Mesh(edge, new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.55, depthWrite: false, side: THREE.DoubleSide })));
+
+    group.children.forEach((m) => { m.renderOrder = 2; });
+    this.scene.add(group);
+    this.range = { id: b.id, group };
   }
 
   /** Drop to a cheaper setting if the first few seconds run slowly, unless the viewer picked one. */
@@ -1200,6 +1304,7 @@ export class View3D {
 
   destroy() {
     this.alive = false;
+    this.showRange(null);
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.rig?.dispose();

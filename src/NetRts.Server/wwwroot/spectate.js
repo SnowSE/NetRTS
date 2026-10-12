@@ -106,7 +106,9 @@ export function mountSpectate(root, matchKey) {
   let is3d = false;
   let anchor3d = null;     // where the pointer last hovered in 3D, for refreshing the tooltip
   const showMap = (map) => { view.setMap(map); view3d?.setMap(map); };
-  const showState = (s) => { view.setState(s); view3d?.setState(s); };
+  const showState = (s) => { view.setState(s); view3d?.setState(s); syncPause(); };
+  /** The 3D picture stands still while the match or the replay is paused. */
+  const syncPause = () => view3d?.setPaused(replay ? !replay.playing : !!state?.paused);
 
   let alive = true;
   let es = null;
@@ -390,6 +392,7 @@ export function mountSpectate(root, matchKey) {
       };
       if (view.map) view3d.setMap(view.map);
       if (view.state) view3d.setState(view.state);
+      syncPause();
       view3d.setVision(view.vision);
     }
     is3d = on;
@@ -825,7 +828,8 @@ export function mountSpectate(root, matchKey) {
   }
 
   // ---------- replay: finished matches play back from their recorded frames, a chunk at a time
-  const REPLAY_SPEEDS = [1, 2, 4, 8, 16, 32];
+  // Ticks per second, whatever pace the match was played at.
+  const REPLAY_SPEEDS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
   const KEEP_CHUNKS = 4;
   let scrubbing = false;
 
@@ -845,7 +849,7 @@ export function mountSpectate(root, matchKey) {
     if (!alive) return true;
     replay = {
       m: manifest, last: manifest.lastTick, chunkTicks: manifest.chunkTicks,
-      chunks: new Map(), pending: new Map(), tick: 0, playing: false, speed: startSpeed(),
+      chunks: new Map(), pending: new Map(), tick: 0, playing: false, speed: 8,
       timer: null, seq: 0, feedTick: -1,
     };
     finished = true;
@@ -860,12 +864,6 @@ export function mountSpectate(root, matchKey) {
     await seekReplay(0);
     playReplay(true);
     return true;
-  }
-
-  /** 1x is the match's own pace; start near 8 ticks a second, whatever that was. */
-  function startSpeed() {
-    const want = (summary?.tickIntervalMs || 1000) / 125;
-    return REPLAY_SPEEDS.reduce((best, x) => (Math.abs(x - want) < Math.abs(best - want) ? x : best), 1);
   }
 
   function chunk(i) {
@@ -910,7 +908,8 @@ export function mountSpectate(root, matchKey) {
     if (seq !== replay.seq || !alive) return;   // a later seek has taken over
     const frame = frames[t - i * replay.chunkTicks];
     state = frame;
-    showState(frame);
+    // Animate at the playback pace, not the pace the match was recorded at.
+    showState({ ...frame, tickIntervalMs: replayMs() });
     replayFeed(t);
     renderAll();
     refreshTooltip();
@@ -923,12 +922,13 @@ export function mountSpectate(root, matchKey) {
     clearTimeout(replay.timer);
     if (on && replay.tick >= replay.last) seekReplay(0);
     replay.playing = on;
+    syncPause();
     updateReplayControls(false);
     if (on) nextReplayTick();
   }
 
   function nextReplayTick() {
-    const ms = Math.max(16, (summary?.tickIntervalMs || 1000) / replay.speed);
+    const ms = replayMs();
     replay.timer = setTimeout(async () => {
       if (!alive || !replay.playing) return;
       if (replay.tick >= replay.last) { playReplay(false); return; }
@@ -937,6 +937,8 @@ export function mountSpectate(root, matchKey) {
     }, ms);
     timers.push(replay.timer);
   }
+
+  const replayMs = () => Math.max(16, 1000 / replay.speed);
 
   /** The play-by-play up to the current tick (the newest 200). */
   function replayFeed(t) {
@@ -951,7 +953,7 @@ export function mountSpectate(root, matchKey) {
   }
 
   function renderReplayControls() {
-    const speedOptions = REPLAY_SPEEDS.map((x) => html`<option value="${x}" ${x === replay.speed ? html`selected` : ''}>${x}×</option>`);
+    const speedOptions = REPLAY_SPEEDS.map((x) => html`<option value="${x}" ${x === replay.speed ? html`selected` : ''}>${x} tick${x === 1 ? '' : 's'}/s</option>`);
     for (const box of [$('replay'), $('fs-replay')]) {
       box.hidden = false;
       setHtml(box, html`
