@@ -10,6 +10,8 @@ import { View3D } from '/src/NetRts.Server/wwwroot/3d/view.js';
 import { hqName, housingName, BUILDING_NAME } from '/src/NetRts.Server/wwwroot/lore.js';
 import { unitPos, frameAt, TEAM } from './battle3d.js';
 
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+
 export { unitPos, frameAt, TEAM };
 
 const MS = 100;          // virtual milliseconds per tick
@@ -24,6 +26,7 @@ export class Battle3D {
     this.view = new View3D(canvas.parentElement, { badger: true, manual: true, canvas, labels: false, quality: 'high' });
     this.view.unitScale = UNIT_SCALE;
     this.view.buildingScale = BUILDING_SCALE;
+    this.view.arrowScale = 1.8;
     this.view.relief = 0.4;   // the shots were framed for flat ground; low plateaus keep them clear
     this.match = null;
     this.fed = -1;
@@ -67,9 +70,16 @@ export class Battle3D {
     const { match, tick } = opts;
     const v = this.view;
     const restarted = this.sync(match, tick);
+    // Positions follow the match clock (V), but animation (strides, swings, the bow, particles) runs on
+    // the video's own time, so a slowed-down shot doesn't slow every badger's arms down with it.
     const V = tick * MS + LAG;
-    const dt = restarted || this.lastV == null ? 1 / 30 : Math.min(0.1, Math.max(0, (V - this.lastV) / 1000));
+    const T = window.videoTime ?? 0;
+    const fresh = restarted || this.lastT == null || T < this.lastT;
+    const dt = fresh ? 1 / 30 : Math.min(0.1, T - this.lastT);
+    const dv = fresh ? MS / 1000 * 3 * dt : Math.max(0, V - this.lastV) / 1000;
+    v.timeScale = dt > 0 ? clamp(dv / dt, 0.02, 30) : 1;   // match seconds per video second
     this.lastV = V;
+    this.lastT = T;
     v.setClock(V);
 
     // The shot's camera, kept clear of the hills.

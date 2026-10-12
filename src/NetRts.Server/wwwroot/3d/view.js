@@ -161,6 +161,8 @@ export class View3D {
     // units stand.
     this.buildingScale = 1.35;
     this.relief = 1;             // plateau height (set before setMap)
+    this.timeScale = 1;          // match seconds per real second (the promo plays matches slowed down)
+    this.arrowScale = 1;         // flying arrows, drawn bigger in the promo so they read on video
     this.highlight = null;       // Set of unit ids whose rings pulse
     this.map = null;
     this.state = null;
@@ -736,7 +738,7 @@ export class View3D {
       if (rt < a.bornT) continue;   // trained, but the picture hasn't got there yet
       if (this.vision != null && u.owner !== this.vision && !this.visibleTo(u.x, u.y)) continue;
       const p = positions.get(a.id);
-      const speed = Math.hypot(p.vx, p.vz) * 1000;   // tiles per second
+      const speed = Math.hypot(p.vx, p.vz) * 1000 * this.timeScale;   // tiles per second, as seen on screen
       const moving = speed > 0.35;
       const working = !moving && (u.activity === 'Gathering' || u.activity === 'Building');
       const carrying = u.carrying > 0;
@@ -848,7 +850,7 @@ export class View3D {
             const lx = -0.1 * s, lz = 0.3 * s;
             const from = new THREE.Vector3(p.x + cy * lx + sy * lz, y + 0.29 * s, p.z - sy * lx + cy * lz);
             const to = new THREE.Vector3(tp.x, this.terrain.heightAt(tp.x, tp.z) + tp.h * 0.6, tp.z);
-            this.effects.arrow(from, to, clamp(Math.hypot(tp.x - p.x, tp.z - p.z) * 0.09, 0.2, 0.55), s);
+            this.effects.arrow(from, to, clamp(Math.hypot(tp.x - p.x, tp.z - p.z) * 0.09, 0.2, 0.55), s * this.arrowScale);
           } else {
             const at = new THREE.Vector3(p.x, y + 0.25 * this.unitScale, p.z)
               .lerp(new THREE.Vector3(tp.x, this.terrain.heightAt(tp.x, tp.z) + tp.h * 0.5, tp.z), 0.6);

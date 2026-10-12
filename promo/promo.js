@@ -703,8 +703,8 @@ function buildLong() {
   const roster = [
     [DUEL, 64, 66, 'unit', 'Worker', '<span>digs up grubs, builds the campus</span>', { r: 6.5, h: 3.2 }],
     [DUEL, 259, 105, 'unit', 'Soldier', '110 HP · tough, close-up', { r: 6, h: 2.8, deg0: 200, deg1: 240 }],
-    [DUEL, 262, 117, 'unit', 'Archer', 'shoots from four tiles away', { r: 6, h: 3, deg0: 250, deg1: 210 }],
-    [FOUR, 112, 126, 'unit', 'Scout', '<span>twice as fast · sees furthest</span>', { r: 7, h: 3.6 }],
+    [DUEL, 268, 117, 'unit', 'Archer', 'shoots from four tiles away', { r: 4.5, h: 1.8, deg0: 320, deg1: 345 }],
+    [FOUR, 120, 126, 'unit', 'Scout', '<span>twice as fast · sees furthest</span>', { r: 4.5, h: 2.2 }],
     [DUEL, RT, 65, 'building', 'Noyes Building', '<span>your HQ · lose it and you\'re out</span>', { r: 9, h: 5.5, label: 'Noyes Building' }],
     [DUEL, RT, 96, 'building', 'Suites at Academy Square', '<span>housing · trains soldiers, archers, scouts</span>', { r: 8, h: 4.6 }],
     [DUEL, RT, 103, 'building', 'GRSC Makerspace', '<span>upgrades are coursework: Organic Chemistry = +damage</span>', { r: 8, h: 4.4 }],
@@ -858,6 +858,7 @@ function fx(T) {
 
 let current = null;
 window.seek = (T) => {
+  window.videoTime = T;   // game3d animates on video time
   const s = scenes.find((x) => T >= x.start && T < x.start + x.dur) || scenes.at(-1);
   if (s !== current) { barsT.style.height = barsB.style.height = '0px'; current = s; }
   s.render(clamp(T - s.start, 0, s.dur - 1e-4));

@@ -343,7 +343,7 @@ export class Effects {
         m.lookAt(p.a.x + (p.b.x - p.a.x) * t2, p.a.y + (p.b.y - p.a.y) * t2 + Math.sin(Math.PI * t2) * p.arc, p.a.z + (p.b.z - p.a.z) * t2);
         m.scale.setScalar(p.s ?? 1);
         // A faint streak behind it, so it reads in flight.
-        this.glow.emit(x, y, z, 0, 0, 0, { life: 0.14, size: 0.035 * (p.s ?? 1), color: [1.4, 1.3, 1.1], alpha: 0.6 });
+        this.glow.emit(x, y, z, 0, 0, 0, { life: 0.2, size: 0.016 * (p.s ?? 1), color: [1.8, 1.6, 1.2], alpha: 0.7 });
         m.updateMatrix();
         arrows.mesh.setMatrixAt(ai++, m.matrix);
       }
