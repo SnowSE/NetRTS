@@ -194,6 +194,10 @@ export class View3D {
     this.autoQuality = { frames: 0, time: 0, done: manual || !!fixedQuality || !!this.storedQuality() };
 
     const renderer = new THREE.WebGLRenderer({ canvas: canvas ?? undefined, antialias: false, powerPreference: 'high-performance', alpha: false, preserveDrawingBuffer: manual });
+    // With no saved choice, a weak computer starts at low quality (no post-processing to compile or
+    // run); if it turns out to cope, checkQuality steps it up.
+    this.autoQuality.guessed = !manual && !fixedQuality && !this.storedQuality() && QUALITY[this.quality] && guessQuality(renderer) === 'low';
+    if (this.autoQuality.guessed) this.quality = 'low';
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 0.95;
     renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -306,6 +310,12 @@ export class View3D {
     this.corpses.length = 0;
     this.applyQuality();
     this.resize();
+    // Compile the scene's shaders in the background (where the browser can), so the page stays
+    // responsive; nothing is drawn until they're ready, which would otherwise compile them on the spot.
+    this.ready = false;
+    const done = () => { if (this.terrain) { this.ready = true; this.onReady?.(); } };
+    if (this.manual) done();
+    else this.renderer.compileAsync(this.scene, this.camera).then(done, done);
   }
 
   buildLayers() {
@@ -706,7 +716,7 @@ export class View3D {
   setClock(ms) { this.clockMs = ms; }
 
   frame() {
-    if (!this.terrain) {
+    if (!this.terrain || !this.ready) {
       this.renderer.setClearColor('#9fb3c2');
       this.renderer.clear();
       return;
@@ -1341,7 +1351,11 @@ export class View3D {
     if (a.time < 4) return;
     const fps = a.frames / a.time;
     a.done = true;
-    if (fps < 28 && this.quality !== 'low') {
+    if (a.guessed && this.quality === 'low' && fps >= 55) {
+      this.quality = 'medium';
+      this.applyQuality();
+      this.onQualityChange?.(this.quality);
+    } else if (fps < 28 && this.quality !== 'low') {
       this.quality = this.quality === 'high' ? 'medium' : 'low';
       this.applyQuality();
       this.onQualityChange?.(this.quality);
@@ -1366,6 +1380,26 @@ export class View3D {
     this.renderer.domElement.remove();
     this.labels.domElement.remove();
   }
+}
+
+/**
+ * A first guess at what this computer can manage, before a frame has been drawn: software rendering,
+ * four or fewer cores, 4 GB of memory or less, older Intel graphics, or a phone or tablet start low.
+ */
+function guessQuality(renderer) {
+  let gpu = '';
+  try {
+    const gl = renderer.getContext();
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    gpu = String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER));
+  } catch { /* no details */ }
+  const cores = navigator.hardwareConcurrency || 4;
+  const memory = navigator.deviceMemory || 8;
+  const touch = window.matchMedia?.('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900;
+  if (/swiftshader|llvmpipe|softpipe|basic render/i.test(gpu)) return 'low';
+  if (/intel/i.test(gpu) && !/arc|iris\(?r?\)? xe/i.test(gpu)) return 'low';
+  if (cores <= 4 || memory <= 4 || touch) return 'low';
+  return 'medium';
 }
 
 /** Gentle grade: a warm lift in the highlights and a soft vignette. */

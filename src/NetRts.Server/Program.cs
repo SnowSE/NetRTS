@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using NetRts.Bots;
 using NetRts.Server;
@@ -54,12 +55,23 @@ builder.Services.AddCors(cors => cors.AddDefaultPolicy(policy => policy.AllowAny
 builder.Services.AddNetRtsOpenApi();
 builder.Services.Configure<RouteHandlerOptions>(o => o.ThrowOnBadRequest = true);
 builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = 256 * 1024);
+// Brotli or gzip for the site's JavaScript, CSS, JSON and HTML: three.js alone shrinks from 690 KB
+// to under 200 KB, which is most of what the 3D view waits for on a slow connection.
+builder.Services.AddResponseCompression(o =>
+{
+    o.EnableForHttps = true;
+    o.Providers.Add<BrotliCompressionProvider>();
+    o.Providers.Add<GzipCompressionProvider>();
+    o.MimeTypes = ResponseCompressionDefaults.MimeTypes.Concat(["text/javascript", "image/svg+xml"]);
+});
+builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = System.IO.Compression.CompressionLevel.Optimal);
 
 var app = builder.Build();
 
 await InitializeDatabaseAsync(app.Services);
 
 app.UseApiErrors();
+app.UseResponseCompression();
 app.UseDefaultFiles();
 app.UseStaticFiles(new StaticFileOptions
 {

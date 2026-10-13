@@ -587,6 +587,13 @@ pre.snippet {
   color: var(--muted);
 }
 .overlay-msg strong { display: block; color: var(--ink); font-size: 1.3rem; font-stretch: 75%; }
+.overlay-msg .spinner {
+  display: block; width: 28px; height: 28px; margin: 0 auto 10px;
+  border: 3px solid var(--line); border-top-color: var(--ink); border-radius: 50%;
+  animation: spin 0.9s linear infinite;   /* a transform, so it keeps turning while the page is busy */
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .overlay-msg .spinner { animation-duration: 2.5s; } }
 
 .tooltip {
   position: absolute;

@@ -392,6 +392,10 @@ export function mountSpectate(root, matchKey) {
   }
   async function set3d(on) {
     if (on && !view3d) {
+      // Building the scene keeps the browser busy for a moment on a slow computer: say so first.
+      setOverlay(say('Building the 3D view…', 'Building the 3D valley…'), 'This takes a few seconds the first time.', true);
+      await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
+      if (!alive) return;
       try {
         const { View3D } = await import('./3d/view.js');
         if (!alive) return;
@@ -404,6 +408,7 @@ export function mountSpectate(root, matchKey) {
         later(() => setOverlay(null), 3500);
         return;
       }
+      view3d.onReady = () => { if (alive) setOverlay(null); };
       view3d.onModeChange = () => render3dControls();
       view3d.onQualityChange = () => render3dControls();
       view3d.onFollowChange = (u) => renderCard(u);
@@ -748,10 +753,10 @@ export function mountSpectate(root, matchKey) {
     });
   }
 
-  function setOverlay(title, body) {
+  function setOverlay(title, body, busy = false) {
     if (!title) { overlay.hidden = true; return; }
     overlay.hidden = false;
-    setHtml(overlay, html`<div><strong>${title}</strong>${body ? html`<span>${body}</span>` : ''}</div>`);
+    setHtml(overlay, html`<div>${busy ? html`<span class="spinner" aria-hidden="true"></span>` : ''}<strong>${title}</strong>${body ? html`<span>${body}</span>` : ''}</div>`);
   }
 
   // ---------- data flow
@@ -1221,7 +1226,19 @@ export function mountSpectate(root, matchKey) {
   });
 
   start();
-  try { if (localStorage.getItem('netrts.view') === '3d') set3d(true); } catch { /* storage blocked */ }
+  let want3d = false;
+  try { want3d = localStorage.getItem('netrts.view') === '3d'; } catch { /* storage blocked */ }
+  if (want3d) set3d(true);
+  else {
+    // Fetch the 3D view's code while the viewer watches in 2D, so pressing 3D doesn't wait on the network.
+    const fetch3d = () => {
+      if (!alive || view3d) return;
+      import('./3d/view.js').catch(() => {});
+      import('./3d/audio.js').catch(() => {});
+    };
+    if ('requestIdleCallback' in window) requestIdleCallback(fetch3d, { timeout: 5000 });
+    else later(fetch3d, 2500);
+  }
 
   return () => {
     alive = false;

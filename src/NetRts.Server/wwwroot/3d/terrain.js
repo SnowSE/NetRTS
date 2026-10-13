@@ -72,9 +72,11 @@ export class Terrain {
     return smoothstep(0.37, 0.63, this.rockiness(x, z) + jitter);
   }
 
+  /** Ground height. Also leaves the cliff value it worked out in this.lastCliff, so callers that need both don't pay for it twice. */
   heightAt(x, z) {
     const s = this.seed;
     const c = this.cliff(x, z);
+    this.lastCliff = c;
     const ground = (fbm(x * 0.08, z * 0.08, s + 3) - 0.5) * 0.4;
     const plateau = 1.3 + fbm(x * 0.1, z * 0.1, s + 5) * 1.3 + (noise2(x * 1.1, z * 1.1, s + 9) - 0.5) * 0.14;
     let h = ground * (1 - c * 0.6) + c * plateau * this.relief;
@@ -112,7 +114,7 @@ export class Terrain {
         const k = j * nx + i, x = xs[i], z = zs[j];
         pos[k * 3] = x; pos[k * 3 + 1] = this.heightAt(x, z); pos[k * 3 + 2] = z;
         uv[k * 2] = x * 0.3; uv[k * 2 + 1] = z * 0.3;
-        cliffs[k] = this.cliff(x, z);
+        cliffs[k] = this.lastCliff;
       }
     }
     const idx = new Uint32Array((nx - 1) * (nz - 1) * 6);
@@ -253,9 +255,9 @@ export class Terrain {
         if (far && ((Math.floor(x * 2) | Math.floor(z * 2)) & 1)) continue;
         const jx = x + (R() - 0.5) * 0.5, jz = z + (R() - 0.5) * 0.5;
         const d = this.outside(jx, jz);
-        const c = this.cliff(jx, jz);
-        const forest = fbm(jx * 0.09, jz * 0.09, this.seed + 61);
         const h = this.heightAt(jx, jz);
+        const c = this.lastCliff;
+        const forest = fbm(jx * 0.09, jz * 0.09, this.seed + 61);
         const r = R();
         if (d > 1.5) {
           // Mountainside forest thins out with height.
