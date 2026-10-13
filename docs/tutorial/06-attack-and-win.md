@@ -18,26 +18,27 @@ You can't see the enemy base through the fog, but you don't need to. Every playe
 `startPosition` is in the state, and that's where their Command Center was built:
 
 ```csharp
-// Start position of the first opponent still in the game: its Command Center is there.
-(int X, int Y) EnemyBase(GameState state)
+// Start position of the nearest opponent still in the game: its Command Center is there.
+(int X, int Y) EnemyBase(GameState state, int fromX, int fromY)
 {
     int me = state.You.Slot;
-    foreach (var p in state.Players)
-    {
-        if (p.Slot != me && !p.Eliminated)
-            return (p.StartPosition.X, p.StartPosition.Y);
-    }
-    return (state.MapWidth / 2, state.MapHeight / 2);
+    var rival = state.Players
+        .Where(p => p.Slot != me && !p.Eliminated)
+        .MinBy(p => Distance(fromX, fromY, p.StartPosition.X, p.StartPosition.Y));
+    return rival is null
+        ? (state.MapWidth / 2, state.MapHeight / 2)
+        : (rival.StartPosition.X, rival.StartPosition.Y);
 }
 ```
 
 ```python
-def enemy_base(state):
-    """Start position of the first opponent still in the game: its Command Center is there."""
+def enemy_base(state, x, y):
+    """Start position of the nearest opponent still in the game: its Command Center is there."""
     me = state["you"]["slot"]
-    for p in state["players"]:
-        if p["slot"] != me and not p["eliminated"]:
-            return p["startPosition"]["x"], p["startPosition"]["y"]
+    rivals = [p for p in state["players"] if p["slot"] != me and not p["eliminated"]]
+    if rivals:
+        p = min(rivals, key=lambda p: distance(x, y, p["startPosition"]["x"], p["startPosition"]["y"]))
+        return p["startPosition"]["x"], p["startPosition"]["y"]
     return state["mapWidth"] // 2, state["mapHeight"] // 2
 ```
 
@@ -74,7 +75,7 @@ Two kinds of `Attack` order are useful here:
         else
         {
             // Attack-move: walk to the enemy base, fighting anything seen on the way.
-            var (x, y) = EnemyBase(state);
+            var (x, y) = EnemyBase(state, idleSoldiers[0].X, idleSoldiers[0].Y);
             commands.Add(new Command("Attack", UnitIds: ids, X: x, Y: y));
         }
     }
@@ -97,7 +98,7 @@ Two kinds of `Attack` order are useful here:
             commands.append({"type": "Attack", "unitIds": ids, "targetId": target["id"]})
         else:
             # Attack-move: walk to the enemy base, fighting anything seen on the way.
-            x, y = enemy_base(state)
+            x, y = enemy_base(state, idle_soldiers[0]["x"], idle_soldiers[0]["y"])
             commands.append({"type": "Attack", "unitIds": ids, "x": x, "y": y})
 ```
 
