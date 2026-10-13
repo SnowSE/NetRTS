@@ -184,10 +184,11 @@ def import_clips(folder, exaggeration, cfg):
             print(f"{v['key']}: {sum(1 for f in files if not f)} of {len(lines)} clips missing; left as it is")
             continue
         target = {**v, "engine": "chatterbox", "voice": chatterbox_name(v["key"], exaggeration, cfg)}
-        for f, line in zip(files, lines):
-            dst = clip_path(target, line["text"])
-            dst.parent.mkdir(parents=True, exist_ok=True)
-            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(f), "-ac", "1", "-ar", "24000", str(dst)], check=True)
+        dsts = [clip_path(target, line["text"]) for line in lines]
+        dsts[0].parent.mkdir(parents=True, exist_ok=True)
+        with ThreadPoolExecutor(8) as pool:
+            list(pool.map(lambda f, dst: subprocess.run(
+                ["ffmpeg", "-v", "error", "-y", "-i", str(f), "-ac", "1", "-ar", "24000", str(dst)], check=True), files, dsts))
         v.setdefault("source", {"engine": v["engine"], "voice": v["voice"]})
         v["engine"], v["voice"] = target["engine"], target["voice"]
         switched.append(v["key"])

@@ -91,7 +91,8 @@ export function mountSpectate(root, matchKey) {
             <input type="range" id="snd-voice" min="0" max="100" step="5">
             <label class="sound-row sound-mute"><input type="checkbox" id="snd-captions"> Show what players say</label>
             <p class="small muted sound-note">Effects are only heard for what's on screen, quieter further away. Each player has their own voice.
-              Voices: <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener">Kokoro</a> through LocalAI,
+              Voices: <a href="https://github.com/resemble-ai/chatterbox" target="_blank" rel="noopener">Chatterbox</a> (MIT, Resemble AI),
+              from reference clips made with <a href="https://huggingface.co/hexgrad/Kokoro-82M" target="_blank" rel="noopener">Kokoro</a> through LocalAI
               and <a href="https://github.com/OHF-Voice/piper1-gpl" target="_blank" rel="noopener">Piper</a> with the
               <a href="https://datashare.ed.ac.uk/handle/10283/3443" target="_blank" rel="noopener">VCTK corpus</a> (CC BY 4.0).</p>
           </div>
