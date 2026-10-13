@@ -82,6 +82,7 @@ export function mountSpectate(root, matchKey) {
           </section>
           <div class="tooltip" id="tooltip" role="status" hidden></div>
           <div class="overlay-msg" id="overlay"><div><strong>${say('Loading map…', 'Unrolling the Sanpete Valley…')}</strong></div></div>
+          <div class="gameover" id="gameover" role="dialog" aria-labelledby="go-title" hidden></div>
         </div>
         <p class="small muted" style="margin:0" id="map-help">${say('Scroll or pinch to zoom in on a battle,', 'Scroll or pinch to zoom in on a brawl,')} drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
         <p class="small muted" style="margin:0" id="map-help-3d" hidden>Drag to pan, right-drag or Shift-drag to turn, scroll to zoom. WASD moves, Q and E turn. Click a ${say('unit', 'badger')} to ride along with it, or press Fly for free flight (Esc to land). On a touch screen, drag to pan, pinch to zoom and twist to turn.</p>
@@ -315,6 +316,7 @@ export function mountSpectate(root, matchKey) {
   canvas.addEventListener('keydown', (e) => {
     if (!view.map) return;
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
+    if (e.key === 'Escape' && !$('gameover').hidden) { hideGameOver(); return; }
     if (e.key === 'Escape') { inspect(null); if (isFull() && !document.fullscreenElement) setFull(false); return; }
     if (e.key === '+' || e.key === '=') { view.zoomCentre(1.5); return; }
     if (e.key === '-' || e.key === '_') { view.zoomCentre(1 / 1.5); return; }
@@ -615,9 +617,7 @@ export function mountSpectate(root, matchKey) {
     if (!finished || !outcome) return;
     const players = state?.players || result?.players || summary?.players || [];
     const winner = players.find((p) => p.playerId === outcome.winnerId);
-    const reason = (SNOW
-      ? { Elimination: 'Last badger standing. Go Badgers!', TimeLimit: 'The final buzzer sounded; the higher score wins.', Surrender: 'The other side forfeited.' }
-      : { Elimination: 'Last army standing.', TimeLimit: 'Time ran out; the higher score wins.', Surrender: 'The other side surrendered.' })[outcome.reason] || '';
+    const reason = reasonText(outcome);
     setHtml($('banner-slot'), html`
       <div class="banner ${winner ? 'win' : ''}" style="${winner ? `--pc:${slotVar(winner.slot)}` : ''}">
         <h2>${winner ? `${displayName(winner.name)} ${say('wins', 'wins the brawl')}` : say('Draw', 'A tie in Ephraim')}</h2>
@@ -629,6 +629,12 @@ export function mountSpectate(root, matchKey) {
         </div>
       </div>`);
     fit();
+  }
+
+  function reasonText(outcome) {
+    return (SNOW
+      ? { Elimination: 'Last badger standing. Go Badgers!', TimeLimit: 'The final buzzer sounded; the higher score wins.', Surrender: 'The other side forfeited.' }
+      : { Elimination: 'Last army standing.', TimeLimit: 'Time ran out; the higher score wins.', Surrender: 'The other side surrendered.' })[outcome?.reason] || '';
   }
 
   function renderAll() {
@@ -827,6 +833,128 @@ export function mountSpectate(root, matchKey) {
     }
   }
 
+  // ---------- game over: when a replay reaches the end, the final standings appear over the map
+  let goAnim = 0;
+  function showGameOver() {
+    const box = $('gameover');
+    const outcome = result?.outcome || state?.outcome || summary?.outcome;
+    const live = new Map((state?.players || []).map((p) => [p.playerId, p]));
+    const seat = new Map((summary?.players || []).map((p) => [p.playerId, p]));
+    const players = result?.players?.length ? result.players : state?.players || [];
+    if (!alive || !outcome || !players.length) return;
+    const rows = players.map((p) => {
+      const score = p.score || live.get(p.playerId)?.score;
+      const won = p.playerId === outcome.winnerId;
+      return { p: { ...seat.get(p.playerId), ...p, eliminated: live.get(p.playerId)?.eliminated }, score, total: score ? totalOf(score) : 0, won };
+    }).sort((a, b) => (b.won - a.won) || (b.total - a.total) || (a.p.slot - b.p.slot));
+    const top = Math.max(1, ...rows.map((r) => r.total));
+    const winner = rows.find((r) => r.won)?.p;
+    const ticks = outcome.ticks ?? replay?.last ?? state?.tick ?? 0;
+    const pace = summary?.tickIntervalMs || state?.tickIntervalMs || 1000;
+    const hasStats = rows.some((r) => typeof r.p.unitsKilled === 'number');
+    const sum = (k) => rows.reduce((n, r) => n + (r.p[k] ?? 0), 0);
+    const pct = (v) => `${((v / top) * 100).toFixed(2)}%`;
+    // Who stood out: the best at each thing, if anyone did it at all.
+    const best = (label, get, unit) => {
+      const r = rows.reduce((a, b) => (get(b) > get(a) ? b : a), rows[0]);
+      if (!(get(r) > 0)) return '';
+      return html`<li style="--pc:${slotVar(r.p.slot)}"><span class="go-k">${label}</span>
+        <b class="go-who">${displayName(r.p.name)}</b><span class="go-v"><span data-count="${get(r)}">${fmt(get(r))}</span> ${unit}</span></li>`;
+    };
+    const chip = (v, label) => html`<span class="go-chip"><b data-count="${v}">${fmt(v)}</b> ${label}</span>`;
+    setHtml(box, html`
+      <div class="go-card" style="${winner ? `--pc:${slotVar(winner.slot)}` : ''}" tabindex="-1">
+        <button type="button" class="go-x" data-go="close" aria-label="Close and look at the map" title="Close (Esc)">×</button>
+        <header class="go-head">
+          <p class="go-kicker">${say('Game over', 'Final whistle')}</p>
+          <h2 id="go-title">${winner ? html`<span class="go-crown" aria-hidden="true">♛</span> ${displayName(winner.name)} ${say('wins', 'wins the brawl')}` : say('Draw', 'A tie in Ephraim')}</h2>
+          <p class="go-sub">${outcomeText(outcome, players)}. ${reasonText(outcome)}</p>
+        </header>
+        <ol class="go-board" aria-label="Final standings">
+          ${rows.map((r, i) => html`
+          <li class="go-row ${r.won ? 'won' : ''} ${r.p.eliminated ? 'out' : ''}" style="--pc:${slotVar(r.p.slot)};--i:${i}">
+            <span class="go-rank">${i + 1}</span>
+            <div class="go-main">
+              <div class="go-line">
+                <span class="go-name">${playerLabel(r.p)}</span>
+                <span class="go-total"><span class="visually-hidden">Score </span><span data-count="${r.total}">${fmt(r.total)}</span></span>
+              </div>
+              ${r.score ? html`<div class="go-bar" title="Destruction ${fmt(r.score.destruction)} · Economy ${fmt(r.score.economy)} · Survival ${fmt(r.score.survival)}">
+                <span class="seg d" style="width:${pct(r.score.destruction)}"></span><span class="seg e" style="width:${pct(r.score.economy)}"></span><span class="seg s" style="width:${pct(r.score.survival)}"></span>
+              </div>` : ''}
+              ${typeof r.p.unitsKilled === 'number' ? html`<div class="go-chips">
+                ${chip(r.p.unitsKilled, say('kills', 'bowled over'))}${chip(r.p.unitsProduced, say('built', 'trained'))}${chip(r.p.unitsLost, 'lost')}${chip(r.p.buildingsDestroyed, say('razed', 'flattened'))}
+              </div>` : ''}
+            </div>
+          </li>`)}
+        </ol>
+        <p class="go-legend" aria-hidden="true"><span class="seg d"></span>Destruction <span class="seg e"></span>Economy <span class="seg s"></span>Survival</p>
+        <div class="go-facts">
+          <ul class="go-best">
+            ${best(say('Most kills', 'Most bowled over'), (r) => r.p.unitsKilled ?? 0, 'kills')}
+            ${best('Biggest economy', (r) => r.score?.economy ?? 0, ORE)}
+            ${best('Most destruction', (r) => r.score?.destruction ?? 0, 'pts')}
+          </ul>
+          <dl class="go-totals">
+            <div><dt>Ticks</dt><dd data-count="${ticks}">${fmt(ticks)}</dd></div>
+            <div><dt>At match pace</dt><dd>${clockText(ticks * pace)}</dd></div>
+            ${hasStats ? html`<div><dt>${say('Units', 'Badgers')} fallen</dt><dd data-count="${sum('unitsLost')}">${fmt(sum('unitsLost'))}</dd></div>
+            <div><dt>Buildings razed</dt><dd data-count="${sum('buildingsDestroyed')}">${fmt(sum('buildingsDestroyed'))}</dd></div>` : ''}
+          </dl>
+        </div>
+        <div class="go-actions">
+          <button type="button" class="btn" data-go="again">Watch it again</button>
+          <button type="button" class="btn ghost" data-go="close">Look at the map</button>
+          <a class="btn ghost" href="#/">${say('Back to matches', 'Back to the brawls')}</a>
+        </div>
+      </div>`);
+    box.hidden = false;
+    // A short map frame grows to fit the standings (full screen has room already).
+    frame.style.minHeight = isFull() ? '' : `${box.querySelector('.go-card').offsetHeight + 40}px`;
+    box.classList.remove('go-in');
+    void box.offsetWidth;   // restart the entrance animation
+    box.classList.add('go-in');
+    box.querySelector('.go-card').focus({ preventScroll: true });
+    countUp(box);
+  }
+
+  function hideGameOver() {
+    const box = $('gameover');
+    if (box.hidden) return;
+    cancelAnimationFrame(goAnim);
+    box.hidden = true;
+    setHtml(box, html``);
+    frame.style.minHeight = '';
+  }
+
+  /** Numbers tick up from zero as the rows arrive (not with reduced motion). */
+  function countUp(box) {
+    cancelAnimationFrame(goAnim);
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    const els = [...box.querySelectorAll('[data-count]')].map((el) => {
+      const row = el.closest('.go-row');
+      const delay = 250 + (row ? Number(row.style.getPropertyValue('--i')) * 90 : 500);
+      return { el, to: Number(el.dataset.count), delay };
+    });
+    const t0 = performance.now();
+    const step = (now) => {
+      let busy = false;
+      for (const c of els) {
+        const t = Math.min(1, Math.max(0, (now - t0 - c.delay) / 900));
+        c.el.textContent = fmt(Math.round(c.to * (1 - Math.pow(1 - t, 3))));
+        if (t < 1) busy = true;
+      }
+      if (busy && alive) goAnim = requestAnimationFrame(step);
+    };
+    goAnim = requestAnimationFrame(step);
+  }
+
+  /** 1:23, or 1:02:03 */
+  function clockText(ms) {
+    const s = Math.round(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, '0');
+    return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
+  }
+
   // ---------- replay: finished matches play back from their recorded frames, a chunk at a time
   // Ticks per second, whatever pace the match was played at.
   const REPLAY_SPEEDS = [0.25, 0.5, 1, 2, 4, 8, 16, 32];
@@ -889,6 +1017,7 @@ export function mountSpectate(root, matchKey) {
 
   async function seekReplay(t) {
     t = Math.max(0, Math.min(replay.last, Math.round(t)));
+    if (t < replay.last) hideGameOver();
     replay.tick = t;
     const seq = ++replay.seq;
     const i = Math.floor(t / replay.chunkTicks);
@@ -931,7 +1060,7 @@ export function mountSpectate(root, matchKey) {
     const ms = replayMs();
     replay.timer = setTimeout(async () => {
       if (!alive || !replay.playing) return;
-      if (replay.tick >= replay.last) { playReplay(false); return; }
+      if (replay.tick >= replay.last) { playReplay(false); showGameOver(); return; }
       await seekReplay(replay.tick + 1);
       if (alive && replay.playing) nextReplayTick();
     }, ms);
@@ -989,7 +1118,7 @@ export function mountSpectate(root, matchKey) {
     if (!replay || !act) return;
     if (act === 'play') playReplay(!replay.playing);
     else if (act === 'start') seekReplay(0);
-    else if (act === 'end') { playReplay(false); seekReplay(replay.last); }
+    else if (act === 'end') { playReplay(false); seekReplay(replay.last).then(() => { if (replay.tick >= replay.last) showGameOver(); }); }
     else if (act === 'back') { playReplay(false); seekReplay(replay.tick - 1); }
     else if (act === 'fwd') { playReplay(false); seekReplay(replay.tick + 1); }
   };
@@ -1016,6 +1145,13 @@ export function mountSpectate(root, matchKey) {
       later(() => setOverlay(null), 3000);
     }
   });
+  $('gameover').addEventListener('click', (e) => {
+    const act = e.target.closest('[data-go]')?.dataset.go;
+    if (act === 'close') hideGameOver();
+    if (act === 'again') { hideGameOver(); seekReplay(0); playReplay(true); }
+  });
+  $('gameover').addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.stopPropagation(); hideGameOver(); } });
+
   canvas.addEventListener('keydown', (e) => {
     if (!replay) return;
     const act = { ' ': 'play', ',': 'back', '.': 'fwd', Home: 'start', End: 'end' }[e.key];

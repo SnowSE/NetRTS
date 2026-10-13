@@ -637,6 +637,133 @@ pre.snippet {
 .banner-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
 @keyframes drop { from { transform: translateY(-6px); opacity: 0; } }
 
+/* Game over: when a replay reaches the end, the final standings rise over the map. */
+.gameover {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  overflow: auto;
+  background: color-mix(in srgb, var(--bg) 55%, transparent);
+  backdrop-filter: blur(6px) saturate(0.8);
+}
+.gameover[hidden] { display: none; }
+.go-card {
+  --pc: var(--ink);
+  position: relative;
+  width: min(640px, 100%);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-top: 6px solid var(--pc);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35), 0 0 0 1px color-mix(in srgb, var(--pc) 25%, transparent);
+  padding: 22px 24px 20px;
+  display: grid;
+  gap: 16px;
+  outline: none;
+}
+.go-x {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.go-x:hover { color: var(--ink); }
+.go-head { text-align: center; display: grid; gap: 4px; }
+.go-kicker {
+  margin: 0;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.go-head h2 {
+  margin: 0;
+  font-size: clamp(1.6rem, 4.5vw, 2.6rem);
+  font-stretch: 75%;
+  line-height: 1.05;
+  color: var(--pc);
+}
+.go-crown { display: inline-block; }
+.go-sub { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+.go-board { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.go-row {
+  display: grid;
+  grid-template-columns: 2.2em minmax(0, 1fr);
+  align-items: start;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--panel-2);
+  border-left: 4px solid var(--pc);
+}
+.go-row.won { background: color-mix(in srgb, var(--pc) 14%, var(--panel-2)); }
+.go-row.out .go-name { opacity: 0.6; }
+.go-rank { font-size: 1.6rem; font-weight: 700; font-stretch: 75%; line-height: 1; color: var(--muted); text-align: center; }
+.go-row.won .go-rank { color: var(--pc); }
+.go-main { display: grid; gap: 6px; min-width: 0; }
+.go-line { display: flex; align-items: baseline; gap: 10px; }
+.go-name { font-weight: 700; font-size: 1.05rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-total { margin-left: auto; font-size: 1.4rem; font-weight: 700; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.go-bar { display: flex; height: 8px; background: color-mix(in srgb, var(--ink) 8%, transparent); overflow: hidden; }
+.seg { display: inline-block; height: 100%; }
+.seg.d { background: var(--danger); }
+.seg.e { background: var(--ore); }
+.seg.s { background: var(--ok); }
+.go-chips { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 0.85rem; color: var(--muted); }
+.go-chip b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.go-legend { margin: -8px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 0.75rem; color: var(--muted); }
+.go-legend .seg { width: 10px; height: 10px; margin-left: 8px; }
+.go-legend .seg:first-child { margin-left: 0; }
+
+.go-facts { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr); gap: 12px 20px; border-top: 1px solid var(--line); padding-top: 14px; }
+.go-best { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; font-size: 0.9rem; }
+.go-best li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: baseline; }
+.go-k { color: var(--muted); font-size: 0.8rem; }
+.go-who { color: var(--pc); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.go-v { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.go-totals { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
+.go-totals div { display: grid; }
+.go-totals dt { font-size: 0.75rem; color: var(--muted); }
+.go-totals dd { margin: 0; font-size: 1.25rem; font-weight: 700; font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.go-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+
+@media (max-width: 560px) {
+  .go-card { padding: 18px 14px 16px; }
+  .go-facts { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The entrance: the screen dims, the card rises, rows slide in one after another, bars fill. */
+.gameover.go-in { animation: go-fade 420ms ease-out both; }
+.go-in .go-card { animation: go-rise 520ms cubic-bezier(.2, .9, .25, 1.15) both; }
+.go-in .go-kicker { animation: go-spread 900ms cubic-bezier(.2, .8, .2, 1) both; }
+.go-in .go-head h2 { animation: go-rise 600ms 120ms cubic-bezier(.2, .9, .25, 1.2) both; }
+.go-in .go-crown { animation: go-crown 1.4s 500ms ease-in-out both; }
+.go-in .go-row { animation: go-slide 480ms calc(250ms + var(--i) * 90ms) cubic-bezier(.2, .8, .2, 1) both; }
+.go-in .go-row.won { animation: go-slide 480ms 250ms cubic-bezier(.2, .8, .2, 1) both, go-glow 2.4s 900ms ease-in-out 2; }
+.go-in .go-bar .seg { transform-origin: left; animation: go-bar 900ms calc(350ms + var(--i) * 90ms) cubic-bezier(.2, .8, .2, 1) both; }
+.go-in .go-facts, .go-in .go-actions, .go-in .go-legend { animation: go-fade 500ms 700ms ease-out both; }
+@keyframes go-fade { from { opacity: 0; } }
+@keyframes go-rise { from { opacity: 0; transform: translateY(18px) scale(0.96); } }
+@keyframes go-slide { from { opacity: 0; transform: translateX(-24px); } }
+@keyframes go-bar { from { transform: scaleX(0); } }
+@keyframes go-spread { from { opacity: 0; letter-spacing: 0.9em; } }
+@keyframes go-crown { 0%, 100% { transform: none; } 30% { transform: translateY(-4px) rotate(-8deg) scale(1.15); } 60% { transform: rotate(6deg); } }
+@keyframes go-glow { 50% { box-shadow: 0 0 0 2px color-mix(in srgb, var(--pc) 45%, transparent), 0 0 24px color-mix(in srgb, var(--pc) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) {
+  .gameover.go-in, .go-in .go-card, .go-in .go-kicker, .go-in .go-head h2, .go-in .go-crown, .go-in .go-row,
+  .go-in .go-row.won, .go-in .go-bar .seg, .go-in .go-facts, .go-in .go-actions, .go-in .go-legend { animation: none; }
+}
+
 /* Replay: play back a finished match from its recorded frames. */
 .status.Replay { color: var(--signal); }
 .replay-bar {
