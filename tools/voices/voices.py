@@ -5,6 +5,12 @@
     <piper venv>/python tools/voices/voices.py piper            # Piper voices (needs piper-tts)
     python tools/voices/voices.py pack       # trim, encode, join; write wwwroot/audio
 
+Chatterbox (more excited delivery, rendered on a GPU machine from a reference clip of each voice):
+
+    python tools/voices/voices.py chatterbox-jobs 0.7 0.3   # .cache/chatterbox-jobs.json: every clip to render
+    ... render each job's text as <file> with Chatterbox, exaggeration and cfg_weight as given ...
+    python tools/voices/voices.py import <folder> 0.7 0.3   # take the clips; cast.json switches to them
+
 Rendered clips are cached in tools/voices/.cache/clips (named by a hash of engine, voice and text),
 so after editing a few lines only those are rendered again. Packing needs ffmpeg on the path: each
 clip is trimmed and re-encoded as small constant-bitrate MP3, each voice's clips are joined into one
@@ -31,8 +37,17 @@ CACHE = HERE / ".cache"
 JOBS = CACHE / "jobs.json"
 PIPER_MODEL = "en_GB-vctk-medium"
 PIPER_URL = "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_GB/vctk/medium/"
-CREDIT = ("Voices: Kokoro (Apache 2.0) through LocalAI, and Piper with the VCTK corpus "
-          "(CC BY 4.0, University of Edinburgh CSTR).")
+CREDITS = {
+    "kokoro": "Kokoro (Apache 2.0) through LocalAI",
+    "piper": "Piper with the VCTK corpus (CC BY 4.0, University of Edinburgh CSTR)",
+    "chatterbox": "Chatterbox (MIT, Resemble AI)",
+}
+
+
+def credit(cast):
+    engines = {("kokoro" if v["engine"].startswith("kokoro") else v["engine"]) for v in cast}
+    engines |= {("kokoro" if v["source"]["engine"].startswith("kokoro") else v["source"]["engine"]) for v in cast if "source" in v}
+    return "Voices: " + "; ".join(CREDITS[e] for e in CREDITS if e in engines) + "."
 
 
 def load_lines():
@@ -118,7 +133,7 @@ def pack():
     voices_dir.mkdir(parents=True, exist_ok=True)
     for old in voices_dir.glob("*.mp3"):
         old.unlink()
-    manifest = {"credit": CREDIT, "lines": lines, "voices": []}
+    manifest = {"credit": credit(cast), "lines": lines, "voices": []}
     total = 0
     with ThreadPoolExecutor(8) as pool:
         for v in cast:
@@ -137,5 +152,54 @@ def pack():
     print(f"wrote {OUT / 'voices.json'}: {len(lines)} lines x {len(cast)} voices, {total / 1048576:.1f} MB")
 
 
+def chatterbox_name(key, exaggeration, cfg):
+    return f"{key}@{exaggeration}/{cfg}"
+
+
+def chatterbox_jobs(exaggeration, cfg):
+    """Every clip for a Chatterbox render: each voice's key (its reference clip is <key>.wav), the line's
+    number and text, and the file to write (<key>-<line>.wav, line numbered in lines.json order)."""
+    lines = load_lines()
+    jobs = [{"key": v["key"], "line": i, "text": l["text"], "file": f"{v['key']}-{i:03}.wav"}
+            for v in load_cast() for i, l in enumerate(lines)]
+    out = CACHE / "chatterbox-jobs.json"
+    CACHE.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps({"exaggeration": float(exaggeration), "cfg_weight": float(cfg), "jobs": jobs}, indent=1), encoding="utf-8")
+    print(f"{len(jobs)} clips ({len(load_cast())} voices x {len(lines)} lines) -> {out}")
+
+
+def import_clips(folder, exaggeration, cfg):
+    """Take rendered Chatterbox clips (<key>-<line>.wav or .mp3) into the cache, and switch every voice
+    that has all its lines to them in cast.json, remembering what it was made with before."""
+    folder = Path(folder)
+    lines = load_lines()
+    data = json.loads((HERE / "cast.json").read_text(encoding="utf-8"))
+    switched = []
+    for v in data["voices"]:
+        files = []
+        for i in range(len(lines)):
+            found = [p for p in (folder / f"{v['key']}-{i:03}.wav", folder / f"{v['key']}-{i:03}.mp3") if p.exists()]
+            files.append(found[0] if found else None)
+        if not all(files):
+            print(f"{v['key']}: {sum(1 for f in files if not f)} of {len(lines)} clips missing; left as it is")
+            continue
+        target = {**v, "engine": "chatterbox", "voice": chatterbox_name(v["key"], exaggeration, cfg)}
+        for f, line in zip(files, lines):
+            dst = clip_path(target, line["text"])
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            subprocess.run(["ffmpeg", "-v", "error", "-y", "-i", str(f), "-ac", "1", "-ar", "24000", str(dst)], check=True)
+        v.setdefault("source", {"engine": v["engine"], "voice": v["voice"]})
+        v["engine"], v["voice"] = target["engine"], target["voice"]
+        switched.append(v["key"])
+    (HERE / "cast.json").write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    print(f"switched to Chatterbox: {', '.join(switched) or 'none'}; now run pack")
+
+
 if __name__ == "__main__":
-    {"plan": plan, "piper": piper, "pack": pack}[sys.argv[1] if len(sys.argv) > 1 else "plan"]()
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "plan"
+    if cmd == "chatterbox-jobs":
+        chatterbox_jobs(*sys.argv[2:4])
+    elif cmd == "import":
+        import_clips(*sys.argv[2:5])
+    else:
+        {"plan": plan, "piper": piper, "pack": pack}[cmd]()
