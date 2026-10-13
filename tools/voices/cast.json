@@ -1,0 +1,24 @@
+{
+  "_about": "The commentary voices, picked by ear on the casting pages. Each match deals its players different voices from this list at random. engine: 'kokoro' speaks through LocalAI's text to speech (the voice's own language, English here); 'kokoro-accent' is a Kokoro voice for another language reading English, through KokoroSharp directly; 'piper' is a speaker from Piper's VCTK model.",
+  "voices": [
+    { "key": "bella", "engine": "kokoro", "voice": "af_bella", "name": "Bella", "accent": "American", "gender": "female" },
+    { "key": "adam", "engine": "kokoro", "voice": "am_adam", "name": "Adam", "accent": "American", "gender": "male" },
+    { "key": "fenrir", "engine": "kokoro", "voice": "am_fenrir", "name": "Fenrir", "accent": "American", "gender": "male" },
+    { "key": "michael", "engine": "kokoro", "voice": "am_michael", "name": "Michael", "accent": "American", "gender": "male" },
+    { "key": "puck", "engine": "kokoro", "voice": "am_puck", "name": "Puck", "accent": "American", "gender": "male" },
+    { "key": "santa", "engine": "kokoro", "voice": "am_santa", "name": "Santa", "accent": "American", "gender": "male" },
+    { "key": "alice", "engine": "kokoro", "voice": "bf_alice", "name": "Alice", "accent": "British", "gender": "female" },
+    { "key": "daniel", "engine": "kokoro", "voice": "bm_daniel", "name": "Daniel", "accent": "British", "gender": "male" },
+    { "key": "george", "engine": "kokoro", "voice": "bm_george", "name": "George", "accent": "British", "gender": "male" },
+    { "key": "lewis", "engine": "kokoro", "voice": "bm_lewis", "name": "Lewis", "accent": "British", "gender": "male" },
+    { "key": "dora", "engine": "kokoro-accent", "voice": "pf_dora", "name": "Dora", "accent": "Brazilian", "gender": "female" },
+    { "key": "siwis", "engine": "kokoro-accent", "voice": "ff_siwis", "name": "Siwis", "accent": "French", "gender": "female" },
+    { "key": "mitch", "engine": "piper", "voice": "p326", "name": "Mitch", "accent": "Australian", "gender": "male" },
+    { "key": "priya", "engine": "piper", "voice": "p248", "name": "Priya", "accent": "Indian", "gender": "female" },
+    { "key": "rohan", "engine": "piper", "voice": "p376", "name": "Rohan", "accent": "Indian", "gender": "male" },
+    { "key": "aoife", "engine": "piper", "voice": "p288", "name": "Aoife", "accent": "Irish", "gender": "female" },
+    { "key": "morag", "engine": "piper", "voice": "p249", "name": "Morag", "accent": "Scottish", "gender": "female" },
+    { "key": "angus", "engine": "piper", "voice": "p241", "name": "Angus", "accent": "Scottish", "gender": "male" },
+    { "key": "thandi", "engine": "piper", "voice": "p314", "name": "Thandi", "accent": "South African", "gender": "female" }
+  ]
+}

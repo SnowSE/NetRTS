@@ -70,13 +70,28 @@ export class Commentary {
     this.lastScoreTalk = 0;
     this.started = false;
     this.ended = false;
-    this.voiceShift = null;
+    this.cast = null;
   }
 
-  /** Each player's voice: different for every slot, and shuffled between matches. */
+  /**
+   * Each player's voice. The match deals its players different voices from the whole cast at
+   * random; the deal is seeded by the players' ids, so a replay of the match keeps the same voices.
+   */
   voiceOf(slot) {
-    const n = this.data?.voices.length || 16;
-    return (slot + (this.voiceShift ?? 0)) % n;
+    return this.cast ? this.cast[slot % this.cast.length] : slot;
+  }
+
+  deal(players) {
+    const seed = players.map((p) => String(p.playerId ?? p.slot)).sort().join('|');
+    let h = 2166136261;
+    for (const c of seed) h = Math.imul(h ^ c.charCodeAt(0), 16777619) >>> 0;
+    const next = () => { h ^= h << 13; h >>>= 0; h ^= h >>> 17; h ^= h << 5; h >>>= 0; return h / 4294967296; };
+    const deck = this.data.voices.map((_, i) => i);
+    for (let i = deck.length - 1; i > 0; i--) {
+      const j = Math.floor(next() * (i + 1));
+      [deck[i], deck[j]] = [deck[j], deck[i]];
+    }
+    this.cast = deck;
   }
 
   /**
@@ -85,8 +100,8 @@ export class Commentary {
    */
   update(prev, s, later) {
     if (!this.byCat || !s) return;
-    if (this.voiceShift == null && s.players?.length) {
-      this.voiceShift = [...String(s.players[0].playerId ?? '')].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 16;
+    if (!this.cast && s.players?.length) {
+      this.deal(s.players);
       for (const p of s.players) this.audio.preload(this.voiceOf(p.slot));
     }
     const now = s.tick;   // comments are paced in ticks (a second each at normal speed)

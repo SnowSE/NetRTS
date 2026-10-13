@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Renders the Kokoro commentary clips listed in tools/voices/.cache/jobs.json (see voices.py).
+       Not part of NetRts.sln: it needs the LocalAI repository beside this one. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <!-- Microsoft.Extensions.AI's text-to-speech interfaces are still marked experimental. -->
+    <NoWarn>$(NoWarn);MEAI001</NoWarn>
+    <LocalAIRepo Condition="'$(LocalAIRepo)' == ''">$(MSBuildThisFileDirectory)..\..\..\..\LocalAI</LocalAIRepo>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(LocalAIRepo)\src\LocalAI\LocalAI.csproj" />
+  </ItemGroup>
+
+</Project>
