@@ -16,6 +16,7 @@ import { Effects } from './effects.js';
 import { CameraRig } from './camera.js';
 import { clamp } from './noise.js';
 import { hqName } from '../lore.js';
+import { Commentary } from './commentary.js';
 
 /** Bright, colour-blind-friendly player colours (the site's dark palette): they read well in daylight. */
 const TEAM = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
@@ -151,7 +152,7 @@ export class View3D {
    * on; nothing animates by itself, the caller sets the clock (setClock), the camera, and calls
    * renderFrame(dt) for each frame.
    */
-  constructor(container, { badger = false, names = () => new Map(), manual = false, canvas = null, labels = true, quality: fixedQuality = null } = {}) {
+  constructor(container, { badger = false, names = () => new Map(), manual = false, canvas = null, labels = true, quality: fixedQuality = null, audio = null } = {}) {
     this.container = container;
     this.badger = badger;
     this.names = names;
@@ -208,6 +209,15 @@ export class View3D {
     this.labels = new CSS2DRenderer();
     this.labels.domElement.className = 'map3d-labels';
     this.labels.domElement.hidden = !labels;
+
+    // Sound (the spectate page's GameAudio): effects placed in the scene, and the players' voices,
+    // with captions of what they say.
+    this.audio = audio;
+    this.captions = document.createElement('div');
+    this.captions.className = 'map3d-captions';
+    this.captions.setAttribute('aria-live', 'polite');
+    container.appendChild(this.captions);
+    this.commentary = audio ? new Commentary(audio, { badger, names, onCaption: (slot, name, text, secs) => this.caption(slot, name, text, secs) }) : null;
     container.appendChild(this.labels.domElement);
 
     this.scene = new THREE.Scene();
@@ -284,6 +294,7 @@ export class View3D {
     this.scene.fog.far = span * 4.6;
     this.effects?.dispose();
     this.effects = new Effects(this.scene, this.terrain);
+    this.effects.onSound = (kind, p) => this.sound(kind, p);
     this.rig?.dispose();
     this.rig = new CameraRig(this.camera, this.renderer.domElement, this.terrain);
     this.rig.onModeChange = (m) => { if (m !== 'follow') this.setFollowed(null); this.onModeChange?.(m); };
@@ -590,6 +601,40 @@ export class View3D {
     }
     this.applyVision();
     this.updateLabels();
+    if (this.commentary) {
+      // A live stream may skip a tick or two; a seek in a replay starts the commentary afresh.
+      const close = prev && s.tick > prev.tick && s.tick - prev.tick <= 5;
+      if (!close && !same) this.commentary.reset();
+      this.commentary.update(close ? prev : null, s, (fn) => this.later(fn));
+    }
+  }
+
+  /**
+   * A sound for something happening at p: only if it's in view, quieter the further away it is, and
+   * panned to where it is on screen.
+   */
+  sound(kind, p, vol = 1) {
+    if (!this.audio?.live) return;
+    const v = this._snd ??= new THREE.Vector3();
+    v.set(p.x, p.y, p.z).project(this.camera);
+    if (v.z > 1 || Math.abs(v.x) > 1.05 || Math.abs(v.y) > 1.05) return;
+    const d = this.camera.position.distanceTo(v.set(p.x, p.y, p.z));
+    const near = 7;   // tiles: anything closer plays at full volume
+    this.audio.sfx(kind, vol * Math.pow(near / Math.max(d, near), 1.3), clamp(v.copy(p).project(this.camera).x * 0.75, -1, 1));
+  }
+
+  /** Show who said what, in their colour, for as long as they're talking (and a moment more). */
+  caption(slot, name, text, secs) {
+    if (!this.audio?.settings.captions) return;
+    const line = document.createElement('p');
+    line.className = 'cap';
+    const who = document.createElement('b');
+    who.textContent = `${name}: `;
+    who.style.color = `#${teamOf(slot).getHexString()}`;
+    line.append(who, document.createTextNode(text));
+    this.captions.appendChild(line);
+    while (this.captions.children.length > 3) this.captions.firstChild.remove();
+    setTimeout(() => line.remove(), (secs + 2) * 1000);
   }
 
   anyArcher(list) { return (list || []).some((u) => u.type === 'Archer'); }
@@ -831,6 +876,7 @@ export class View3D {
         if (Math.floor(a.work - 0.72) > (a.lastBlow ?? -1e9)) {
           a.lastBlow = Math.floor(a.work - 0.72);
           const tip = { x: p.x + Math.sin(a.yaw) * 0.22, y: y + 0.02, z: p.z + Math.cos(a.yaw) * 0.22 };
+          this.sound(u.activity === 'Gathering' ? 'mine' : 'hammer', tip, 0.5);
           if (u.activity === 'Gathering') {
             this.effects.dust(tip, 2, [0.58, 0.47, 0.33], 0.35);
             this.effects.spark(tip, 3, this.badger ? [1.6, 1.5, 1.2] : [2.2, 1.7, 0.6]);
@@ -884,7 +930,7 @@ export class View3D {
           } else {
             const at = new THREE.Vector3(p.x, y + 0.25 * this.unitScale, p.z)
               .lerp(new THREE.Vector3(tp.x, this.terrain.heightAt(tp.x, tp.z) + tp.h * 0.5, tp.z), 0.6);
-            if (a.tgt.unit) this.effects.spark(at, 7, undefined, this.unitScale);
+            if (a.tgt.unit) { this.effects.spark(at, 7, undefined, this.unitScale); this.sound('sword', at); }
             else {
               this.effects.chip(at, this.unitScale);
               const rec = this.buildings.get(a.tgt.id);
@@ -1305,6 +1351,7 @@ export class View3D {
   destroy() {
     this.alive = false;
     this.showRange(null);
+    this.captions.remove();
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.rig?.dispose();

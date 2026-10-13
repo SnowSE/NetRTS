@@ -335,3 +335,4 @@ Thumbs.db
 
 # Starter bot API keys
 apikey-*.txt
+tools/voices/.cache/

@@ -79,6 +79,18 @@ export function buildingName(type, owner) {
   return BUILDING_NAME[type] ?? type;
 }
 
+/** What each building is for, for the hover card. */
+export function buildingRole(type) {
+  const ore = say('ore', 'grubs');
+  return {
+    CommandCenter: `Headquarters: trains workers, stores 1,500 ${ore} and takes ${ore} drop-offs. Lose every one and you're out.`,
+    Barracks: say('Trains soldiers, archers and scouts.', 'Housing: trains soldiers, archers and scouts.'),
+    ResourceDepot: `A drop-off point for ${ore} near the diggings; stores 750 more.`,
+    TechLab: say('Researches upgrades: weapons, armor, mobility and harvesting.', 'Classes: researches upgrades for weapons, armor, mobility and harvesting.'),
+    GuardTower: 'Defense: fires at enemies within 5 tiles (10 damage each tick).',
+  }[type] ?? '';
+}
+
 /** Battle-log lines come from the engine in API terms; the Snow theme retells them in badger. */
 export function badgerize(text) {
   if (!SNOW) return String(text ?? '');

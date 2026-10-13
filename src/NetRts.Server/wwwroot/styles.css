@@ -904,6 +904,42 @@ pre.snippet {
   .map-controls #fly { display: none; }   /* free flight needs a keyboard */
 }
 
+/* Sound (3D view): a small panel under the map controls. */
+.sound-panel {
+  position: absolute; top: 58px; right: 14px; z-index: 4; width: min(260px, calc(100% - 28px));
+  display: grid; gap: 4px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: var(--radius-m);
+  background: color-mix(in srgb, var(--panel) 94%, transparent); backdrop-filter: blur(6px);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.28);
+  font-size: 0.88rem;
+}
+.sound-panel[hidden] { display: none; }
+.sound-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 4px; }
+.sound-row output { color: var(--muted); font-variant-numeric: tabular-nums; }
+.sound-mute { justify-content: flex-start; font-weight: 600; }
+.sound-mute + .sound-row { margin-top: 8px; }
+.sound-panel input[type="range"] { width: 100%; accent-color: var(--signal-bg); }
+.sound-note { margin: 6px 0 0; font-size: 0.78rem; }
+@media (max-width: 560px) { .sound-panel { top: 50px; right: 8px; } }
+
+/* What the players say, bottom centre of the 3D view. */
+.map3d-captions {
+  position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 2;
+  width: min(560px, calc(100% - 32px)); display: grid; gap: 4px; justify-items: center;
+  pointer-events: none;
+}
+.map3d-captions .cap {
+  margin: 0; padding: 4px 10px; border-radius: var(--radius-s);
+  background: rgba(10, 16, 20, 0.72); color: #f2f5f4; font-size: 0.9rem; line-height: 1.3; text-align: center;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5);
+  animation: cap-in 220ms ease-out;
+}
+.map3d-captions .cap b { font-weight: 700; }
+@keyframes cap-in { from { opacity: 0; transform: translateY(6px); } }
+@media (prefers-reduced-motion: reduce) { .map3d-captions .cap { animation: none; } }
+
+.tooltip .tt-role { display: block; margin: 2px 0 4px; opacity: 0.8; font-size: 0.8rem; line-height: 1.3; }
+
 /* 3D view */
 .map3d { position: relative; max-width: 100%; background: #9fb3c2; border-radius: var(--radius-s); overflow: hidden; }
 .map3d[hidden] { display: none; }

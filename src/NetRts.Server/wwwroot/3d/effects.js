@@ -170,6 +170,7 @@ export class Effects {
     this.flash = new THREE.PointLight('#ffb070', 0, 9, 1.6);
     scene.add(this.flash);
     this.tmp = new THREE.Object3D();
+    this.onSound = null;         // (kind, position) => void: the 3D view plays a sound for some effects
   }
 
   // ---------------------------------------------------------------- bursts
@@ -185,6 +186,7 @@ export class Effects {
 
   /** A blow landing on a wall: a flash, sparks, and chips of brick and dust thrown back. */
   chip(p, s = 1) {
+    this.onSound?.('chip', p);
     this.spark(p, 10, [2.2, 1.6, 0.8], s * 1.3);
     for (let i = 0; i < 5; i++) {
       this.soft.emit(p.x, p.y, p.z, rand(-1.2, 1.2) * s, rand(0.6, 1.8) * s, rand(-1.2, 1.2) * s,
@@ -203,6 +205,7 @@ export class Effects {
 
   /** A unit falls: a burst in its team colour and a cloud of dust. */
   death(p, teamRGB) {
+    this.onSound?.('death', p);
     for (let i = 0; i < 14; i++) {
       this.glow.emit(p.x, p.y + 0.2, p.z, rand(-1.2, 1.2), rand(0.5, 2.2), rand(-1.2, 1.2),
         { life: rand(0.3, 0.6), size: rand(0.04, 0.08), color: teamRGB, gravity: 5, drag: 1.5 });
@@ -213,6 +216,7 @@ export class Effects {
 
   /** A newly trained unit appears in a column of light. */
   spawn(p, teamRGB) {
+    this.onSound?.('spawn', p);
     this.ring(p, teamRGB, 0.6, 0.6, 0.9);
     for (let i = 0; i < 10; i++) {
       const a = (i / 10) * Math.PI * 2;
@@ -223,6 +227,7 @@ export class Effects {
 
   /** A building is finished: a flash of the seam colour from top to bottom. */
   completed(p, teamRGB, height) {
+    this.onSound?.('complete', p);
     this.ring(p, teamRGB, 1.4, 0.8, 0.7);
     for (let i = 0; i < 24; i++) {
       this.glow.emit(p.x + rand(-0.45, 0.45), p.y + rand(0, height), p.z + rand(-0.45, 0.45), 0, rand(0.2, 0.6), 0,
@@ -232,6 +237,7 @@ export class Effects {
 
   /** A building is destroyed: fireball, debris, shockwave, a smoke column and a scorch mark. */
   explosion(p, teamRGB, big = true) {
+    this.onSound?.(big ? 'explosionBig' : 'explosion', p);
     const s = big ? 1 : 0.55;
     for (let i = 0; i < 70 * s; i++) {
       const a = Math.random() * Math.PI * 2, u = Math.random();
@@ -291,11 +297,13 @@ export class Effects {
   arrow(a, b, flight, s = 1) {
     if (this.arrows.items.length >= this.arrows.max) return;
     const dist = Math.hypot(b.x - a.x, b.z - a.z);
+    this.onSound?.('arrow', a);
     this.arrows.items.push({ a: a.clone(), b: b.clone(), t: 0, flight: Math.max(0.12, flight), arc: 0.15 + dist * 0.12, kind: 'arrow', s });
   }
 
   /** A guard tower fires: a flare at the battlements, then a fireball streaking down on its target. */
   bolt(a, b, flight) {
+    this.onSound?.('tower', a);
     this.glow.emit(a.x, a.y, a.z, 0, 0, 0, { life: 0.22, size: 0.7, color: [2.6, 1.7, 0.8], alpha: 0.9 });
     this.glow.emit(a.x, a.y, a.z, 0, 0, 0, { life: 0.1, size: 0.3, color: [3, 2.8, 2.4] });
     for (let i = 0; i < 12; i++) {
@@ -310,6 +318,7 @@ export class Effects {
 
   /** A tower's fireball lands: a flash, a burst of fire and sparks, a ring of heat and a puff of smoke. */
   blast(p) {
+    this.onSound?.('blast', p);
     this.spark(p, 18, [2.6, 1.5, 0.5], 1.2);
     for (let i = 0; i < 10; i++) {
       this.glow.emit(p.x + rand(-0.08, 0.08), p.y + rand(0, 0.1), p.z + rand(-0.08, 0.08), rand(-0.6, 0.6), rand(0.3, 1.1), rand(-0.6, 0.6),
@@ -361,7 +370,7 @@ export class Effects {
       p.t += dt / p.flight;
       if (p.t >= 1) {
         if (p.kind === 'bolt') this.blast(p.b);
-        else this.spark(p.b, 6);
+        else { this.spark(p.b, 6); this.onSound?.('arrowHit', p.b); }
         continue;
       }
       const x = p.a.x + (p.b.x - p.a.x) * p.t, z = p.a.z + (p.b.z - p.a.z) * p.t;
