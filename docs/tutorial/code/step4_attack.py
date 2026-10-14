@@ -130,12 +130,13 @@ def find_build_site(command_center, state):
     return best
 
 
-def enemy_base(state):
-    """Start position of the first opponent still in the game: its Command Center is there."""
+def enemy_base(state, x, y):
+    """Start position of the nearest opponent still in the game: its Command Center is there."""
     me = state["you"]["slot"]
-    for p in state["players"]:
-        if p["slot"] != me and not p["eliminated"]:
-            return p["startPosition"]["x"], p["startPosition"]["y"]
+    rivals = [p for p in state["players"] if p["slot"] != me and not p["eliminated"]]
+    if rivals:
+        p = min(rivals, key=lambda p: distance(x, y, p["startPosition"]["x"], p["startPosition"]["y"]))
+        return p["startPosition"]["x"], p["startPosition"]["y"]
     return state["mapWidth"] // 2, state["mapHeight"] // 2
 
 
@@ -213,7 +214,7 @@ def decide(state):
             commands.append({"type": "Attack", "unitIds": ids, "targetId": target["id"]})
         else:
             # Attack-move: walk to the enemy base, fighting anything seen on the way.
-            x, y = enemy_base(state)
+            x, y = enemy_base(state, idle_soldiers[0]["x"], idle_soldiers[0]["y"])
             commands.append({"type": "Attack", "unitIds": ids, "x": x, "y": y})
 
     return commands

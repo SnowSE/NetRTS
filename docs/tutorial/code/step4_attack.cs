@@ -148,16 +148,16 @@ static int Distance(int ax, int ay, int bx, int by) => Math.Max(Math.Abs(ax - bx
     return best;
 }
 
-// Start position of the first opponent still in the game: its Command Center is there.
-(int X, int Y) EnemyBase(GameState state)
+// Start position of the nearest opponent still in the game: its Command Center is there.
+(int X, int Y) EnemyBase(GameState state, int fromX, int fromY)
 {
     int me = state.You.Slot;
-    foreach (var p in state.Players)
-    {
-        if (p.Slot != me && !p.Eliminated)
-            return (p.StartPosition.X, p.StartPosition.Y);
-    }
-    return (state.MapWidth / 2, state.MapHeight / 2);
+    var rival = state.Players
+        .Where(p => p.Slot != me && !p.Eliminated)
+        .MinBy(p => Distance(fromX, fromY, p.StartPosition.X, p.StartPosition.Y));
+    return rival is null
+        ? (state.MapWidth / 2, state.MapHeight / 2)
+        : (rival.StartPosition.X, rival.StartPosition.Y);
 }
 
 // Look at this tick's state and return a list of commands to send.
@@ -255,7 +255,7 @@ List<Command> Decide(GameState state)
         else
         {
             // Attack-move: walk to the enemy base, fighting anything seen on the way.
-            var (x, y) = EnemyBase(state);
+            var (x, y) = EnemyBase(state, idleSoldiers[0].X, idleSoldiers[0].Y);
             commands.Add(new Command("Attack", UnitIds: ids, X: x, Y: y));
         }
     }

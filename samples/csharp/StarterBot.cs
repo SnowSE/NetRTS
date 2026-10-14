@@ -164,8 +164,16 @@ object TrainSoldier(State s, int ore)
 // 5. Once we have 5 soldiers, send every idle soldier to attack the enemy's starting corner.
 object Attack(State s)
 {
-    var enemy = s.Players.FirstOrDefault(p => p.Slot != s.You.Slot && !p.Eliminated);
-    if (MyUnits(s, "Soldier").Count < 5 || enemy == null)
+    var soldiers = MyUnits(s, "Soldier");
+    if (soldiers.Count < 5)
+    {
+        return null;
+    }
+
+    var enemy = s.Players
+        .Where(p => p.Slot != s.You.Slot && !p.Eliminated)
+        .MinBy(p => Math.Max(Math.Abs(p.StartPosition.X - soldiers[0].X), Math.Abs(p.StartPosition.Y - soldiers[0].Y)));
+    if (enemy == null)
     {
         return null;
     }

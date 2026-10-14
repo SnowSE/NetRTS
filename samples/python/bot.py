@@ -137,16 +137,16 @@ class Bot:
                     target = min(enemies, key=lambda e: dist(sx, sy, e["x"], e["y"]))
                     commands.append({"type": "Attack", "unitIds": idle, "targetId": target["id"]})
                 else:  # attack-move toward the enemy base (engages anything seen on the way)
-                    tx, ty = self.enemy_base(s)
+                    tx, ty = self.enemy_base(s, soldiers[0]["x"], soldiers[0]["y"])
                     commands.append({"type": "Attack", "unitIds": idle, "x": tx, "y": ty})
         return commands
 
-    def enemy_base(self, s):
-        """Start position of the first opponent still in the game."""
+    def enemy_base(self, s, x, y):
         me = s["you"]["slot"]
-        for p in s["players"]:
-            if p["slot"] != me and not p["eliminated"]:
-                return p["startPosition"]["x"], p["startPosition"]["y"]
+        rivals = [p for p in s["players"] if p["slot"] != me and not p["eliminated"]]
+        if rivals:
+            p = min(rivals, key=lambda p: dist(x, y, p["startPosition"]["x"], p["startPosition"]["y"]))
+            return p["startPosition"]["x"], p["startPosition"]["y"]
         return s["mapWidth"] // 2, s["mapHeight"] // 2
 
     def find_site(self, cc, s):

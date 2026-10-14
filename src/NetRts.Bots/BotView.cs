@@ -45,9 +45,10 @@ public sealed class BotView
     public bool IsOpen(int x, int y) =>
         x >= 0 && y >= 0 && x < Map.Width && y < Map.Height && Map.Terrain[y][x] == '.' && !_blocked.Contains((x, y));
 
-    /// <summary>Where the opposing bases started; the first one still in the game.</summary>
-    public PositionDto? EnemyStart() =>
-        State.Players.Where(p => p.Slot != State.You.Slot && !p.Eliminated).Select(p => p.StartPosition).FirstOrDefault();
+    public PositionDto? EnemyStart(int fromX, int fromY) =>
+        State.Players.Where(p => p.Slot != State.You.Slot && !p.Eliminated)
+            .OrderBy(p => PlanBot.Dist(p.StartPosition.X, p.StartPosition.Y, fromX, fromY)).ThenBy(p => p.Slot)
+            .Select(p => p.StartPosition).FirstOrDefault();
 
     /// <summary>Nearest visible enemy building, else the enemy's starting base.</summary>
     public (int X, int Y)? AttackTarget()
@@ -59,7 +60,7 @@ public sealed class BotView
             return (building.X, building.Y);
         }
 
-        return EnemyStart() is { } start ? (start.X, start.Y) : null;
+        return EnemyStart(cc.X, cc.Y) is { } start ? (start.X, start.Y) : null;
     }
 
     /// <summary>Where the army waits: a few tiles from the Command Center toward the map centre.</summary>
@@ -141,7 +142,7 @@ public sealed class BotView
                     : ((int)Math.Round(ore.Average(r => r.X)), (int)Math.Round(ore.Average(r => r.Y)));
             }
 
-            case SitePreference.TowardEnemy when EnemyStart() is { } enemy:
+            case SitePreference.TowardEnemy when EnemyStart(cc.X, cc.Y) is { } enemy:
             {
                 var dx = Math.Sign(enemy.X - cc.X);
                 var dy = Math.Sign(enemy.Y - cc.Y);
