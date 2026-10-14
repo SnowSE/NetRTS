@@ -14,10 +14,6 @@
   <sub><a href="https://youtu.be/sVGlA3aRt90">Watch the longer introduction</a> · 2:00, on YouTube</sub>
 </p>
 
-<p align="center">
-  <img src="docs/images/battle.gif" width="520" alt="An 825-tick brawl replayed at speed: the orange Grub Hoarder builds up in the top-left, the Blue Badger in the bottom-right, and their teams trade waves across the middle of the valley until orange breaks through.">
-</p>
-
 **Badger Brawl is a real-time strategy game where nobody touches a mouse.** You write a program,
 in any language that speaks HTTP, and it runs a clan of Snow College Badgers: sending workers
 after grubs, moving into the Suites at Academy Square, signing up for Organic Chemistry and Code
