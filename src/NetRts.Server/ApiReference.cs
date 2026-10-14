@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.OpenApi;
 using Microsoft.OpenApi;
+using NetRts.Protocol;
 using NetRts.Server.Auth;
 using Scalar.AspNetCore;
 
@@ -29,6 +30,24 @@ public static class ApiReference
                     BearerFormat = "nrts_…",
                     Description = "Your API key from POST /api/v1/players.",
                 };
+                return Task.CompletedTask;
+            });
+
+            options.AddSchemaTransformer((schema, context, _) =>
+            {
+                var hidden = context.JsonTypeInfo.Type switch
+                {
+                    var t when t == typeof(UnitDto) => "effects",
+                    var t when t == typeof(ReplayCommandDto) => "boosted",
+                    var t when t == typeof(ReplayDto) => "boosts",
+                    _ => null,
+                };
+                if (hidden is not null)
+                {
+                    schema.Properties?.Remove(hidden);
+                    schema.Required?.Remove(hidden);
+                }
+
                 return Task.CompletedTask;
             });
 

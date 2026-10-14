@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using NetRts.Bots;
@@ -13,6 +14,10 @@ namespace NetRts.Server.Endpoints;
 
 public static class MatchEndpoints
 {
+    private const string SerumHeader = "X-SUPERPOWER-SUPERSERUM";
+
+    internal sealed record SerumRequest(string? IfGrenadeThrown);
+
     public static void MapMatchEndpoints(this IEndpointRouteBuilder app)
     {
         var matches = app.MapGroup("/api/v1/matches").WithTags("Matches");
@@ -126,7 +131,7 @@ public static class MatchEndpoints
                 {
                     return host.Map is { } map
                         ? Results.Ok(map)
-                        : ApiErrors.Error(409, "MATCH_NOT_STARTED", "The map is generated when the match starts.");
+                        : NotStarted("The map is generated when the match starts.");
                 }
 
                 // Maps are deterministic, so archived matches can be regenerated from their settings.
@@ -149,12 +154,12 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Your fog-of-war view. Pass waitForTick=N to long-poll until tick N has been simulated.");
 
-        matches.MapPost("/{matchId:guid}/commands", (Guid matchId, SubmitCommandsRequest request, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
+        matches.MapPost("/{matchId:guid}/commands", (Guid matchId, SubmitCommandsRequest request, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, HttpContext http) =>
             {
                 var host = LiveParticipantMatch(manager, HeatOfCaller(matchId, user, leagues), user);
                 if (host.Status == MatchStatus.Waiting)
                 {
-                    return ApiErrors.Error(409, "MATCH_NOT_STARTED", "The match hasn't started yet.");
+                    return NotStarted();
                 }
 
                 if (request.Commands is null || request.Commands.Count == 0)
@@ -162,7 +167,7 @@ public static class MatchEndpoints
                     return ApiErrors.Error(400, "NO_COMMANDS", "Send at least one command.");
                 }
 
-                return Results.Ok(host.Submit(user.PlayerId(), request.Commands));
+                return Results.Ok(host.Submit(user.PlayerId(), request.Commands, http.Request.Headers[SerumHeader].FirstOrDefault()));
             })
             .RequireAuthorization()
             .Produces<SubmitCommandsResponse>()
@@ -182,6 +187,36 @@ public static class MatchEndpoints
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Concede. Your units and buildings are removed. Returns the match, with its outcome if it ended.");
+
+        matches.MapGet("/{matchId:guid}/superpower/superserum", (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
+                Results.Text(LiveParticipantMatch(manager, HeatOfCaller(matchId, user, leagues), user).IssueSerum(user.PlayerId())))
+            .RequireAuthorization()
+            .ExcludeFromDescription();
+
+        matches.MapPost("/{matchId:guid}/superpower/superserum", (Guid matchId, [FromBody] SerumRequest? request, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
+            {
+                var host = LiveParticipantMatch(manager, HeatOfCaller(matchId, user, leagues), user);
+                if (!string.Equals(request?.IfGrenadeThrown?.Trim(), "jump on it", StringComparison.OrdinalIgnoreCase))
+                {
+                    return ApiErrors.Error(400, "INVALID_REQUEST", "Everybody else ran.");
+                }
+
+                if (host.Status == MatchStatus.Waiting)
+                {
+                    return NotStarted();
+                }
+
+                var (outcome, untilTick) = host.TakeSerum(user.PlayerId());
+                return outcome switch
+                {
+                    SerumOutcome.Taken => Results.Ok(new { message = "Not a perfect soldier, but a good man.", untilTick }),
+                    SerumOutcome.NotIssued => ApiErrors.Error(409, "NOT_SELECTED", "Is this a test?"),
+                    SerumOutcome.AlreadyTaken => ApiErrors.Error(410, "SERUM_GONE", "There's no more serum. Erskine took the formula with him."),
+                    _ => ApiErrors.Error(409, "MATCH_NOT_ACTIVE", "The match is not in progress."),
+                };
+            })
+            .RequireAuthorization()
+            .ExcludeFromDescription();
 
         matches.MapGet("/{matchId:guid}/result", async (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
@@ -251,7 +286,7 @@ public static class MatchEndpoints
 
                 return host.GetSpectatorView(sinceTick, fog ?? false) is { } view
                     ? Results.Ok(view)
-                    : ApiErrors.Error(409, "MATCH_NOT_STARTED", "The match hasn't started yet.");
+                    : NotStarted();
             })
             .Produces<SpectatorStateDto>()
             .ProducesErrors()
@@ -354,7 +389,7 @@ public static class MatchEndpoints
             var heat = await leagues.HeatForAsync(league, user.PlayerId(), wait, ct);
             if (heat is null)
             {
-                return ApiErrors.Error(409, "MATCH_NOT_STARTED", "The admin hasn't started the heats yet. Long-poll with waitForTick=0 to wait for it.");
+                return NotStarted("The admin hasn't started the heats yet. Long-poll with waitForTick=0 to wait for it.");
             }
 
             matchId = heat.Id;
@@ -368,7 +403,7 @@ public static class MatchEndpoints
 
         return host.GetPlayerView(user.PlayerId(), sinceTick) is { } view
             ? Results.Ok(view)
-            : ApiErrors.Error(409, "MATCH_NOT_STARTED", "The match hasn't started yet. Long-poll with waitForTick=0 to wait for it.");
+            : NotStarted("The match hasn't started yet. Long-poll with waitForTick=0 to wait for it.");
     }
 
     private static async Task SpectateStream(Guid matchId, bool? fog, MatchManager manager, HttpContext context, CancellationToken ct)
@@ -426,6 +461,10 @@ public static class MatchEndpoints
             .ToListAsync(ct);
         return rows.Select(json => JsonSerializer.Deserialize<MatchSummaryDto>(json, NetRtsClient.JsonOptions)!).ToList();
     }
+
+    /// <summary>409 MATCH_NOT_STARTED, for anything that needs a running match.</summary>
+    private static IResult NotStarted(string message = "The match hasn't started yet.") =>
+        ApiErrors.Error(409, "MATCH_NOT_STARTED", message);
 
     private static Task<MatchRecord?> Archived(NetRtsDb db, Guid matchId, CancellationToken ct) =>
         db.Matches.AsNoTracking().FirstOrDefaultAsync(m => m.Id == matchId, ct);

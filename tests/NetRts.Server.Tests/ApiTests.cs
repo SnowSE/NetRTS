@@ -464,6 +464,97 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
         Assert.Equal("NOT_FOUND", (await missing.ErrorAsync()).Code);
     }
 
+    [Fact]
+    public async Task Every_route_that_needs_a_running_match_says_it_has_not_started()
+    {
+        var (client, player) = await factory.NewPlayerAsync();
+        var match = await client.CreateMatchAsync(new CreateMatchRequest(), Ct);
+        var http = Authorized(player);
+
+        var responses = new[]
+        {
+            await http.GetAsync($"/api/v1/matches/{match.MatchId}/map", Ct),
+            await http.GetAsync($"/api/v1/matches/{match.MatchId}/state", Ct),
+            await http.GetAsync($"/api/v1/matches/{match.MatchId}/spectate", Ct),
+            await http.PostAsJsonAsync($"/api/v1/matches/{match.MatchId}/commands",
+                new SubmitCommandsRequest { Commands = [new CommandRequest { Type = CommandType.Stop, Units = "all" }] }, NetRtsClient.JsonOptions, Ct),
+        };
+
+        foreach (var response in responses)
+        {
+            Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
+            Assert.Equal("MATCH_NOT_STARTED", (await response.ErrorAsync()).Code);
+        }
+    }
+
+    [Fact]
+    public async Task The_serum_is_issued_once_taken_once_and_boosts_commands_that_carry_it()
+    {
+        var (client, player) = await factory.NewPlayerAsync();
+        var match = await client.CreateMatchAsync(new CreateMatchRequest { HouseBots = ["sitter"] }, Ct);
+        var http = Authorized(player);
+        var url = $"/api/v1/matches/{match.MatchId}/superpower/superserum";
+        var jump = new { ifGrenadeThrown = "Jump on it" };
+
+        var early = await http.PostAsJsonAsync(url, jump, Ct);
+        Assert.Equal(HttpStatusCode.Conflict, early.StatusCode);
+        Assert.Equal("Is this a test?", (await early.ErrorAsync()).Message);
+
+        var key = await http.GetStringAsync(url, Ct);
+        Assert.Equal(32, key.Length);
+        Assert.Equal(key, await http.GetStringAsync(url, Ct));
+
+        var ran = await http.PostAsJsonAsync(url, new { ifGrenadeThrown = "run" }, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, ran.StatusCode);
+        Assert.Equal("Everybody else ran.", (await ran.ErrorAsync()).Message);
+
+        var taken = await http.PostAsJsonAsync(url, jump, Ct);
+        Assert.Equal(HttpStatusCode.OK, taken.StatusCode);
+        Assert.Contains("\"untilTick\":30", await taken.Content.ReadAsStringAsync(Ct));
+        Assert.Equal(HttpStatusCode.Gone, (await http.PostAsJsonAsync(url, jump, Ct)).StatusCode);
+
+        foreach (var serum in new[] { key, "not-the-key", null })
+        {
+            using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/matches/{match.MatchId}/commands")
+            {
+                Content = JsonContent.Create(new SubmitCommandsRequest { Commands = [new CommandRequest { Type = CommandType.Stop, Units = "all" }] }, options: NetRtsClient.JsonOptions),
+            };
+            if (serum is not null)
+            {
+                request.Headers.Add("X-SUPERPOWER-SUPERSERUM", serum);
+            }
+
+            Assert.Equal(HttpStatusCode.OK, (await http.SendAsync(request, Ct)).StatusCode);
+        }
+
+        factory.Matches.Get(match.MatchId)!.Advance();
+        await client.SurrenderAsync(match.MatchId, Ct);
+        var replay = (await factory.CreateClient().GetFromJsonAsync<ReplayDto>($"/api/v1/matches/{match.MatchId}/replay", NetRtsClient.JsonOptions, Ct))!;
+        var slot = match.Players.Single(p => p.PlayerId == player.PlayerId).Slot;
+        Assert.Equal([true, false, false], replay.Commands.Where(c => c.Slot == slot).Select(c => c.Boosted));
+        Assert.Equal(0, Assert.Single(replay.Boosts!).Tick);
+    }
+
+    [Fact]
+    public async Task The_api_reference_leaves_out_internal_fields()
+    {
+        var document = await factory.CreateClient().GetStringAsync("/openapi/v1.json", Ct);
+
+        Assert.Contains("\"UnitDto\"", document);
+        Assert.DoesNotContain("superserum", document, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("\"effects\"", document);
+        Assert.DoesNotContain("\"boosted\"", document);
+        Assert.DoesNotContain("\"boosts\"", document);
+        Assert.DoesNotContain("Boost", document);
+    }
+
+    private HttpClient Authorized(RegisterPlayerResponse player)
+    {
+        var http = factory.CreateClient();
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", player.ApiKey);
+        return http;
+    }
+
     private static async Task<T> WaitFor<T>(Func<Task<T>> fetch, Func<T, bool> done)
     {
         for (var i = 0; i < 50; i++)
