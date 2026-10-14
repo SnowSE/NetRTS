@@ -31,6 +31,7 @@ const QUALITY = {
 };
 const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(215));
 const NO_CUT = 99;
+const SHIELD_BLUE = new THREE.Color('#2f6bff');
 const TOWER_RANGE = 5;   // GameRules: guard towers reach 5 tiles in every direction, diagonals included
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smooth = (t) => t * t * (3 - 2 * t);
@@ -329,6 +330,7 @@ export class View3D {
     for (const [type, def] of Object.entries(this.models.units)) L['u' + type] = new Instances(this.scene, def.geo, this.mat, this.depthMat, 64);
     L.deposit = new Instances(this.scene, this.models.deposit, this.mat, this.depthMat, 32);
     L.nugget = new Instances(this.scene, this.models.nugget, this.mat, this.depthMat, 32);
+    L.shield = new Instances(this.scene, this.models.shield, this.mat, this.depthMat, 16);
     L.scaffold = new Instances(this.scene, this.models.scaffold, this.mat, this.depthMat, 8);
     for (const k of ['nugget', 'deposit']) L[k].mesh.castShadow = k === 'deposit';
     this.layers = L;
@@ -792,6 +794,7 @@ export class View3D {
     const L = this.layers;
     for (const type of Object.keys(this.models.units)) L['u' + type].begin();
     L.nugget.begin();
+    L.shield.begin();
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), v = new THREE.Vector3(), sc = new THREE.Vector3();
     const ringCol = new THREE.Color();
     let ri = 0;
@@ -971,7 +974,8 @@ export class View3D {
       }
       const flash = Math.max(0, 1 - Math.abs(now - a.hitT) / 160);
       const born = a.bornT === -Infinity ? 1 : Math.min(1, (rt - a.bornT) / 350);
-      const s = (this.models.units[u.type].scale || 1) * a.scale * this.unitScale * (0.4 + 0.6 * born);
+      const serum = u.effects?.includes('serum');
+      const s = (this.models.units[u.type].scale || 1) * a.scale * this.unitScale * (0.4 + 0.6 * born) * (serum ? 1.5 : 1);
       const yaw = a.yaw + look;
       v.set(p.x + Math.sin(yaw) * fwd + Math.cos(yaw) * side + (p.kx || 0), y, p.z + Math.cos(yaw) * fwd - Math.sin(yaw) * side + (p.kz || 0));
       e.set(pitch, yaw, roll);
@@ -995,6 +999,7 @@ export class View3D {
         a.walk = (a.walk ?? a.id) + dt * rate;
         L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm], draw);
       }
+      if (serum) L.shield.push(m, teamOf(u.owner), flash);
       if (carrying) {
         const back = 0.11 * s;
         const bob = moving ? Math.abs(Math.sin(a.walk ?? 0)) * 0.015 : 0;
@@ -1004,11 +1009,11 @@ export class View3D {
       }
       if (ri < this.rings.instanceMatrix.count) {
         // Highlighted units (promo call-outs) get a bright, pulsing ring.
-        const hl = this.highlight?.has(a.id);
+        const hl = this.highlight?.has(a.id) || serum;
         const rs = hl ? s * (1.3 + Math.sin(now * 0.008) * 0.15) : s;
         m.compose(v.set(p.x, this.terrain.heightAt(p.x, p.z) + 0.02, p.z), q.identity(), sc.set(rs, 1, rs));
         this.rings.setMatrixAt(ri, m);
-        this.rings.setColorAt(ri, ringCol.copy(teamOf(u.owner)).multiplyScalar(hl ? 1.8 : 1));
+        this.rings.setColorAt(ri, (serum ? ringCol.copy(SHIELD_BLUE) : ringCol.copy(teamOf(u.owner))).multiplyScalar(hl ? 1.8 : 1));
         ri++;
       }
       if (u.hp < u.maxHp && bars.n < bars.cap) {
@@ -1035,6 +1040,7 @@ export class View3D {
     }
     for (const type of Object.keys(this.models.units)) L['u' + type].end();
     L.nugget.end();
+    L.shield.end();
     this.rings.count = ri;
     this.rings.instanceMatrix.needsUpdate = true;
     if (this.rings.instanceColor) this.rings.instanceColor.needsUpdate = true;

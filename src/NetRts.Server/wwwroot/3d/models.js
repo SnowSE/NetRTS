@@ -83,6 +83,24 @@ function soldier(badger) {
   return b.build();
 }
 
+/** A round shield worn over a soldier's own (same place on the left arm): rings, a blue centre and a star. */
+function roundShield() {
+  const b = new Builder();
+  const disc = (r, z, colour) => b.add(cyl(r, r, 0.006, 20), colour, { glow: 0.2, at: [-0.14, 0.2, z], rot: [Math.PI / 2, 0, 0] });
+  disc(0.13, 0.058, col('#c8102e'));
+  disc(0.102, 0.062, col('#f5f5f5'));
+  disc(0.077, 0.066, col('#c8102e'));
+  disc(0.052, 0.07, col('#1f3a93'));
+  const star = new THREE.Shape();
+  for (let i = 0; i < 10; i++) {
+    const r = i % 2 ? 0.019 : 0.046, t = Math.PI / 2 + (i * Math.PI) / 5;
+    if (i) star.lineTo(Math.cos(t) * r, Math.sin(t) * r);
+    else star.moveTo(Math.cos(t) * r, Math.sin(t) * r);
+  }
+  b.add(new THREE.ShapeGeometry(star), col('#f5f5f5'), { glow: 0.3, at: [-0.14, 0.2, 0.074] });
+  return b.build();
+}
+
 function archer(badger) {
   const b = new Builder();
   body(b);
@@ -427,6 +445,7 @@ export function buildModels(badger) {
     },
     deposit: badger ? grubMound() : oreCluster(),
     nugget: nugget(badger),
+    shield: roundShield(),
     scaffold: scaffold(),
   };
 }

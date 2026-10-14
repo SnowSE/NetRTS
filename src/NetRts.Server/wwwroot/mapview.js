@@ -554,7 +554,7 @@ export class MapView {
     const inset = Math.max(1, Math.round(T * 0.06));
     for (const b of s.buildings) {
       if (!inView(b.x, b.y)) continue;
-      const col = this.colours[b.owner % this.colours.length];
+      const col = this.teamColour(b.owner);
       const x = b.x * T + inset, y = b.y * T + inset, w = T - inset * 2;
       if (b.completed) {
         g.fillStyle = col;
@@ -682,7 +682,7 @@ export class MapView {
       const t = pos.get(u.targetId) || targets.get(u.targetId);
       if (!t) continue;
       const p = pos.get(u.id);
-      g.strokeStyle = this.colours[u.owner % this.colours.length];
+      g.strokeStyle = this.teamColour(u.owner);
       g.globalAlpha = 0.7;
       if (T >= DETAIL) g.setLineDash([T / 6, T / 8]);
       g.beginPath();
@@ -699,8 +699,17 @@ export class MapView {
       const cx = p.x * T, cy = p.y * T;
       const stacked = u._scale || 1;
       const r = T * 0.34 * (T >= DETAIL && stacked < 1 ? Math.min(1, stacked * 1.15) : stacked);
-      const col = this.colours[u.owner % this.colours.length];
+      const col = this.teamColour(u.owner);
       const detailed = r * 2 >= DETAIL * 0.62;
+      if (u.effects?.includes('serum')) {
+        // A thick round shield behind the unit: red, white, red, then a blue centre.
+        for (const [k, c] of [[1.95, '#c8102e'], [1.7, '#f5f5f5'], [1.47, '#c8102e'], [1.26, '#1f3a93']]) {
+          g.fillStyle = c;
+          g.beginPath();
+          g.arc(cx, cy, r * k, 0, Math.PI * 2);
+          g.fill();
+        }
+      }
       g.fillStyle = col;
       g.strokeStyle = this.theme.outline;
       g.lineWidth = r < 3 ? 0.6 : Math.max(1, Math.min(3, r / (detailed ? 7 : 4)));
@@ -725,6 +734,12 @@ export class MapView {
       if (u.hp < u.maxHp) this.hpBar(g, cx - T / 2, cy - r - T * 0.32 + T * 0.1, T, u.hp / u.maxHp, u._scale);
       if (T * (u._scale || 1) >= LABELS) this.label(g, `#${u.id}`, cx, cy + r * 1.2 + 2, T * (u._scale || 1));
     }
+  }
+
+  /** A player's colour by slot; the palette repeats past its length. */
+  teamColour(slot) {
+    const n = this.colours.length;
+    return this.colours[((slot % n) + n) % n];
   }
 
   hpBar(g, x, y, T, frac, scale = 1) {
