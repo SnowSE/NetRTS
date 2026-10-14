@@ -177,4 +177,65 @@ public class EconomyAndBuildingTests
         Assert.Contains(UpgradeType.Weapons1, sim.GetPlayerView(0).You.Upgrades);
         sim.SubmitOne(0, new CommandRequest { Type = CommandType.Research, BuildingId = lab, Upgrade = UpgradeType.Weapons2 }).AssertAccepted();
     }
+
+    [Fact]
+    public void New_units_appear_next_to_the_building_that_trained_them()
+    {
+        var sim = TestGames.New();
+        sim.ClearArmies();
+
+        var worker = TrainWorker(sim);
+
+        Assert.Equal(1, Chebyshev(sim.Find(worker)!.Value, 7, 7));
+    }
+
+    [Fact]
+    public void New_units_take_the_next_ring_out_when_the_nearest_is_full()
+    {
+        var sim = TestGames.New();
+        sim.ClearArmies();
+        FillRings(sim, 1);
+
+        var worker = TrainWorker(sim);
+
+        Assert.Equal(2, Chebyshev(sim.Find(worker)!.Value, 7, 7));
+    }
+
+    [Fact]
+    public void New_units_stack_beside_the_building_when_every_nearby_tile_is_taken()
+    {
+        var sim = TestGames.New();
+        sim.ClearArmies();
+        FillRings(sim, 8);
+
+        var worker = TrainWorker(sim);
+
+        Assert.Equal(1, Chebyshev(sim.Find(worker)!.Value, 7, 7));
+    }
+
+    /// <summary>Trains one worker at slot 0's Command Center, at (7,7), and returns its id.</summary>
+    private static int TrainWorker(GameSimulation sim)
+    {
+        var before = sim.UnitIds(0, UnitType.Worker).ToHashSet();
+        sim.SubmitOne(0, new CommandRequest { Type = CommandType.Produce, BuildingId = sim.CommandCenterId(0), UnitType = UnitType.Worker }).AssertAccepted();
+        sim.Run(GameRules.Units[UnitType.Worker].BuildTicks + 1);
+        return Assert.Single(sim.UnitIds(0, UnitType.Worker).Where(id => !before.Contains(id)));
+    }
+
+    /// <summary>Puts a soldier on every tile within <paramref name="radius"/> of (7,7).</summary>
+    private static void FillRings(GameSimulation sim, int radius)
+    {
+        for (var y = Math.Max(0, 7 - radius); y <= 7 + radius; y++)
+        {
+            for (var x = Math.Max(0, 7 - radius); x <= 7 + radius; x++)
+            {
+                if ((x, y) != (7, 7))
+                {
+                    sim.SpawnUnit(0, UnitType.Soldier, x, y);
+                }
+            }
+        }
+    }
+
+    private static int Chebyshev((int X, int Y, int Hp) at, int x, int y) => Math.Max(Math.Abs(at.X - x), Math.Abs(at.Y - y));
 }

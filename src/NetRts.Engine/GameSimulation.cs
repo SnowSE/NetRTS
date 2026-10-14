@@ -281,43 +281,42 @@ public sealed partial class GameSimulation
     /// <summary>Nearest open tile around <paramref name="center"/>, searched ring by ring in a fixed order.</summary>
     private Point? FindFreeTileNear(Point center, int maxRadius = 8)
     {
-        for (var r = 1; r <= maxRadius; r++)
+        foreach (var p in RingTiles(center, maxRadius))
         {
-            for (var dy = -r; dy <= r; dy++)
+            if (Passable(p) && !_units.Any(u => u.Position == p))
             {
-                for (var dx = -r; dx <= r; dx++)
-                {
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) != r)
-                    {
-                        continue;
-                    }
-
-                    var p = new Point(center.X + dx, center.Y + dy);
-                    if (Passable(p) && !_units.Any(u => u.Position == p))
-                    {
-                        return p;
-                    }
-                }
+                return p;
             }
         }
 
         // Every nearby tile has a unit on it; stacking is allowed, so settle for any open tile.
+        foreach (var p in RingTiles(center, maxRadius))
+        {
+            if (Passable(p))
+            {
+                return p;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The tiles at Chebyshev distance 1, then 2, ... up to <paramref name="maxRadius"/>, row by row within each ring.</summary>
+    private static IEnumerable<Point> RingTiles(Point center, int maxRadius)
+    {
         for (var r = 1; r <= maxRadius; r++)
         {
             for (var dy = -r; dy <= r; dy++)
             {
                 for (var dx = -r; dx <= r; dx++)
                 {
-                    var p = new Point(center.X + dx, center.Y + dy);
-                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r && Passable(p))
+                    if (Math.Max(Math.Abs(dx), Math.Abs(dy)) == r)
                     {
-                        return p;
+                        yield return new Point(center.X + dx, center.Y + dy);
                     }
                 }
             }
         }
-
-        return null;
     }
 
     private int StorageCapacity(int slot) =>
