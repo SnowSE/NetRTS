@@ -41,6 +41,25 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.ToTable("data_protection_keys", (string)null);
                 });
 
+            modelBuilder.Entity("NetRts.Server.Data.AccountMilestoneRecord", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Kind")
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime>("ReachedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("AccountId", "Kind");
+
+                    b.HasIndex("Kind", "ReachedAt");
+
+                    b.ToTable("account_milestones", (string)null);
+                });
+
             modelBuilder.Entity("NetRts.Server.Data.AccountRecord", b =>
                 {
                     b.Property<Guid>("Id")
@@ -293,6 +312,15 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.HasIndex("Category", "Season", "Rating");
 
                     b.ToTable("player_stats", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.AccountMilestoneRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.AccountRecord", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("NetRts.Server.Data.MatchFrameChunkRecord", b =>

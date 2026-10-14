@@ -193,7 +193,7 @@ public static class MatchEndpoints
             .RequireAuthorization()
             .ExcludeFromDescription();
 
-        matches.MapPost("/{matchId:guid}/superpower/superserum", (Guid matchId, [FromBody] SerumRequest? request, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues) =>
+        matches.MapPost("/{matchId:guid}/superpower/superserum", async (Guid matchId, [FromBody] SerumRequest? request, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, MatchAnnouncer announcer, CancellationToken ct) =>
             {
                 var host = LiveParticipantMatch(manager, HeatOfCaller(matchId, user, leagues), user);
                 if (!string.Equals(request?.IfGrenadeThrown?.Trim(), "jump on it", StringComparison.OrdinalIgnoreCase))
@@ -207,6 +207,11 @@ public static class MatchEndpoints
                 }
 
                 var (outcome, untilTick) = host.TakeSerum(user.PlayerId());
+                if (outcome == SerumOutcome.Taken && host.Seats.FirstOrDefault(s => s.PlayerId == user.PlayerId()) is { } seat)
+                {
+                    await announcer.SerumTakenAsync(seat, ct);
+                }
+
                 return outcome switch
                 {
                     SerumOutcome.Taken => Results.Ok(new { message = "Not a perfect soldier, but a good man.", untilTick }),

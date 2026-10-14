@@ -66,6 +66,14 @@ public static class Seasons
 }
 
 /// <summary>A player's rating and record in one category of one season; each is its own leaderboard.</summary>
+/// <summary>Something a person has done for the first time, kept so it is only celebrated once.</summary>
+public sealed class AccountMilestoneRecord
+{
+    public Guid AccountId { get; set; }
+    public string Kind { get; set; } = "";
+    public DateTime ReachedAt { get; set; }
+}
+
 public sealed class PlayerStatsRecord
 {
     public Guid PlayerId { get; set; }
@@ -156,6 +164,7 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
     public DbSet<PlayerStatsRecord> PlayerStats => Set<PlayerStatsRecord>();
     public DbSet<MatchFramesRecord> MatchFrames => Set<MatchFramesRecord>();
     public DbSet<MatchFrameChunkRecord> MatchFrameChunks => Set<MatchFrameChunkRecord>();
+    public DbSet<AccountMilestoneRecord> AccountMilestones => Set<AccountMilestoneRecord>();
 
     /// <summary>Keys for sign-in cookies, kept in the database so a restart or redeploy doesn't sign everyone out.</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -224,6 +233,15 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
             e.ToTable("match_frame_chunks");
             e.HasKey(c => new { c.MatchId, c.Index });
             e.HasOne<MatchFramesRecord>().WithMany().HasForeignKey(c => c.MatchId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccountMilestoneRecord>(e =>
+        {
+            e.ToTable("account_milestones");
+            e.HasKey(m => new { m.AccountId, m.Kind });
+            e.Property(m => m.Kind).HasMaxLength(32);
+            e.HasIndex(m => new { m.Kind, m.ReachedAt });
+            e.HasOne<AccountRecord>().WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

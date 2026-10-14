@@ -4,9 +4,11 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Threading.Channels;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 using NetRts.Protocol;
 using NetRts.Server.Auth;
+using NetRts.Server.Data;
 
 namespace NetRts.Server.Matches;
 
@@ -58,7 +60,10 @@ public sealed class MatchAnnouncer(
     private readonly Channel<JsonObject> _outbox = Channel.CreateBounded<JsonObject>(new BoundedChannelOptions(200) { FullMode = BoundedChannelFullMode.DropOldest });
     private readonly List<MatchSummaryDto> _digest = [];
     private readonly HashSet<Guid> _announcedLeagues = [];
+    private const string SerumMilestone = "serum";
+
     private readonly object _gate = new();
+    private readonly SemaphoreSlim _milestoneGate = new(1, 1);
 
     public bool Enabled => !string.IsNullOrWhiteSpace(discord.Value.ResultsWebhookUrl);
 
@@ -142,14 +147,54 @@ public sealed class MatchAnnouncer(
         }
     }
 
-    private void Post(JsonObject embed)
+    /// <summary>
+    /// The first person to take the serum unlocks super soldiers for everyone to hear about; the next
+    /// three are mentioned too. Each Discord account counts once.
+    /// </summary>
+    public async Task SerumTakenAsync(Seat seat, CancellationToken ct)
     {
-        var message = new JsonObject
+        if (!Enabled || !seat.Verified || seat.OwnerAccountId is not { } accountId)
         {
-            ["embeds"] = new JsonArray(embed),
-            // Names are shown as text; never ping anyone.
-            ["allowed_mentions"] = new JsonObject { ["parse"] = new JsonArray() },
-        };
+            return;
+        }
+
+        await _milestoneGate.WaitAsync(ct);
+        try
+        {
+            await using var scope = services.CreateAsyncScope();
+            var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
+            if (await db.AccountMilestones.AnyAsync(m => m.AccountId == accountId && m.Kind == SerumMilestone, ct))
+            {
+                return;
+            }
+
+            var before = await db.AccountMilestones.CountAsync(m => m.Kind == SerumMilestone, ct);
+            if (before >= 4)
+            {
+                return;
+            }
+
+            db.AccountMilestones.Add(new AccountMilestoneRecord { AccountId = accountId, Kind = SerumMilestone, ReachedAt = time.GetUtcNow().UtcDateTime });
+            await db.SaveChangesAsync(ct);
+            var who = $"**{Escape(seat.OwnerName ?? seat.Name)}**";
+            Send(new JsonObject { ["content"] = before == 0 ? $"{who} unlocked super soldiers!" : $"{who} has super soldiers now too!" });
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not record a milestone");
+        }
+        finally
+        {
+            _milestoneGate.Release();
+        }
+    }
+
+    private void Post(JsonObject embed) => Send(new JsonObject { ["embeds"] = new JsonArray(embed) });
+
+    private void Send(JsonObject message)
+    {
+        // Names are shown as text; never ping anyone.
+        message["allowed_mentions"] = new JsonObject { ["parse"] = new JsonArray() };
         _outbox.Writer.TryWrite(message);
     }
 
@@ -248,13 +293,7 @@ public sealed class MatchAnnouncer(
         {
             ["title"] = title,
             ["description"] = description,
-            ["color"] = category switch
-            {
-                MatchCategory.Season => 0x1A73C9,
-                MatchCategory.Championship => 0xE69F00,
-                MatchCategory.Preseason => 0x0F6B4F,
-                _ => 0x5865F2,
-            },
+            ["color"] = CategoryColour(category),
         };
         if (url is not null)
         {
@@ -268,6 +307,15 @@ public sealed class MatchAnnouncer(
 
         return embed;
     }
+
+    /// <summary>The embed's side stripe: blue for season, gold for championship, green for preseason, Discord blurple for practice.</summary>
+    private static int CategoryColour(MatchCategory category) => category switch
+    {
+        MatchCategory.Season => 0x1A73C9,
+        MatchCategory.Championship => 0xE69F00,
+        MatchCategory.Preseason => 0x0F6B4F,
+        _ => 0x5865F2,
+    };
 
     /// <summary>A link into the website, or null when the public address isn't configured.</summary>
     private string? Link(string fragment) =>

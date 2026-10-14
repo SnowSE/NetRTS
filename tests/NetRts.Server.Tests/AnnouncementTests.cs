@@ -128,11 +128,79 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         Assert.Single(Embeds(), e => e["url"]?.GetValue<string>() == leagueUrl);
     }
 
+    [Fact]
+    public async Task Owner_names_are_escaped_so_discord_shows_them_as_typed()
+    {
+        var (winner, winnerName) = await VerifiedBotAsync("*Star*_Lord");
+        var (loser, _) = await VerifiedBotAsync("[Groot](x)");
+        var match = await winner.CreateMatchAsync(new CreateMatchRequest(), Ct);
+        await loser.JoinMatchAsync(match.MatchId, Ct);
+        factory.Matches.Get(match.MatchId)!.Advance(2);
+        await loser.SurrenderAsync(match.MatchId, Ct);
+
+        var embed = await NextEmbedAsync(e => e["url"]?.GetValue<string>() == $"https://netrts.test/#/match/{match.MatchId}");
+        var description = embed["description"]!.GetValue<string>();
+        Assert.Contains($@"**{winnerName}** ✅ (\*Star\*\_Lord)", description);
+        Assert.Contains(@"(\[Groot\]\(x\))", description);
+    }
+
+    [Fact]
+    public async Task The_first_four_people_to_take_the_serum_are_announced_once_each()
+    {
+        var (unverified, _) = await factory.NewPlayerAsync("anon");
+        await TakeSerumAsync(unverified);
+
+        var first = await VerifiedBotAsync("Steve_Rogers");
+        await TakeSerumAsync(first.Client);
+        await TakeSerumAsync(first.Client);
+        for (var i = 2; i <= 5; i++)
+        {
+            await TakeSerumAsync((await VerifiedBotAsync($"Recruit{i}")).Client);
+        }
+
+        // Messages go out at least 2.1s apart; wait for four, then long enough for a fifth to show up.
+        for (var i = 0; i < 150 && Contents().Count() < 4; i++)
+        {
+            await Task.Delay(100, Ct);
+        }
+
+        await Task.Delay(2500, Ct);
+        Assert.Equal(
+            [@"**Steve\_Rogers** unlocked super soldiers!", "**Recruit2** has super soldiers now too!",
+             "**Recruit3** has super soldiers now too!", "**Recruit4** has super soldiers now too!"],
+            Contents());
+        Assert.All(factory.Webhook.Sent.ToArray().Where(m => m["content"] is not null), m => Assert.Empty(m["allowed_mentions"]!["parse"]!.AsArray()));
+    }
+
+    /// <summary>A bot claimed by a new Discord account with this server nickname.</summary>
+    private async Task<(NetRtsClient Client, string Name)> VerifiedBotAsync(string nickname)
+    {
+        var owner = factory.ClientFor(await factory.NewAccountAsync(nickname: nickname));
+        var reg = await (await owner.PostAsJsonAsync("/api/v1/account/bots", new RegisterPlayerRequest { Name = $"v-{Guid.NewGuid():N}"[..14] }, Ct))
+            .Content.ReadFromJsonAsync<RegisterPlayerResponse>(NetRtsClient.JsonOptions, Ct);
+        return (new NetRtsClient(factory.CreateClient(), reg!.ApiKey), reg.Name);
+    }
+
+    /// <summary>Starts a practice match against a house bot and takes the serum in it.</summary>
+    private async Task TakeSerumAsync(NetRtsClient bot)
+    {
+        var match = await bot.CreateMatchAsync(new CreateMatchRequest { HouseBots = ["sitter"] }, Ct);
+        var http = factory.CreateClient();
+        http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", bot.ApiKey);
+        var url = $"/api/v1/matches/{match.MatchId}/superpower/superserum";
+        (await http.GetAsync(url, Ct)).EnsureSuccessStatusCode();
+        (await http.PostAsJsonAsync(url, new { ifGrenadeThrown = "jump on it" }, Ct)).EnsureSuccessStatusCode();
+    }
+
+    /// <summary>The plain-text messages sent so far.</summary>
+    private IEnumerable<string> Contents() =>
+        factory.Webhook.Sent.ToArray().Select(m => m["content"]?.GetValue<string>()).OfType<string>();
+
     private IEnumerable<JsonObject> Embeds() =>
-        factory.Webhook.Sent.ToArray().SelectMany(m => m["embeds"]!.AsArray().Select(e => e!.AsObject()));
+        factory.Webhook.Sent.ToArray().SelectMany(m => m["embeds"]?.AsArray().Select(e => e!.AsObject()) ?? []);
 
     private JsonObject LastMessageFor(JsonObject embed) =>
-        factory.Webhook.Sent.ToArray().Last(m => m["embeds"]!.AsArray().Any(e => ReferenceEquals(e, embed)));
+        factory.Webhook.Sent.ToArray().Last(m => m["embeds"]?.AsArray().Any(e => ReferenceEquals(e, embed)) == true);
 
     private async Task<JsonObject> NextEmbedAsync(Func<JsonObject, bool> match)
     {
