@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace NetRts.Protocol;
 
 /// <summary>Everything one player is allowed to see this tick (fog of war applied).</summary>
@@ -103,6 +105,10 @@ public sealed record UnitDto
 
     /// <summary>Current destination, if any.</summary>
     public PositionDto? Destination { get; init; }
+
+    /// <summary>Temporary effects on this unit; left out when there are none.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<string>? Effects { get; init; }
 }
 
 public sealed record BuildingDto
@@ -159,8 +165,8 @@ public sealed record GameEventDto
     public int Tick { get; init; }
 
     /// <summary>
-    /// Machine readable kind, e.g. CommandFailed, UnitProduced, UnitLost, UnitKilled, BuildingCompleted,
-    /// BuildingLost, BuildingDestroyed, ResearchCompleted, DepositDepleted, PlayerEliminated.
+    /// Machine readable kind, e.g. CommandFailed, UnitProduced, UnitLost, UnitKilled, BuildingStarted,
+    /// BuildingCompleted, BuildingLost, BuildingDestroyed, ResearchCompleted, DepositDepleted, PlayerEliminated.
     /// </summary>
     public string Kind { get; init; } = "";
 

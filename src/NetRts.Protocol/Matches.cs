@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace NetRts.Protocol;
 
 public sealed record MatchSettingsDto
@@ -181,24 +183,39 @@ public sealed record SpectatorPlayerDto
 public sealed record ReplayDto
 {
     public Guid MatchId { get; init; }
+
+    /// <summary>Map size and seed: the map is generated from these, so it isn't stored.</summary>
     public int MapWidth { get; init; }
+
     public int MapHeight { get; init; }
     public int Seed { get; init; }
     public int MaxTicks { get; init; }
+
+    /// <summary>Player ids by slot.</summary>
     public IReadOnlyList<Guid> Players { get; init; } = [];
 
-    /// <summary>Commands in the exact order they were executed.</summary>
+    /// <summary>Commands in the order they were queued, each with the tick it was queued on.</summary>
     public IReadOnlyList<ReplayCommandDto> Commands { get; init; } = [];
 
     /// <summary>Surrenders, by tick.</summary>
     public IReadOnlyList<ReplaySurrenderDto> Surrenders { get; init; } = [];
 
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public IReadOnlyList<ReplayBoostDto>? Boosts { get; init; }
+
+    /// <summary>How the match ended; null while it is still being played.</summary>
     public MatchOutcomeDto? Outcome { get; init; }
 }
 
-public sealed record ReplayCommandDto(int Tick, int Slot, CommandRequest Command);
+public sealed record ReplayCommandDto(
+    int Tick,
+    int Slot,
+    CommandRequest Command,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)] bool Boosted = false);
 
 public sealed record ReplaySurrenderDto(int Tick, int Slot);
+
+public sealed record ReplayBoostDto(int Tick, int Slot);
 
 /// <summary>
 /// How to play back a finished match frame by frame: what spectators saw on every tick, in chunks of

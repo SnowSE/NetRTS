@@ -146,7 +146,7 @@ public sealed partial class GameSimulation
         return rows;
     }
 
-    private static UnitDto ToDto(UnitEntity u, bool revealOrders) => new()
+    private UnitDto ToDto(UnitEntity u, bool revealOrders) => new()
     {
         Id = u.Id,
         Owner = u.Owner,
@@ -159,6 +159,7 @@ public sealed partial class GameSimulation
         Carrying = u.Carrying,
         TargetId = revealOrders ? u.TargetId : null,
         Destination = revealOrders && u.Destination is { } d ? new PositionDto(d.X, d.Y) : null,
+        Effects = Factor(u) > 1 ? ["serum"] : null,
     };
 
     private static BuildingDto ToDto(BuildingEntity b, bool revealQueues) => new()
