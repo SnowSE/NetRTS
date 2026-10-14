@@ -441,7 +441,7 @@ public static class MatchEndpoints
             return matchId;
         }
 
-        if (user.FindFirstValue(ClaimTypes.NameIdentifier) is not null && Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out var playerId))
+        if (user.TryGetPlayerId(out var playerId))
         {
             if (leagues.StartedHeatOf(league, playerId) is { } heat)
             {

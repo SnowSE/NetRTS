@@ -22,7 +22,11 @@ public static class ApiKeys
         Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(apiKey)));
 
     public static Guid PlayerId(this ClaimsPrincipal user) =>
-        Guid.Parse(user.FindFirstValue(ClaimTypes.NameIdentifier) ?? throw new InvalidOperationException("Not authenticated."));
+        user.TryGetPlayerId(out var id) ? id : throw new InvalidOperationException("Not authenticated.");
+
+    /// <summary>The calling bot's player id, if the request carries an API key.</summary>
+    public static bool TryGetPlayerId(this ClaimsPrincipal user, out Guid playerId) =>
+        Guid.TryParse(user.FindFirstValue(ClaimTypes.NameIdentifier), out playerId);
 
     public static string PlayerName(this ClaimsPrincipal user) => user.FindFirstValue(ClaimTypes.Name) ?? "";
 }
