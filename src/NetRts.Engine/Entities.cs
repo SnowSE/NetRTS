@@ -90,6 +90,7 @@ internal sealed class UnitEntity : Entity
     public int Carrying { get; set; }
     public int Cooldown { get; set; }
     public int MovePoints { get; set; }
+    public int SerumUntilTick { get; set; } = -1;
 
     public List<Point> Path { get; set; } = [];
     public Point? PathGoal { get; set; }

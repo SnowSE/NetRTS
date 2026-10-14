@@ -57,7 +57,7 @@ public sealed partial class GameSimulation
             var target = FindEnemy(tower.Owner, tower.Position, tower.Stats.Range, unitsOnly: true);
             if (target is not null && tower.Cooldown == 0)
             {
-                attacks.Add(new Attack(tower, tower.Owner, target, DamageAgainst(tower.Owner, tower.Stats.Damage, target)));
+                attacks.Add(new Attack(tower, tower.Owner, target, DamageAgainst(tower, target)));
                 tower.Cooldown = tower.Stats.AttackCooldown;
             }
         }
@@ -270,13 +270,18 @@ public sealed partial class GameSimulation
             return;
         }
 
-        attacks.Add(new Attack(unit, unit.Owner, target, DamageAgainst(unit.Owner, unit.Stats.Damage, target)));
+        attacks.Add(new Attack(unit, unit.Owner, target, DamageAgainst(unit, target)));
         unit.Cooldown = unit.Stats.AttackCooldown;
     }
 
-    private int DamageAgainst(int attackerOwner, int baseDamage, Entity target)
+    private int DamageAgainst(Entity attacker, Entity target)
     {
-        var damage = baseDamage + _players[attackerOwner].WeaponsBonus;
+        var damage = attacker switch
+        {
+            UnitEntity u => (u.Stats.Damage + _players[u.Owner].WeaponsBonus) * Factor(u),
+            BuildingEntity b => b.Stats.Damage + _players[b.Owner].WeaponsBonus,
+            _ => 0,
+        };
         var armor = target switch
         {
             UnitEntity u => u.Stats.Armor + _players[u.Owner].ArmorBonus,
@@ -290,36 +295,36 @@ public sealed partial class GameSimulation
     private Entity? FindEnemy(int owner, Point from, int range, bool unitsOnly)
     {
         var visibility = VisibilityFor(owner);
-        Entity? best = _units
-            .Where(u => u.Owner != owner && !u.Dead && from.Chebyshev(u.Position) <= range && IsVisible(visibility, u.Position))
-            .OrderBy(u => from.Chebyshev(u.Position)).ThenBy(u => u.Hp).ThenBy(u => u.Id)
-            .FirstOrDefault();
-
-        if (best is null && !unitsOnly)
-        {
-            best = _buildings
-                .Where(b => b.Owner != owner && !b.Dead && from.Chebyshev(b.Position) <= range && IsVisible(visibility, b.Position))
-                .OrderBy(b => from.Chebyshev(b.Position)).ThenBy(b => b.Hp).ThenBy(b => b.Id)
-                .FirstOrDefault();
-        }
-
-        return best;
+        return ClosestEnemy(owner, from, e => from.Chebyshev(e.Position) <= range && IsVisible(visibility, e.Position), unitsOnly);
     }
 
     /// <summary>Closest enemy inside this unit's own sight radius (used by attack-move).</summary>
     private Entity? FindEnemyInSight(UnitEntity unit)
     {
         var r2 = unit.Stats.Vision * unit.Stats.Vision;
-        Entity? best = _units
-            .Where(u => u.Owner != unit.Owner && !u.Dead && unit.Position.DistanceSquared(u.Position) <= r2)
-            .OrderBy(u => unit.Position.Chebyshev(u.Position)).ThenBy(u => u.Hp).ThenBy(u => u.Id)
-            .FirstOrDefault();
-
-        return best ?? _buildings
-            .Where(b => b.Owner != unit.Owner && !b.Dead && unit.Position.DistanceSquared(b.Position) <= r2)
-            .OrderBy(b => unit.Position.Chebyshev(b.Position)).ThenBy(b => b.Hp).ThenBy(b => b.Id)
-            .FirstOrDefault();
+        return ClosestEnemy(unit.Owner, unit.Position, e => unit.Position.DistanceSquared(e.Position) <= r2, unitsOnly: false);
     }
+
+    /// <summary>
+    /// The living enemy of <paramref name="owner"/> that <paramref name="inReach"/> accepts and is nearest
+    /// <paramref name="from"/>: units before buildings, then the weakest, then the lowest id.
+    /// </summary>
+    private Entity? ClosestEnemy(int owner, Point from, Func<Entity, bool> inReach, bool unitsOnly)
+    {
+        Entity? best = Closest(_units.Where(u => u.Owner != owner && !u.Dead && inReach(u)), from);
+        return best is null && !unitsOnly
+            ? Closest(_buildings.Where(b => b.Owner != owner && !b.Dead && inReach(b)), from)
+            : best;
+    }
+
+    private static T? Closest<T>(IEnumerable<T> candidates, Point from)
+        where T : Entity =>
+        candidates.OrderBy(e => from.Chebyshev(e.Position)).ThenBy(e => e.Hp).ThenBy(e => e.Id).FirstOrDefault();
+
+    /// <summary>Tenths of a tile this unit moves per tick.</summary>
+    private int MoveSpeed(UnitEntity unit) => (unit.Stats.Speed + _players[unit.Owner].MobilityBonus) * Factor(unit);
+
+    private int Factor(UnitEntity unit) => unit.Type == UnitType.Soldier && Tick <= unit.SerumUntilTick ? GameRules.SerumFactor : 1;
 
     private StepResult StepToward(UnitEntity unit, Point goal, int range)
     {
@@ -347,7 +352,7 @@ public sealed partial class GameSimulation
             }
         }
 
-        unit.MovePoints += unit.Stats.Speed + _players[unit.Owner].MobilityBonus;
+        unit.MovePoints += MoveSpeed(unit);
         while (unit.MovePoints >= GameRules.MovePointsPerTile && unit.Path.Count > 0)
         {
             var next = unit.Path[0];

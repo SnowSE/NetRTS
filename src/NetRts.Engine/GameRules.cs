@@ -50,6 +50,9 @@ public static class GameRules
     public const int MobilityBonusPerTier = 2;
     public const int HarvestingBonusPerTier = 1;
 
+    internal const int SerumTicks = 30;
+    internal const int SerumFactor = 2;
+
     public static readonly IReadOnlyDictionary<UnitType, UnitStats> Units = new Dictionary<UnitType, UnitStats>
     {
         [UnitType.Worker] = new(Cost: 50, BuildTicks: 8, MaxHp: 40, Damage: 4, Armor: 0, Range: 1, AttackCooldown: 1, Vision: 5, Speed: 10, ProducedAt: BuildingType.CommandCenter),
