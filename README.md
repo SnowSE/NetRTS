@@ -9,6 +9,12 @@
 </p>
 
 <p align="center">
+  <a href="https://youtu.be/1rjdamOnF88"><img src="src/NetRts.Server/wwwroot/images/trailer-poster.jpg" width="640" alt="Badger Brawl: the trailer. Blue and orange badgers fight at the foot of a red-brick clock tower."></a><br>
+  <a href="https://youtu.be/1rjdamOnF88"><strong>▶ Watch the trailer</strong></a> <sub>· 0:30</sub><br>
+  <sub><a href="https://youtu.be/sVGlA3aRt90">Watch the longer introduction</a> · 2:00, on YouTube</sub>
+</p>
+
+<p align="center">
   <img src="docs/images/battle.gif" width="520" alt="An 825-tick brawl replayed at speed: the orange Grub Hoarder builds up in the top-left, the Blue Badger in the bottom-right, and their teams trade waves across the middle of the valley until orange breaks through.">
 </p>
 
