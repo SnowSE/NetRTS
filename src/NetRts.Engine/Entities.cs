@@ -37,6 +37,9 @@ internal sealed class PlayerState(Guid id, int slot, string name)
     public int BuildingsLost { get; set; }
     public int BuildingsDestroyed { get; set; }
 
+    /// <summary>-1 until taken; then the last tick it lasts.</summary>
+    public int SerumUntilTick { get; set; } = -1;
+
     public int Tier(UpgradeType tier1, UpgradeType tier2) =>
         (Upgrades.Contains(tier1) ? 1 : 0) + (Upgrades.Contains(tier2) ? 1 : 0);
 
@@ -46,7 +49,14 @@ internal sealed class PlayerState(Guid id, int slot, string name)
     public int HarvestingBonus => Tier(UpgradeType.Harvesting1, UpgradeType.Harvesting2) * GameRules.HarvestingBonusPerTier;
 }
 
-internal sealed record QueuedCommand(long Id, CommandRequest Request);
+/// <summary>A command waiting in a player's queue.</summary>
+/// <param name="Id">The id the bot was given, for failure events.</param>
+/// <param name="Request">The command as submitted.</param>
+/// <param name="Recorded">Its entry in the replay, dropped from it again if the queue is cleared.</param>
+internal sealed record QueuedCommand(long Id, CommandRequest Request, ReplayCommandDto Recorded)
+{
+    public bool Boosted => Recorded.Boosted;
+}
 
 internal abstract class Entity(int id, int owner, Point position)
 {

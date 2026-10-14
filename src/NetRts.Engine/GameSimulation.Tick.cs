@@ -83,6 +83,19 @@ public sealed partial class GameSimulation
             }
         }
 
+        foreach (var player in _players)
+        {
+            if (player.SerumUntilTick - GameRules.SerumTicks + 1 == Tick)
+            {
+                Announce(player, "SuperSoldiers", $"Super soldiers activated. {GameRules.SerumTicks} ticks.");
+            }
+
+            if (player.SerumUntilTick == Tick)
+            {
+                Announce(player, "SuperSoldiersEnded", "The serum wore off.");
+            }
+        }
+
         CheckForEnd(MatchEndReason.Elimination);
         _visibility = null;
         UpdateMemories();

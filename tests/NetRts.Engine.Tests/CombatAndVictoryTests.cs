@@ -180,4 +180,107 @@ public class CombatAndVictoryTests
 
         Assert.Equal(seats[0].Id, sim.Outcome!.WinnerId);
     }
+
+    [Fact]
+    public void Boosted_soldiers_hit_twice_as_hard_for_thirty_ticks()
+    {
+        var sim = TestGames.New();
+        var (soldier, target) = Duel(sim, UnitType.Soldier);
+
+        Assert.Equal(GameRules.SerumTicks, sim.Boost(0));
+        sim.Submit(0, [TestGames.AttackTarget(target, soldier)], boosted: true).AssertAccepted();
+        sim.Run(GameRules.SerumTicks);
+        Assert.Equal(1000 - GameRules.SerumTicks * (9 * 2 - 1), sim.Find(target)!.Value.Hp);
+
+        sim.Step();
+        Assert.Equal(1000 - GameRules.SerumTicks * (9 * 2 - 1) - (9 - 1), sim.Find(target)!.Value.Hp);
+        Assert.Contains(sim.GetPlayerView(1, sinceTick: 0).Events, e => e.Kind == "SuperSoldiersEnded" && e.Tick == GameRules.SerumTicks);
+    }
+
+    [Fact]
+    public void Boosted_soldiers_move_twice_as_fast()
+    {
+        var sim = TestGames.New();
+        var soldier = sim.SpawnUnit(0, UnitType.Soldier, 9, 12);
+        var plain = sim.SpawnUnit(0, UnitType.Soldier, 9, 14);
+
+        sim.Boost(0);
+        sim.Submit(0, [TestGames.Move(16, 12, soldier)], boosted: true).AssertAccepted();
+        sim.SubmitOne(0, TestGames.Move(16, 14, plain)).AssertAccepted();
+        sim.Run(2);
+
+        Assert.Equal(13, sim.Find(soldier)!.Value.X);
+        Assert.Equal(11, sim.Find(plain)!.Value.X);
+    }
+
+    [Theory]
+    [InlineData(false, UnitType.Soldier)]
+    [InlineData(true, UnitType.Archer)]
+    public void Only_soldiers_in_boosted_commands_are_boosted(bool boosted, UnitType type)
+    {
+        var sim = TestGames.New();
+        var (attacker, target) = Duel(sim, type);
+
+        sim.Boost(0);
+        sim.Submit(0, [TestGames.AttackTarget(target, attacker)], boosted).AssertAccepted();
+        sim.Step();
+
+        Assert.Equal(1000 - (GameRules.Units[type].Damage - 1), sim.Find(target)!.Value.Hp);
+    }
+
+    [Fact]
+    public void A_plain_command_takes_the_boost_away_again()
+    {
+        var sim = TestGames.New();
+        var (soldier, target) = Duel(sim, UnitType.Soldier);
+
+        sim.Boost(0);
+        sim.Submit(0, [TestGames.AttackTarget(target, soldier)], boosted: true).AssertAccepted();
+        sim.Step();
+        sim.SubmitOne(0, TestGames.AttackTarget(target, soldier)).AssertAccepted();
+        sim.Step();
+
+        Assert.Equal(1000 - (9 * 2 - 1) - (9 - 1), sim.Find(target)!.Value.Hp);
+    }
+
+    [Fact]
+    public void A_boost_works_once_per_player_and_everyone_hears_about_it()
+    {
+        var sim = TestGames.New();
+        var (soldier, _) = Duel(sim, UnitType.Soldier);
+
+        Assert.NotNull(sim.Boost(0));
+        Assert.Null(sim.Boost(0));
+        Assert.NotNull(sim.Boost(1));
+        sim.Submit(0, [TestGames.Move(12, 10, soldier)], boosted: true).AssertAccepted();
+        sim.Step();
+
+        Assert.Contains(sim.GetPlayerView(1, sinceTick: 0).Events, e => e.Kind == "SuperSoldiers" && e.Message == "alpha: Super soldiers activated. 30 ticks.");
+        Assert.Contains(sim.GetSpectatorView(sinceTick: 0).Events, e => e.Kind == "SuperSoldiers" && e.Owner == 0);
+        Assert.Equal(["serum"], sim.GetPlayerView(1).Units.Single(u => u.Id == soldier).Effects);
+        Assert.All(sim.GetPlayerView(1).Units.Where(u => u.Id != soldier), u => Assert.Null(u.Effects));
+    }
+
+    [Fact]
+    public void Replaying_a_match_with_a_boost_reproduces_it_exactly()
+    {
+        var original = FullMatchTests.Play("rusher", "balanced", seed: 25, boostAt: 180);
+
+        var replay = GameSimulation.FromReplay(original.GetReplay());
+
+        Assert.Equal(180, Assert.Single(original.GetReplay().Boosts!).Tick);
+        Assert.Contains(original.GetReplay().Commands, c => c.Boosted);
+        Assert.Equal(original.Tick, replay.Tick);
+        Assert.Equal(original.StateHash(), replay.StateHash());
+    }
+
+    /// <summary>A slot 0 attacker next to a sturdy slot 1 soldier.</summary>
+    private static (int Attacker, int Target) Duel(GameSimulation sim, UnitType type)
+    {
+        var attacker = sim.SpawnUnit(0, type, 10, 10);
+        var target = sim.SpawnUnit(1, UnitType.Soldier, 11, 10);
+        sim.SetHp(attacker, 1000);
+        sim.SetHp(target, 1000);
+        return (attacker, target);
+    }
 }

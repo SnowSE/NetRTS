@@ -451,6 +451,7 @@ public sealed partial class GameSimulation
                 foreach (var unit in command!.Units)
                 {
                     unit.OrderCommandId = queued.Id;
+                    unit.SerumUntilTick = queued.Boosted ? player.SerumUntilTick : -1;
                 }
             }
         }

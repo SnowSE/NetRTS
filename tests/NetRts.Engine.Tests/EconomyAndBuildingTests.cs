@@ -219,7 +219,7 @@ public class EconomyAndBuildingTests
         var before = sim.UnitIds(0, UnitType.Worker).ToHashSet();
         sim.SubmitOne(0, new CommandRequest { Type = CommandType.Produce, BuildingId = sim.CommandCenterId(0), UnitType = UnitType.Worker }).AssertAccepted();
         sim.Run(GameRules.Units[UnitType.Worker].BuildTicks + 1);
-        return Assert.Single(sim.UnitIds(0, UnitType.Worker).Where(id => !before.Contains(id)));
+        return Assert.Single(sim.UnitIds(0, UnitType.Worker), id => !before.Contains(id));
     }
 
     /// <summary>Puts a soldier on every tile within <paramref name="radius"/> of (7,7).</summary>

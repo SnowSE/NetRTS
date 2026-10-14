@@ -42,6 +42,7 @@ public sealed partial class GameSimulation
     private readonly List<GameEventDto> _spectatorEvents = [];
     private readonly List<ReplayCommandDto> _replayCommands = [];
     private readonly List<ReplaySurrenderDto> _replaySurrenders = [];
+    private readonly List<ReplayBoostDto> _replayBoosts = [];
     private bool[][]? _visibility;
     private int _nextEntityId = 1;
     private long _nextCommandId = 1;
@@ -91,7 +92,7 @@ public sealed partial class GameSimulation
     public int QueueSize(int slot) => _players[slot].CommandQueue.Count;
 
     /// <summary>Validates and queues commands for execution on upcoming ticks.</summary>
-    public SubmitCommandsResponse Submit(int slot, IReadOnlyList<CommandRequest> commands)
+    public SubmitCommandsResponse Submit(int slot, IReadOnlyList<CommandRequest> commands, bool boosted = false)
     {
         ArgumentNullException.ThrowIfNull(commands);
         var player = _players[slot];
@@ -125,7 +126,7 @@ public sealed partial class GameSimulation
                 continue;
             }
 
-            var id = Enqueue(slot, commands[i]);
+            var id = Enqueue(slot, commands[i], boosted);
             results.Add(new CommandResult { Index = i, Accepted = true, CommandId = id });
         }
 
@@ -142,9 +143,35 @@ public sealed partial class GameSimulation
     /// <summary>Drops every command still waiting in the player's queue. Returns how many were dropped.</summary>
     public int ClearQueue(int slot)
     {
-        var count = _players[slot].CommandQueue.Count;
-        _players[slot].CommandQueue.Clear();
+        var queue = _players[slot].CommandQueue;
+        var count = queue.Count;
+        if (count > 0)
+        {
+            // They never ran, so a replay mustn't run them either.
+            var dropped = queue.Select(q => q.Recorded).ToHashSet(ReferenceEqualityComparer.Instance);
+            _replayCommands.RemoveAll(dropped.Contains);
+            queue.Clear();
+        }
+
         return count;
+    }
+
+    /// <summary>
+    /// Once per player per match: soldiers they command with <c>boosted</c> during the next
+    /// <see cref="GameRules.SerumTicks"/> ticks fight and move at <see cref="GameRules.SerumFactor"/>x.
+    /// Returns the last tick it lasts, or null if the match isn't running, the player is out, or it was already taken.
+    /// </summary>
+    public int? Boost(int slot)
+    {
+        var player = _players[slot];
+        if (Status != MatchStatus.Active || player.Eliminated || player.SerumUntilTick >= 0)
+        {
+            return null;
+        }
+
+        player.SerumUntilTick = Tick + GameRules.SerumTicks;
+        _replayBoosts.Add(new ReplayBoostDto(Tick, slot));
+        return player.SerumUntilTick;
     }
 
     public void Surrender(int slot)
@@ -187,11 +214,17 @@ public sealed partial class GameSimulation
 
         var commandsByTick = replay.Commands.ToLookup(c => c.Tick);
         var surrendersByTick = replay.Surrenders.ToLookup(s => s.Tick);
+        var boostsByTick = (replay.Boosts ?? []).ToLookup(b => b.Tick);
         while (sim.Status == MatchStatus.Active)
         {
             foreach (var c in commandsByTick[sim.Tick])
             {
-                sim.Enqueue(c.Slot, c.Command);
+                sim.Enqueue(c.Slot, c.Command, c.Boosted);
+            }
+
+            foreach (var b in boostsByTick[sim.Tick])
+            {
+                sim.Boost(b.Slot);
             }
 
             var surrenders = surrendersByTick[sim.Tick].ToList();
@@ -226,6 +259,7 @@ public sealed partial class GameSimulation
         Players = _players.Select(p => p.Id).ToList(),
         Commands = _replayCommands.ToList(),
         Surrenders = _replaySurrenders.ToList(),
+        Boosts = _replayBoosts.Count > 0 ? _replayBoosts.ToList() : null,
         Outcome = Outcome,
     };
 
@@ -238,11 +272,12 @@ public sealed partial class GameSimulation
             string.Join(',', _buildings.Select(b => $"{b.Id}:{b.Hp}:{b.Work}:{b.Rally}")),
             string.Join(',', _deposits.Select(d => $"{d.Id}:{d.Hp}")));
 
-    private long Enqueue(int slot, CommandRequest request)
+    private long Enqueue(int slot, CommandRequest request, bool boosted = false)
     {
         var id = _nextCommandId++;
-        _players[slot].CommandQueue.Enqueue(new QueuedCommand(id, request));
-        _replayCommands.Add(new ReplayCommandDto(Tick, slot, request));
+        var recorded = new ReplayCommandDto(Tick, slot, request, boosted);
+        _players[slot].CommandQueue.Enqueue(new QueuedCommand(id, request, recorded));
+        _replayCommands.Add(recorded);
         return id;
     }
 
@@ -346,6 +381,15 @@ public sealed partial class GameSimulation
             {
                 _spectatorEvents.RemoveRange(0, _spectatorEvents.Count - Config.EventHistory);
             }
+        }
+    }
+
+    /// <summary>An event about <paramref name="player"/> for everyone: each player's feed (others see the name) and the spectators'.</summary>
+    private void Announce(PlayerState player, string kind, string message)
+    {
+        foreach (var p in _players)
+        {
+            AddEvent(p, kind, p == player ? message : $"{player.Name}: {message}", spectator: p == player);
         }
     }
 
