@@ -114,7 +114,10 @@ internal sealed class UnitEntity : Entity
         TargetId = null;
         BuildType = null;
         OrderCommandId = null;
-        ClearPath();
+
+        // Keep MovePoints: a unit re-ordered every tick would otherwise never bank a whole tile.
+        Path = [];
+        PathGoal = null;
     }
 
     public void ClearPath()

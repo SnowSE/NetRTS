@@ -36,6 +36,27 @@ public class CommandTests
         Assert.Equal(15, sim.Find(soldier)!.Value.X); // 1.4 tiles/tick: 70 move points = 7 tiles in 5 ticks
     }
 
+    [Theory]
+    [InlineData(UnitType.Soldier)]
+    [InlineData(UnitType.Archer)]
+    [InlineData(UnitType.Scout)]
+    public void Reissuing_a_move_every_tick_does_not_slow_a_unit_down(UnitType type)
+    {
+        var sim = TestGames.New();
+        var steady = sim.SpawnUnit(0, type, 4, 12);
+        var spammed = sim.SpawnUnit(0, type, 4, 13);
+
+        sim.SubmitOne(0, TestGames.Move(24, 12, steady)).AssertAccepted();
+        for (var i = 0; i < 10; i++)
+        {
+            sim.SubmitOne(0, TestGames.Move(24, 13, spammed)).AssertAccepted();
+            sim.Step();
+        }
+
+        Assert.True(sim.Find(steady)!.Value.X > 4);
+        Assert.Equal(sim.Find(steady)!.Value.X, sim.Find(spammed)!.Value.X);
+    }
+
     [Fact]
     public void Range_selectors_pick_only_your_units_in_range()
     {
