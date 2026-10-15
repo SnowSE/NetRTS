@@ -67,7 +67,7 @@ match id (e.g. a consistent-hash ingress on the `/matches/{id}` path segment) pl
 
 ## What changed from the first implementation
 
-The first version (still in git history, on the `001-rts-game-engine` branch) followed a Clean-Architecture/CQRS template but never reached a playable game:
+The first version (still in git history: its last commit is `90a5484`) followed a Clean-Architecture/CQRS template but never reached a playable game:
 
 - it didn't build (vulnerable package pins under warnings-as-errors; MediatR 13+ now needs a commercial licence);
 - authentication was disabled on every game endpoint, and any caller could impersonate a player
