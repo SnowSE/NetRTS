@@ -341,7 +341,7 @@ Every non-2xx response has the same body:
 Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `403 NOT_VERIFIED` (claim your bot with
 Discord first), `409 MATCH_CLOSED` (the league match has been split into heats), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
 `409 MATCH_NOT_STARTED` (keep long-polling with `waitForTick=0`), `409 MATCH_FULL`,
-`400 INVALID_JSON`, `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and
+`400 INVALID_JSON`, `413 REQUEST_TOO_LARGE` (bodies are capped at 256 KB), `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and
 120/second across all of a bot's matches).
 
 ## Reference bots

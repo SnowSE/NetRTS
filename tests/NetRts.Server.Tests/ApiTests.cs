@@ -142,6 +142,23 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task Oversized_requests_get_a_structured_error()
+    {
+        var (client, player) = await factory.NewPlayerAsync();
+        var match = await client.CreateMatchAsync(new CreateMatchRequest { HouseBots = ["sitter"] }, Ct);
+        var http = factory.CreateClient();
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", player.ApiKey);
+        var unitIds = string.Join(",", Enumerable.Range(1, 82_000));
+
+        var response = await http.PostAsync($"/api/v1/matches/{match.MatchId}/commands",
+            new StringContent($$"""{"commands":[{"type":"Move","unitIds":[{{unitIds}}],"x":5,"y":5}]}""",
+                System.Text.Encoding.UTF8, "application/json"), Ct);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.Equal("REQUEST_TOO_LARGE", (await response.ErrorAsync()).Code);
+    }
+
+    [Fact]
     public async Task Waiting_matches_start_when_the_last_seat_is_filled()
     {
         var (host, _) = await factory.NewPlayerAsync();
