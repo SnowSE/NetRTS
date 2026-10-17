@@ -34,13 +34,6 @@ export function mountSpectate(root, matchKey) {
             <div class="segmented" id="vision"></div>
           </fieldset>
           <ul class="legend" aria-label="Map key">${legendItems()}</ul>
-        </div>
-        <div class="replay-bar" id="replay" role="group" aria-label="Replay" hidden></div>
-        <div class="map-frame" id="frame">
-          <canvas id="map" tabindex="0" role="img" aria-label="${say('Battle', 'Brawl')} map. Use the arrow keys to inspect tiles, plus and minus to zoom."
-            aria-describedby="tooltip"></canvas>
-          <div class="map3d" id="map3d" hidden></div>
-          <div class="map3d-card" id="card3d" hidden aria-live="polite"></div>
           <div class="map-controls" role="toolbar" aria-label="Map view">
             <button type="button" id="view3d" aria-pressed="false" title="Fly around the battlefield in 3D (3)">3D</button>
             <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
@@ -54,6 +47,13 @@ export function mountSpectate(root, matchKey) {
             <span class="zoom-level" id="zoom-level" aria-live="polite">1×</span>
             <button type="button" id="fullscreen" aria-pressed="false" title="Full screen (G)">Full screen</button>
           </div>
+        </div>
+        <div class="replay-bar" id="replay" role="group" aria-label="Replay" hidden></div>
+        <div class="map-frame" id="frame">
+          <canvas id="map" tabindex="0" role="img" aria-label="${say('Battle', 'Brawl')} map. Use the arrow keys to inspect tiles, plus and minus to zoom."
+            aria-describedby="tooltip"></canvas>
+          <div class="map3d" id="map3d" hidden></div>
+          <div class="map3d-card" id="card3d" hidden aria-live="polite"></div>
           <section class="fs-panel fs-left" aria-label="Scoreboard">
             <button type="button" class="fs-toggle" id="board-toggle" aria-expanded="true" aria-controls="board-body">
               <span>Scoreboard</span><span class="fs-sub" id="board-tick"></span><span aria-hidden="true" class="chev">▾</span>
@@ -236,7 +236,13 @@ export function mountSpectate(root, matchKey) {
   // where there is one, and a fixed overlay where there isn't (iPhone Safari).
   const fullBtn = $('fullscreen'), boardToggle = $('board-toggle');
   const isFull = () => frame.classList.contains('is-full');
+  // The map controls sit in the toolbar above the map, so they never hide part of it; full screen has
+  // no toolbar, so there they float over the map's top-right corner.
+  const controls = frame.parentElement.querySelector('.map-controls'), toolbar = controls.parentElement;
   const setFull = (on) => {
+    const focused = controls.contains(document.activeElement) ? document.activeElement : null;
+    (on ? frame : toolbar).append(controls);
+    focused?.focus();
     frame.classList.toggle('is-full', on);
     document.documentElement.classList.toggle('map-full', on);
     fullBtn.setAttribute('aria-pressed', String(on));

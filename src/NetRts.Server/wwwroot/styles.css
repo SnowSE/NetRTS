@@ -883,14 +883,15 @@ pre.snippet {
 .theme-toggle:hover { color: var(--ink); border-color: var(--muted); }
 .theme-toggle svg { width: 16px; height: 16px; }
 
-/* Map zoom controls */
+/* Map zoom controls: in the toolbar above the map, floating over its corner in full screen. */
 .map-controls {
-  position: absolute; top: 14px; right: 14px; z-index: 2;
+  margin-left: auto;
   display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
   padding: 4px; border: 1px solid var(--line); border-radius: var(--radius-m);
   background: color-mix(in srgb, var(--panel) 88%, transparent);
   backdrop-filter: blur(4px);
 }
+.map-frame.is-full .map-controls { position: absolute; top: 14px; right: 14px; z-index: 2; }
 .map-controls button {
   font: inherit; font-size: 0.85rem; line-height: 1; color: var(--ink);
   min-width: 30px; height: 30px; padding: 0 9px;
@@ -900,7 +901,7 @@ pre.snippet {
 .map-controls button[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; font-weight: 600; }
 .map-controls .zoom-level { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem; }
 @media (max-width: 560px) {
-  .map-controls { top: 8px; right: 8px; }
+  .map-frame.is-full .map-controls { top: 8px; right: 8px; }
   .map-controls #follow { font-size: 0.78rem; }
 }
 .map-controls button[hidden] { display: none; }
@@ -928,6 +929,7 @@ pre.snippet {
 .sound-panel input[type="range"] { width: 100%; accent-color: var(--signal-bg); }
 .sound-note { margin: 6px 0 0; font-size: 0.78rem; }
 @media (max-width: 560px) { .sound-panel { top: 50px; right: 8px; } }
+.map-frame:not(.is-full) .sound-panel { top: 10px; right: 10px; }   /* the buttons are above the map */
 
 /* What the players say, bottom centre of the 3D view. */
 .map3d-captions {
