@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Badger Brawl poster</title>
+  <style>
+    @page { size: 8.5in 11in; margin: 0; }
+    :root {
+      --night: #050a12; --blue: #0055a5; --sky: #7cc0ff; --orange: #f08a3c; --ink: #e6eef7; --muted: #8fa3bb;
+      --code: "Cascadia Code", "Cascadia Mono", Consolas, monospace;
+      --head: "Bahnschrift", "DIN Alternate", "Segoe UI", sans-serif;
+    }
+    html, body { margin: 0; background: var(--night); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .page { position: relative; width: 8.5in; height: 11in; overflow: hidden; color: var(--ink); font-family: var(--head);
+      background:
+        radial-gradient(60% 40% at 15% 62%, rgba(0, 85, 165, 0.38), transparent 70%),
+        radial-gradient(55% 35% at 90% 92%, rgba(240, 138, 60, 0.20), transparent 70%),
+        linear-gradient(180deg, #060b14, #08111d 60%, #050a12); }
+
+    /* Hero: the trailer frame, fading into the night backdrop. */
+    .hero { position: absolute; left: 0; right: 0; top: 0; height: 5.2in; -webkit-mask-image: linear-gradient(180deg, #000 70%, transparent); mask-image: linear-gradient(180deg, #000 70%, transparent); background: url("../src/NetRts.Server/wwwroot/images/trailer-poster.jpg") 58% 40% / cover; }
+    .hero::after { content: ""; position: absolute; inset: 0; background:
+        linear-gradient(180deg, rgba(5,10,18,0.25) 0%, transparent 25%, transparent 50%, rgba(6,11,20,0.7) 85%); }
+    .brand { position: absolute; left: 0.5in; right: 0.5in; top: 3.35in; z-index: 2; }
+    .kicker { font-family: var(--code); font-size: 12px; font-weight: 600; letter-spacing: 0.32em; text-transform: uppercase; color: var(--sky); }
+    .logo { display: flex; align-items: center; gap: 16px; margin-top: 8px; }
+    .logo img { height: 80px; filter: drop-shadow(0 0 18px rgba(124, 192, 255, 0.5)); }
+    .logo h1 { margin: 0; font-size: 90px; line-height: 0.9; font-weight: 700; letter-spacing: -0.03em; text-shadow: 0 4px 30px rgba(0,0,0,0.7), 0 0 40px rgba(124,192,255,0.3); white-space: nowrap; }
+    .orange { color: var(--orange); text-shadow: 0 0 30px rgba(240, 138, 60, 0.45); }
+    .tagline { margin-top: 12px; font-size: 25px; font-weight: 600; color: #d6e2f0; text-shadow: 0 2px 14px rgba(0,0,0,0.9); }
+    .tagline b { color: #fff; }
+
+    .body { position: absolute; left: 0.5in; right: 0.5in; top: 5.3in; bottom: 0.45in; display: flex; flex-direction: column; }
+
+    /* When and where. */
+    .when { display: grid; grid-template-columns: 1.25fr 1fr 1fr; border-radius: 12px; overflow: hidden;
+      border: 1px solid rgba(124, 192, 255, 0.25); background: rgba(12, 18, 28, 0.85); box-shadow: 0 0 40px rgba(0, 85, 165, 0.25); }
+    .when > div { padding: 11px 16px 12px; border-left: 1px solid rgba(124, 192, 255, 0.18); }
+    .when > div:first-child { border-left: 0; border-top: 0; }
+    .when .lab { font-family: var(--code); font-size: 9.5px; letter-spacing: 0.28em; text-transform: uppercase; color: var(--muted); }
+    .when .val { font-size: 30px; font-weight: 700; margin-top: 3px; white-space: nowrap; }
+
+    /* The season grid. */
+    .season { display: grid; grid-template-columns: 2fr 4fr; gap: 22px; margin-top: 20px; }
+    .term h2 { margin: 0 0 9px; display: flex; align-items: baseline; gap: 10px; font-size: 20px; font-weight: 700; }
+    .term h2 span { font-family: var(--code); font-size: 10px; font-weight: 600; letter-spacing: 0.28em; color: var(--sky); text-transform: uppercase; }
+    .dates { display: grid; gap: 9px; }
+    .fall .dates { grid-template-columns: repeat(2, 1fr); }
+    .spring .dates { grid-template-columns: repeat(4, 1fr); }
+    .date { position: relative; height: 70px; border-radius: 9px; padding: 8px 11px; box-sizing: border-box;
+      background: rgba(12, 18, 28, 0.88); border: 1px solid rgba(124, 192, 255, 0.22); }
+    .date .m { font-family: var(--code); font-size: 10px; font-weight: 600; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); }
+    .date .d { font-size: 36px; font-weight: 700; line-height: 1; margin-top: 4px; }
+    .date.pizza { border: 2px solid var(--orange); background: linear-gradient(160deg, rgba(240,138,60,0.30), rgba(240,138,60,0.07)); box-shadow: 0 0 22px rgba(240,138,60,0.35); }
+    .date.pizza .m { color: #ffc89d; }
+    .date .pz { position: absolute; right: 8px; bottom: 8px; text-align: right; font-size: 11px; font-weight: 700; line-height: 1.05; color: #ffd2ae; }
+    .date .pz i { display: block; font-style: normal; font-size: 22px; margin-bottom: 2px; }
+
+    .champ { margin-top: 18px; padding: 12px 18px; border-radius: 12px; display: flex; align-items: center; gap: 16px;
+      background: linear-gradient(90deg, rgba(240,138,60,0.18), rgba(0,85,165,0.12)); border: 1px solid rgba(240,138,60,0.45); }
+    .champ .cup { font-size: 34px; }
+    .champ .t { font-size: 23px; font-weight: 700; }
+    .champ .t em { font-style: normal; color: #ffc46b; }
+    .champ .s { font-size: 13px; color: #b8c7d8; margin-top: 3px; }
+
+    /* How to play. */
+    .foot { margin-top: auto; display: flex; gap: 20px; align-items: center; }
+    .qr { flex: none; width: 1.15in; height: 1.15in; padding: 8px; box-sizing: border-box; background: #fff; border-radius: 10px; box-shadow: 0 0 0 3px var(--orange); }
+    .qr img { width: 100%; height: 100%; display: block; }
+    .how { flex: 1; }
+    .how .big { font-size: 22px; font-weight: 700; line-height: 1.15; }
+    .how ul { margin: 7px 0 0; padding: 0; list-style: none; font-size: 13.5px; color: #c4d2e2; line-height: 1.5; }
+    .how li::before { content: "▸ "; color: var(--orange); }
+    .how .url { margin-top: 7px; font-family: var(--code); font-size: 15px; font-weight: 600; color: var(--sky); }
+    .how .url span { color: var(--muted); font-weight: 400; }
+    .go { position: absolute; right: 0.5in; bottom: 0.32in; font-family: var(--code); font-size: 11px; font-weight: 600; letter-spacing: 0.4em; color: var(--orange); }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="hero"></div>
+    <div class="brand">
+      <div class="kicker">Snow College · bot-programming league</div>
+      <div class="logo"><img src="../src/NetRts.Server/wwwroot/images/snow-s-white.png" alt=""><h1>BADGER <span class="orange">BRAWL</span></h1></div>
+      <div class="tagline"><b>Write the bot.</b> Command the badgers. <b>Watch them brawl.</b></div>
+    </div>
+
+    <div class="body">
+      <div class="when">
+        <div><div class="lab">Regular season</div><div class="val">Every other Thursday</div></div>
+        <div><div class="lab">Time</div><div class="val">5:00 <span class="orange">PM</span></div></div>
+        <div><div class="lab">Where</div><div class="val">GRSC 124</div></div>
+      </div>
+
+      <div class="season">
+        <div class="term fall"><h2>Fall <span>2026</span></h2>
+          <div class="dates">
+            <div class="date pizza"><div class="m">Thu · Oct</div><div class="d">22</div><div class="pz"><i>🍕</i>Pizza!</div></div>
+            <div class="date"><div class="m">Thu · Nov</div><div class="d">5</div></div>
+            <div class="date"><div class="m">Thu · Nov</div><div class="d">19</div></div>
+            <div class="date"><div class="m">Thu · Dec</div><div class="d">3</div></div>
+          </div>
+        </div>
+        <div class="term spring"><h2>Spring <span>2027</span></h2>
+          <div class="dates">
+            <div class="date pizza"><div class="m">Thu · Jan</div><div class="d">14</div><div class="pz"><i>🍕</i>Pizza!</div></div>
+            <div class="date"><div class="m">Thu · Jan</div><div class="d">28</div></div>
+            <div class="date"><div class="m">Thu · Feb</div><div class="d">11</div></div>
+            <div class="date"><div class="m">Thu · Feb</div><div class="d">25</div></div>
+            <div class="date"><div class="m">Thu · Mar</div><div class="d">11</div></div>
+            <div class="date"><div class="m">Thu · Mar</div><div class="d">25</div></div>
+            <div class="date"><div class="m">Thu · Apr</div><div class="d">8</div></div>
+            <div class="date"><div class="m">Thu · Apr</div><div class="d">22</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="champ"><div class="cup">🏆</div><div>
+        <div class="t">Championship: <em>Thu, Apr 29 · graduation afternoon</em></div>
+        <div class="s">Prizes for the top 3 cumulative scores across the season, and the top 3 in the championship.</div></div></div>
+
+      <div class="foot">
+        <div class="qr"><img src="poster-qr.svg" alt="QR code: netrts.snowse.io"></div>
+        <div class="how">
+          <div class="big">No mouse. Your code commands the badgers.</div>
+          <ul>
+            <li>Any language that speaks HTTP. Starter bots in C# and Python.</li>
+            <li>Come in person, or play remote on Discord voice.</li>
+          </ul>
+          <div class="url">netrts.snowse.io <span>·</span> github.com/SnowSE/NetRTS</div>
+        </div>
+      </div>
+    </div>
+    <div class="go">GO BADGERS</div>
+  </div>
+</body>
+</html>
