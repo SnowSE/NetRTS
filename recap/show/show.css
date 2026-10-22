@@ -100,10 +100,13 @@ canvas.map { width: 548px; height: 300px; display: block; background: #0c1b26; b
 /* ---------- desk and hosts ---------- */
 #desk-area { position: absolute; left: 10px; top: 150px; width: 640px; height: 420px; }
 #hosts { position: absolute; left: 0; right: 0; top: 0; height: 330px; }
-.host { position: absolute; bottom: 0; transform-origin: 50% 100%; }
-.host svg { display: block; overflow: visible; }
-.host .glow { position: absolute; left: 50%; bottom: 40px; width: 230px; height: 230px; transform: translateX(-50%); border-radius: 50%;
-  background: radial-gradient(circle, rgb(255 255 255 / 0.18), transparent 65%); opacity: 0; }
+/* The hosts stand on the desk like miniatures on a tabletop: their feet meet its top edge. */
+.host { position: absolute; bottom: 22px; width: 300px; height: 300px; }
+.host img { position: relative; display: block; width: 300px; height: 300px; transform-origin: 50% 85%; }
+.host .glow { position: absolute; left: 50%; bottom: 60px; width: 250px; height: 250px; transform: translateX(-50%); border-radius: 50%;
+  background: radial-gradient(circle, color-mix(in srgb, var(--c) 45%, transparent), transparent 68%); opacity: 0; }
+.meter { display: flex; gap: 3px; height: 18px; align-items: center; justify-content: center; margin-top: 4px; }
+.meter i { display: block; width: 5px; height: 18px; border-radius: 2px; background: var(--c); transform-origin: 50% 50%; transform: scaleY(0.08); }
 .desk { position: absolute; left: 0; right: 0; bottom: 0; height: 150px; }
 .desk-top { position: absolute; left: 10px; right: 10px; top: 0; height: 22px; background: linear-gradient(180deg, #2b5f8f, #17375a); border-radius: 6px 6px 0 0; }
 .desk-front { position: absolute; left: 30px; right: 30px; top: 22px; bottom: 0; background: linear-gradient(180deg, #102c49, #08192b);

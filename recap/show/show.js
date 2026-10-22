@@ -4,9 +4,9 @@
 
 (() => {
   const HOSTS = {
-    zip: { name: 'Zip', unit: 'The Scout', colour: 'var(--zip)', x: 108, seed: 0.2 },
+    zip: { name: 'Zip', unit: 'The Scout', colour: 'var(--zip)', x: 112, seed: 0.2 },
     sarge: { name: 'Sarge', unit: 'The Soldier', colour: 'var(--sarge)', x: 318, seed: 0.55 },
-    quill: { name: 'Quill', unit: 'The Archer', colour: 'var(--quill)', x: 520, seed: 0.85 },
+    quill: { name: 'Quill', unit: 'The Archer', colour: 'var(--quill)', x: 528, seed: 0.85 },
   };
   const ORDER = ['zip', 'sarge', 'quill'];
   const SLOT = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
@@ -20,7 +20,7 @@
   const same = (a, b) => String(a ?? '').toLowerCase() === String(b ?? '').toLowerCase();
 
   let show = null;
-  let puppets = {};
+  let hosts = {};
   let shownGraphic = null;
   let shownLine = -1;
   let tickerWidth = 0;
@@ -37,17 +37,18 @@
 
     for (const key of ORDER) {
       const h = HOSTS[key];
+      // The hosts are portraits of the game's own units (tools/render-hosts.mjs renders them).
       const holder = document.createElement('div');
       holder.className = 'host';
-      holder.style.left = `${h.x - 110}px`;
-      holder.innerHTML = '<div class="glow"></div>';
+      holder.style.left = `${h.x - 150}px`;
+      holder.innerHTML = `<div class="glow" style="--c:${h.colour}"></div><img src="hosts/${key}.png" alt="">`;
       $('hosts').appendChild(holder);
-      puppets[key] = { ...window.Puppets.create(key, holder), holder, glow: holder.querySelector('.glow') };
       const plate = document.createElement('div');
       plate.className = 'plate';
       plate.style.setProperty('--c', h.colour);
-      plate.innerHTML = `${esc(h.name)}<small>${esc(h.unit)}</small>`;
+      plate.innerHTML = `${esc(h.name)}<small>${esc(h.unit)}</small><span class="meter">${'<i></i>'.repeat(7)}</span>`;
       $('plates').appendChild(plate);
+      hosts[key] = { holder, img: holder.querySelector('img'), glow: holder.querySelector('.glow'), bars: [...plate.querySelectorAll('.meter i')] };
     }
 
     // Where each run of lines on the same graphic starts, for transitions and the match clip.
@@ -73,6 +74,20 @@
     return parts.join('   ●   ');
   }
 
+  // How open the mouth is for each Azure viseme (0 silence, 21 p/b/m closed ... 2 and 11 wide open).
+  const OPENNESS = [0, 0.9, 1, 0.8, 0.75, 0.6, 0.55, 0.6, 0.75, 0.9, 0.7, 0.95, 0.5, 0.55, 0.5, 0.35, 0.45, 0.45, 0.3, 0.35, 0.45, 0.1];
+
+  /** How loud the speaker is at local time s into their line, from its visemes (0 quiet .. 1 loud), smoothed. */
+  function loudness(line, s) {
+    let level = 0;
+    for (const v of line.visemes) {
+      if (v.t > s) break;
+      level = OPENNESS[v.id] ?? 0.5;
+    }
+    const tail = Math.max(0, Math.min(1, (line.seconds - s) / 0.15));
+    return level * tail;
+  }
+
   /** The line being said at t (or the last one said, between lines). */
   function lineAt(t) {
     let current = -1;
@@ -93,18 +108,23 @@
     const line = show.lines[i];
     const talking = line && t < line.start + line.seconds ? line : null;
 
-    // Hosts: the speaker leans in and gets the light; the others look at them.
+    // Hosts: the speaker steps into the light and bobs as they talk, its voice meter moving with the
+    // speech; the others idle a little and dim.
     for (const key of ORDER) {
-      const p = puppets[key];
+      const p = hosts[key];
+      const h = HOSTS[key];
       const me = talking?.speaker === key;
-      const talk = me ? { local: t - talking.start, visemes: talking.visemes, mood: talking.mood } : null;
-      const speakerX = talking ? HOSTS[talking.speaker].x : 318;
-      const look = me ? 0.4 : Math.max(-1, Math.min(1, (speakerX - HOSTS[key].x) / 200));
-      window.Puppets.pose(p, t, talk, look, HOSTS[key].seed);
-      const lift = me ? 1.04 : 1;
-      p.holder.style.transform = `scale(${(p.scale * lift).toFixed(3)})`;
-      p.glow.style.opacity = me ? 1 : 0;
-      p.holder.style.filter = talking && !me ? 'brightness(0.82)' : 'none';
+      const voice = me ? loudness(talking, t - talking.start) : 0;
+      const lively = me ? (talking.mood === 'excited' || talking.mood === 'shouting' ? 1.6 : talking.mood === 'amused' ? 1.15 : 0.8) : 0.2;
+      const bob = Math.abs(Math.sin(t * (me ? 8.3 : 1.2) + h.seed * 5)) * 7 * lively * (me ? 0.35 + voice : 1);
+      const tilt = Math.sin(t * (me ? 5.1 : 0.9) + h.seed * 3) * 1.6 * lively;
+      p.img.style.transform = `translateY(${(-bob).toFixed(2)}px) rotate(${tilt.toFixed(2)}deg) scale(${me ? 1.05 : 1})`;
+      p.glow.style.opacity = me ? (0.75 + voice * 0.25).toFixed(3) : 0;
+      p.holder.style.filter = talking && !me ? 'brightness(0.7) saturate(0.85)' : 'none';
+      p.bars.forEach((bar, n) => {
+        const level = me ? 0.15 + voice * (0.45 + 0.55 * Math.abs(Math.sin(t * (9 + n * 1.7) + n))) : 0.08;
+        bar.style.transform = `scaleY(${level.toFixed(3)})`;
+      });
     }
 
     // Lower third: who's talking and what they said.

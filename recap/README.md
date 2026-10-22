@@ -9,7 +9,8 @@ Soldier (big, slow, deadpan) and **Quill** the Archer (the stats). The site list
 1. GET  /api/v1/recaps/brief      the day's facts from the game server (X-Recap-Key)
 2. script                         an Azure OpenAI model (gpt-5.5) in Microsoft Foundry writes the dialogue
                                   as JSON (src/script.mjs); a plain template takes over if it fails
-3. voices                         Azure AI Speech, one neural voice per host, with visemes for lip sync
+3. voices                         Azure AI Speech, one neural voice per host, with visemes (mouth shapes)
+                                  that drive each host's voice meter and movement
 4. render                         show/index.html in headless Chromium, frame by frame, into ffmpeg
 5. upload                         the MP4, a poster and episode.json to the private "recaps" blob container
 6. POST /api/v1/recaps            the server records the episode at once (it would also find episode.json
@@ -57,6 +58,8 @@ episode with silent hosts, uploaded to Azurite, which the server then lists.
 | `RECAP_BLOB_URL` | `https://<account>.blob.core.windows.net/`, managed identity. Or `RECAP_BLOB_CONNECTION` (Azurite). |
 | `RECAP_FPS` | Frames per second (default 24). |
 
-The voices and their styles are in `src/hosts.mjs`. The hosts are SVG puppets in `show/puppets.js`. The
+The voices and their styles are in `src/hosts.mjs`. The hosts are the game's own units, rendered from
+its 3D models into `show/hosts/*.png` by `tools/render-hosts.mjs` (run it again when the models in
+`src/NetRts.Server/wwwroot/3d` change; it needs a game server running for their files). The
 broadcast is `show/show.js`: `load(show)` once, then `seek(t)` for any second, with no clock involved,
 so every frame comes out exact.
