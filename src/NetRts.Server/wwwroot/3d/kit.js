@@ -22,7 +22,7 @@ export const K = {
 export class Builder {
   constructor() { this.parts = []; }
 
-  add(geo, colour, { team = 0, glow = 0, limb = 0, at = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
+  add(geo, colour, { team = 0, glow = 0, limb = 0, joint = 0, at = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.deleteAttribute('uv');
     const m = new THREE.Matrix4().compose(
@@ -31,13 +31,15 @@ export class Builder {
       new THREE.Vector3(...scale));
     g.applyMatrix4(m);
     const n = g.attributes.position.count;
-    const c = new Float32Array(n * 3), t = new Float32Array(n), w = new Float32Array(n), l = new Float32Array(n);
-    for (let i = 0; i < n; i++) { c[i * 3] = colour.r; c[i * 3 + 1] = colour.g; c[i * 3 + 2] = colour.b; t[i] = team; w[i] = glow; l[i] = limb; }
+    const c = new Float32Array(n * 3), t = new Float32Array(n), w = new Float32Array(n), l = new Float32Array(n * 2);
+    for (let i = 0; i < n; i++) { c[i * 3] = colour.r; c[i * 3 + 1] = colour.g; c[i * 3 + 2] = colour.b; t[i] = team; w[i] = glow; l[i * 2] = limb; l[i * 2 + 1] = joint; }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     g.setAttribute('team', new THREE.BufferAttribute(t, 1));
     g.setAttribute('glow', new THREE.BufferAttribute(w, 1));
-    // Limbs swing in the vertex shader: ±1 legs (hip pivot), ±2 arms (shoulder), ±3 a mount's legs.
-    g.setAttribute('limb', new THREE.BufferAttribute(l, 1));
+    // Limbs swing in the vertex shader: x is the kind (±1 legs from the hip, ±2 arms from the shoulder,
+    // ±3 a mount's legs), y where along z the joint is: 0 under a body's middle, a mount's legs at the
+    // front or back of its body. One vec2, because the unit shader is at WebGL's 16-attribute limit.
+    g.setAttribute('limb', new THREE.BufferAttribute(l, 2));
     this.parts.push(g);
     return this;
   }

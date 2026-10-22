@@ -130,11 +130,13 @@ function scout(badger) {
     .add(ball(0.07, 1), coat, { at: [0, 0.27, 0.13], scale: [0.85, 0.95, 0.9] });     // chest
   for (const [x, z] of [[-0.042, -0.12], [0.042, -0.12], [-0.042, 0.12], [0.042, 0.12]]) {
     const limb = (x < 0 ? 3 : -3) * (z > 0 ? 1 : -1);
-    b.add(box(0.03, 0.19, 0.034), coat, { limb, at: [x, 0.095, z] })
-      .add(box(0.034, 0.025, 0.04), hoof, { limb, at: [x, 0.012, z + 0.004] });
+    // Each leg swings from its own hip or shoulder, at the front or back of the body.
+    b.add(box(0.03, 0.19, 0.034), coat, { limb, joint: z, at: [x, 0.095, z] })
+      .add(box(0.034, 0.025, 0.04), hoof, { limb, joint: z, at: [x, 0.012, z + 0.004] });
   }
-  b.add(box(0.06, 0.17, 0.08), coat, { at: [0, 0.37, 0.18], rot: [-0.6, 0, 0] })      // neck
-    .add(box(0.022, 0.16, 0.05), dark, { at: [0, 0.4, 0.15], rot: [-0.6, 0, 0] })      // mane
+  // The neck rises from the chest and leans forward to the head; the mane runs down the back of it.
+  b.add(box(0.06, 0.17, 0.08), coat, { at: [0, 0.37, 0.18], rot: [0.6, 0, 0] })       // neck
+    .add(box(0.022, 0.16, 0.05), dark, { at: [0, 0.392, 0.152], rot: [0.6, 0, 0] })    // mane
     .add(box(0.055, 0.06, 0.14), coat, { at: [0, 0.44, 0.265], rot: [0.35, 0, 0] })    // head
     .add(box(0.03, 0.03, 0.06), blaze, { at: [0, 0.445, 0.3], rot: [0.35, 0, 0] })     // blaze
     .add(box(0.018, 0.045, 0.014), coat, { at: [-0.02, 0.5, 0.215] })                  // ears
@@ -460,14 +462,14 @@ export function entityMaterial() {
   mat.onBeforeCompile = (sh) => {
     sh.vertexShader = sh.vertexShader
       .replace('#include <common>', `#include <common>
-        attribute float team; attribute float glow; attribute float limb;
+        attribute float team; attribute float glow; attribute vec2 limb;
         attribute vec3 iTeam; attribute float iFlash; attribute float iCut; attribute vec3 iWalk; attribute vec2 iDraw;
         varying float vTeam; varying float vGlow; varying vec3 vTeamCol; varying float vFlash; varying float vCut; varying float vLocalY;`)
       .replace('#include <begin_vertex>', `#include <begin_vertex>
         vTeam = team; vGlow = glow; vTeamCol = iTeam; vFlash = iFlash; vCut = iCut; vLocalY = position.y;
         // Swing limbs about the hip or shoulder: iWalk = (phase, leg swing, arm swing). A negative arm
         // swing raises both arms together, up to that many radians (a pickaxe, hammer or sword chop).
-        float kind = abs(limb);
+        float kind = abs(limb.x);
         if (kind > 3.5) {
           // An archer's bow (4), string (5) and nocked arrow (6). iDraw = (raise, pull): the bow comes up
           // from the hip to aim out front, the string bends back toward the archer, and the arrow on it
@@ -478,15 +480,16 @@ export function entityMaterial() {
             transformed.z -= iDraw.y * 0.1;
             if (iDraw.x < 0.5 || iDraw.y < 0.04) transformed = vec3(-0.13, 0.22, -0.06);
           }
-        } else if (limb != 0.0) {
+        } else if (limb.x != 0.0) {
           float pivot = kind < 1.5 ? 0.13 : (kind < 2.5 ? 0.28 : 0.19);
           bool isArm = kind > 1.5 && kind < 2.5;
           float ang = isArm && iWalk.z < 0.0
             ? (sin(iWalk.x) * 0.5 + 0.5) * iWalk.z
-            : sin(iWalk.x) * (isArm ? -iWalk.z : iWalk.y) * sign(limb);
+            : sin(iWalk.x) * (isArm ? -iWalk.z : iWalk.y) * sign(limb.x);
           float c = cos(ang), s = sin(ang);
-          vec3 p = transformed - vec3(0.0, pivot, 0.0);
-          transformed = vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c) + vec3(0.0, pivot, 0.0);
+          vec3 hinge = vec3(0.0, pivot, limb.y);
+          vec3 p = transformed - hinge;
+          transformed = vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c) + hinge;
         }`);
     sh.fragmentShader = sh.fragmentShader
       .replace('#include <common>', `#include <common>
