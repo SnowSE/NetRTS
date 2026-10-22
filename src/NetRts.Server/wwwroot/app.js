@@ -22,7 +22,7 @@ function route() {
   const achievements = /^#\/achievements\/?$/.test(hash);
   const bot = hash.match(/^#\/bot\/([0-9a-fA-F-]{36})\/?$/);
   const trophyRoom = /^#\/trophy-room\/?$/.test(hash);
-  const person = hash.match(/^#\/player\/([0-9a-fA-F-]{36})\/?$/);
+  const person = hash.match(/^#\/player\/([A-Za-z0-9-]{1,48})\/?$/);
   const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');

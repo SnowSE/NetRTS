@@ -28,7 +28,7 @@ export function achievementTabs(active) {
 /** Who has an achievement: the first few bots (and owners) up front, the rest a click away. */
 function earnersHtml(a) {
   if (!a.earners?.length) return '';
-  const person = (e) => botAndOwner({ playerId: e.playerId, name: e.bot, ownerName: e.ownerName, ownerId: e.ownerId, verified: Boolean(e.ownerName) });
+  const person = (e) => botAndOwner({ playerId: e.playerId, name: e.bot, ownerName: e.ownerName, ownerSlug: e.ownerSlug, verified: Boolean(e.ownerName) });
   const shown = a.earners.slice(0, 4);
   const rest = a.earners.slice(4);
   const unlisted = a.earnedBy - a.earners.length;

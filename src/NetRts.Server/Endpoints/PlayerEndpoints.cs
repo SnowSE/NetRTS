@@ -100,6 +100,7 @@ public static partial class PlayerEndpoints
         var ids = players.Select(p => p.Id).ToList();
         var stats = (await db.PlayerStats.AsNoTracking().Where(s => ids.Contains(s.PlayerId) && s.Season == Seasons.Current).ToListAsync(ct))
             .ToLookup(s => s.PlayerId);
+        var slugs = await ProfileSlugs.LoadAsync(db, discord, ct);
 
         return players.Select(p =>
         {
@@ -122,7 +123,7 @@ public static partial class PlayerEndpoints
                 CreatedAt = new DateTimeOffset(DateTime.SpecifyKind(p.CreatedAt, DateTimeKind.Utc)),
                 Verified = verified,
                 OwnerName = verified ? p.Owner!.DisplayName : null,
-                OwnerId = verified ? p.Owner!.Id : null,
+                OwnerSlug = verified ? slugs.Of(p.Owner!.Id) : null,
                 Records = records,
             };
         }).ToList();
@@ -146,6 +147,7 @@ public static partial class PlayerEndpoints
             .Take(Math.Clamp(limit, 1, 200))
             .ToListAsync(ct);
 
+        var slugs = await ProfileSlugs.LoadAsync(db, discord.Value, ct);
         return rows.Select((x, i) =>
         {
             var verified = Accounts.IsVerified(x.Owner, discord.Value);
@@ -162,7 +164,7 @@ public static partial class PlayerEndpoints
                 Points = x.Stats?.Points ?? 0,
                 Verified = verified,
                 OwnerName = verified ? x.Owner!.DisplayName : null,
-                OwnerId = verified ? x.Owner!.Id : null,
+                OwnerSlug = verified ? slugs.Of(x.Owner!.Id) : null,
             };
         }).ToList();
     }

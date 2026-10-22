@@ -102,7 +102,7 @@ export function playerLabel(p, { owner = true } = {}) {
 export function botAndOwner(p, { id = p?.playerId, name = p?.name, owner = true } = {}) {
   const bot = html`<a class="plain" href="#/bot/${id}">${displayName(name)}</a>${verifiedBadge(p)}`;
   if (!owner || !p?.ownerName) return bot;
-  return html`${bot}${p.ownerId ? html`<a class="owner" href="#/player/${p.ownerId}">${p.ownerName}</a>` : html`<span class="owner">${p.ownerName}</span>`}`;
+  return html`${bot}${p.ownerSlug ? html`<a class="owner" href="#/player/${p.ownerSlug}">${p.ownerName}</a>` : html`<span class="owner">${p.ownerName}</span>`}`;
 }
 
 export function timeAgo(iso) {

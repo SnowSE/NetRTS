@@ -112,7 +112,7 @@ practice against house bots in an hourly digest. To practise privately, run your
 | `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then rating). Add `&season=2026-27` for a past season. |
 | `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has all three categories, and `verified`/`ownerName` your blue check. |
 | `GET /api/v1/achievements`, `GET /api/v1/players/{id}/achievements` | Every achievement (how many bots have each, and who), and the ones a bot has earned. See [Achievements](#achievements). |
-| `GET /api/v1/people`, `GET /api/v1/people/{id}` | The Trophy Room (verified people ranked by their bots' achievements) and a person's public profile: their bots, achievements and recent matches. `ownerId` on bots and leaderboard rows points here. |
+| `GET /api/v1/people`, `GET /api/v1/people/{slug}` | The Trophy Room (verified people ranked by their bots' achievements) and a person's public profile: their bots, achievements and recent matches. `ownerSlug` on bots and leaderboard rows names the profile (`/people/jordan`, and `#/player/jordan` on the site). |
 | `GET /api/v1/matches/history?category=Season` | Finished matches, optionally one category only. |
 
 **Practice and league matches.** Every match has a `category`, and each category is its own

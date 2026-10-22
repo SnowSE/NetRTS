@@ -52,7 +52,7 @@ export function mountAccount(root, onAccount) {
         ${a.avatarUrl ? html`<img class="avatar big" src="${a.avatarUrl}" alt="" width="56" height="56">` : ''}
         <div>
           <h1 class="headline">${a.displayName}${verifiedBadge({ verified: a.verified, ownerName: a.displayName })}</h1>
-          <p class="muted" style="margin:4px 0 0">@${a.username}${a.isAdmin ? html`<span class="tag">admin</span>` : ''}${a.verified ? html` · <a href="#/player/${a.accountId}">Your public profile</a>` : ''}</p>
+          <p class="muted" style="margin:4px 0 0">@${a.username}${a.isAdmin ? html`<span class="tag">admin</span>` : ''}${a.profileSlug ? html` · <a href="#/player/${a.profileSlug}">Your public profile</a>` : ''}</p>
         </div>
         <button type="button" class="btn ghost" id="sign-out">Sign out</button>
       </div>

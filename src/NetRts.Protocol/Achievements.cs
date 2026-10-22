@@ -53,8 +53,8 @@ public sealed record AchievementEarnerDto
     public string Bot { get; init; } = "";
     public string? OwnerName { get; init; }
 
-    /// <summary>The owner's id, for their public profile; null if the bot is unclaimed.</summary>
-    public Guid? OwnerId { get; init; }
+    /// <summary>The owner's profile name (#/player/{slug}); null if the bot is unclaimed.</summary>
+    public string? OwnerSlug { get; init; }
 
     public DateTimeOffset EarnedAt { get; init; }
 }

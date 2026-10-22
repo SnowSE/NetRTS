@@ -33,6 +33,7 @@ public static class AchievementEndpoints
         var rows = await db.BotAchievements.AsNoTracking()
             .Join(db.Players.Include(p => p.Owner), a => a.PlayerId, p => p.Id, (a, p) => new { a.AchievementId, a.EarnedAt, Player = p })
             .ToListAsync(ct);
+        var slugs = await ProfileSlugs.LoadAsync(db, discord.Value, ct);
         var byId = rows.GroupBy(r => r.AchievementId)
             .ToDictionary(g => g.Key, g => g.OrderBy(r => r.EarnedAt).ThenBy(r => r.Player.Name, StringComparer.Ordinal).ToList());
 
@@ -61,7 +62,7 @@ public static class AchievementEndpoints
                         PlayerId = r.Player.Id,
                         Bot = r.Player.Name,
                         OwnerName = verified ? r.Player.Owner!.DisplayName : null,
-                        OwnerId = verified ? r.Player.Owner!.Id : null,
+                        OwnerSlug = verified ? slugs.Of(r.Player.Owner!.Id) : null,
                         EarnedAt = Utc(r.EarnedAt),
                     };
                 }).ToList(),

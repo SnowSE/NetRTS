@@ -12,6 +12,10 @@ public sealed record TrophyRoomEntryDto
 {
     public int Rank { get; init; }
     public Guid AccountId { get; init; }
+
+    /// <summary>Their profile's name: #/player/{slug}, GET /api/v1/people/{slug}.</summary>
+    public string Slug { get; init; } = "";
+
     public string DisplayName { get; init; } = "";
     public string? AvatarUrl { get; init; }
     public int Bots { get; init; }
@@ -34,6 +38,7 @@ public sealed record TrophyRoomEntryDto
 public sealed record PersonProfileDto
 {
     public Guid AccountId { get; init; }
+    public string Slug { get; init; } = "";
     public string DisplayName { get; init; } = "";
     public string? AvatarUrl { get; init; }
     public DateTimeOffset MemberSince { get; init; }
@@ -88,10 +93,10 @@ public static class PeopleEndpoints
             .Produces<IReadOnlyList<TrophyRoomEntryDto>>()
             .WithSummary("The Trophy Room: Discord-verified people ranked by what their bots have earned (trophy points: 1 Bronze, 2 Silver, 4 Gold, 8 Platinum).");
 
-        people.MapGet("/{accountId:guid}", Profile)
+        people.MapGet("/{slug}", Profile)
             .Produces<PersonProfileDto>()
             .ProducesErrors()
-            .WithSummary("A person's public profile: their bots, their bots' achievements and their recent brawls.");
+            .WithSummary("A person's public profile, by the name in their profile URL (e.g. jordan): their bots, their bots' achievements and their recent brawls.");
     }
 
     private static async Task<IReadOnlyList<TrophyRoomEntryDto>> TrophyRoom(NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct, int limit = 100)
@@ -100,6 +105,7 @@ public static class PeopleEndpoints
             .Where(p => p.OwnerAccountId != null && !p.IsHouseBot)
             .ToListAsync(ct);
         var people = owned.Where(p => Accounts.IsVerified(p.Owner, discord.Value)).GroupBy(p => p.Owner!.Id).ToList();
+        var slugs = await ProfileSlugs.LoadAsync(db, discord.Value, ct);
         var botIds = people.SelectMany(g => g.Select(p => p.Id)).ToList();
         var earned = (await db.BotAchievements.AsNoTracking().Where(a => botIds.Contains(a.PlayerId)).ToListAsync(ct))
             .Where(a => AchievementCatalog.ById.ContainsKey(a.AchievementId))
@@ -114,6 +120,7 @@ public static class PeopleEndpoints
                 return new TrophyRoomEntryDto
                 {
                     AccountId = owner.Id,
+                    Slug = slugs.Of(owner.Id) ?? "",
                     DisplayName = owner.DisplayName,
                     AvatarUrl = Accounts.AvatarUrl(owner),
                     Bots = g.Count(),
@@ -132,13 +139,15 @@ public static class PeopleEndpoints
         return rows.Select((r, i) => r with { Rank = i + 1 }).ToList();
     }
 
-    private static async Task<IResult> Profile(Guid accountId, NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct, int brawls = 30)
+    private static async Task<IResult> Profile(string slug, NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct, int brawls = 30)
     {
-        var account = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == accountId, ct);
-        if (account is null || !Accounts.IsVerified(account, discord.Value))
+        var slugs = await ProfileSlugs.LoadAsync(db, discord.Value, ct);
+        if (slugs.Find(slug) is not { } accountId)
         {
             return ApiErrors.NotFound("Player");
         }
+
+        var account = await db.Accounts.AsNoTracking().FirstAsync(a => a.Id == accountId, ct);
 
         var bots = await PlayerEndpoints.ProfilesAsync(db, discord.Value, db.Players.Where(p => p.OwnerAccountId == accountId), ct);
         var botIds = bots.Select(b => b.PlayerId).ToList();
@@ -159,6 +168,7 @@ public static class PeopleEndpoints
         return Results.Ok(new PersonProfileDto
         {
             AccountId = account.Id,
+            Slug = slugs.Of(account.Id)!,
             DisplayName = account.DisplayName,
             AvatarUrl = Accounts.AvatarUrl(account),
             MemberSince = Utc(account.CreatedAt),

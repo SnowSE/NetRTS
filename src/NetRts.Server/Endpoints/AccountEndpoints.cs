@@ -46,6 +46,9 @@ public sealed record AccountProfileDto
 
     /// <summary>Discord server administrators are game admins.</summary>
     public bool IsAdmin { get; init; }
+
+    /// <summary>Their public profile's name (#/player/{slug}) when they're verified.</summary>
+    public string? ProfileSlug { get; init; }
 }
 
 public sealed record ClaimBotRequest
@@ -130,6 +133,7 @@ public static class AccountEndpoints
                 InServer = record.InServer,
                 Verified = Accounts.IsVerified(record, discord),
                 IsAdmin = record.IsAdmin,
+                ProfileSlug = (await ProfileSlugs.LoadAsync(db, discord, ct)).Of(record.Id),
             },
             Bots = await PlayerEndpoints.ProfilesAsync(db, discord, db.Players.Where(p => p.OwnerAccountId == record.Id), ct),
             Achievements = await AchievementEndpoints.EarnedAsync(db,

@@ -1,5 +1,5 @@
 // People: the Trophy Room (#/trophy-room, everyone ranked by what their bots have earned) and public
-// profiles (#/player/<id>: their bots, achievements and brawls).
+// profiles (#/player/<name>, e.g. #/player/jordan: their bots, achievements and brawls).
 import { api, html, setHtml, botAndOwner, displayName, timeAgo, fmt, slotVar } from './util.js';
 import { GAME, say } from './lore.js';
 import { earnedHtml, achievementTabs } from './achievements.js';
@@ -30,7 +30,7 @@ export function mountTrophyRoom(root) {
         <th scope="col">${say('Bots', 'Badgers')}</th><th scope="col">Latest</th></tr></thead>
       <tbody>${list.map((p) => html`<tr>
         <td>${p.rank}</td>
-        <td><a class="person" href="#/player/${p.accountId}">${avatar(p.avatarUrl, 24)}<b>${p.displayName}</b></a></td>
+        <td><a class="person" href="#/player/${p.slug}">${avatar(p.avatarUrl, 24)}<b>${p.displayName}</b></a></td>
         <td class="rating">${fmt(p.points)}</td>
         ${TIERS.map((t) => html`<td>${p[t.toLowerCase()] || ''}</td>`)}
         <td>${p.bots}</td>
@@ -43,11 +43,11 @@ export function mountTrophyRoom(root) {
   return () => { alive = false; };
 }
 
-/** #/player/<id>: a person's bots, everything they've earned, and the brawls they played. */
+/** #/player/<name>: a person's bots, everything they've earned, and the brawls they played. */
 export function mountPerson(root, id) {
   let alive = true;
   setHtml(root, html`<p class="empty">Loading…</p>`);
-  api(`/api/v1/people/${id}`).then((p) => {
+  api(`/api/v1/people/${encodeURIComponent(id)}`).then((p) => {
     if (!alive) return;
     document.title = `${p.displayName} · ${GAME}`;
     setHtml(root, html`<div class="account person-page">

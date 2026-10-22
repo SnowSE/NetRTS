@@ -114,7 +114,9 @@ public class AchievementTests(ServerFactory factory) : IClassFixture<ServerFacto
         Assert.True(row.Points >= row.Achievements && row.Achievements > 0);
         Assert.Equal(Enumerable.Range(1, room.Count), room.Select(r => r.Rank));
 
-        var profile = await GetAsync<PersonProfileDto>($"/api/v1/people/{alice.Id}");
+        Assert.Equal("alice", row.Slug);
+        var profile = await GetAsync<PersonProfileDto>("/api/v1/people/alice");
+        Assert.Equal(alice.Id, (await GetAsync<PersonProfileDto>($"/api/v1/people/{alice.Id}")).AccountId); // old links still work
         Assert.Equal(aInfo.Name, Assert.Single(profile.Bots).Name);
         Assert.Contains(profile.Achievements, a => a.Id == "first-win" && a.Bots.Contains(aInfo.Name));
         var brawl = Assert.Single(profile.Brawls);
@@ -122,10 +124,11 @@ public class AchievementTests(ServerFactory factory) : IClassFixture<ServerFacto
         Assert.Equal([oInfo.Name], brawl.Opponents);
 
         var catalog = await GetAsync<List<AchievementDto>>("/api/v1/achievements");
-        Assert.Contains(catalog.Single(a => a.Id == "first-win").Earners, e => e.PlayerId == aInfo.PlayerId && e.OwnerId == alice.Id && e.OwnerName == "Alice");
-        Assert.Equal(alice.Id, (await GetAsync<PlayerProfileDto>($"/api/v1/players/{aInfo.PlayerId}")).OwnerId);
+        Assert.Contains(catalog.Single(a => a.Id == "first-win").Earners, e => e.PlayerId == aInfo.PlayerId && e.OwnerSlug == "alice" && e.OwnerName == "Alice");
+        Assert.Equal("alice", (await GetAsync<PlayerProfileDto>($"/api/v1/players/{aInfo.PlayerId}")).OwnerSlug);
 
         Assert.Equal(System.Net.HttpStatusCode.NotFound, (await factory.CreateClient().GetAsync($"/api/v1/people/{Guid.NewGuid()}", Ct)).StatusCode);
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await factory.CreateClient().GetAsync("/api/v1/people/nobody-by-that-name", Ct)).StatusCode);
     }
 
     [Fact]
