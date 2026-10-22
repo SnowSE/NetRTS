@@ -41,6 +41,9 @@ public sealed class DiscordOptions
     /// <summary>How often practice games against house bots are announced, as one digest.</summary>
     public int ResultsDigestMinutes { get; set; } = 60;
 
+    /// <summary>Pause between Discord messages: Discord allows about 30 webhook messages a minute.</summary>
+    public int MessageGapMs { get; set; } = 2100;
+
     public bool Enabled => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 
     public bool HasServer => !string.IsNullOrWhiteSpace(ServerId);

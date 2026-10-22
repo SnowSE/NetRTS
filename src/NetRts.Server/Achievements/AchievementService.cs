@@ -138,11 +138,10 @@ public sealed class AchievementService(
         }
 
         await db.SaveChangesAsync(ct);
-        // Discord hears about the first bot to earn each of the rarer ones.
-        var notable = firsts.Select(id => AchievementCatalog.ById[id]).Where(a => a.Hidden || a.Tier >= AchievementTier.Gold).ToList();
-        if (announce is { } who && notable.Count > 0)
+        // Discord hears straight away about the first bot ever to earn each achievement.
+        if (announce is { } who && firsts.Count > 0)
         {
-            announcer.FirstToEarn(who.Bot, who.Verified, who.Owner, notable.Select(a => (a.Name, a.Description)).ToList());
+            announcer.FirstToEarn(who.Bot, who.Verified, who.Owner, firsts.Select(id => AchievementCatalog.ById[id]).Select(a => (a.Name, a.Description)).ToList());
         }
     }
 

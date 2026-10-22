@@ -181,10 +181,14 @@ database (`data_protection_keys`), so restarts and redeploys don't sign anyone o
 
 ## Announcing results in Discord
 
-The shared server posts finished matches to the coding-competition channel:
+The shared server posts to the coding-competition channel:
 
+- **A new league match** (preseason, season, championship): its name and a link, as soon as an
+  admin creates it, so people can point their bots at it.
 - **League matches:** one message once every heat has finished, with each heat's top four and
   their points, linking to the match's scoreboard page.
+- **Achievements:** the first bot ever to earn each one, straight away; and every night at
+  midnight, a digest of everything earned that day, bot by bot.
 - **Practice between real bots:** one short message each.
 - **Practice against house bots:** one digest every hour (`Discord__ResultsDigestMinutes`).
 - **House-bot exhibitions:** nothing.

@@ -312,9 +312,10 @@ public static class MatchEndpoints
 
         var admin = app.MapGroup("/api/v1/admin/matches").WithTags("Admin").RequireAuthorization(Accounts.AdminPolicy);
 
-        admin.MapPost("/", (CreateLeagueMatchRequest request, LeagueMatchManager leagues) =>
+        admin.MapPost("/", (CreateLeagueMatchRequest request, LeagueMatchManager leagues, MatchAnnouncer announcer) =>
             {
                 var league = leagues.Create(request);
+                announcer.LeagueMatchOpened(league);
                 return Results.Created($"/api/v1/matches/{league.Id}", leagues.ToSummary(league));
             })
             .Produces<MatchSummaryDto>(201)

@@ -54,9 +54,6 @@ public sealed class MatchAnnouncer(
     TimeProvider time,
     ILogger<MatchAnnouncer> logger) : BackgroundService
 {
-    /// <summary>Discord allows about 30 webhook messages a minute; stay under it.</summary>
-    private static readonly TimeSpan MinimumGap = TimeSpan.FromSeconds(2.1);
-
     private readonly Channel<JsonObject> _outbox = Channel.CreateBounded<JsonObject>(new BoundedChannelOptions(200) { FullMode = BoundedChannelFullMode.DropOldest });
     private readonly List<MatchSummaryDto> _digest = [];
     private readonly HashSet<Guid> _announcedLeagues = [];
@@ -128,7 +125,7 @@ public sealed class MatchAnnouncer(
                 logger.LogWarning(ex, "Could not post a match result to Discord");
             }
 
-            await Task.Delay(MinimumGap, time, stoppingToken);
+            await Task.Delay(TimeSpan.FromMilliseconds(discord.Value.MessageGapMs), time, stoppingToken);
         }
     }
 
@@ -187,6 +184,49 @@ public sealed class MatchAnnouncer(
         {
             _milestoneGate.Release();
         }
+    }
+
+    /// <summary>An admin has created a league match: say what it's called and where to join it.</summary>
+    public void LeagueMatchOpened(LeagueMatch league)
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+
+        var name = Escape(league.Name);
+        Post(Embed($"{league.Category} match open: {league.Name}", Link($"#/match/{league.Id}"),
+            $"Verified bots can join now. Point yours at **{name}**:\n" +
+            $"• the bot runner: `--join {league.Name}`\n" +
+            $"• the API: `GET /api/v1/matches/named/{league.Name}`, then `POST /api/v1/matches/{{id}}/join`\n" +
+            "One bot per person. The admins split everyone into heats and start them together.",
+            league.Category, null));
+    }
+
+    /// <summary>The day's new achievements, bot by bot (one message; nothing if there were none).</summary>
+    public void AchievementDigest(DateOnly day, IReadOnlyList<(string Bot, bool Verified, string? Owner, IReadOnlyList<string> Achievements)> bots)
+    {
+        if (!Enabled || bots.Count == 0)
+        {
+            return;
+        }
+
+        var total = bots.Sum(b => b.Achievements.Count);
+        var lines = bots.Select(b => $"• {Who(b.Bot, false, b.Verified, b.Owner)}: {string.Join(", ", b.Achievements.Select(Escape))}").ToList();
+        var shown = new List<string>();
+        foreach (var line in lines)
+        {
+            if (string.Join("\n", shown.Append(line)).Length > 3900)
+            {
+                shown.Add($"…and {lines.Count - shown.Count} more bots");
+                break;
+            }
+
+            shown.Add(line);
+        }
+
+        var title = $"Achievements unlocked {day.ToString("dddd, MMMM d", CultureInfo.InvariantCulture)}: {total} by {bots.Count} bot{(bots.Count == 1 ? "" : "s")}";
+        Post(Embed(title, Link("#/achievements"), string.Join("\n", shown), MatchCategory.Practice, null));
     }
 
     /// <summary>A bot is the first ever to earn some achievements (one message for all of them).</summary>

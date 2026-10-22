@@ -341,6 +341,7 @@ and a person's account page shows every achievement any of their bots has earned
   opponent**: another bot that isn't a house bot and isn't owned by the same person.
 - A win handed over by a surrender before tick 300 doesn't count as a win.
 - Each is earned once per bot. Three are secret until someone finds them.
+- Discord hears straight away when a bot is the first ever to earn one, and gets a nightly digest of the day's.
 - The numbers behind them are in `GET /result`: each player's `stats` (units trained, buildings
   completed, research, peak workers and ore, ore lost to the storage cap, tower and serum kills,
   commands sent, rejected and failed, the longest a worker stood idle, and more).

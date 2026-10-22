@@ -101,7 +101,34 @@ public sealed class LadderSnapshots(
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Took the ladder snapshot for {Day}", day);
+        await PostAchievementDigestAsync(db, day, ct);
         return true;
+    }
+
+    /// <summary>
+    /// Tells Discord who earned what that day: once, alongside the day's snapshot (the first-ever
+    /// earners were announced as it happened).
+    /// </summary>
+    private async Task PostAchievementDigestAsync(NetRtsDb db, DateOnly day, CancellationToken ct)
+    {
+        var (start, end) = Window(day, options.Value.Zone);
+        var earned = await db.BotAchievements.AsNoTracking()
+            .Where(a => a.EarnedAt >= start && a.EarnedAt < end)
+            .Join(db.Players.Include(p => p.Owner).Where(p => !p.IsHouseBot), a => a.PlayerId, p => p.Id, (a, p) => new { a.AchievementId, a.EarnedAt, Player = p })
+            .ToListAsync(ct);
+        var bots = earned
+            .Where(e => AchievementCatalog.ById.ContainsKey(e.AchievementId))
+            .GroupBy(e => e.Player.Id)
+            .Select(g =>
+            {
+                var bot = g.First().Player;
+                var verified = Accounts.IsVerified(bot.Owner, discord.Value);
+                IReadOnlyList<string> names = g.OrderBy(e => e.EarnedAt).Select(e => AchievementCatalog.ById[e.AchievementId].Name).ToList();
+                return (Bot: bot.Name, Verified: verified, Owner: verified ? bot.Owner!.DisplayName : null, Achievements: names);
+            })
+            .OrderByDescending(b => b.Achievements.Count).ThenBy(b => b.Bot, StringComparer.Ordinal)
+            .ToList();
+        announcer.AchievementDigest(day, bots);
     }
 
     private async Task AwardAsync(NetRtsDb db, LeaderboardEntryDto entry, string achievementId, DateTime earnedAt, CancellationToken ct)
