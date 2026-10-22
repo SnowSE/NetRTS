@@ -99,6 +99,36 @@ public class AchievementTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
+    public async Task People_get_a_trophy_room_rank_and_a_public_profile_with_their_bots_achievements_and_brawls()
+    {
+        var alice = await factory.NewAccountAsync(nickname: "Alice");
+        var (aBot, aInfo) = await factory.NewPlayerAsync("alice-bot");
+        (await factory.ClientFor(alice).PostAsJsonAsync("/api/v1/account/bots/claim", new ClaimBotRequest { ApiKey = aInfo.ApiKey }, Ct)).EnsureSuccessStatusCode();
+        var (opponent, oInfo) = await factory.NewPlayerAsync("rival");
+        await PlayAsync(aBot, opponent, ticks: 300);
+        await EarnedAsync(aInfo.PlayerId, "first-win");
+
+        var room = await GetAsync<List<TrophyRoomEntryDto>>("/api/v1/people");
+        var row = room.Single(r => r.AccountId == alice.Id);
+        Assert.Equal("Alice", row.DisplayName);
+        Assert.True(row.Points >= row.Achievements && row.Achievements > 0);
+        Assert.Equal(Enumerable.Range(1, room.Count), room.Select(r => r.Rank));
+
+        var profile = await GetAsync<PersonProfileDto>($"/api/v1/people/{alice.Id}");
+        Assert.Equal(aInfo.Name, Assert.Single(profile.Bots).Name);
+        Assert.Contains(profile.Achievements, a => a.Id == "first-win" && a.Bots.Contains(aInfo.Name));
+        var brawl = Assert.Single(profile.Brawls);
+        Assert.Equal("Win", brawl.Result);
+        Assert.Equal([oInfo.Name], brawl.Opponents);
+
+        var catalog = await GetAsync<List<AchievementDto>>("/api/v1/achievements");
+        Assert.Contains(catalog.Single(a => a.Id == "first-win").Earners, e => e.PlayerId == aInfo.PlayerId && e.OwnerId == alice.Id && e.OwnerName == "Alice");
+        Assert.Equal(alice.Id, (await GetAsync<PlayerProfileDto>($"/api/v1/players/{aInfo.PlayerId}")).OwnerId);
+
+        Assert.Equal(System.Net.HttpStatusCode.NotFound, (await factory.CreateClient().GetAsync($"/api/v1/people/{Guid.NewGuid()}", Ct)).StatusCode);
+    }
+
+    [Fact]
     public async Task Matches_recorded_before_the_history_existed_are_backfilled()
     {
         var (winner, winnerInfo) = await factory.NewPlayerAsync("old-w");

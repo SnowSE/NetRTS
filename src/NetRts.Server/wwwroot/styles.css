@@ -1358,3 +1358,36 @@ a.plain:hover { text-decoration: underline; }
 .ach-desc { font-size: 0.875rem; }
 .ach-note { margin-top: 4px; }
 .ach-group + .ach-group { margin-top: 24px; }
+
+/* ---------- trophy room, earners, profiles ---------- */
+
+.tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--line); }
+.tabs a { padding: 8px 14px; text-decoration: none; font-weight: 600; color: var(--muted); border-bottom: 3px solid transparent; margin-bottom: -1px; }
+.tabs a:hover { color: var(--ink); }
+.tabs a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--signal-bg); }
+
+.earners { list-style: none; margin: 8px 0 0; padding: 8px 0 0; border-top: 1px solid var(--line); display: grid; gap: 4px; font-size: 0.875rem; }
+.earners .earners { border-top: 0; padding-top: 4px; margin-top: 0; }
+.earners li { overflow-wrap: anywhere; }
+.earners li.first { font-weight: 600; }
+.earners a.owner { color: var(--muted); }
+.earners summary { cursor: pointer; color: var(--muted); }
+.first-tag {
+  display: inline-block; margin-right: 6px; padding: 0 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; color: #15222a; background: var(--signal-bg); border-radius: var(--radius-s);
+}
+a.owner { text-decoration: none; }
+a.owner:hover { text-decoration: underline; }
+
+.trophy-table td:nth-child(2) { text-align: left; }
+.person { display: inline-flex; align-items: center; gap: 8px; text-decoration: none; color: inherit; }
+.person:hover b { text-decoration: underline; }
+.tier-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; background: var(--tier); }
+.tier-dot.tier-Bronze { --tier: #a5672f; }
+.tier-dot.tier-Silver { --tier: #8a96a0; }
+.tier-dot.tier-Gold { --tier: #d4a015; }
+.tier-dot.tier-Platinum { --tier: #3fa7c4; }
+
+.result-Win { color: var(--ok); }
+.result-Loss { color: var(--danger); }
+.result-Draw { color: var(--muted); }

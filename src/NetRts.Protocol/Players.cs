@@ -35,6 +35,9 @@ public sealed record PlayerProfileDto
     /// <summary>The verified owner's name: their Discord server nickname, or Discord name. Null if unclaimed.</summary>
     public string? OwnerName { get; init; }
 
+    /// <summary>The verified owner's id, for their public profile (GET /api/v1/people/{id}). Null if unclaimed.</summary>
+    public Guid? OwnerId { get; init; }
+
     /// <summary>Rating and record in each category (Practice, Season, Championship).</summary>
     public IReadOnlyList<CategoryRecordDto> Records { get; init; } = [];
 }
@@ -68,6 +71,9 @@ public sealed record LeaderboardEntryDto
 
     /// <summary>The verified owner's name: their Discord server nickname, or Discord name. Null if unclaimed.</summary>
     public string? OwnerName { get; init; }
+
+    /// <summary>The verified owner's id, for their public profile (GET /api/v1/people/{id}). Null if unclaimed.</summary>
+    public Guid? OwnerId { get; init; }
 
     /// <summary>
     /// League points. In each match the top four (winner first, then by score) earn their score margins

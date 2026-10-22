@@ -41,6 +41,22 @@ public sealed record AchievementDto
     public string? FirstEarnedBy { get; init; }
 
     public DateTimeOffset? FirstEarnedAt { get; init; }
+
+    /// <summary>Who has it, first earners first (at most <c>earners</c> of them; see GET /api/v1/achievements).</summary>
+    public IReadOnlyList<AchievementEarnerDto> Earners { get; init; } = [];
+}
+
+/// <summary>A bot that has earned an achievement, and its owner when Discord-verified.</summary>
+public sealed record AchievementEarnerDto
+{
+    public Guid PlayerId { get; init; }
+    public string Bot { get; init; } = "";
+    public string? OwnerName { get; init; }
+
+    /// <summary>The owner's id, for their public profile; null if the bot is unclaimed.</summary>
+    public Guid? OwnerId { get; init; }
+
+    public DateTimeOffset EarnedAt { get; init; }
 }
 
 /// <summary>An achievement a bot has earned (GET /api/v1/players/{id}/achievements).</summary>

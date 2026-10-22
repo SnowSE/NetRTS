@@ -106,6 +106,7 @@ app.MapPlayerEndpoints();
 app.MapMatchEndpoints();
 app.MapAccountEndpoints();
 app.MapAchievementEndpoints();
+app.MapPeopleEndpoints();
 app.MapRecapEndpoints();
 app.MapFallback("/api/{**path}", () => ApiErrors.Error(404, "NOT_FOUND", "No such API endpoint. See /scalar."));
 

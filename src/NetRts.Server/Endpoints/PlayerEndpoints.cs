@@ -122,6 +122,7 @@ public static partial class PlayerEndpoints
                 CreatedAt = new DateTimeOffset(DateTime.SpecifyKind(p.CreatedAt, DateTimeKind.Utc)),
                 Verified = verified,
                 OwnerName = verified ? p.Owner!.DisplayName : null,
+                OwnerId = verified ? p.Owner!.Id : null,
                 Records = records,
             };
         }).ToList();
@@ -161,6 +162,7 @@ public static partial class PlayerEndpoints
                 Points = x.Stats?.Points ?? 0,
                 Verified = verified,
                 OwnerName = verified ? x.Owner!.DisplayName : null,
+                OwnerId = verified ? x.Owner!.Id : null,
             };
         }).ToList();
     }

@@ -1,11 +1,12 @@
 // Spectator UI: hash router + home view.
-import { api, html, raw, setHtml, slotVar, displayName, playerLabel, verifiedBadge, timeAgo, fmt, outcomeHtml, esc } from './util.js';
+import { api, html, raw, setHtml, slotVar, displayName, playerLabel, botAndOwner, verifiedBadge, timeAgo, fmt, outcomeHtml, esc } from './util.js';
 import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
 import { mountLeague } from './league.js';
 import { mountRecaps, showLatestRecap } from './recaps.js';
 import { mountAchievements, mountBot } from './achievements.js';
+import { mountTrophyRoom, mountPerson } from './people.js';
 
 const main = document.getElementById('main');
 let teardown = null;
@@ -20,7 +21,9 @@ function route() {
   const recaps = hash.match(/^#\/recaps(?:\/([0-9a-fA-F-]{36}))?\/?$/);
   const achievements = /^#\/achievements\/?$/.test(hash);
   const bot = hash.match(/^#\/bot\/([0-9a-fA-F-]{36})\/?$/);
-  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot ? 'achievements' : 'home';
+  const trophyRoom = /^#\/trophy-room\/?$/.test(hash);
+  const person = hash.match(/^#\/player\/([0-9a-fA-F-]{36})\/?$/);
+  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -36,6 +39,10 @@ function route() {
     teardown = mountAchievements(main);
   } else if (bot) {
     teardown = mountBot(main, bot[1]);
+  } else if (trophyRoom) {
+    teardown = mountTrophyRoom(main);
+  } else if (person) {
+    teardown = mountPerson(main, person[1]);
   } else {
     teardown = mountHome(main);
   }
@@ -365,7 +372,7 @@ Authorization: Bearer &lt;apiKey&gt;
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
           <tbody>${list.map((p) => html`
             <tr><td>${p.rank}</td>
-              <td><a class="plain" href="#/bot/${p.playerId}">${playerLabel(p)}</a>${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
+              <td>${botAndOwner(p)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
               ${category !== 'Practice' ? html`<td class="rating">${fmt(p.points)}</td>` : ''}<td class="${category === 'Practice' ? 'rating' : ''}">${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
           </tbody>
         </table></div>` : category === 'Practice'

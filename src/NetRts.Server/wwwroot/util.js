@@ -95,6 +95,16 @@ export function playerLabel(p, { owner = true } = {}) {
   return html`${displayName(p?.name)}${verifiedBadge(p)}${owner && p?.verified && p.ownerName ? html`<span class="owner">${p.ownerName}</span>` : ''}`;
 }
 
+/**
+ * A bot linked to its page, and its verified owner linked to their profile. Not for use inside
+ * another link (a match row, say): use playerLabel there.
+ */
+export function botAndOwner(p, { id = p?.playerId, name = p?.name, owner = true } = {}) {
+  const bot = html`<a class="plain" href="#/bot/${id}">${displayName(name)}</a>${verifiedBadge(p)}`;
+  if (!owner || !p?.ownerName) return bot;
+  return html`${bot}${p.ownerId ? html`<a class="owner" href="#/player/${p.ownerId}">${p.ownerName}</a>` : html`<span class="owner">${p.ownerName}</span>`}`;
+}
+
 export function timeAgo(iso) {
   const t = Date.parse(iso);
   if (Number.isNaN(t)) return '';
