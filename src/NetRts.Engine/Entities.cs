@@ -40,6 +40,26 @@ internal sealed class PlayerState(Guid id, int slot, string name)
     /// <summary>-1 until taken; then the last tick it lasts.</summary>
     public int SerumUntilTick { get; set; } = -1;
 
+    // Match statistics, reported in PlayerResultDto.Stats. They never affect play.
+    public SortedDictionary<UnitType, int> UnitsTrained { get; } = [];
+    public SortedDictionary<BuildingType, int> BuildingsCompleted { get; } = [];
+    public SortedSet<int> RalliedBuildings { get; } = [];
+    public int? FirstBarracksTick { get; set; }
+    public int? FirstCombatUnitTick { get; set; }
+    public int? EnemyCommandCenterSeenTick { get; set; }
+    public int DepositsExhausted { get; set; }
+    public int CommandCentersDestroyed { get; set; }
+    public int PeakWorkers { get; set; }
+    public int PeakResources { get; set; } = GameRules.StartingResources;
+    public int OreWasted { get; set; }
+    public int TowerKills { get; set; }
+    public int SerumKills { get; set; }
+    public int CommandsQueued { get; set; }
+    public int CommandsRejected { get; set; }
+    public int CommandsFailed { get; set; }
+    public int LongestWorkerIdleTicks { get; set; }
+    public int LowestScoreSharePercent { get; set; } = 100;
+
     public int Tier(UpgradeType tier1, UpgradeType tier2) =>
         (Upgrades.Contains(tier1) ? 1 : 0) + (Upgrades.Contains(tier2) ? 1 : 0);
 
@@ -101,6 +121,9 @@ internal sealed class UnitEntity : Entity
     public int Cooldown { get; set; }
     public int MovePoints { get; set; }
     public int SerumUntilTick { get; set; } = -1;
+
+    /// <summary>Ticks in a row this unit has been idle (statistics only).</summary>
+    public int IdleTicks { get; set; }
 
     public List<Point> Path { get; set; } = [];
     public Point? PathGoal { get; set; }

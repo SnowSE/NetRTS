@@ -122,6 +122,7 @@ public sealed partial class GameSimulation
 
             if (error is not null)
             {
+                player.CommandsRejected++;
                 results.Add(new CommandResult { Index = i, Accepted = false, Error = error });
                 continue;
             }
@@ -277,6 +278,7 @@ public sealed partial class GameSimulation
         var id = _nextCommandId++;
         var recorded = new ReplayCommandDto(Tick, slot, request, boosted);
         _players[slot].CommandQueue.Enqueue(new QueuedCommand(id, request, recorded));
+        _players[slot].CommandsQueued++;
         _replayCommands.Add(recorded);
         return id;
     }
@@ -368,6 +370,11 @@ public sealed partial class GameSimulation
     private void AddEvent(PlayerState player, string kind, string message, int? entityId = null, long? commandId = null, bool spectator = true)
     {
         var evt = new GameEventDto { Tick = Tick, Kind = kind, Message = message, EntityId = entityId, CommandId = commandId };
+        if (kind == "CommandFailed")
+        {
+            player.CommandsFailed++;
+        }
+
         player.Events.Add(evt);
         if (player.Events.Count > Config.EventHistory)
         {

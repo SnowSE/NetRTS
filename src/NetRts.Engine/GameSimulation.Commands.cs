@@ -535,12 +535,14 @@ public sealed partial class GameSimulation
                 if (command.Position is { } produceRally)
                 {
                     command.Building!.Rally = produceRally;
+                    player.RalliedBuildings.Add(command.Building.Id);
                 }
 
                 break;
 
             case CommandType.Rally:
                 command.Building!.Rally = command.Position;
+                player.RalliedBuildings.Add(command.Building.Id);
                 break;
 
             case CommandType.Research:

@@ -18,6 +18,15 @@ public sealed class NetRtsOptions
     /// <summary>Tenant ID or domain the portal links sign in to, so they open in the right directory.</summary>
     public string? AzureTenant { get; set; }
 
+    /// <summary>
+    /// The players' time zone (IANA or Windows id): what "night" means for the Night Owl achievement,
+    /// and which day the nightly ladder snapshot and recap belong to.
+    /// </summary>
+    public string TimeZone { get; set; } = "America/Denver";
+
+    /// <summary><see cref="TimeZone"/>, or UTC if it isn't a known zone.</summary>
+    public TimeZoneInfo Zone => TimeZoneInfo.TryFindSystemTimeZoneById(TimeZone, out var zone) ? zone : TimeZoneInfo.Utc;
+
     public int DefaultTickIntervalMs { get; set; } = 1000;
     public int MinTickIntervalMs { get; set; } = 100;
     public int MaxTickIntervalMs { get; set; } = 10_000;

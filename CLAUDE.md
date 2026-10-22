@@ -44,5 +44,7 @@ dotnet run --project src/NetRts.BotRunner -- --server http://localhost:5080 --na
 - `src/NetRts.Server` — ASP.NET Core minimal APIs; `Matches/MatchHost` wraps one simulation behind a lock.
 - `src/NetRts.Bots` — `NetRtsClient`, `BotLoop`, `PlanBot` + house bot plans.
 - `docs/bot-guide.md` is the player-facing rules/API doc — keep it in sync with `GameRules` and the endpoints. `docs/requirements-coverage.md` maps the spec to code.
+- `src/NetRts.Server/Achievements` — the 75 achievements (`AchievementCatalog`; ids are stored, never change one) and their evaluation; `Recaps` — nightly ladder snapshots and the recap brief.
+- `recap/` — the nightly recap video job (Node: Azure OpenAI gpt-5.5 + Azure Speech in Foundry, Playwright + ffmpeg); `deploy/recap/setup.sh` + `main.bicep` create its Azure resources.
 - `src/NetRts.AppHost` — Aspire: local dev and the Azure deployment (private network, see `docs/deploying.md`).
 <!-- MANUAL ADDITIONS END -->

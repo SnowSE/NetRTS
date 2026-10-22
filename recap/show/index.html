@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Recap show</title>
+  <link rel="stylesheet" href="show.css">
+  <!-- Classic scripts: the page is opened from a file, where module scripts aren't allowed. -->
+  <script src="puppets.js" defer></script>
+  <script src="show.js" defer></script>
+</head>
+<body>
+  <div id="stage">
+    <div id="studio" aria-hidden="true">
+      <div class="lights"></div>
+      <div class="floor"></div>
+    </div>
+
+    <header id="bug">
+      <div class="logo"><span id="logo-game"></span><b>TONIGHT</b></div>
+      <div class="date" id="bug-date"></div>
+    </header>
+
+    <section id="screen">
+      <div class="screen-head"><span id="screen-title"></span></div>
+      <div class="screen-body" id="screen-body"></div>
+    </section>
+
+    <div id="desk-area">
+      <div id="hosts"></div>
+      <div class="desk">
+        <div class="desk-top"></div>
+        <div class="desk-front">
+          <div class="plates" id="plates"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="lower-third">
+      <div class="who" id="lt-who"></div>
+      <div class="said" id="lt-said"></div>
+    </div>
+
+    <div id="ticker"><div class="ticker-label">THE WIRE</div><div class="ticker-track"><span id="ticker-text"></span></div></div>
+
+    <div id="titlecard">
+      <div class="tc-inner">
+        <div class="tc-game" id="tc-game"></div>
+        <div class="tc-tonight">TONIGHT</div>
+        <div class="tc-date" id="tc-date"></div>
+        <div class="tc-title" id="tc-title"></div>
+      </div>
+      <div class="tc-stripes"></div>
+    </div>
+  </div>
+</body>
+</html>

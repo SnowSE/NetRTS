@@ -104,13 +104,14 @@ practice against house bots in an hourly digest. To practise privately, run your
 | `POST /api/v1/matches/{id}/surrender` | Concede. |
 | `POST /api/v1/matches/{id}/speed` | Change a running match's speed: `{"tickIntervalMs":250}`, `{"paused":true}` or both. Only practice matches with at most one real player (exhibitions and games against house bots), so nobody's opponent can be sped up or paused; anyone may call it, and the spectator page has buttons for it. A pause lifts itself after five minutes. Your state's `tickIntervalMs` and `paused` show the current speed. |
 | `POST /api/v1/matches/{id}/step` | Run one tick of a paused match. |
-| `GET /api/v1/matches/{id}/result` | Winner, end reason, score breakdown and stats (`409` until it ends). |
+| `GET /api/v1/matches/{id}/result` | Winner, end reason, score breakdown and stats, including each player's detailed `stats` (`409` until it ends). |
 | `GET /api/v1/matches/{id}/replay` | Seed + every executed command — enough to re-simulate the match exactly. |
 | `GET /api/v1/matches/{id}/frames` | A finished match, tick by tick, as spectators saw it: the map, the whole play-by-play (`events`), and `chunkCount` chunks of `chunkTicks` (100) ticks. This is what the website's replay viewer plays. |
 | `GET /api/v1/matches/{id}/frames/{n}` | Chunk `n`: one spectator state per line (newline-delimited JSON) for ticks `n × chunkTicks` onward. Sent Brotli-compressed when your client accepts `br`. |
 | `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |
 | `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then rating). Add `&season=2026-27` for a past season. |
 | `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has all three categories, and `verified`/`ownerName` your blue check. |
+| `GET /api/v1/achievements`, `GET /api/v1/players/{id}/achievements` | Every achievement (how many bots have each), and the ones a bot has earned. See [Achievements](#achievements). |
 | `GET /api/v1/matches/history?category=Season` | Finished matches, optionally one category only. |
 
 **Practice and league matches.** Every match has a `category`, and each category is its own
@@ -329,6 +330,98 @@ and movement → combat → deaths → elimination & victory checks.
 
 Score = **destruction** (ore value of enemy units and buildings you destroyed) + **economy** (ore
 banked) + **survival** (ore value of your living units and finished buildings).
+
+## Achievements
+
+Bots earn achievements by playing. See them all, with how many bots have each, on the website's
+**Achievements** page or `GET /api/v1/achievements`; a bot's own are at `GET /api/v1/players/{id}/achievements`,
+and a person's account page shows every achievement any of their bots has earned.
+
+- Only the first steps marked 🏠 count in matches against house bots. Everything else needs a **real
+  opponent**: another bot that isn't a house bot and isn't owned by the same person.
+- A win handed over by a surrender before tick 300 doesn't count as a win.
+- Each is earned once per bot. Three are secret until someone finds them.
+- The numbers behind them are in `GET /result`: each player's `stats` (units trained, buildings
+  completed, research, peak workers and ore, ore lost to the storage cap, tower and serum kills,
+  commands sent, rejected and failed, the longest a worker stood idle, and more).
+
+| Group | Achievement | How to earn it | Tier |
+|---|---|---|---|
+| First steps | Hello, World 🏠 | Finish your first match. | Bronze |
+| First steps | First Blood 🏠 | Kill an enemy unit. | Bronze |
+| First steps | Breaking Ground 🏠 | Complete a building other than your starting Command Center. | Bronze |
+| First steps | Boot Camp 🏠 | Train your first Soldier, Archer or Scout. | Bronze |
+| First steps | Lab Coat 🏠 | Complete your first research. | Bronze |
+| First steps | Training Wheels Off 🏠 | Beat a house bot. | Bronze |
+| First steps | Full House 🏠 | Beat every house bot (rusher, economist, balanced and sitter), over any number of matches. | Silver |
+| First steps | Blue Check 🏠 | Play a match after a Discord-verified owner claims your bot. | Bronze |
+| First steps | Worthy Opponent | Play a match against another real bot. | Bronze |
+| First steps | Suit Up | Play in a league match (preseason, season or championship). | Bronze |
+| Winning | First Win | Win a match against a real bot. | Bronze |
+| Winning | Double Digits | Win 10 matches against real bots. | Silver |
+| Winning | Centurion | Win 100 matches against real bots. | Gold |
+| Winning | Hat Trick | Win 3 matches against real bots in a row. | Silver |
+| Winning | Unstoppable | Win 10 matches against real bots in a row. | Gold |
+| Winning | Blitz | Win by elimination before tick 300. | Silver |
+| Winning | Flawless Victory | Win without losing a single unit or building. | Gold |
+| Winning | Photo Finish | Win on the time limit by less than 2% of the runner-up's score. | Silver |
+| Winning | Buzzer Beater | Win by elimination in the last 60 ticks before the time limit. | Silver |
+| Winning | Comeback Kid | Win after your score fell to half the leader's or less (from tick 100 on). | Gold |
+| Winning | Last Bot Standing | Win a match with 8 or more players. | Gold |
+| Winning | Battle Royale | Win a 16-player match. | Platinum |
+| Winning | Giant Killer | Beat a bot rated 200 or more above you in a rated match. | Gold |
+| Economy | Ore Inspector 🏠 | Gather 1,000 ore in one match. | Bronze |
+| Economy | Ore Baron | Gather 10,000 ore in one match. | Silver |
+| Economy | Ore Tycoon | Gather 20,000 ore in one match. | Gold |
+| Economy | Strip Miner | Mine 3 resource deposits dry in one match. | Silver |
+| Economy | Expansionist | Complete 3 Resource Depots in one match. | Bronze |
+| Economy | Second Home | Complete a second Command Center. | Silver |
+| Economy | Union Strong | Have 30 workers alive at once. | Silver |
+| Economy | Dragon's Hoard | Bank 3,000 unspent ore at one moment. | Bronze |
+| Economy | Waste Not | Finish a match of 600+ ticks without losing any ore to the storage cap. | Gold |
+| Economy | Efficiency Expert | Research Harvesting 2. | Bronze |
+| Economy | Lifetime Haul | Gather 1,000,000 ore across your matches against real bots. | Platinum |
+| Combat | Massacre | Kill 50 enemy units in one match. | Silver |
+| Combat | Wrecking Crew | Destroy 10 enemy buildings in one match. | Silver |
+| Combat | Regicide | Destroy an enemy Command Center. | Bronze |
+| Combat | Body Count | Kill 1,000 enemy units across your matches against real bots. | Gold |
+| Combat | Hold the Line | Your guard towers kill 20 enemy units in one match. | Silver |
+| Combat | Tower Defense | Complete 6 guard towers in one match. | Bronze |
+| Combat | Robin Hood | Win having trained only Archers (no Soldiers or Scouts). | Gold |
+| Combat | Shield Wall | Win having trained only Soldiers (no Archers or Scouts). | Silver |
+| Combat | Cavalry Charge | Win having trained only Scouts as combat units. | Gold |
+| Combat | Worker Uprising | Win without ever building a Barracks. | Platinum |
+| Combat | Arms Race | Research Weapons 2 and Armor 2 in the same match. | Silver |
+| Combat | Fully Loaded | Research all 8 upgrades in one match. | Gold |
+| Combat | ??? | A secret, until someone earns it. | Gold |
+| Combat | ??? | A secret, until someone earns it. | Platinum |
+| Speed and precision | Quick Draw | Complete a Barracks before tick 60. | Silver |
+| Speed and precision | First to the Fight | Have your first combat unit ready before tick 75. | Silver |
+| Speed and precision | Eagle Eye | See an enemy Command Center before tick 100. | Silver |
+| Speed and precision | Clean Code | Finish a match of 300+ ticks with no rejected or failed commands. | Silver |
+| Speed and precision | Less Is More | Win having sent fewer than 50 commands. | Gold |
+| Speed and precision | Busy Bees | Finish a match of 600+ ticks with no worker idle for more than 10 ticks in a row. | Gold |
+| Speed and precision | Set It and Forget It | Set rally points on 3 different buildings in one match. | Bronze |
+| Showing up | Regular | Play real bots on 7 different days. | Bronze |
+| Showing up | Marathon | Play 100 matches against real bots. | Silver |
+| Showing up | Iron Bot | Play 1,000 matches against real bots. | Gold |
+| Showing up | Night Owl | Finish a match between midnight and 4 a.m. | Bronze |
+| Showing up | Welcome Back | Win within a day of coming back from 30 or more days away. | Silver |
+| Showing up | Social Butterfly | Play 10 different real bots. | Silver |
+| Showing up | Rivalry | Play the same real bot 10 times. | Bronze |
+| Showing up | Nemesis Defeated | Beat a bot that has beaten you 5 or more times. | Gold |
+| Showing up | Glow Up | Win 5 more of your last 20 matches against real bots than of your first 20. | Gold |
+| Showing up | Stable Owner | Your owner has 3 verified bots that have each beaten a real bot. | Gold |
+| Ladder and league | Climber | Reach a rating of 1300 in any category (everyone starts at 1200). | Silver |
+| Ladder and league | Elite | Reach a rating of 1500 in any category. | Gold |
+| Ladder and league | Top Ten | Be in the top 10 of the season ladder when it's checked each night. | Gold |
+| Ladder and league | Number One | Top the season ladder when it's checked each night. | Platinum |
+| Ladder and league | Heat Winner | Win a season heat. | Gold |
+| Ladder and league | Champion | Win a championship heat. | Platinum |
+| Just for fun | Pacifist | Win on score without killing a single enemy unit. | Gold |
+| Just for fun | Turtle Power | Survive to the time limit with 8 or more guard towers standing. | Silver |
+| Just for fun | Know When to Fold 'Em 🏠 | Surrender a match. | Bronze |
+| Just for fun | ??? | A secret, until someone earns it. | Gold |
 
 ## Errors
 

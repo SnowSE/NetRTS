@@ -3,10 +3,12 @@ using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.EntityFrameworkCore;
 using NetRts.Bots;
 using NetRts.Server;
+using NetRts.Server.Achievements;
 using NetRts.Server.Auth;
 using NetRts.Server.Data;
 using NetRts.Server.Endpoints;
 using NetRts.Server.Matches;
+using NetRts.Server.Recaps;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
@@ -36,6 +38,21 @@ builder.Services.AddSingleton<MatchMetrics>();
 builder.Services.AddHttpClient<IDiscordWebhook, DiscordWebhook>();
 builder.Services.AddSingleton<MatchAnnouncer>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchAnnouncer>());
+builder.Services.Configure<RecapOptions>(builder.Configuration.GetSection(RecapOptions.Section));
+builder.Services.AddSingleton<LadderSnapshots>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<LadderSnapshots>());
+builder.Services.AddScoped<RecapBrief>();
+builder.Services.AddSingleton<RecapVideos>();
+builder.Services.AddHostedService<RecapLibrary>();
+// Recap videos live in blob storage: Azurite under Aspire, an Azure storage account in production
+// (ConnectionStrings__recaps = https://<account>.blob.core.windows.net/, signed in with the app's identity).
+if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("recaps")))
+{
+    builder.AddAzureBlobServiceClient("recaps");
+}
+
+builder.Services.AddSingleton<AchievementService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AchievementService>());
 builder.Services.AddSingleton<MatchRecorder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchRecorder>());
 builder.Services.AddSingleton<MatchManager>();
@@ -88,6 +105,8 @@ app.MapDefaultEndpoints();
 app.MapPlayerEndpoints();
 app.MapMatchEndpoints();
 app.MapAccountEndpoints();
+app.MapAchievementEndpoints();
+app.MapRecapEndpoints();
 app.MapFallback("/api/{**path}", () => ApiErrors.Error(404, "NOT_FOUND", "No such API endpoint. See /scalar."));
 
 await app.RunAsync();

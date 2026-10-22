@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using NetRts.Bots;
 using NetRts.Engine;
 using NetRts.Protocol;
+using NetRts.Server.Achievements;
 using NetRts.Server.Data;
 
 namespace NetRts.Server.Matches;
@@ -13,7 +14,8 @@ namespace NetRts.Server.Matches;
 /// Persists finished matches (summary, result, replay, frames) and updates win/loss records and Elo
 /// ratings. Runs off the tick loop so a slow database never stalls a game.
 /// </summary>
-public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchRecorder> logger, MatchMetrics metrics, MatchAnnouncer announcer) : BackgroundService
+public sealed class MatchRecorder(
+    IServiceScopeFactory scopes, ILogger<MatchRecorder> logger, MatchMetrics metrics, MatchAnnouncer announcer, AchievementService achievements) : BackgroundService
 {
     private readonly Channel<MatchHost> _queue = metrics.ObserveRecorderQueue(Channel.CreateUnbounded<MatchHost>());
 
@@ -30,6 +32,7 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
             {
                 await RecordAsync(host, stoppingToken);
                 host.Recorded = true;
+                achievements.MatchRecorded(host.Id);
                 metrics.MatchRecorded(Stopwatch.GetElapsedTime(started));
                 announcer.MatchRecorded(host);
             }
@@ -60,6 +63,7 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
             ? seats.Count == 2 && seats.All(s => !s.IsHouseBot)
             : seats.Count(s => !s.IsHouseBot) >= 2;
 
+        var completedAt = host.CompletedAt ?? DateTime.UtcNow;
         await using var scope = scopes.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
 
@@ -67,7 +71,7 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
         {
             Id = host.Id,
             CreatedAt = host.CreatedAt,
-            CompletedAt = host.CompletedAt ?? DateTime.UtcNow,
+            CompletedAt = completedAt,
             Seed = host.Settings.Seed,
             MapWidth = host.Settings.MapWidth,
             MapHeight = host.Settings.MapHeight,
@@ -88,12 +92,14 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
             ReplayFrameStore.Add(db, host.Id, frames, DateTime.UtcNow);
         }
 
+        // Second and later copies of a house bot have no player row, so they keep no record.
+        var ids = seats.Select(s => s.PlayerId).ToList();
+        var known = await db.Players.Where(p => ids.Contains(p.Id)).Select(p => p.Id).ToListAsync(ct);
+        Dictionary<Guid, (int Before, int After)>? ratingChanges = null;
+
         // Exhibitions between house bots are entertainment, not ladder games.
         if (seats.Any(s => !s.IsHouseBot))
         {
-            // Second and later copies of a house bot have no player row, so they keep no record.
-            var ids = seats.Select(s => s.PlayerId).ToList();
-            var known = await db.Players.Where(p => ids.Contains(p.Id)).Select(p => p.Id).ToListAsync(ct);
             var stats = await db.PlayerStats.Where(s => known.Contains(s.PlayerId) && s.Category == host.Category && s.Season == Seasons.Current)
                 .ToDictionaryAsync(s => s.PlayerId, ct);
             foreach (var id in known.Where(id => !stats.ContainsKey(id)))
@@ -132,8 +138,10 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
                 var places = ranked.Select(p => 1 + ranked.Count(q =>
                     (q.Winner && !p.Winner) || (q.Winner == p.Winner && q.Score.Total > p.Score.Total))).ToList();
                 var ratings = Elo.UpdateMany(ranked.Select(p => stats[p.PlayerId].Rating).ToList(), places);
+                ratingChanges = [];
                 for (var i = 0; i < ranked.Count; i++)
                 {
+                    ratingChanges[ranked[i].PlayerId] = (stats[ranked[i].PlayerId].Rating, ratings[i]);
                     stats[ranked[i].PlayerId].Rating = ratings[i];
                 }
             }
@@ -147,6 +155,10 @@ public sealed class MatchRecorder(IServiceScopeFactory scopes, ILogger<MatchReco
                 }
             }
         }
+
+        db.MatchPlayers.AddRange(MatchHistory.Rows(host.Id, completedAt, host.Category, result,
+            seats.Select((s, slot) => new HistorySeat(s.PlayerId, slot, s.IsHouseBot, s.OwnerAccountId)).ToList(),
+            known.ToHashSet(), ratingChanges, replay.Surrenders.Select(s => s.Slot).ToHashSet()));
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Recorded {Category} match {MatchId} ({Reason}, rated: {Rated})", host.Category, host.Id, result.Outcome.Reason, rated);

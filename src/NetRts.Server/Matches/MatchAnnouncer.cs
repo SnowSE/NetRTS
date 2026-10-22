@@ -189,6 +189,16 @@ public sealed class MatchAnnouncer(
         }
     }
 
+    /// <summary>A bot is the first ever to earn some achievements (one message for all of them).</summary>
+    public void FirstToEarn(string botName, bool verified, string? ownerName, IReadOnlyList<(string Name, string Description)> achievements)
+    {
+        if (Enabled && achievements.Count > 0)
+        {
+            var list = string.Join("\n", achievements.Select(a => $"🏅 **{Escape(a.Name)}**: {Escape(a.Description)}"));
+            Send(new JsonObject { ["content"] = Truncate($"{Who(botName, false, verified, ownerName)} is the first ever to earn\n{list}", 2000) });
+        }
+    }
+
     private void Post(JsonObject embed) => Send(new JsonObject { ["embeds"] = new JsonArray(embed) });
 
     private void Send(JsonObject message)

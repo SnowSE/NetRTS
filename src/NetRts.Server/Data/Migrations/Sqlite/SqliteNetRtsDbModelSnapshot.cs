@@ -101,6 +101,58 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.ToTable("accounts", (string)null);
                 });
 
+            modelBuilder.Entity("NetRts.Server.Data.BotAchievementRecord", b =>
+                {
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("AchievementId")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("EarnedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("MatchId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("PlayerId", "AchievementId");
+
+                    b.HasIndex("EarnedAt");
+
+                    b.HasIndex("AchievementId", "EarnedAt");
+
+                    b.ToTable("bot_achievements", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.LadderSnapshotRecord", b =>
+                {
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Category")
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Points")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Rank")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Rating")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Date", "Category", "PlayerId");
+
+                    b.HasIndex("PlayerId");
+
+                    b.ToTable("ladder_snapshots", (string)null);
+                });
+
             modelBuilder.Entity("NetRts.Server.Data.MatchFrameChunkRecord", b =>
                 {
                     b.Property<Guid>("MatchId")
@@ -150,6 +202,90 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.HasKey("MatchId");
 
                     b.ToTable("match_frames", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchPlayerRecord", b =>
+                {
+                    b.Property<Guid>("MatchId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PlayerId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("BuildingsDestroyed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Category")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CompletedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Gathered")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsHouseBot")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid?>("OwnerAccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Place")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PlayerCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("RatingAfter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("RatingBefore")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("RealOpponents")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Result")
+                        .IsRequired()
+                        .HasMaxLength(8)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Score")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Slot")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Strategy")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Surrendered")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Ticks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UnitsKilled")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("UnitsLost")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("MatchId", "PlayerId");
+
+                    b.HasIndex("CompletedAt");
+
+                    b.HasIndex("PlayerId", "CompletedAt");
+
+                    b.ToTable("match_players", (string)null);
                 });
 
             modelBuilder.Entity("NetRts.Server.Data.MatchRecord", b =>
@@ -307,11 +443,76 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.ToTable("player_stats", (string)null);
                 });
 
+            modelBuilder.Entity("NetRts.Server.Data.RecapEpisodeRecord", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("Date")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("DurationSeconds")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Summary")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Thumbnail")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TranscriptJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Video")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Date")
+                        .IsUnique();
+
+                    b.ToTable("recap_episodes", (string)null);
+                });
+
             modelBuilder.Entity("NetRts.Server.Data.AccountMilestoneRecord", b =>
                 {
                     b.HasOne("NetRts.Server.Data.AccountRecord", null)
                         .WithMany()
                         .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.BotAchievementRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.PlayerRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.LadderSnapshotRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.PlayerRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });
@@ -330,6 +531,21 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.HasOne("NetRts.Server.Data.MatchRecord", null)
                         .WithOne()
                         .HasForeignKey("NetRts.Server.Data.MatchFramesRecord", "MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.MatchPlayerRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.MatchRecord", null)
+                        .WithMany()
+                        .HasForeignKey("MatchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("NetRts.Server.Data.PlayerRecord", null)
+                        .WithMany()
+                        .HasForeignKey("PlayerId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
                 });

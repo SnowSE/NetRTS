@@ -151,6 +151,112 @@ public sealed class MatchFrameChunkRecord
     public byte[] Data { get; set; } = [];
 }
 
+public enum MatchResultKind
+{
+    Win,
+    Loss,
+    Draw,
+}
+
+/// <summary>
+/// One registered bot's part in one finished match: an index over <c>matches</c> for match history,
+/// achievements and the nightly recap. Second and later copies of a house bot have no row.
+/// </summary>
+public sealed class MatchPlayerRecord
+{
+    public Guid MatchId { get; set; }
+    public Guid PlayerId { get; set; }
+    public int Slot { get; set; }
+    public DateTime CompletedAt { get; set; }
+    public MatchCategory Category { get; set; }
+    public bool IsHouseBot { get; set; }
+
+    /// <summary>The bot's owner when the match was played.</summary>
+    public Guid? OwnerAccountId { get; set; }
+
+    public MatchResultKind Result { get; set; }
+
+    /// <summary>Finishing place: the winner, then everyone else by score; equal scores share a place.</summary>
+    public int Place { get; set; }
+
+    public int PlayerCount { get; set; }
+    public int Ticks { get; set; }
+    public MatchEndReason Reason { get; set; }
+    public int Score { get; set; }
+    public int Gathered { get; set; }
+    public int UnitsKilled { get; set; }
+    public int UnitsLost { get; set; }
+    public int BuildingsDestroyed { get; set; }
+
+    /// <summary>The bot surrendered.</summary>
+    public bool Surrendered { get; set; }
+
+    /// <summary>
+    /// Opponents that are real bots: not house bots, and not owned by this bot's owner. Achievements
+    /// other than the first steps need one, so they can't be farmed.
+    /// </summary>
+    public int RealOpponents { get; set; }
+
+    /// <summary>Rating in the match's category before and after, when the match was rated.</summary>
+    public int? RatingBefore { get; set; }
+
+    public int? RatingAfter { get; set; }
+
+    /// <summary>How the bot played, e.g. "archer-rush" (see <c>Strategies</c>); null when unknown.</summary>
+    public string? Strategy { get; set; }
+}
+
+/// <summary>An achievement a bot has earned (see <c>AchievementCatalog</c>).</summary>
+public sealed class BotAchievementRecord
+{
+    public Guid PlayerId { get; set; }
+    public string AchievementId { get; set; } = "";
+    public DateTime EarnedAt { get; set; }
+
+    /// <summary>The match that earned it, if one did.</summary>
+    public Guid? MatchId { get; set; }
+}
+
+/// <summary>A ladder as it stood one night, for the recap's movers and the ladder achievements.</summary>
+public sealed class LadderSnapshotRecord
+{
+    /// <summary>The night it was taken (local date, midnight UTC).</summary>
+    public DateTime Date { get; set; }
+
+    public MatchCategory Category { get; set; }
+    public Guid PlayerId { get; set; }
+    public int Rank { get; set; }
+    public int Rating { get; set; }
+    public int Points { get; set; }
+}
+
+/// <summary>One night's recap show.</summary>
+public sealed class RecapEpisodeRecord
+{
+    public Guid Id { get; set; }
+
+    /// <summary>The day the episode covers (local date, midnight UTC).</summary>
+    public DateTime Date { get; set; }
+
+    public string Title { get; set; } = "";
+
+    /// <summary>A sentence or two for the episode list.</summary>
+    public string Summary { get; set; } = "";
+
+    /// <summary>The video: a blob name in the recaps container, or an absolute URL.</summary>
+    public string Video { get; set; } = "";
+
+    /// <summary>Its poster frame, the same way; empty if none.</summary>
+    public string Thumbnail { get; set; } = "";
+
+    public int DurationSeconds { get; set; }
+
+    /// <summary>Serialized list of RecapLineDto: who said what, for the transcript.</summary>
+    public string TranscriptJson { get; set; } = "[]";
+
+    public DateTime CreatedAt { get; set; }
+}
+
 /// <summary>
 /// The server's database. The app uses one of the provider-specific subclasses below, each with its own
 /// migrations (Data/Migrations/Sqlite, Data/Migrations/Postgres), because generated migrations are
@@ -165,6 +271,10 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
     public DbSet<MatchFramesRecord> MatchFrames => Set<MatchFramesRecord>();
     public DbSet<MatchFrameChunkRecord> MatchFrameChunks => Set<MatchFrameChunkRecord>();
     public DbSet<AccountMilestoneRecord> AccountMilestones => Set<AccountMilestoneRecord>();
+    public DbSet<MatchPlayerRecord> MatchPlayers => Set<MatchPlayerRecord>();
+    public DbSet<BotAchievementRecord> BotAchievements => Set<BotAchievementRecord>();
+    public DbSet<LadderSnapshotRecord> LadderSnapshots => Set<LadderSnapshotRecord>();
+    public DbSet<RecapEpisodeRecord> RecapEpisodes => Set<RecapEpisodeRecord>();
 
     /// <summary>Keys for sign-in cookies, kept in the database so a restart or redeploy doesn't sign everyone out.</summary>
     public DbSet<DataProtectionKey> DataProtectionKeys => Set<DataProtectionKey>();
@@ -242,6 +352,49 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
             e.Property(m => m.Kind).HasMaxLength(32);
             e.HasIndex(m => new { m.Kind, m.ReachedAt });
             e.HasOne<AccountRecord>().WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<MatchPlayerRecord>(e =>
+        {
+            e.ToTable("match_players");
+            e.HasKey(m => new { m.MatchId, m.PlayerId });
+            e.Property(m => m.Category).HasConversion<string>().HasMaxLength(16);
+            e.Property(m => m.Result).HasConversion<string>().HasMaxLength(8);
+            e.Property(m => m.Reason).HasConversion<string>().HasMaxLength(16);
+            e.Property(m => m.Strategy).HasMaxLength(32);
+            e.HasIndex(m => new { m.PlayerId, m.CompletedAt });
+            e.HasIndex(m => m.CompletedAt);
+            e.HasOne<MatchRecord>().WithMany().HasForeignKey(m => m.MatchId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne<PlayerRecord>().WithMany().HasForeignKey(m => m.PlayerId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<BotAchievementRecord>(e =>
+        {
+            e.ToTable("bot_achievements");
+            e.HasKey(a => new { a.PlayerId, a.AchievementId });
+            e.Property(a => a.AchievementId).HasMaxLength(40);
+            e.HasIndex(a => new { a.AchievementId, a.EarnedAt });
+            e.HasIndex(a => a.EarnedAt);
+            e.HasOne<PlayerRecord>().WithMany().HasForeignKey(a => a.PlayerId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<LadderSnapshotRecord>(e =>
+        {
+            e.ToTable("ladder_snapshots");
+            e.HasKey(s => new { s.Date, s.Category, s.PlayerId });
+            e.Property(s => s.Category).HasConversion<string>().HasMaxLength(16);
+            e.HasOne<PlayerRecord>().WithMany().HasForeignKey(s => s.PlayerId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RecapEpisodeRecord>(e =>
+        {
+            e.ToTable("recap_episodes");
+            e.HasKey(r => r.Id);
+            e.HasIndex(r => r.Date).IsUnique();
+            e.Property(r => r.Title).HasMaxLength(200);
+            e.Property(r => r.Summary).HasMaxLength(2000);
+            e.Property(r => r.Video).HasMaxLength(512);
+            e.Property(r => r.Thumbnail).HasMaxLength(512);
         });
     }
 }

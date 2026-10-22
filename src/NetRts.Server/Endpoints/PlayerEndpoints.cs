@@ -127,7 +127,7 @@ public static partial class PlayerEndpoints
         }).ToList();
     }
 
-    private static async Task<IReadOnlyList<LeaderboardEntryDto>> Leaderboard(
+    internal static async Task<IReadOnlyList<LeaderboardEntryDto>> Leaderboard(
         NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct, MatchCategory category = MatchCategory.Practice, int limit = 50, string? season = null)
     {
         season ??= Seasons.Current;

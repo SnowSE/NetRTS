@@ -23,6 +23,9 @@ public sealed record AccountDto
     /// <summary>The bots this account has claimed.</summary>
     public IReadOnlyList<PlayerProfileDto> Bots { get; init; } = [];
 
+    /// <summary>Every achievement any of their bots has earned, once each, with the bots that earned it.</summary>
+    public IReadOnlyList<EarnedAchievementDto> Achievements { get; init; } = [];
+
     /// <summary>Admins only: Azure portal links to the server's telemetry (empty when not configured).</summary>
     public IReadOnlyList<TelemetryLinkDto> TelemetryLinks { get; init; } = [];
 }
@@ -129,6 +132,8 @@ public static class AccountEndpoints
                 IsAdmin = record.IsAdmin,
             },
             Bots = await PlayerEndpoints.ProfilesAsync(db, discord, db.Players.Where(p => p.OwnerAccountId == record.Id), ct),
+            Achievements = await AchievementEndpoints.EarnedAsync(db,
+                db.BotAchievements.Where(a => db.Players.Any(p => p.Id == a.PlayerId && p.OwnerAccountId == record.Id)), listBots: true, ct),
             TelemetryLinks = record.IsAdmin ? Endpoints.TelemetryLinks.For(netRts.Value) : [],
         };
     }

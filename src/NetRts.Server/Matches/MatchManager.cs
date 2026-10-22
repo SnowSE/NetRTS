@@ -23,6 +23,9 @@ public sealed class HouseBotDirectory
 
     public void Register(string bot, Guid playerId) => _ids[bot] = playerId;
 
+    /// <summary>Every house bot's player id.</summary>
+    public IReadOnlyCollection<Guid> Ids => [.. _ids.Values];
+
     public Guid IdOf(string bot) =>
         _ids.TryGetValue(bot, out var id) ? id : throw new InvalidOperationException($"House bot {bot} was not seeded.");
 

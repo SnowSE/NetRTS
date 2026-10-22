@@ -1,0 +1,4 @@
+# Installed by npm install
+node_modules/
+# Local renders (node src/index.mjs --local)
+out*/

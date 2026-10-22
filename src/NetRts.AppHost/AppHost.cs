@@ -38,15 +38,38 @@ dataSubnet.AddPrivateEndpoint(postgres);
 
 var db = postgres.AddDatabase("netrtsdb");
 
+// The nightly recap show's videos (Azurite locally). The server hands out short-lived links to them.
+var recapVideos = builder.AddAzureStorage("storage")
+    .RunAsEmulator(azurite => azurite.WithLifetime(ContainerLifetime.Persistent))
+    .AddBlobs("recaps");
+
+// The key the recap job uses to read the night's brief and publish episodes.
+var recapKey = builder.AddParameter("recap-key", new GenerateParameterDefault { MinLength = 32, Special = false }, secret: true, persist: true);
+
 var server = builder.AddProject<Projects.NetRts_Server>("server")
     .WithReference(db)
     .WaitFor(db)
+    .WithReference(recapVideos)
+    .WithEnvironment("Recap__ApiKey", recapKey)
     .WithExternalHttpEndpoints()
     .PublishAsAzureAppServiceWebsite((_, site) =>
     {
         // Matches tick on background timers; without Always On, App Service unloads an idle app mid-match.
         site.SiteConfig.IsAlwaysOn = true;
     });
+
+if (builder.ExecutionContext.IsRunMode)
+{
+    // The recap job, started by hand from the dashboard: a template script and silent hosts (no
+    // Azure OpenAI or Speech locally), uploaded to Azurite, where the server's sync finds it.
+    builder.AddDockerfile("recap", "../../recap")
+        .WithExplicitStart()
+        .WithArgs("node", "src/index.mjs", "--local", "--publish", "--script", "template", "--voices", "silent", "--out", "/tmp/recap")
+        .WithReference(recapVideos)
+        .WithEnvironment("NETRTS_URL", server.GetEndpoint("http"))
+        .WithEnvironment("RECAP_KEY", recapKey)
+        .WithEnvironment("RECAP_DATE", () => DateTime.Now.ToString("yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
+}
 
 if (builder.ExecutionContext.IsPublishMode)
 {

@@ -139,6 +139,83 @@ public sealed record PlayerResultDto
     public int UnitsKilled { get; init; }
     public int BuildingsLost { get; init; }
     public int BuildingsDestroyed { get; init; }
+
+    /// <summary>How the match went for this player, in more detail. Null for matches recorded before these were kept.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public PlayerMatchStatsDto? Stats { get; init; }
+}
+
+/// <summary>A player's match in numbers: what they built and trained, and how they played. Used for achievements and recaps.</summary>
+public sealed record PlayerMatchStatsDto
+{
+    /// <summary>Units trained, by type. The starting workers don't count.</summary>
+    public IReadOnlyDictionary<UnitType, int> UnitsTrained { get; init; } = new Dictionary<UnitType, int>();
+
+    /// <summary>Buildings finished, by type. The starting Command Center doesn't count.</summary>
+    public IReadOnlyDictionary<BuildingType, int> BuildingsCompleted { get; init; } = new Dictionary<BuildingType, int>();
+
+    /// <summary>Research completed.</summary>
+    public IReadOnlyList<UpgradeType> Upgrades { get; init; } = [];
+
+    /// <summary>Tick the first Barracks was finished, if one was.</summary>
+    public int? FirstBarracksTick { get; init; }
+
+    /// <summary>Tick the first Soldier, Archer or Scout was ready, if one was.</summary>
+    public int? FirstCombatUnitTick { get; init; }
+
+    /// <summary>Tick this player first saw an enemy Command Center, if they did.</summary>
+    public int? EnemyCommandCenterSeenTick { get; init; }
+
+    /// <summary>Resource deposits this player's workers mined dry.</summary>
+    public int DepositsExhausted { get; init; }
+
+    /// <summary>Enemy Command Centers destroyed.</summary>
+    public int CommandCentersDestroyed { get; init; }
+
+    /// <summary>Most workers alive at once.</summary>
+    public int PeakWorkers { get; init; }
+
+    /// <summary>Most ore banked at once.</summary>
+    public int PeakResources { get; init; }
+
+    /// <summary>Ore workers brought home that didn't fit in storage.</summary>
+    public int OreWasted { get; init; }
+
+    /// <summary>Enemy units killed by this player's guard towers.</summary>
+    public int TowerKills { get; init; }
+
+    /// <summary>Whether this player took the serum.</summary>
+    public bool SerumTaken { get; init; }
+
+    /// <summary>Enemy units killed by serum-boosted soldiers.</summary>
+    public int SerumKills { get; init; }
+
+    /// <summary>Commands accepted into the queue.</summary>
+    public int CommandsQueued { get; init; }
+
+    /// <summary>Commands rejected when submitted.</summary>
+    public int CommandsRejected { get; init; }
+
+    /// <summary>Commands that failed when they ran (CommandFailed events).</summary>
+    public int CommandsFailed { get; init; }
+
+    /// <summary>Longest stretch, in ticks, any one worker spent idle.</summary>
+    public int LongestWorkerIdleTicks { get; init; }
+
+    /// <summary>Different buildings given a rally point.</summary>
+    public int BuildingsRallied { get; init; }
+
+    /// <summary>Completed guard towers standing when the match ended.</summary>
+    public int GuardTowersStanding { get; init; }
+
+    /// <summary>Health of the player's healthiest Command Center when the match ended, in percent; null if they had none.</summary>
+    public int? CommandCenterHealthPercent { get; init; }
+
+    /// <summary>
+    /// The lowest this player's score fell relative to the leader's, in percent (100 = never behind),
+    /// checked every 10 ticks from tick 100 while they were still in the match.
+    /// </summary>
+    public int LowestScoreSharePercent { get; init; } = 100;
 }
 
 /// <summary>Omniscient view for spectators: every entity, every player's economy.</summary>

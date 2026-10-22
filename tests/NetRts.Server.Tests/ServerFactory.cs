@@ -20,6 +20,8 @@ public class ServerFactory : WebApplicationFactory<Program>
 
     protected virtual bool AutoTick => false;
 
+    public const string RecapKey = "test-recap-key";
+
     public const string TestAppInsights = "/subscriptions/sub/resourceGroups/rg/providers/microsoft.insights/components/ai";
 
     public MatchManager Matches => Services.GetRequiredService<MatchManager>();
@@ -36,6 +38,7 @@ public class ServerFactory : WebApplicationFactory<Program>
         builder.UseSetting("NetRts:RequestsPerSecond", "100000");
         builder.UseSetting("NetRts:RegistrationsPerMinutePerIp", "100000");
         builder.UseSetting("NetRts:AppInsightsResourceId", TestAppInsights);
+        builder.UseSetting("Recap:ApiKey", RecapKey);
     }
 
     /// <summary>Stores a Discord account, as a Discord sign-in would.</summary>

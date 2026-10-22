@@ -4,6 +4,8 @@ import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
 import { mountLeague } from './league.js';
+import { mountRecaps, showLatestRecap } from './recaps.js';
+import { mountAchievements, mountBot } from './achievements.js';
 
 const main = document.getElementById('main');
 let teardown = null;
@@ -15,7 +17,10 @@ function route() {
   // A match id, or the name a bot gave its match.
   const m = hash.match(/^#\/match\/([0-9a-fA-F-]{36}|[A-Za-z0-9_-]{3,32})\/?$/);
   const account = /^#\/account(\/|\?|$)/.test(hash);
-  const section = m ? 'match' : account ? 'account' : 'home';
+  const recaps = hash.match(/^#\/recaps(?:\/([0-9a-fA-F-]{36}))?\/?$/);
+  const achievements = /^#\/achievements\/?$/.test(hash);
+  const bot = hash.match(/^#\/bot\/([0-9a-fA-F-]{36})\/?$/);
+  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot ? 'achievements' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -25,6 +30,12 @@ function route() {
     teardown = mountMatch(main, m[1]);
   } else if (account) {
     teardown = mountAccount(main, showAccountLink);
+  } else if (recaps) {
+    teardown = mountRecaps(main, recaps[1]);
+  } else if (achievements) {
+    teardown = mountAchievements(main);
+  } else if (bot) {
+    teardown = mountBot(main, bot[1]);
   } else {
     teardown = mountHome(main);
   }
@@ -121,6 +132,7 @@ function mountHome(root) {
 
     <div class="board">
       <div>
+        <section aria-labelledby="recap-h" id="recap-card" hidden></section>
         <section aria-labelledby="live-h">
           <div class="section-head">
             <h2 id="live-h">${say('Live matches', 'Live brawls')}</h2>
@@ -353,7 +365,7 @@ Authorization: Bearer &lt;apiKey&gt;
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
           <tbody>${list.map((p) => html`
             <tr><td>${p.rank}</td>
-              <td>${playerLabel(p)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
+              <td><a class="plain" href="#/bot/${p.playerId}">${playerLabel(p)}</a>${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
               ${category !== 'Practice' ? html`<td class="rating">${fmt(p.points)}</td>` : ''}<td class="${category === 'Practice' ? 'rating' : ''}">${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
           </tbody>
         </table></div>` : category === 'Practice'
@@ -367,9 +379,10 @@ Authorization: Bearer &lt;apiKey&gt;
     }
   }
 
+  const stopRecap = showLatestRecap($('recap-card'));
   refresh();
 
-  return () => { alive = false; clearTimeout(timer); };
+  return () => { alive = false; clearTimeout(timer); stopRecap(); };
 }
 
 /** One row of a match list. Finished matches leave out the status column: they all say "Completed". */

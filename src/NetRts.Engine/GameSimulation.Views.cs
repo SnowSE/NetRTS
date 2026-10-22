@@ -125,7 +125,38 @@ public sealed partial class GameSimulation
                 UnitsKilled = p.UnitsKilled,
                 BuildingsLost = p.BuildingsLost,
                 BuildingsDestroyed = p.BuildingsDestroyed,
+                Stats = StatsOf(p),
             }).ToList(),
+        };
+    }
+
+    private PlayerMatchStatsDto StatsOf(PlayerState p)
+    {
+        var commandCenters = _buildings.Where(b => b.Owner == p.Slot && b.Type == BuildingType.CommandCenter).ToList();
+        return new PlayerMatchStatsDto
+        {
+            UnitsTrained = new SortedDictionary<UnitType, int>(p.UnitsTrained),
+            BuildingsCompleted = new SortedDictionary<BuildingType, int>(p.BuildingsCompleted),
+            Upgrades = p.Upgrades.Order().ToList(),
+            FirstBarracksTick = p.FirstBarracksTick,
+            FirstCombatUnitTick = p.FirstCombatUnitTick,
+            EnemyCommandCenterSeenTick = p.EnemyCommandCenterSeenTick,
+            DepositsExhausted = p.DepositsExhausted,
+            CommandCentersDestroyed = p.CommandCentersDestroyed,
+            PeakWorkers = p.PeakWorkers,
+            PeakResources = p.PeakResources,
+            OreWasted = p.OreWasted,
+            TowerKills = p.TowerKills,
+            SerumTaken = p.SerumUntilTick >= 0,
+            SerumKills = p.SerumKills,
+            CommandsQueued = p.CommandsQueued,
+            CommandsRejected = p.CommandsRejected,
+            CommandsFailed = p.CommandsFailed,
+            LongestWorkerIdleTicks = p.LongestWorkerIdleTicks,
+            BuildingsRallied = p.RalliedBuildings.Count,
+            GuardTowersStanding = _buildings.Count(b => b.Owner == p.Slot && b.Type == BuildingType.GuardTower && b.Completed),
+            CommandCenterHealthPercent = commandCenters.Count > 0 ? commandCenters.Max(b => b.Hp * 100 / b.MaxHp) : null,
+            LowestScoreSharePercent = p.LowestScoreSharePercent,
         };
     }
 
