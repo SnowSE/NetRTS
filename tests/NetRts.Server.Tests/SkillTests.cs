@@ -127,11 +127,14 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
         Assert.True(stats[0].Rating > Elo.InitialRating); // Elo moves exactly as before
         Assert.Equal(2 * Elo.InitialRating, stats[0].Rating + stats[1].Rating);
 
-        // One heat that night: its points count in full, and the live standings show the same.
+        // One heat that night: once the match is closed its points count in full, and the live
+        // standings show the same.
         var row = await RowAsync(heat.Id, players[0]);
         Assert.Equal(heat.ParentMatchId, row.LeagueMatchId);
         Assert.True(row.Points > 0);
-        Assert.Equal(row.Points, stats[0].Points);
+        Assert.Equal(0, stats[0].Points);
+        await factory.Services.GetRequiredService<LeagueFinalizer>().FinalizeAsync(heat.ParentMatchId!.Value, Ct);
+        Assert.Equal(row.Points, (await StatsAsync(MatchCategory.Championship, players))[0].Points);
         Assert.Equal(row.Points, LeagueMatchManager.StandingsOf(heat).Players.Single(p => p.PlayerId == players[0].PlayerId).Points);
 
         var profile = await WithDbAsync(async db =>
@@ -158,20 +161,27 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
             var row = await RowAsync(heat.Id, players[0]);
             heats.Add(row.Points);
 
-            // The live standings show each heat's own points; only the ladder total drops one.
+            // The live standings show each heat's own points; the ladder waits for the match to close.
             Assert.Equal(row.Points, LeagueMatchManager.StandingsOf(heat).Players[0].Points);
-            var total = (await StatsAsync(MatchCategory.Season, players))[0].Points;
-            Assert.Equal(heats.Count == 1 ? heats[0] : heats.Sum() - heats.Min(), total);
+            Assert.False(row.PointsCounted);
+            Assert.Equal(0, (await StatsAsync(MatchCategory.Season, players))[0].Points);
         }
 
         Assert.True(heats.Min() > 0 && heats.Distinct().Count() == 3, $"heats should differ: {string.Join(", ", heats)}");
+        var finalizer = factory.Services.GetRequiredService<LeagueFinalizer>();
+        var closed = await finalizer.FinalizeAsync(night, Ct);
+        Assert.Equal(MatchCategory.Season, closed!.Value.Category);
+        Assert.Equal(heats.Sum() - heats.Min(), closed.Value.Totals.Single(t => t.PlayerId == players[0].PlayerId).Points);
+        Assert.Equal(heats, closed.Value.Totals.Single(t => t.PlayerId == players[0].PlayerId).HeatPoints);
         var final = await StatsAsync(MatchCategory.Season, players);
         Assert.Equal(heats.Sum() - heats.Min(), final[0].Points);
         Assert.All(final.Skip(1), s => Assert.Equal(0, s.Points)); // losers' heats are worth nothing
+        Assert.Null(await finalizer.FinalizeAsync(night, Ct)); // only once
 
         // A second league match is its own night: one heat there counts in full.
         var next = await PlayHeatAsync(Guid.NewGuid(), MatchCategory.Season, players.Take(2).ToList(), winner: 0);
         var nextPoints = (await RowAsync(next.Id, players[0])).Points;
+        await finalizer.FinalizeAsync(next.ParentMatchId!.Value, Ct);
         Assert.Equal(heats.Sum() - heats.Min() + nextPoints, (await StatsAsync(MatchCategory.Season, players))[0].Points);
     }
 
@@ -179,7 +189,8 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
     public async Task League_ladders_stay_ranked_by_points_with_skill_alongside()
     {
         var players = await PlayersAsync(2);
-        await PlayHeatAsync(Guid.NewGuid(), MatchCategory.Preseason, players, winner: 0);
+        var heat = await PlayHeatAsync(Guid.NewGuid(), MatchCategory.Preseason, players, winner: 0);
+        await factory.Services.GetRequiredService<LeagueFinalizer>().FinalizeAsync(heat.ParentMatchId!.Value, Ct);
 
         // Give the loser the stronger skill but fewer points: points still decide.
         await using (var scope = factory.Services.CreateAsyncScope())
@@ -199,6 +210,21 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
         Assert.Equal(OpenSkill.Display(40, 2), ladder[1].Skill);
         Assert.Equal(40, ladder[1].Mu);
         Assert.Equal(2, ladder[1].Sigma);
+
+        // Equal points: skill breaks the tie, though the other bot has the better Elo rating.
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
+            var ids = players.Select(p => p.PlayerId).ToList();
+            await db.PlayerStats.Where(s => ids.Contains(s.PlayerId) && s.Category == MatchCategory.Preseason)
+                .ExecuteUpdateAsync(u => u.SetProperty(s => s.Points, ladder[0].Points), Ct);
+        }
+
+        var tied = (await PlayerEndpoints.Leaderboard(ladderScope.ServiceProvider.GetRequiredService<NetRtsDb>(),
+                ladderScope.ServiceProvider.GetRequiredService<IOptions<DiscordOptions>>(), Ct, MatchCategory.Preseason, limit: 200))
+            .Where(e => players.Any(p => p.PlayerId == e.PlayerId)).ToList();
+        Assert.Equal([players[1].PlayerId, players[0].PlayerId], tied.Select(e => e.PlayerId));
+        Assert.True(tied[1].Rating > tied[0].Rating);
     }
 
     [Fact]

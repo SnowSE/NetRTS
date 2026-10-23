@@ -17,7 +17,7 @@ namespace NetRts.Server.Data.Migrations.Postgres
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.12")
+                .HasAnnotation("ProductVersion", "10.0.13")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -253,6 +253,9 @@ namespace NetRts.Server.Data.Migrations.Postgres
 
                     b.Property<int>("Points")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("PointsCounted")
+                        .HasColumnType("boolean");
 
                     b.Property<int?>("RatingAfter")
                         .HasColumnType("integer");

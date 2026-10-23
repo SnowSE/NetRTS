@@ -40,7 +40,8 @@ public sealed class DiscordWebhook(HttpClient http, IOptions<DiscordOptions> opt
 /// Announces finished matches in the coding-competition Discord channel, when a results webhook is
 /// configured (the shared server; private servers leave it unset):
 /// <list type="bullet">
-/// <item>league matches: one message once every heat of a round has finished, with each heat's top players and points;</item>
+/// <item>league matches: one message once every heat of a round has finished, with each heat's top players and points, and
+/// one when the match is closed, with each bot's total and the ladder;</item>
 /// <item>practice between real bots: one short message each;</item>
 /// <item>practice against house bots only: an hourly digest, so iterating on a bot doesn't flood the channel;</item>
 /// <item>house-bot exhibitions: nothing.</item>
@@ -184,6 +185,42 @@ public sealed class MatchAnnouncer(
         {
             _milestoneGate.Release();
         }
+    }
+
+    /// <summary>
+    /// A league match is closed and its points are on the ladder: each bot's total for the match (its
+    /// heats less its lowest) and the ladder's top as it now stands. <paramref name="name"/> is null for
+    /// a match nobody closed, finalized after a restart.
+    /// </summary>
+    public void LeagueMatchFinal(string? name, Guid? leagueId, MatchCategory category,
+        IReadOnlyList<LeagueMatchTotal> totals, IReadOnlyList<LeaderboardEntryDto> ladder)
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+
+        var rows = totals.Take(15).Select((t, i) =>
+        {
+            var heats = t.HeatPoints.Count < 2 ? "" : $" ({string.Join(" + ", t.HeatPoints.Select(p => p.ToString("N0", CultureInfo.InvariantCulture)))}, lowest dropped)";
+            return $"{i + 1}. {Who(t.Name, false, t.Verified, t.OwnerName)} · **{t.Points.ToString("N0", CultureInfo.InvariantCulture)} pts**{heats}";
+        }).ToList();
+        if (totals.Count > 15)
+        {
+            rows.Add($"…and {totals.Count - 15} more");
+        }
+
+        var embed = Embed(name is null ? $"{category}: a match is final" : $"{category}: {name} is final",
+            leagueId is { } id ? Link($"#/match/{id}") : Link("#/leaderboard"),
+            Truncate(string.Join("\n", rows), 4000), category, null);
+        embed["fields"] = new JsonArray(new JsonObject
+        {
+            ["name"] = $"{category} ladder",
+            ["value"] = Truncate(string.Join("\n", ladder.Select(e =>
+                $"{e.Rank}. {Who(e.Name, e.IsHouseBot, e.Verified, e.OwnerName)} · {e.Points.ToString("N0", CultureInfo.InvariantCulture)} pts · skill {e.Skill.ToString("N0", CultureInfo.InvariantCulture)}")), 1024),
+            ["inline"] = false,
+        });
+        Post(embed);
     }
 
     /// <summary>An admin has created a league match: say what it's called and where to join it.</summary>

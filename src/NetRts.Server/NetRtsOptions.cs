@@ -49,6 +49,12 @@ public sealed class NetRtsOptions
     /// <summary>Season and championship matches wait this long for their players before they're dropped.</summary>
     public int LeagueMatchTimeoutMinutes { get; set; } = 24 * 60;
 
+    /// <summary>
+    /// A league match that was never closed (say the server restarted mid-match) has its points added
+    /// to the ladder this long after its last heat finished.
+    /// </summary>
+    public int LeagueAutoFinalizeMinutes { get; set; } = 60;
+
     /// <summary>Finished matches stay in memory (for spectators) this long; afterwards they're served from the database.</summary>
     public int CompletedMatchRetentionMinutes { get; set; } = 10;
 

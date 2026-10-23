@@ -36,6 +36,14 @@ public sealed class LeagueMatch(Guid id, string name, MatchCategory category, in
     /// <summary>True once the admin has started the first round.</summary>
     public bool Started => StartedAt is not null;
 
+    /// <summary>When the admin closed the match: no more rounds, and its points go on the ladder.</summary>
+    public DateTime? ClosedAt { get; internal set; }
+
+    public bool Closed => ClosedAt is not null;
+
+    /// <summary>The match's points are on the ladder (see <see cref="LeagueFinalizer"/>).</summary>
+    public bool Finalized { get; internal set; }
+
     /// <summary>Every heat of every round, the split but not yet started round included.</summary>
     internal List<MatchHost> Heats => [.. Rounds.SelectMany(r => r.Heats)];
 
@@ -165,6 +173,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                 return league;
             }
 
+            EnsureOpen(league);
             EnsureBetweenRounds(league, "MATCH_CLOSED", "isn't taking players until it ends");
             if (league.Queue.FirstOrDefault(q => q.Seat.OwnerAccountId == seat.OwnerAccountId) is { Seat: { } other })
             {
@@ -190,6 +199,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                 throw new MatchException(409, "CANNOT_LEAVE", "You aren't in this match.");
             }
 
+            EnsureOpen(league);
             EnsureBetweenRounds(league, "CANNOT_LEAVE", "can't be left until it ends; ask the admin to take you out, or surrender");
             league.Queue.RemoveAll(q => q.Seat.PlayerId == playerId);
         }
@@ -204,6 +214,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         var league = Get(id);
         lock (league.Gate)
         {
+            EnsureOpen(league);
             EnsureNoRoundRunning(league);
             if (league.Queue.RemoveAll(q => q.Seat.PlayerId == playerId) == 0)
             {
@@ -227,6 +238,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         var league = Get(id);
         lock (league.Gate)
         {
+            EnsureOpen(league);
             EnsureNoRoundRunning(league);
             if (sizes.Count == 0 || sizes.Any(n => n is < 2 or > MapGenerator.MaxPlayers))
             {
@@ -272,6 +284,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         var league = Get(id);
         lock (league.Gate)
         {
+            EnsureOpen(league);
             EnsureNoRoundRunning(league);
             CancelPendingRound(league);
         }
@@ -286,6 +299,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         var league = Get(id);
         lock (league.Gate)
         {
+            EnsureOpen(league);
             EnsureNoRoundRunning(league);
             if (league.PendingRound is not { } round)
             {
@@ -310,6 +324,55 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
 
         league.Signal();
         return league;
+    }
+
+    /// <summary>
+    /// Ends a started match between rounds (dropping a round that was split but not started): no more
+    /// rounds or players. <see cref="LeagueFinalizer"/> then puts its points on the ladder.
+    /// </summary>
+    public LeagueMatch Close(Guid id)
+    {
+        var league = Get(id);
+        lock (league.Gate)
+        {
+            if (league.Closed)
+            {
+                return league;
+            }
+
+            if (!league.Started)
+            {
+                throw new MatchException(409, "MATCH_NOT_STARTED", "No round has been played yet; call the match off instead.");
+            }
+
+            EnsureNoRoundRunning(league);
+            CancelPendingRound(league);
+            league.ClosedAt = DateTime.UtcNow;
+            league.LastActivityAt = DateTime.UtcNow;
+            logger.LogInformation("Closed {MatchName} after {Rounds} rounds", league.Name, league.Rounds.Count);
+        }
+
+        league.Signal();
+        return league;
+    }
+
+    /// <summary>Every heat of every started round has been saved, so the match's points can be added up.</summary>
+    public bool AllHeatsRecorded(LeagueMatch league)
+    {
+        lock (league.Gate)
+        {
+            return league.Rounds.Where(r => r.Started).SelectMany(r => r.Heats).All(h => h.Recorded);
+        }
+    }
+
+    public void MarkFinalized(LeagueMatch league)
+    {
+        lock (league.Gate)
+        {
+            league.Finalized = true;
+        }
+
+        league.Signal();
     }
 
     public LeagueMatch Cancel(Guid id)
@@ -355,6 +418,11 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                 {
                     return heat;
                 }
+
+                if (league.Closed)
+                {
+                    throw new MatchException(409, "MATCH_FINISHED", "This match has been closed; there are no more rounds.");
+                }
             }
 
             if (wait <= TimeSpan.Zero)
@@ -383,8 +451,9 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
     }
 
     /// <summary>
-    /// Drops league matches that have sat idle (nobody joined, split or started a round) for the league
-    /// timeout, once none of their heats is still running or kept in memory.
+    /// Drops closed league matches once their points are on the ladder and their heats have left
+    /// memory, and others that have sat idle (nobody joined, split or started a round) for the league
+    /// timeout. A match dropped without being closed is finalized later by <see cref="LeagueFinalizer"/>.
     /// </summary>
     public void Housekeep(DateTime now)
     {
@@ -393,8 +462,10 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
             bool stale;
             lock (league.Gate)
             {
-                stale = now - league.LastActivityAt > TimeSpan.FromMinutes(_options.LeagueMatchTimeoutMinutes)
-                        && league.Rounds.Where(r => r.Started).SelectMany(r => r.Heats).All(m => matches.Get(m.Id) is null);
+                var heatsGone = league.Rounds.Where(r => r.Started).SelectMany(r => r.Heats).All(m => matches.Get(m.Id) is null);
+                stale = league.Closed
+                    ? league.Finalized && heatsGone
+                    : now - league.LastActivityAt > TimeSpan.FromMinutes(_options.LeagueMatchTimeoutMinutes) && heatsGone;
                 if (stale)
                 {
                     CancelPendingRound(league);
@@ -414,8 +485,8 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         lock (league.Gate)
         {
             var heats = league.Rounds.SelectMany(r => r.Heats.Select(h => (Heat: h, Round: r.Number, Summary: h.ToSummary()))).ToList();
-            // Between rounds a match counts as completed, though bots can join and the admin can split
-            // and start another round.
+            // Between rounds a match counts as completed, though until it is closed bots can join and the
+            // admin can split and start another round.
             var status = !league.Started ? MatchStatus.Waiting
                 : league.RoundRunning || league.PendingRound is not null ? MatchStatus.Active
                 : MatchStatus.Completed;
@@ -439,6 +510,8 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                     OwnerName = q.Seat.OwnerName,
                     Connected = presence.IsConnected(q.Seat.PlayerId),
                 }).ToList(),
+                Closed = league.Closed,
+                Finalized = league.Finalized,
                 Heats = heats.Select(h => new HeatDto
                 {
                     MatchId = h.Heat.Id,
@@ -502,6 +575,14 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                 };
             }).ToList(),
         };
+    }
+
+    private static void EnsureOpen(LeagueMatch league)
+    {
+        if (league.Closed)
+        {
+            throw new MatchException(409, "MATCH_FINISHED", "This match has been closed.");
+        }
     }
 
     private static void EnsureNoRoundRunning(LeagueMatch league)

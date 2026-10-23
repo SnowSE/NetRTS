@@ -152,7 +152,7 @@ public sealed class MatchRecorder(
         var rows = MatchHistory.Rows(host.Id, completedAt, host.Category, result,
             seats.Select((s, slot) => new HistorySeat(s.PlayerId, slot, s.IsHouseBot, s.OwnerAccountId)).ToList(),
             known.ToHashSet(), rated ? ratingChanges : null, replay.Surrenders.Select(s => s.Slot).ToHashSet(), host.ParentMatchId);
-        await AddLeaguePointsAsync(db, stats, rows, ct);
+        AddLeaguePoints(stats, rows);
         db.MatchPlayers.AddRange(rows);
 
         await db.SaveChangesAsync(ct);
@@ -160,37 +160,21 @@ public sealed class MatchRecorder(
     }
 
     /// <summary>
-    /// Adds a match's league points (already on its history <paramref name="rows"/>) to the season totals.
-    /// A heat of a league match changes its bot's total by how much it changes that night's
-    /// <see cref="LeaguePoints.Night"/> (every heat of the night, less the lowest once there are two),
-    /// so heats can be recorded one at a time, in any order, and the total always comes out the same.
+    /// Adds a match's league points (already on its history <paramref name="rows"/>) to the season
+    /// totals. A heat of a league match waits: its league match adds them when it is closed (see
+    /// <see cref="LeagueFinalizer"/>), less each bot's lowest heat.
     /// </summary>
-    internal static async Task AddLeaguePointsAsync(NetRtsDb db, IReadOnlyDictionary<Guid, PlayerStatsRecord> stats, IReadOnlyList<MatchPlayerRecord> rows, CancellationToken ct)
+    internal static void AddLeaguePoints(IReadOnlyDictionary<Guid, PlayerStatsRecord> stats, IReadOnlyList<MatchPlayerRecord> rows)
     {
-        var counted = rows.Where(r => r.Category != MatchCategory.Practice && stats.ContainsKey(r.PlayerId)).ToList();
-        if (counted.Count == 0)
+        foreach (var row in rows.Where(r => r.Category != MatchCategory.Practice && stats.ContainsKey(r.PlayerId)))
         {
-            return;
-        }
-
-        var ids = counted.Select(r => r.PlayerId).ToList();
-        var nights = counted.Where(r => r.LeagueMatchId is not null).Select(r => r.LeagueMatchId).Distinct().ToList();
-        var earlier = (await db.MatchPlayers.AsNoTracking()
-                .Where(r => r.LeagueMatchId != null && nights.Contains(r.LeagueMatchId) && ids.Contains(r.PlayerId))
-                .Select(r => new { r.MatchId, r.PlayerId, LeagueMatchId = r.LeagueMatchId!.Value, r.Points })
-                .ToListAsync(ct))
-            .ToLookup(r => (r.PlayerId, r.LeagueMatchId), r => (r.MatchId, r.Points));
-
-        foreach (var row in counted)
-        {
-            if (row.LeagueMatchId is not { } night)
+            if (row.LeagueMatchId is not null)
             {
-                stats[row.PlayerId].Points += row.Points;
+                row.PointsCounted = false;
                 continue;
             }
 
-            var before = earlier[(row.PlayerId, night)].Where(e => e.MatchId != row.MatchId).Select(e => e.Points).ToList();
-            stats[row.PlayerId].Points += LeaguePoints.Night([.. before, row.Points]) - LeaguePoints.Night(before);
+            stats[row.PlayerId].Points += row.Points;
         }
     }
 }

@@ -224,6 +224,12 @@ public sealed class MatchPlayerRecord
 
     /// <summary>For a heat: the league match it belongs to (the heat's parent match).</summary>
     public Guid? LeagueMatchId { get; set; }
+
+    /// <summary>
+    /// Whether <see cref="Points"/> is in the season total yet. A heat's points wait until its league
+    /// match is closed (see <c>LeagueFinalizer</c>), when the match's total, less the lowest heat, is added.
+    /// </summary>
+    public bool PointsCounted { get; set; } = true;
 }
 
 /// <summary>An achievement a bot has earned (see <c>AchievementCatalog</c>).</summary>

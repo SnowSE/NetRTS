@@ -336,7 +336,17 @@ public static class MatchEndpoints
         admin.MapPost("/{matchId:guid}/start", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Start(matchId)))
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
-            .WithSummary("Start every heat at once.");
+            .WithSummary("Start every heat of the split round at once.");
+
+        admin.MapPost("/{matchId:guid}/close", async (Guid matchId, LeagueMatchManager leagues, LeagueFinalizer finalizer, CancellationToken ct) =>
+            {
+                var league = leagues.Close(matchId);
+                await finalizer.FinishAsync(league, TimeSpan.FromSeconds(15), ct);
+                return leagues.ToSummary(league);
+            })
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Close a league match between rounds: no more rounds, its points go on the ladder (each bot's heats less its lowest), and the results are posted.");
 
         admin.MapDelete("/{matchId:guid}/players/{playerId:guid}", (Guid matchId, Guid playerId, LeagueMatchManager leagues) =>
                 leagues.ToSummary(leagues.Remove(matchId, playerId)))

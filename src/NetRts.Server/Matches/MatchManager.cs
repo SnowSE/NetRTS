@@ -401,7 +401,8 @@ public sealed partial class MatchManager(
 }
 
 /// <summary>Periodically tidies <see cref="MatchManager"/> and <see cref="LeagueMatchManager"/>.</summary>
-public sealed class MatchHousekeeper(MatchManager manager, LeagueMatchManager leagues, TimeProvider time) : BackgroundService
+public sealed class MatchHousekeeper(MatchManager manager, LeagueMatchManager leagues, LeagueFinalizer finalizer, TimeProvider time,
+    ILogger<MatchHousekeeper> logger) : BackgroundService
 {
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -410,6 +411,14 @@ public sealed class MatchHousekeeper(MatchManager manager, LeagueMatchManager le
         {
             manager.Housekeep(time.GetUtcNow().UtcDateTime);
             leagues.Housekeep(time.GetUtcNow().UtcDateTime);
+            try
+            {
+                await finalizer.SweepAsync(time.GetUtcNow().UtcDateTime, stoppingToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogError(ex, "Finalizing league matches failed");
+            }
         }
     }
 }

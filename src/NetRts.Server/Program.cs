@@ -57,6 +57,7 @@ builder.Services.AddSingleton<MatchRecorder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchRecorder>());
 builder.Services.AddSingleton<MatchManager>();
 builder.Services.AddSingleton<LeagueMatchManager>();
+builder.Services.AddSingleton<LeagueFinalizer>();
 builder.Services.AddSingleton<ReplayFrameStore>();
 builder.Services.AddSingleton<Presence>();
 builder.Services.AddHostedService<MatchHousekeeper>();

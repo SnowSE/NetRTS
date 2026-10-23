@@ -76,6 +76,12 @@ public sealed record MatchSummaryDto
     /// </summary>
     public IReadOnlyList<HeatDto>? Heats { get; init; }
 
+    /// <summary>A league match the admin has closed: no more rounds or players.</summary>
+    public bool Closed { get; init; }
+
+    /// <summary>A closed league match whose points are on the ladder.</summary>
+    public bool Finalized { get; init; }
+
     /// <summary>For a heat: the league match it belongs to.</summary>
     public Guid? ParentMatchId { get; init; }
 }

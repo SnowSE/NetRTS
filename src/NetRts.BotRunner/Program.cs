@@ -108,7 +108,11 @@ namespace NetRts.BotRunner
             var league = match.Heats is not null;
             while (true)
             {
-                await WaitForStartAsync(client, matchId, league, ct);
+                if (!await WaitForStartAsync(client, matchId, league, ct))
+                {
+                    Log("The admin has closed the match; there are no more rounds.");
+                    return 0;
+                }
 
                 var strategy = new ProgressLogger(HouseBots.Create(o.Strategy), Log);
                 Log($"Match started. Playing with strategy '{o.Strategy}'.");
@@ -173,9 +177,9 @@ namespace NetRts.BotRunner
 
         /// <summary>
         /// Long-polls until the match has been created (it starts once every seat is filled), or for a
-        /// league match until the admin starts the next round.
+        /// league match until the admin starts the next round. False once a league match has been closed.
         /// </summary>
-        private static async Task WaitForStartAsync(NetRtsClient client, Guid matchId, bool league, CancellationToken ct)
+        private static async Task<bool> WaitForStartAsync(NetRtsClient client, Guid matchId, bool league, CancellationToken ct)
         {
             var announced = false;
             while (true)
@@ -183,7 +187,11 @@ namespace NetRts.BotRunner
                 try
                 {
                     await client.GetStateAsync(matchId, waitForTick: 0, ct: ct);
-                    return;
+                    return true;
+                }
+                catch (NetRtsApiException ex) when (ex.Code == "MATCH_FINISHED")
+                {
+                    return false;
                 }
                 catch (NetRtsApiException ex) when (ex.Code == "MATCH_NOT_STARTED")
                 {

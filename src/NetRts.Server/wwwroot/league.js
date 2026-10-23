@@ -1,7 +1,8 @@
 // A league match (preseason, season, championship), played in rounds: the queue filling up, each
 // round's heats as the admin arranges them (in seat order around the map), then a live scoreboard
-// per heat. Bots can join between rounds. Discord server admins also get the controls to split,
-// reshuffle and start each round's heats at once.
+// per heat, and each bot's total for the match. Bots can join between rounds. Discord server admins
+// also get the controls to split, reshuffle and start each round's heats at once, and to close the
+// match, which puts its points on the ladder.
 import { api, html, setHtml, playerLabel, slotVar, fmt } from './util.js';
 import { GAME, say } from './lore.js';
 
@@ -17,8 +18,9 @@ const pendingHeats = (m) => {
   return last.length && last.every((h) => h.status === 'Waiting') ? last : [];
 };
 
-/** queueing (before round 1), split (a round is arranged), running, or between (rounds). */
-const stageOf = (m) => pendingHeats(m).length ? 'split'
+/** queueing (before round 1), split (a round is arranged), running, between (rounds), or closed. */
+const stageOf = (m) => m.closed ? 'closed'
+  : pendingHeats(m).length ? 'split'
   : (m.heats ?? []).some((h) => h.status === 'Active') ? 'running'
   : m.status === 'Waiting' ? 'queueing' : 'between';
 
@@ -64,12 +66,13 @@ export function mountLeague(root, initial) {
     const pending = pendingHeats(m);
     const round = lastRound(m);
     if (sizesText === null && pending.length) sizesText = pending.map((h) => h.playerIds.length).join(', ');
-    const canEdit = isAdmin && stage !== 'running';
+    const canEdit = isAdmin && stage !== 'running' && stage !== 'closed';
     const stageText = {
       queueing: 'Taking players',
       split: `Round ${round} split into heats, waiting for the start`,
       running: `Round ${round} under way`,
       between: `Round ${round} finished · bots can join before the next round`,
+      closed: m.finalized ? `Final after ${round} round${round === 1 ? '' : 's'} · points are on the ${m.category.toLowerCase()} ladder` : 'Closed · adding up the points…',
     }[stage];
 
     setHtml(root, html`<div class="league">
@@ -102,6 +105,8 @@ export function mountLeague(root, initial) {
           </article>`)}
         </div></section>` : ''}
 
+      ${standings ? totalsHtml(standings, stage === 'closed' && m.finalized) : ''}
+
       ${standings ? dashboardHtml(standings, m) : ''}
 
       ${stage === 'queueing' || stage === 'between' ? html`<section aria-labelledby="queue-h">
@@ -120,6 +125,40 @@ export function mountLeague(root, initial) {
       <span class="league-name">${playerLabel(p)}</span>
       ${canEdit ? html`<button type="button" class="link-btn" data-remove="${p.playerId}" aria-label="Remove ${p.name}">Remove</button>` : ''}
     </li>`;
+  }
+
+  /**
+   * Each bot's total for the match: its finished heats' points, less the lowest once it has played
+   * two or more (the server does the same when the match is closed).
+   */
+  function totalsHtml(heats, final) {
+    const done = heats.filter((h) => h.status === 'Completed');
+    if (!done.length || (!final && !done.some((h) => (h.round ?? 1) > 1))) return '';
+    const bots = new Map();
+    for (const h of [...done].sort((a, b) => (a.round ?? 1) - (b.round ?? 1))) {
+      for (const p of h.players) {
+        const bot = bots.get(p.playerId) ?? { player: p, heats: [] };
+        bot.heats.push(p.points);
+        bots.set(p.playerId, bot);
+      }
+    }
+    const rows = [...bots.values()].map((b) => {
+      const dropAt = b.heats.length < 2 ? -1 : b.heats.indexOf(Math.min(...b.heats));
+      const total = b.heats.reduce((sum, x, i) => sum + (i === dropAt ? 0 : x), 0);
+      return { ...b, dropAt, total };
+    }).sort((a, b) => b.total - a.total || a.player.name.localeCompare(b.player.name));
+    return html`<section aria-labelledby="totals-h">
+      <h2 id="totals-h">${final ? 'Match totals' : 'Match totals so far'}</h2>
+      <p class="muted small">Each bot's heats, lowest dropped once it has played two or more.${final ? '' : ' They go on the ladder when the admin closes the match.'}</p>
+      <table class="ladder heat-table">
+        <thead><tr><th scope="col">#</th><th scope="col">Player</th><th scope="col">Heats</th><th scope="col">Pts</th></tr></thead>
+        <tbody>${rows.map((r, i) => html`
+          <tr><td>${i + 1}</td><td>${playerLabel(r.player, { owner: false })}</td>
+            <td class="muted">${r.heats.map((x, j) => html`${j ? ' + ' : ''}${j === r.dropAt ? html`<s title="Lowest heat, dropped">${fmt(x)}</s>` : fmt(x)}`)}</td>
+            <td class="rating">${r.total ? fmt(r.total) : '–'}</td></tr>`)}
+        </tbody>
+      </table>
+    </section>`;
   }
 
   /** One live scoreboard per heat, latest round first, with each heat's seating around the map. */
@@ -182,6 +221,10 @@ export function mountLeague(root, initial) {
           ${stage === 'split' ? html`<button type="button" class="btn ghost" id="unsplit">Undo split (reopen to players)</button>` : ''}
         </div>
       </form>
+      ${stage === 'between' ? html`<div class="start-box">
+        <p>Done with rounds? Closing the match puts its points on the ladder (each bot's heats, less its lowest) and posts the results.</p>
+        <button type="button" class="btn start" id="close">Close match and finalize</button>
+      </div>` : ''}
       ${stage === 'split' ? html`<div class="start-box">
         <p>${idle ? html`<b>${idle}</b> of ${n} bots aren't connected. Remove them, or start anyway and they'll sit idle.` : html`All ${n} bots are connected.`}</p>
         <button type="button" class="btn start" id="start">Start round ${next}: all ${pendingHeats(m).length} heats</button>
@@ -208,6 +251,8 @@ export function mountLeague(root, initial) {
     $('unsplit')?.addEventListener('click', () => act(() => api(`${base}/heats`, { method: 'DELETE' }), 'Reopened to players.'));
     $('start')?.addEventListener('click', (e) => confirmThen(e.currentTarget, 'Start every heat now?',
       () => act(() => api(`${base}/start`, { method: 'POST' }), 'Started. Good luck, everyone.')));
+    $('close')?.addEventListener('click', (e) => confirmThen(e.currentTarget, 'Close it for good?',
+      () => act(() => api(`${base}/close`, { method: 'POST' }), 'Closed. Points are on the ladder.')));
     $('cancel')?.addEventListener('click', (e) => confirmThen(e.currentTarget, 'Really call it off?',
       () => act(() => api(base, { method: 'DELETE' }), null, () => { location.hash = '#/'; })));
     root.querySelectorAll('[data-remove]').forEach((b) => b.addEventListener('click', () => confirmThen(b, 'Remove?',

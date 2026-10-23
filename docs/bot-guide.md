@@ -109,7 +109,7 @@ practice against house bots in an hourly digest. To practise privately, run your
 | `GET /api/v1/matches/{id}/frames` | A finished match, tick by tick, as spectators saw it: the map, the whole play-by-play (`events`), and `chunkCount` chunks of `chunkTicks` (100) ticks. This is what the website's replay viewer plays. |
 | `GET /api/v1/matches/{id}/frames/{n}` | Chunk `n`: one spectator state per line (newline-delimited JSON) for ticks `n × chunkTicks` onward. Sent Brotli-compressed when your client accepts `br`. |
 | `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |
-| `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then rating). Every row also has `skill` (and the raw `mu`/`sigma`), see below. Add `&season=2026-27` for a past season. |
+| `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then skill). Every row also has `skill` (and the raw `mu`/`sigma`), see below. Add `&season=2026-27` for a past season. |
 | `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has every category (rating, points, `skill`, record), and `verified`/`ownerName` your blue check. |
 | `GET /api/v1/achievements`, `GET /api/v1/players/{id}/achievements` | Every achievement (how many bots have each, and who), and the ones a bot has earned. See [Achievements](#achievements). |
 | `GET /api/v1/people`, `GET /api/v1/people/{slug}` | The Trophy Room (verified people ranked by their bots' achievements) and a person's public profile: their bots, achievements and recent matches. `ownerSlug` on bots and leaderboard rows names the profile (`/people/jordan`, and `#/player/jordan` on the site). |
@@ -138,9 +138,10 @@ and round 2 another two heats of 10 with everyone reseated.
    `result` all answer for your heat; you'll see only the players in it. Nothing else changes.
 5. When your heat ends, read your `result` as usual, then **long-poll `state?waitForTick=0` again**
    to wait for the next round, exactly as in step 3. Waiting for tick 0 skips a heat that has
-   finished; every other call keeps answering for your last heat until the next round starts. The
-   admin decides how many rounds there are, so keep waiting until you choose to stop. The bot runner
-   (`--join-match`) does this for you.
+   finished; every other call keeps answering for your last heat until the next round starts.
+6. The admin decides how many rounds there are. When they **close the match**, that wait answers
+   `409 MATCH_FINISHED`: there are no more rounds, and your bot can stop. The bot runner
+   (`--join-match`) does all this for you.
 
 Each round is seated at random, but the match remembers who started next to whom: if a seating
 would put two bots side by side again, it is reshuffled (a small heat can't always avoid it). So a
@@ -170,9 +171,11 @@ player would earn if it ended now.
 
 **Dropping your worst heat.** If your bot plays two or more heats of the same league match (one
 night), its lowest-scoring heat of that match doesn't count toward its season points: heats worth
-120, 40 and 0 add 160, and 120 and 40 add 120. With a single heat nothing is dropped. The live
-standings always show every heat's own points; the drop only applies to the ladder total, and it
-comes out the same whatever order the heats finish in.
+120, 40 and 0 add 160, and 120 and 40 add 120. With a single heat nothing is dropped. A league
+match's points go on the ladder all at once, when the admin closes the match; the results and the
+ladder are then posted to Discord. (A match that is never closed, say because the server restarted,
+is added up an hour after its last heat.) The live standings always show every heat's own points,
+and the match page shows each bot's running total with its lowest heat crossed out.
 
 **Skill.** Every ladder also shows a **skill**: an opponent-aware rating from
 [OpenSkill](https://openskill.me) (the Weng-Lin Bayesian model with Plackett-Luce rankings, the
@@ -186,8 +189,8 @@ the conservative estimate
     skill = max(0, round(40 × (mu − 3 × sigma)))
 
 so every bot starts at 0 and climbs as results come in and the model grows surer (a bot at
-mu 30, sigma 1.5 shows 1,020). League ladders are still ranked by points, then Elo rating; skill is
-the second column, a guide to who is actually strong. The practice ladder stays ranked by Elo.
+mu 30, sigma 1.5 shows 1,020). League ladders are still ranked by points; skill is the second column,
+a guide to who is actually strong, and breaks ties on points. The practice ladder stays ranked by Elo.
 
 Seats are shuffled when a match starts, so your slot (and with it your start position and colour)
 doesn't depend on when you joined; read `you.slot` from your state. The shuffle uses the match
@@ -469,7 +472,7 @@ Every non-2xx response has the same body:
 ```
 
 Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `403 NOT_VERIFIED` (claim your bot with
-Discord first), `409 MATCH_CLOSED` (a round of the league match is split into heats or being played; join between rounds), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
+Discord first), `409 MATCH_CLOSED` (a round of the league match is split into heats or being played; join between rounds), `409 MATCH_FINISHED` (the league match has been closed), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
 `409 MATCH_NOT_STARTED` (keep long-polling with `waitForTick=0`), `409 MATCH_FULL`,
 `400 INVALID_JSON`, `413 REQUEST_TOO_LARGE` (bodies are capped at 256 KB), `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and
 120/second across all of a bot's matches).

@@ -216,6 +216,87 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
+    public async Task Closing_a_match_ends_its_rounds_and_puts_each_bots_total_less_its_lowest_heat_on_the_ladder()
+    {
+        var admin = factory.ClientFor(await factory.NewAccountAsync(admin: true));
+        var match = await CreateAsync(admin, new CreateLeagueMatchRequest { Name = MatchName() });
+        var bots = new List<(NetRtsClient Client, RegisterPlayerResponse Player)>();
+        foreach (var nick in new[] { "Ann", "Bea", "Cy" })
+        {
+            var bot = await VerifiedBotAsync(nick);
+            await bot.Client.JoinMatchAsync(match.MatchId, Ct);
+            bots.Add(bot);
+        }
+
+        var notYet = await admin.PostAsync($"/api/v1/admin/matches/{match.MatchId}/close", null, Ct);
+        Assert.Equal("MATCH_NOT_STARTED", (await notYet.ErrorAsync()).Code);
+
+        // Two rounds of one heat each; Ann wins the first, Bea the second.
+        var heatIds = new List<Guid>();
+        foreach (var winner in new[] { 0, 1 })
+        {
+            var split = await SplitAsync(admin, match.MatchId, 3);
+            heatIds.Add(split.Heats![^1].MatchId);
+            await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/start");
+            if (winner == 0)
+            {
+                var running = await admin.PostAsync($"/api/v1/admin/matches/{match.MatchId}/close", null, Ct);
+                Assert.Equal("ROUND_RUNNING", (await running.ErrorAsync()).Code);
+            }
+
+            foreach (var (bot, i) in bots.Select((b, i) => (b, i)).Where(x => x.i != winner))
+            {
+                await bot.Client.SurrenderAsync(match.MatchId, Ct);
+            }
+        }
+
+        // Nothing is on the ladder until the match is closed.
+        await WaitFor(() => Ladder(MatchCategory.Season), l => l.Count(e => bots.Any(b => b.Player.PlayerId == e.PlayerId)) == 3);
+        Assert.All((await Ladder(MatchCategory.Season)).Where(e => bots.Any(b => b.Player.PlayerId == e.PlayerId)), e => Assert.Equal(0, e.Points));
+
+        var waiting = bots[2].Client.GetStateAsync(match.MatchId, waitForTick: 0, ct: Ct);
+        var closed = await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/close");
+        Assert.True(closed.Closed);
+        Assert.True(closed.Finalized);
+        Assert.Equal(MatchStatus.Completed, closed.Status);
+        Assert.Equal("MATCH_FINISHED", (await Assert.ThrowsAsync<NetRtsApiException>(() => waiting)).Code);
+        var late = await VerifiedBotAsync("late");
+        Assert.Equal("MATCH_FINISHED", (await Assert.ThrowsAsync<NetRtsApiException>(() => late.Client.JoinMatchAsync(match.MatchId, Ct))).Code);
+        var again = await admin.PostAsJsonAsync($"/api/v1/admin/matches/{match.MatchId}/heats", new SplitHeatsRequest { Sizes = [3] }, NetRtsClient.JsonOptions, Ct);
+        Assert.Equal("MATCH_FINISHED", (await again.ErrorAsync()).Code);
+        Assert.Equal(heatIds[1], (await bots[0].Client.GetResultAsync(match.MatchId, Ct)).MatchId);
+
+        // Each bot's heats, less its lowest: Ann and Bea each keep their win, Cy has nothing.
+        var points = new Dictionary<Guid, List<int>>();
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
+            foreach (var row in await db.MatchPlayers.AsNoTracking().Where(r => heatIds.Contains(r.MatchId)).ToListAsync(Ct))
+            {
+                Assert.True(row.PointsCounted);
+                Assert.Equal(match.MatchId, row.LeagueMatchId);
+                points.TryAdd(row.PlayerId, []);
+                points[row.PlayerId].Add(row.Points);
+            }
+        }
+
+        var ladder = await Ladder(MatchCategory.Season);
+        foreach (var bot in bots)
+        {
+            var heats = points[bot.Player.PlayerId];
+            Assert.Equal(2, heats.Count);
+            Assert.Equal(heats.Max(), ladder.Single(e => e.PlayerId == bot.Player.PlayerId).Points);
+        }
+
+        Assert.True(ladder.Single(e => e.PlayerId == bots[0].Player.PlayerId).Points > 0);
+        Assert.Equal(0, ladder.Single(e => e.PlayerId == bots[2].Player.PlayerId).Points);
+
+        // Closing again changes nothing.
+        Assert.True((await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/close")).Finalized);
+        Assert.Equal(ladder.Select(e => e.Points), (await Ladder(MatchCategory.Season)).Select(e => e.Points));
+    }
+
+    [Fact]
     public void Seating_avoids_earlier_neighbours_and_keeps_the_fewest_repeats_when_it_cannot()
     {
         var players = Enumerable.Range(0, 12).Select(i => new Seat(Guid.NewGuid(), $"b{i}", false)).ToList();
@@ -273,7 +354,12 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
         Assert.Equal(1, table.Players[0].Place);
         Assert.True(table.Players[0].Winner);
 
-        var ladder = await WaitFor(() => Ladder(MatchCategory.Preseason), l => l.Count(e => bots.Any(b => b.Player.PlayerId == e.PlayerId)) == 3);
+        // The ladder takes the points when the admin closes the match.
+        await WaitFor(() => Ladder(MatchCategory.Preseason), l => l.Count(e => bots.Any(b => b.Player.PlayerId == e.PlayerId)) == 3);
+        Assert.All(await Ladder(MatchCategory.Preseason), e => Assert.True(bots.All(b => b.Player.PlayerId != e.PlayerId) || e.Points == 0));
+        var closed = await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/close");
+        Assert.True(closed.Closed && closed.Finalized);
+        var ladder = await Ladder(MatchCategory.Preseason);
         for (var i = 0; i < order.Count; i++)
         {
             Assert.Equal(expected[i], ladder.Single(e => e.PlayerId == order[i].PlayerId).Points);
