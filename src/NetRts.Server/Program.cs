@@ -117,6 +117,7 @@ static async Task InitializeDatabaseAsync(IServiceProvider services)
     await using var scope = services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
     await DatabaseMigrator.MigrateAsync(db, scope.ServiceProvider.GetRequiredService<ILogger<NetRtsDb>>());
+    await SkillBackfill.RunAsync(db, scope.ServiceProvider.GetRequiredService<ILogger<NetRtsDb>>());
 
     var directory = services.GetRequiredService<HouseBotDirectory>();
     foreach (var bot in HouseBots.All)

@@ -84,6 +84,7 @@ public sealed class LadderSnapshots(
                 Rank = e.Rank,
                 Rating = e.Rating,
                 Points = e.Points,
+                Skill = e.Skill,
             }));
 
             if (category == MatchCategory.Season)

@@ -107,7 +107,12 @@ public static partial class PlayerEndpoints
             var records = Enum.GetValues<MatchCategory>().Select(category =>
             {
                 var s = stats[p.Id].FirstOrDefault(s => s.Category == category) ?? new PlayerStatsRecord { Category = category };
-                return new CategoryRecordDto { Category = category, Rating = s.Rating, Wins = s.Wins, Losses = s.Losses, Draws = s.Draws, Points = s.Points };
+                var skill = OpenSkill.Of(s);
+                return new CategoryRecordDto
+                {
+                    Category = category, Rating = s.Rating, Wins = s.Wins, Losses = s.Losses, Draws = s.Draws, Points = s.Points,
+                    Skill = OpenSkill.Display(skill.Mu, skill.Sigma), Mu = skill.Mu, Sigma = skill.Sigma,
+                };
             }).ToList();
             var practice = records[0];
             var verified = Accounts.IsVerified(p.Owner, discord);
@@ -125,6 +130,7 @@ public static partial class PlayerEndpoints
                 OwnerName = verified ? p.Owner!.DisplayName : null,
                 OwnerSlug = verified ? slugs.Of(p.Owner!.Id) : null,
                 Records = records,
+                Skill = practice.Skill,
             };
         }).ToList();
     }
@@ -151,6 +157,7 @@ public static partial class PlayerEndpoints
         return rows.Select((x, i) =>
         {
             var verified = Accounts.IsVerified(x.Owner, discord.Value);
+            var skill = x.Stats is null ? OpenSkill.Initial : OpenSkill.Of(x.Stats);
             return new LeaderboardEntryDto
             {
                 Rank = i + 1,
@@ -162,6 +169,9 @@ public static partial class PlayerEndpoints
                 Losses = x.Stats?.Losses ?? 0,
                 Draws = x.Stats?.Draws ?? 0,
                 Points = x.Stats?.Points ?? 0,
+                Skill = OpenSkill.Display(skill.Mu, skill.Sigma),
+                Mu = skill.Mu,
+                Sigma = skill.Sigma,
                 Verified = verified,
                 OwnerName = verified ? x.Owner!.DisplayName : null,
                 OwnerSlug = verified ? slugs.Of(x.Owner!.Id) : null,

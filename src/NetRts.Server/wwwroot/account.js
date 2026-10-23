@@ -71,8 +71,8 @@ export function mountAccount(root, onAccount) {
             <tbody>${info.bots.map((b) => html`
               <tr><td><a class="plain" href="#/bot/${b.playerId}">${playerLabel(b, { owner: false })}</a></td>
                 ${CATEGORIES.map((c) => {
-                  const r = b.records.find((x) => x.category === c) || { rating: 1200, wins: 0, losses: 0, draws: 0 };
-                  return html`<td><span class="rating">${fmt(r.rating)}</span><br><span class="muted small">${r.wins}-${r.losses}-${r.draws}</span></td>`;
+                  const r = b.records.find((x) => x.category === c) || { rating: 1200, wins: 0, losses: 0, draws: 0, skill: 0 };
+                  return html`<td><span class="rating">${fmt(r.rating)}</span><br><span class="muted small">${r.wins}-${r.losses}-${r.draws} · skill ${fmt(r.skill)}</span></td>`;
                 })}
                 <td class="actions">
                   <button type="button" class="btn ghost small-btn" data-key="${b.playerId}" data-name="${b.name}">New key</button>

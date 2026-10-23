@@ -1,6 +1,6 @@
 // Achievements: the catalog (#/achievements), one bot's page (#/bot/<id>), and the badge list the
 // account and profile pages use for everything a person's bots have earned.
-import { api, html, setHtml, botAndOwner, timeAgo, fmt } from './util.js';
+import { api, html, setHtml, botAndOwner, timeAgo, fmt, SKILL_TITLE } from './util.js';
 import { GAME, say } from './lore.js';
 
 const GROUPS = ['First steps', 'Winning', 'Economy', 'Combat', 'Speed and precision', 'Showing up', 'Ladder and league', 'Just for fun'];
@@ -94,10 +94,10 @@ export function mountBot(root, id) {
           <p class="muted" style="margin:4px 0 0">${bot.isHouseBot ? say('House bot', 'House badger') : `Registered ${new Date(bot.createdAt).toLocaleDateString()}`}</p>
         </div></div>
         <div class="table-scroll"><table class="ladder bots">
-          <thead><tr><th scope="col">Category</th><th scope="col">Rating</th><th scope="col">Points</th>
+          <thead><tr><th scope="col">Category</th><th scope="col">Points</th><th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th><th scope="col">Rating</th>
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
-          <tbody>${bot.records.map((r) => html`<tr><td style="text-align:left">${r.category}</td><td class="rating">${fmt(r.rating)}</td>
-            <td>${fmt(r.points)}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.draws}</td></tr>`)}</tbody>
+          <tbody>${bot.records.map((r) => html`<tr><td style="text-align:left">${r.category}</td><td class="rating">${fmt(r.points)}</td>
+            <td>${fmt(r.skill)}</td><td>${fmt(r.rating)}</td><td>${r.wins}</td><td>${r.losses}</td><td>${r.draws}</td></tr>`)}</tbody>
         </table></div>
         <section aria-labelledby="ach-h">
           <div class="section-head"><h2 id="ach-h">Achievements</h2>

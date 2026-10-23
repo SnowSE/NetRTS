@@ -117,6 +117,9 @@ export function timeAgo(iso) {
 
 export const fmt = (n) => (typeof n === 'number' ? n.toLocaleString() : '–');
 
+/** Tooltip for the Skill column: OpenSkill's conservative estimate, round(40 × (μ − 3σ)), floored at 0. */
+export const SKILL_TITLE = 'Opponent-aware skill (OpenSkill): beating strong bots counts for more. A conservative estimate, 40 × (μ − 3σ): it starts at 0 and climbs as results come in.';
+
 const howWon = (reason) =>
   ({ Elimination: say('by elimination', 'by taking the last HQ'), TimeLimit: 'on score at the time limit', Surrender: 'by surrender' }[reason] || '');
 

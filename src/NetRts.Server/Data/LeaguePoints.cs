@@ -27,4 +27,11 @@ public static class LeaguePoints
 
         return points;
     }
+
+    /// <summary>
+    /// What one bot's heats of one league match add to its season total: their points, less the lowest
+    /// heat's when it played two or more (one bad seating doesn't sink a night). A single heat counts in full.
+    /// </summary>
+    public static int Night(IReadOnlyCollection<int> heatPoints) =>
+        heatPoints.Count < 2 ? heatPoints.Sum() : heatPoints.Sum() - heatPoints.Min();
 }
