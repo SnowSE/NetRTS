@@ -276,6 +276,25 @@ public sealed class MatchAnnouncer(
         }
     }
 
+    /// <summary>A new recap episode is out: its title and summary, linking to it on the site.</summary>
+    public void RecapReady(RecapEpisodeRecord episode)
+    {
+        if (!Enabled)
+        {
+            return;
+        }
+
+        var day = DateOnly.FromDateTime(episode.Date).ToString("dddd, MMMM d", CultureInfo.InvariantCulture);
+        var embed = Embed(Truncate($"📺 {episode.Title}", 250), Link($"#/recaps/{episode.Id}"),
+            Truncate($"Last night's recap is up: the highlights from {day}.\n{Escape(episode.Summary)}", 4000), MatchCategory.Practice, null);
+        if (!string.IsNullOrEmpty(episode.Thumbnail) && Link($"recaps/{episode.Id}/thumbnail") is { } poster)
+        {
+            embed["image"] = new JsonObject { ["url"] = poster };
+        }
+
+        Post(embed);
+    }
+
     private void Post(JsonObject embed) => Send(new JsonObject { ["embeds"] = new JsonArray(embed) });
 
     private void Send(JsonObject message)

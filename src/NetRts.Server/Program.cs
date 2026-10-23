@@ -44,6 +44,8 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<LadderSnapshots>()
 builder.Services.AddScoped<RecapBrief>();
 builder.Services.AddSingleton<RecapVideos>();
 builder.Services.AddHostedService<RecapLibrary>();
+builder.Services.AddSingleton<RecapAnnouncer>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RecapAnnouncer>());
 // Recap videos live in blob storage: Azurite under Aspire, an Azure storage account in production
 // (ConnectionStrings__recaps = https://<account>.blob.core.windows.net/, signed in with the app's identity).
 if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("recaps")))

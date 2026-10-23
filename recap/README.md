@@ -3,7 +3,8 @@
 Every night a Container Apps job makes a short highlights show about the day's matches. It's hosted by
 three of the game's units at a sports desk: **Zip** the Scout (breathless play-by-play), **Sarge** the
 Soldier (a gruff drill sergeant, deadpan) and **Quill** the Archer (the stats). The site lists every episode on
-`#/recaps`, and the home page shows last night's.
+`#/recaps`, the home page shows last night's, and the server posts it to the Discord channel at
+6:30 a.m.
 
 ```text
 1. GET  /api/v1/recaps/brief      the day's facts from the game server (X-Recap-Key)

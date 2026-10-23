@@ -284,6 +284,9 @@ public sealed class RecapEpisodeRecord
     public string TranscriptJson { get; set; } = "[]";
 
     public DateTime CreatedAt { get; set; }
+
+    /// <summary>When it was posted to Discord (<see cref="Recaps.RecapAnnouncer"/>); null if it hasn't been. Publishing the day again keeps it.</summary>
+    public DateTime? AnnouncedAt { get; set; }
 }
 
 /// <summary>

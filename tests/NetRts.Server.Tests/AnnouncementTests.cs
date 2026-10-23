@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using NetRts.Bots;
 using NetRts.Protocol;
+using NetRts.Server.Data;
 using NetRts.Server.Matches;
+using NetRts.Server.Recaps;
 
 namespace NetRts.Server.Tests;
 
@@ -210,6 +212,36 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         var digest = await NextEmbedAsync(e => e["title"]!.GetValue<string>().StartsWith("Achievements unlocked", StringComparison.Ordinal));
         Assert.Contains($"**{info.Name}**: Hello, World", digest["description"]!.GetValue<string>());
         Assert.Equal("https://netrts.test/#/achievements", digest["url"]!.GetValue<string>());
+    }
+
+    [Fact]
+    public async Task Last_nights_recap_is_posted_once_at_the_announce_time()
+    {
+        var episode = new RecapEpisodeRecord
+        {
+            Id = Guid.NewGuid(), Date = LadderSnapshots.Stored(new DateOnly(2030, 1, 14)), Title = "Badgers Gone Wild",
+            Summary = "Upsets everywhere.", Video = "2030-01-14/recap.mp4", Thumbnail = "2030-01-14/poster.jpg",
+        };
+        await using (var scope = factory.Services.CreateAsyncScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
+            db.RecapEpisodes.Add(episode);
+            await db.SaveChangesAsync(Ct);
+        }
+
+        // 6:30 a.m. in Denver on the 15th is 13:30 UTC.
+        var recaps = factory.Services.GetRequiredService<RecapAnnouncer>();
+        Assert.False(await recaps.AnnounceAsync(new DateTimeOffset(2030, 1, 15, 13, 29, 0, TimeSpan.Zero), Ct));
+        Assert.True(await recaps.AnnounceAsync(new DateTimeOffset(2030, 1, 15, 13, 30, 0, TimeSpan.Zero), Ct));
+        Assert.False(await recaps.AnnounceAsync(new DateTimeOffset(2030, 1, 15, 13, 31, 0, TimeSpan.Zero), Ct));
+        // The next morning it's the 15th's episode that's due, not this one.
+        Assert.False(await recaps.AnnounceAsync(new DateTimeOffset(2030, 1, 16, 13, 30, 0, TimeSpan.Zero), Ct));
+
+        var embed = await NextEmbedAsync(e => e["url"]?.GetValue<string>() == $"https://netrts.test/#/recaps/{episode.Id}");
+        Assert.Equal("📺 Badgers Gone Wild", embed["title"]!.GetValue<string>());
+        Assert.Contains("Monday, January 14", embed["description"]!.GetValue<string>());
+        Assert.Equal($"https://netrts.test/recaps/{episode.Id}/thumbnail", embed["image"]!["url"]!.GetValue<string>());
+        Assert.Single(Embeds(), e => e["url"]?.GetValue<string>() == embed["url"]!.GetValue<string>());
     }
 
     /// <summary>A bot claimed by a new Discord account with this server nickname.</summary>

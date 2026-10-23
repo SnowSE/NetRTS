@@ -30,6 +30,9 @@ public sealed class RecapOptions
     /// <summary>Local time (hour) each night when the ladders are snapshotted for the day just ended.</summary>
     public int SnapshotHour { get; set; } = 0;
 
+    /// <summary>Local time each morning when last night's episode is posted to Discord (or as soon as it's published, if later that day).</summary>
+    public TimeOnly AnnounceAt { get; set; } = new(6, 30);
+
     /// <summary>A day with fewer real-bot matches than this gets a short episode.</summary>
     public int QuietNightMatches { get; set; } = 5;
 }

@@ -189,6 +189,8 @@ The shared server posts to the coding-competition channel:
   their points, linking to the match's scoreboard page.
 - **Achievements:** the first bot ever to earn each one, straight away; and every night at
   midnight, a digest of everything earned that day, bot by bot.
+- **The nightly recap:** last night's episode, with its poster and a link, at 6:30 a.m. local time
+  (`Recap__AnnounceAt`), or as soon as it's published if that's later in the day. Once per episode.
 - **Practice between real bots:** one short message each.
 - **Practice against house bots:** one digest every hour (`Discord__ResultsDigestMinutes`).
 - **House-bot exhibitions:** nothing.
