@@ -40,7 +40,7 @@ public sealed class DiscordWebhook(HttpClient http, IOptions<DiscordOptions> opt
 /// Announces finished matches in the coding-competition Discord channel, when a results webhook is
 /// configured (the shared server; private servers leave it unset):
 /// <list type="bullet">
-/// <item>league matches: one message once every heat has finished, with each heat's top players and points;</item>
+/// <item>league matches: one message once every heat of a round has finished, with each heat's top players and points;</item>
 /// <item>practice between real bots: one short message each;</item>
 /// <item>practice against house bots only: an hourly digest, so iterating on a bot doesn't flood the channel;</item>
 /// <item>house-bot exhibitions: nothing.</item>
@@ -56,7 +56,7 @@ public sealed class MatchAnnouncer(
 {
     private readonly Channel<JsonObject> _outbox = Channel.CreateBounded<JsonObject>(new BoundedChannelOptions(200) { FullMode = BoundedChannelFullMode.DropOldest });
     private readonly List<MatchSummaryDto> _digest = [];
-    private readonly HashSet<Guid> _announcedLeagues = [];
+    private readonly HashSet<(Guid League, int Round)> _announcedRounds = [];
     private const string SerumMilestone = "serum";
 
     private readonly object _gate = new();
@@ -74,7 +74,7 @@ public sealed class MatchAnnouncer(
 
         if (host.ParentMatchId is { } parent)
         {
-            AnnounceLeagueIfDone(parent);
+            AnnounceRoundIfDone(parent, host.Id);
         }
         else if (summary.Players.Count(p => !p.IsHouseBot) >= 2)
         {
@@ -248,7 +248,7 @@ public sealed class MatchAnnouncer(
         _outbox.Writer.TryWrite(message);
     }
 
-    private void AnnounceLeagueIfDone(Guid parentId)
+    private void AnnounceRoundIfDone(Guid parentId, Guid heatId)
     {
         var leagues = services.GetRequiredService<LeagueMatchManager>();
         if (leagues.Find(parentId) is not { } league)
@@ -257,20 +257,27 @@ public sealed class MatchAnnouncer(
         }
 
         List<MatchHost> heats;
+        int round;
+        bool onlyRound;
         lock (league.Gate)
         {
-            heats = [.. league.Heats];
+            if (league.RoundOf(heatId) is not { } r)
+            {
+                return;
+            }
+
+            (heats, round, onlyRound) = ([.. r.Heats], r.Number, league.Rounds.Count == 1);
         }
 
         lock (_gate)
         {
-            if (heats.Count == 0 || !heats.All(h => h.Recorded) || !_announcedLeagues.Add(parentId))
+            if (heats.Count == 0 || !heats.All(h => h.Recorded) || !_announcedRounds.Add((parentId, round)))
             {
                 return;
             }
         }
 
-        Post(LeagueMessage(league, heats.Select(LeagueMatchManager.StandingsOf).ToList()));
+        Post(LeagueMessage(league, round == 1 && onlyRound ? null : round, heats.Select(h => LeagueMatchManager.StandingsOf(h, round)).ToList()));
     }
 
     // ------------------------------------------------------------------ messages
@@ -308,9 +315,9 @@ public sealed class MatchAnnouncer(
             Link("#/"), Truncate(string.Join("\n", lines), 4000), MatchCategory.Practice, null);
     }
 
-    private JsonObject LeagueMessage(LeagueMatch league, List<HeatStandingsDto> heats)
+    private JsonObject LeagueMessage(LeagueMatch league, int? round, List<HeatStandingsDto> heats)
     {
-        var embed = Embed($"{league.Category}: {league.Name} is over",
+        var embed = Embed(round is null ? $"{league.Category}: {league.Name} is over" : $"{league.Category}: {league.Name}, round {round} is over",
             Link($"#/match/{league.Id}"),
             $"{heats.Sum(h => h.Players.Count)} bots in {heats.Count} heat{(heats.Count == 1 ? "" : "s")}. Points go to each heat's top four.",
             league.Category, null);

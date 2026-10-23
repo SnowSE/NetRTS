@@ -388,14 +388,15 @@ public static class MatchEndpoints
         int? waitForTick = null,
         int? sinceTick = null)
     {
-        // A league match: wait (when long-polling) for the admin to start the heats, then use this bot's heat.
+        // A league match: wait (when long-polling) for the admin to start the round, then use this bot's
+        // heat. Waiting for tick 0 after a heat has finished means waiting for the next round.
         if (leagues.Find(matchId) is { } league)
         {
             var wait = waitForTick is null ? TimeSpan.Zero : TimeSpan.FromSeconds(options.Value.MaxLongPollSeconds);
-            var heat = await leagues.HeatForAsync(league, user.PlayerId(), wait, ct);
+            var heat = await leagues.HeatForAsync(league, user.PlayerId(), nextGame: waitForTick == 0, wait, ct);
             if (heat is null)
             {
-                return NotStarted("The admin hasn't started the heats yet. Long-poll with waitForTick=0 to wait for it.");
+                return NotStarted("The admin hasn't started the next round yet. Long-poll with waitForTick=0 to wait for it.");
             }
 
             matchId = heat.Id;
@@ -497,7 +498,7 @@ public static class MatchEndpoints
             {
                 if (league.IsQueued(playerId))
                 {
-                    throw new MatchException(409, "MATCH_NOT_STARTED", "The admin hasn't started the heats yet.");
+                    throw new MatchException(409, "MATCH_NOT_STARTED", "The admin hasn't started the first round yet.");
                 }
             }
         }

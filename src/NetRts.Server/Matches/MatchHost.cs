@@ -78,6 +78,9 @@ public sealed class MatchHost
 
     /// <summary>For a heat: the league match it belongs to. Heats start when the admin starts that match.</summary>
     public Guid? ParentMatchId { get; set; }
+
+    /// <summary>For a heat: play in the order the seats were filled, which the league match planned.</summary>
+    public bool KeepSeatOrder { get; set; }
     public DateTime CreatedAt { get; }
     public DateTime? CompletedAt { get; private set; }
     public bool Recorded { get; set; }
@@ -279,15 +282,19 @@ public sealed class MatchHost
             }
 
             // Where you start (your slot) shouldn't depend on when you joined. Shuffled with the match
-            // seed, so a match created with a fixed seed still plays out the same way.
-            var order = Enumerable.Range(0, _seats.Count).ToArray();
-            new Random(Settings.Seed).Shuffle(order);
-            var shuffledSeats = order.Select(i => _seats[i]).ToList();
-            var shuffledBots = order.Select(i => _seatBots[i]).ToList();
-            _seats.Clear();
-            _seats.AddRange(shuffledSeats);
-            _seatBots.Clear();
-            _seatBots.AddRange(shuffledBots);
+            // seed, so a match created with a fixed seed still plays out the same way. Heats are
+            // already seated by their league match.
+            if (!KeepSeatOrder)
+            {
+                var order = Enumerable.Range(0, _seats.Count).ToArray();
+                new Random(Settings.Seed).Shuffle(order);
+                var shuffledSeats = order.Select(i => _seats[i]).ToList();
+                var shuffledBots = order.Select(i => _seatBots[i]).ToList();
+                _seats.Clear();
+                _seats.AddRange(shuffledSeats);
+                _seatBots.Clear();
+                _seatBots.AddRange(shuffledBots);
+            }
 
             _sim = new GameSimulation(Id,
                 new GameConfig

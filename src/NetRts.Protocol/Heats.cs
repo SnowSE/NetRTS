@@ -6,16 +6,21 @@ public sealed record HeatDto
     /// <summary>The heat's own id: open it to watch, or for its result and replay.</summary>
     public Guid MatchId { get; init; }
 
-    /// <summary>e.g. "season-week3-h2".</summary>
+    /// <summary>e.g. "season-week3-h2" in the first round, "season-week3-r2-h1" in later ones.</summary>
     public string Name { get; init; } = "";
 
+    /// <summary>The round it belongs to; 1 for the first.</summary>
+    public int Round { get; init; } = 1;
+
     public MatchStatus Status { get; init; }
+
+    /// <summary>In slot order (slot 0 first), as the round seated them.</summary>
     public IReadOnlyList<Guid> PlayerIds { get; init; } = [];
 }
 
 /// <summary>
-/// Create a league match (admins, on the website). Verified bots join it like any match; the admin
-/// then splits everyone into heats and starts them all at once.
+/// Create a league match (admins, on the website). Verified bots join it like any match. It is played
+/// in rounds: for each one the admin splits everyone into heats and starts them all at once.
 /// </summary>
 public sealed record CreateLeagueMatchRequest
 {
@@ -32,7 +37,7 @@ public sealed record CreateLeagueMatchRequest
     public int? MaxTicks { get; init; }
 }
 
-/// <summary>How many players go in each heat; the sizes must add up to everyone who joined.</summary>
+/// <summary>How many players go in each heat of the next round; the sizes must add up to everyone who joined.</summary>
 public sealed record SplitHeatsRequest
 {
     public IReadOnlyList<int> Sizes { get; init; } = [];
@@ -43,6 +48,10 @@ public sealed record HeatStandingsDto
 {
     public Guid MatchId { get; init; }
     public string Name { get; init; } = "";
+
+    /// <summary>The round the heat belongs to; 1 for the first.</summary>
+    public int Round { get; init; } = 1;
+
     public MatchStatus Status { get; init; }
     public int Tick { get; init; }
     public int MaxTicks { get; init; }

@@ -152,6 +152,7 @@ public sealed partial class MatchManager(
 
             var host = NewHost(name, null, seats.Count, settings, isExhibition: false, category);
             host.ParentMatchId = parentMatchId;
+            host.KeepSeatOrder = true;
             foreach (var seat in seats)
             {
                 host.TryJoin(seat);

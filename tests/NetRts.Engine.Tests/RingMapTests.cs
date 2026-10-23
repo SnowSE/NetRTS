@@ -86,4 +86,30 @@ public class RingMapTests
         Assert.All(Enumerable.Range(0, 16), slot =>
             Assert.Contains(view.Buildings, b => b.Owner == slot && b.Type == Protocol.BuildingType.CommandCenter));
     }
+
+    [Theory]
+    [InlineData(2)]
+    [InlineData(3)]
+    [InlineData(4)]
+    [MemberData(nameof(PlayerCounts))]
+    public void Neighbour_slots_are_the_nearest_starts(int players)
+    {
+        var size = SizeFor(players);
+        var starts = MapGenerator.Generate(size, size, seed: 5, players).StartPositions;
+        var pairs = MapGenerator.NeighbourSlots(players);
+
+        Assert.Equal(pairs.Count, pairs.Distinct().Count());
+        Assert.All(pairs, p => Assert.True(p.A < p.B));
+        for (var slot = 0; slot < players; slot++)
+        {
+            var neighbours = pairs.Where(p => p.A == slot || p.B == slot).Select(p => p.A == slot ? p.B : p.A).ToList();
+            var others = Enumerable.Range(0, players).Where(o => o != slot && !neighbours.Contains(o)).ToList();
+            Assert.NotEmpty(neighbours);
+            foreach (var n in neighbours)
+            {
+                Assert.All(others, o => Assert.True(starts[slot].DistanceSquared(starts[n]) < starts[slot].DistanceSquared(starts[o]),
+                    $"slot {slot}: neighbour {n} isn't nearer than {o}"));
+            }
+        }
+    }
 }

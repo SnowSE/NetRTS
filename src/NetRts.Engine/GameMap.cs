@@ -97,6 +97,20 @@ public static class MapGenerator
 
     private static double RingRadiusFor(int playerCount) => RingSpacing / 2.0 / Sin(Math.PI / playerCount);
 
+    /// <summary>
+    /// The pairs of slots that start next to each other, lower slot first. On a ring, consecutive slots
+    /// (and the last and first); in the corners, slots sharing an edge of the map (slot order there is
+    /// top-left, bottom-right, top-right, bottom-left), and both players of a 2-player map.
+    /// </summary>
+    public static IReadOnlyList<(int A, int B)> NeighbourSlots(int playerCount) => playerCount switch
+    {
+        < 2 => [],
+        2 => [(0, 1)],
+        3 => [(0, 2), (1, 2)],
+        4 => [(0, 2), (0, 3), (1, 2), (1, 3)],
+        _ => [.. Enumerable.Range(0, playerCount).Select(i => i + 1 < playerCount ? (i, i + 1) : (0, i))],
+    };
+
     public static GameMap Generate(int width, int height, int seed, int playerCount)
     {
         if (width < MinSize || height < MinSize || width > MaxSize || height > MaxSize)

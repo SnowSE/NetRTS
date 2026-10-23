@@ -120,23 +120,36 @@ leaderboard. Matches your bot creates are `Practice`, ranked by Elo rating, whic
 player-vs-player 1v1s move.
 
 `Preseason`, `Season` and `Championship` are **league matches**, run by the admins
-(administrators of our Discord server). They work like any named match, with one difference: when
-everyone is in, the admin splits the players into **heats**, separate games of a few players each,
-and starts every heat at once.
+(administrators of our Discord server). They work like any named match, with one difference: they
+are played in **rounds**. For each round the admin splits everyone into **heats**, separate games of
+a few players each, and starts every heat at once. With 20 bots, round 1 might be two heats of 10,
+and round 2 another two heats of 10 with everyone reseated.
 
 1. An admin creates the match, e.g. `season-week3`. It shows up in `GET /api/v1/matches` and on the
    home page.
 2. Your verified bot joins it like any match: `GET /api/v1/matches/named/season-week3`, then
-   `POST /api/v1/matches/{id}/join`. Each person may enter one bot.
+   `POST /api/v1/matches/{id}/join`. Each person may enter one bot. You can join before the first
+   round or between rounds, but not while a round is split into heats or being played
+   (`409 MATCH_CLOSED`); you then play from the next round on.
 3. Long-poll `GET /api/v1/matches/{id}/state?waitForTick=0` as usual. It keeps answering
-   `409 MATCH_NOT_STARTED` until the admin starts the heats. Long-polling also shows the admin your
+   `409 MATCH_NOT_STARTED` until the admin starts the round. Long-polling also shows the admin your
    bot is connected: a bot counts as connected if it made any API call in the last 40 seconds.
 4. Once started, keep using the **same match id**. `state`, `commands`, `surrender`, `map` and
    `result` all answer for your heat; you'll see only the players in it. Nothing else changes.
+5. When your heat ends, read your `result` as usual, then **long-poll `state?waitForTick=0` again**
+   to wait for the next round, exactly as in step 3. Waiting for tick 0 skips a heat that has
+   finished; every other call keeps answering for your last heat until the next round starts. The
+   admin decides how many rounds there are, so keep waiting until you choose to stop. The bot runner
+   (`--join-match`) does this for you.
+
+Each round is seated at random, but the match remembers who started next to whom: if a seating
+would put two bots side by side again, it is reshuffled (a small heat can't always avoid it). So a
+bad draw of neighbours in one round isn't repeated in the next.
 
 Spectators watch on the match's page, `/#/match/season-week3`. They see who has joined, how the
-admin splits everyone into heats, and then a live scoreboard per heat that links to each heat's
-battle view. A heat has its own id and name (`season-week3-h2`) and its own result and replay.
+admin splits each round into heats (in seat order around the map), and then a live scoreboard per
+heat that links to each heat's battle view. A heat has its own id and name (`season-week3-h2` in
+round 1, `season-week3-r2-h1` in round 2) and its own result and replay.
 
 Heats can't be sped up or paused. Everyone in a heat is rated by finishing place: the winner first,
 then everyone else by final score. Every pair of players counts as a mini 1v1, scaled so that a big
@@ -158,6 +171,7 @@ player would earn if it ended now.
 Seats are shuffled when a match starts, so your slot (and with it your start position and colour)
 doesn't depend on when you joined; read `you.slot` from your state. The shuffle uses the match
 seed, so a match created with a fixed `seed` and the same players in the same order starts the same way.
+League heats are seated by their round instead (see above).
 
 When a match fills there is a short warm-up (3 s by default) before tick 1, so every bot can read
 the opening state.
@@ -434,7 +448,7 @@ Every non-2xx response has the same body:
 ```
 
 Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `403 NOT_VERIFIED` (claim your bot with
-Discord first), `409 MATCH_CLOSED` (the league match has been split into heats), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
+Discord first), `409 MATCH_CLOSED` (a round of the league match is split into heats or being played; join between rounds), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
 `409 MATCH_NOT_STARTED` (keep long-polling with `waitForTick=0`), `409 MATCH_FULL`,
 `400 INVALID_JSON`, `413 REQUEST_TOO_LARGE` (bodies are capped at 256 KB), `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and
 120/second across all of a bot's matches).
