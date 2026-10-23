@@ -104,7 +104,8 @@ public static class PeopleEndpoints
         var owned = await db.Players.AsNoTracking().Include(p => p.Owner)
             .Where(p => p.OwnerAccountId != null && !p.IsHouseBot)
             .ToListAsync(ct);
-        var people = owned.Where(p => Accounts.IsVerified(p.Owner, discord.Value)).GroupBy(p => p.Owner!.Id).ToList();
+        var people = owned.Where(p => Accounts.IsVerified(p.Owner, discord.Value) && !discord.Value.IsUnranked(p.Owner))
+            .GroupBy(p => p.Owner!.Id).ToList();
         var slugs = await ProfileSlugs.LoadAsync(db, discord.Value, ct);
         var botIds = people.SelectMany(g => g.Select(p => p.Id)).ToList();
         var earned = (await db.BotAchievements.AsNoTracking().Where(a => botIds.Contains(a.PlayerId)).ToListAsync(ct))

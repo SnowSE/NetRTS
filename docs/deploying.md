@@ -179,6 +179,10 @@ Without it the callback URL it sends to Discord starts with `http://` and Discor
 AppHost sets it for `azd` deployments. Sign-in cookies are encrypted with keys stored in the
 database (`data_protection_keys`), so restarts and redeploys don't sign anyone out.
 
+People who play but don't compete (the instructor) go in `Discord:UnrankedAccounts`, a list of Discord
+user ids (in `appsettings.json`). Their bots still play, but stay off every ladder and the trophy room,
+never earn achievements, and lose any they had the next time the server starts.
+
 ## Announcing results in Discord
 
 The shared server posts to the coding-competition channel:

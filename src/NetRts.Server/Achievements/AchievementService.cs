@@ -47,6 +47,7 @@ public sealed class AchievementService(
         Interlocked.Increment(ref _pending);
         try
         {
+            await RemoveUnrankedAsync(stoppingToken);
             await BackfillAsync(stoppingToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
@@ -91,6 +92,11 @@ public sealed class AchievementService(
         foreach (var row in rows)
         {
             var bot = await db.Players.AsNoTracking().Include(p => p.Owner).FirstAsync(p => p.Id == row.PlayerId, ct);
+            if (discord.Value.IsUnranked(bot.Owner))
+            {
+                continue;
+            }
+
             var history = await db.MatchPlayers.AsNoTracking()
                 .Where(r => r.PlayerId == row.PlayerId && r.CompletedAt <= match.CompletedAt)
                 .OrderBy(r => r.CompletedAt).ThenBy(r => r.MatchId)
@@ -150,6 +156,26 @@ public sealed class AchievementService(
         AchievementCatalog.All.Where(a => a.Check is not null
                                           && (a.HouseBotsCount || context.Row.RealOpponents > 0)
                                           && a.Check(context));
+
+    /// <summary>Takes away any achievements held by bots of unranked accounts (see <see cref="DiscordOptions.UnrankedAccounts"/>).</summary>
+    internal async Task RemoveUnrankedAsync(CancellationToken ct)
+    {
+        var unranked = discord.Value.UnrankedAccounts;
+        if (unranked.Count == 0)
+        {
+            return;
+        }
+
+        await using var scope = scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
+        var removed = await db.BotAchievements
+            .Where(a => db.Players.Any(p => p.Id == a.PlayerId && p.Owner != null && unranked.Contains(p.Owner.DiscordId)))
+            .ExecuteDeleteAsync(ct);
+        if (removed > 0)
+        {
+            logger.LogInformation("Removed {Count} achievements from bots of unranked accounts", removed);
+        }
+    }
 
     /// <summary>
     /// Builds history rows for every match that has none (matches recorded before the history existed),
@@ -214,7 +240,7 @@ public sealed class AchievementService(
                 continue;
             }
 
-            foreach (var row in byMatch[matchId].Where(r => !r.IsHouseBot))
+            foreach (var row in byMatch[matchId].Where(r => !r.IsHouseBot && !discord.Value.IsUnranked(players[r.PlayerId].Owner)))
             {
                 var bot = players[row.PlayerId];
                 var mine = byPlayer[row.PlayerId];

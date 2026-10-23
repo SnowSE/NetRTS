@@ -44,6 +44,14 @@ public sealed class DiscordOptions
     /// <summary>Pause between Discord messages: Discord allows about 30 webhook messages a minute.</summary>
     public int MessageGapMs { get; set; } = 2100;
 
+    /// <summary>
+    /// Discord user ids of people who play but don't compete (the instructor): their bots stay off every
+    /// ladder and the trophy room, and never keep achievements.
+    /// </summary>
+    public List<string> UnrankedAccounts { get; set; } = [];
+
+    public bool IsUnranked(AccountRecord? owner) => owner is not null && UnrankedAccounts.Contains(owner.DiscordId);
+
     public bool Enabled => !string.IsNullOrWhiteSpace(ClientId) && !string.IsNullOrWhiteSpace(ClientSecret);
 
     public bool HasServer => !string.IsNullOrWhiteSpace(ServerId);

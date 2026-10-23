@@ -142,8 +142,10 @@ public static partial class PlayerEndpoints
         // Each category is its own ladder. House bots always appear on the practice ladder as yardsticks.
         // Practice is ranked by rating; league categories by points, then skill (its conservative estimate). ?season= shows a past season.
         var league = category != MatchCategory.Practice;
+        var unranked = discord.Value.UnrankedAccounts;
         var rows = await db.Players.AsNoTracking()
             .Select(p => new { Player = p, p.Owner, Stats = db.PlayerStats.FirstOrDefault(s => s.PlayerId == p.Id && s.Category == category && s.Season == season) })
+            .Where(x => x.Owner == null || !unranked.Contains(x.Owner.DiscordId))
             .Where(x => (x.Stats != null && x.Stats.Wins + x.Stats.Losses + x.Stats.Draws > 0)
                         || (category == MatchCategory.Practice && season == Seasons.Current && x.Player.IsHouseBot))
             .OrderByDescending(x => league && x.Stats != null ? x.Stats.Points : 0)
