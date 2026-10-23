@@ -92,7 +92,7 @@ The hosts are three of the game's own units, sitting behind a sports desk:
 ${hosts}
 
 How they talk: like the announcers in a pod-race booth. Fast, theatrical, over the top; alliteration and wild
-similes; they riff on each other, one finishing the other's sentence; Zip gasps, Sarge rumbles, Quill corrects.
+similes; they riff on each other, one finishing the other's sentence; Zip gasps, Sarge barks, Quill corrects.
 The lines are original: never quote a film or use a real franchise's catchphrases or names.
 
 Rules:
@@ -162,8 +162,8 @@ export function templateScript(brief) {
   const game = brief.lore.game;
   lines.push(say('zip', `Welcome, welcome, welcome to ${game} Tonight! It's ${brief.weekday}, and what a day it was!`, 'title'));
   lines.push(say('sarge', brief.quiet
-    ? `A quiet one. ${n(brief.totals.matches)} matches. Even the grubs took the day off.`
-    : `${n(brief.totals.matches)} matches. ${n(brief.totals.unitsKilled)} units down. ${n(brief.totals.oreGathered)} ${brief.lore.ore} hauled home.`, 'totals', '', 'calm'));
+    ? `Quiet one, recruits: ${n(brief.totals.matches)} matches, and even the grubs took the day off.`
+    : `${n(brief.totals.matches)} matches, ${n(brief.totals.unitsKilled)} units down and ${n(brief.totals.oreGathered)} ${brief.lore.ore} hauled home. Not bad, not bad at all.`, 'totals', '', 'calm'));
 
   if (brief.newBots.length) {
     const names = brief.newBots.slice(0, 4).map((b) => (b.owner ? `${b.name}, from ${b.owner}` : b.name));
@@ -179,7 +179,7 @@ export function templateScript(brief) {
       : `A draw after ${n(m.ticks)} ticks. Nobody blinked.`, 'match', winner?.name ?? '', 'calm'));
   }
 
-  for (const p of brief.powerPlays.slice(0, 2)) lines.push(say('sarge', `Power play: ${p.bot}, ${p.text}.`, 'powerPlays', p.bot, 'serious'));
+  for (const p of brief.powerPlays.slice(0, 2)) lines.push(say('sarge', `Power play, eyes front: ${p.bot}, ${p.text}.`, 'powerPlays', p.bot, 'serious'));
   for (const s of brief.surprises.slice(0, 2)) lines.push(say('zip', `Didn't see that coming! ${s.bot}: ${s.text}!`, 'surprises', s.bot));
 
   const fresh = brief.strategies.filter((s) => s.newOnServer || s.newForBot).slice(0, 2);
@@ -192,7 +192,7 @@ export function templateScript(brief) {
   const ladder = brief.ladders.find((l) => l.category === 'Season') ?? brief.ladders[0];
   if (ladder?.entries.length) {
     const top = ladder.entries[0];
-    lines.push(say('sarge', `On the ${ladder.category.toLowerCase()} ladder, ${top.name} sits on top${ladder.rankedBy === 'points' ? ` with ${n(top.points)} points` : ` at ${n(top.rating)}`}.`, 'ladder', ladder.category, 'serious'));
+    lines.push(say('sarge', `On the ${ladder.category.toLowerCase()} ladder, ${top.name} sits on top${ladder.rankedBy === 'points' ? ` with ${n(top.points)} points` : ` at ${n(top.rating)}`}, and the rest of you know what that means: drop and give me twenty matches.`, 'ladder', ladder.category, 'serious'));
   }
   const climber = brief.movers.find((m) => m.to > m.from);
   if (climber) lines.push(say('zip', `Biggest climber: ${climber.name}, up ${climber.to - climber.from} rating points!`, 'movers', climber.name));
@@ -206,13 +206,13 @@ export function templateScript(brief) {
 
   if (brief.missingPersons.length) {
     const gone = brief.missingPersons.slice(0, 3).map((b) => b.name);
-    lines.push(say('sarge', `Missing persons. ${list(gone)}. We haven't seen you in a while. Come back. The field misses you.`, 'missing', gone[0], 'serious'));
+    lines.push(say('sarge', `Missing persons: ${list(gone)}, report back to the field, the drills aren't the same without you.`, 'missing', gone[0], 'serious'));
   }
 
   const leagues = brief.upcoming.leagueMatches;
   lines.push(say('zip', `Coming up: ${brief.upcoming.schedule}${brief.upcoming.nextLeagueDay ? ` Next league day is ${brief.upcoming.nextLeagueDay}.` : ''}${leagues.length ? ` ${list(leagues.map((l) => l.name))} ${leagues.length === 1 ? 'is' : 'are'} taking players now.` : ''}`, 'upcoming'));
   lines.push(say('quill', brief.mentoring, 'mentoring', '', 'calm'));
-  lines.push(say('sarge', `That's the show. Sharpen your bots. We'll be watching.`, 'title', '', 'calm'));
+  lines.push(say('sarge', `That's the show, recruits: sharpen those bots, and I'll be watching.`, 'title', '', 'calm'));
   lines.push(say('zip', `Good night, and good brawling!`, 'title'));
 
   return {

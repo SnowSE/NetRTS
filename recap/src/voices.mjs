@@ -37,6 +37,8 @@ function ssml(line) {
   const lang = v.name.slice(0, 5);
   let body = `<prosody rate="${v.rate}" pitch="${v.pitch}">${escapeXml(line.text)}</prosody>`;
   if (style) body = `<mstts:express-as style="${style}" styledegree="${line.mood === 'excited' || line.mood === 'shouting' ? 1.6 : 1.1}">${body}</mstts:express-as>`;
+  if (v.pauses?.sentence) body = `<mstts:silence type="Sentenceboundary-exact" value="${v.pauses.sentence}"/>${body}`;
+  if (v.pauses?.comma) body = `<mstts:silence type="Comma-exact" value="${v.pauses.comma}"/>${body}`;
   return `<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="${lang}">`
     + `<voice name="${v.name}">${body}</voice></speak>`;
 }

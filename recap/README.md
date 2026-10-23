@@ -2,7 +2,7 @@
 
 Every night a Container Apps job makes a short highlights show about the day's matches. It's hosted by
 three of the game's units at a sports desk: **Zip** the Scout (breathless play-by-play), **Sarge** the
-Soldier (big, slow, deadpan) and **Quill** the Archer (the stats). The site lists every episode on
+Soldier (a gruff drill sergeant, deadpan) and **Quill** the Archer (the stats). The site lists every episode on
 `#/recaps`, and the home page shows last night's.
 
 ```text

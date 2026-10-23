@@ -11,9 +11,12 @@ export const HOSTS = {
   sarge: {
     name: 'Sarge',
     unit: 'Soldier',
-    who: 'Sarge the Soldier: a big, booming veteran of a thousand brawls. Speaks in grand, slow pronouncements, '
-      + 'deadpan, unimpressed by flash, respects a good economy and a stubborn defense. Short sentences.',
-    voice: { name: 'en-US-GuyNeural', rate: '-4%', pitch: '-10%', styles: { excited: 'excited', amused: 'cheerful', calm: 'newscast', serious: 'newscast', shouting: 'shouting' } },
+    who: 'Sarge the Soldier: a grizzled old drill sergeant, veteran of a thousand brawls. Clipped and quick, barks '
+      + 'orders at the bots, bone-dry deadpan humor, has seen it all and is impressed by almost none of it, secretly '
+      + 'proud of every recruit. Respects a good economy and a stubborn defense. Gruff, never mean: he rides the bots, '
+      + 'never the students. Keeps his lines punchy and flowing, not a string of tiny sentences.',
+    // pauses: Azure's sentence and comma silences, trimmed so his clipped lines keep up with the others.
+    voice: { name: 'en-US-GuyNeural', rate: '+10%', pitch: '-10%', pauses: { sentence: '120ms', comma: '60ms' }, styles: { excited: 'excited', amused: null, calm: null, serious: 'newscast', shouting: 'shouting' } },
   },
   quill: {
     name: 'Quill',
