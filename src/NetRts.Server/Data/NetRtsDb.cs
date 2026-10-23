@@ -65,7 +65,6 @@ public static class Seasons
     public const string Current = "";
 }
 
-/// <summary>A player's rating and record in one category of one season; each is its own leaderboard.</summary>
 /// <summary>Something a person has done for the first time, kept so it is only celebrated once.</summary>
 public sealed class AccountMilestoneRecord
 {
@@ -74,6 +73,7 @@ public sealed class AccountMilestoneRecord
     public DateTime ReachedAt { get; set; }
 }
 
+/// <summary>A player's rating and record in one category of one season; each is its own leaderboard.</summary>
 public sealed class PlayerStatsRecord
 {
     public Guid PlayerId { get; set; }
@@ -86,8 +86,19 @@ public sealed class PlayerStatsRecord
     public int Losses { get; set; }
     public int Draws { get; set; }
 
-    /// <summary>League points: score margins over the players below you in each match's top four.</summary>
+    /// <summary>
+    /// League points: score margins over the players below you in each match's top four. When a bot
+    /// plays two or more heats of one league match, its lowest-scoring heat of that night doesn't count.
+    /// </summary>
     public int Points { get; set; }
+
+    /// <summary>OpenSkill (Plackett-Luce) skill estimate: the mean. See <see cref="OpenSkill"/>.</summary>
+    public double Mu { get; set; } = OpenSkill.DefaultMu;
+
+    /// <summary>
+    /// OpenSkill uncertainty. 0 only on rows that predate skills, until <see cref="SkillBackfill"/> runs at startup.
+    /// </summary>
+    public double Sigma { get; set; } = OpenSkill.DefaultSigma;
 }
 
 public sealed class MatchRecord
@@ -204,6 +215,15 @@ public sealed class MatchPlayerRecord
 
     /// <summary>How the bot played, e.g. "archer-rush" (see <c>Strategies</c>); null when unknown.</summary>
     public string? Strategy { get; set; }
+
+    /// <summary>
+    /// League points this match earned (0 in practice). The season total leaves out each bot's lowest
+    /// heat of any league match it played two or more heats of (see <see cref="LeaguePoints.Night"/>).
+    /// </summary>
+    public int Points { get; set; }
+
+    /// <summary>For a heat: the league match it belongs to (the heat's parent match).</summary>
+    public Guid? LeagueMatchId { get; set; }
 }
 
 /// <summary>An achievement a bot has earned (see <c>AchievementCatalog</c>).</summary>
@@ -228,6 +248,9 @@ public sealed class LadderSnapshotRecord
     public int Rank { get; set; }
     public int Rating { get; set; }
     public int Points { get; set; }
+
+    /// <summary>Displayed skill (<see cref="OpenSkill.Display"/>); 0 in snapshots taken before skills existed.</summary>
+    public int Skill { get; set; }
 }
 
 /// <summary>One night's recap show.</summary>
@@ -364,6 +387,7 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
             e.Property(m => m.Strategy).HasMaxLength(32);
             e.HasIndex(m => new { m.PlayerId, m.CompletedAt });
             e.HasIndex(m => m.CompletedAt);
+            e.HasIndex(m => new { m.LeagueMatchId, m.PlayerId });
             e.HasOne<MatchRecord>().WithMany().HasForeignKey(m => m.MatchId).OnDelete(DeleteBehavior.Cascade);
             e.HasOne<PlayerRecord>().WithMany().HasForeignKey(m => m.PlayerId).OnDelete(DeleteBehavior.Cascade);
         });

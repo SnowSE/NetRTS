@@ -146,6 +146,9 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.Property<int>("Rating")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("Skill")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Date", "Category", "PlayerId");
 
                     b.HasIndex("PlayerId");
@@ -229,6 +232,9 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.Property<bool>("IsHouseBot")
                         .HasColumnType("INTEGER");
 
+                    b.Property<Guid?>("LeagueMatchId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("OwnerAccountId")
                         .HasColumnType("TEXT");
 
@@ -236,6 +242,9 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("PlayerCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Points")
                         .HasColumnType("INTEGER");
 
                     b.Property<int?>("RatingAfter")
@@ -282,6 +291,8 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.HasKey("MatchId", "PlayerId");
 
                     b.HasIndex("CompletedAt");
+
+                    b.HasIndex("LeagueMatchId", "PlayerId");
 
                     b.HasIndex("PlayerId", "CompletedAt");
 
@@ -425,11 +436,17 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.Property<int>("Losses")
                         .HasColumnType("INTEGER");
 
+                    b.Property<double>("Mu")
+                        .HasColumnType("REAL");
+
                     b.Property<int>("Points")
                         .HasColumnType("INTEGER");
 
                     b.Property<int>("Rating")
                         .HasColumnType("INTEGER");
+
+                    b.Property<double>("Sigma")
+                        .HasColumnType("REAL");
 
                     b.Property<int>("Wins")
                         .HasColumnType("INTEGER");

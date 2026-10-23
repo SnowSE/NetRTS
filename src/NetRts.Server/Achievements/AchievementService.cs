@@ -189,7 +189,8 @@ public sealed class AchievementService(
                 var surrendered = result.Outcome.Reason == MatchEndReason.Surrender
                     ? result.Players.Where(p => !p.Winner).Select(p => p.Slot).ToHashSet()
                     : null;
-                db.MatchPlayers.AddRange(MatchHistory.Rows(m.Id, m.CompletedAt, m.Category, result, seats, known, surrenderedSlots: surrendered));
+                db.MatchPlayers.AddRange(MatchHistory.Rows(m.Id, m.CompletedAt, m.Category, result, seats, known, surrenderedSlots: surrendered,
+                    leagueMatchId: summary.ParentMatchId));
             }
 
             await db.SaveChangesAsync(ct);

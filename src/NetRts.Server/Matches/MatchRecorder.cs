@@ -11,8 +11,8 @@ using NetRts.Server.Data;
 namespace NetRts.Server.Matches;
 
 /// <summary>
-/// Persists finished matches (summary, result, replay, frames) and updates win/loss records and Elo
-/// ratings. Runs off the tick loop so a slow database never stalls a game.
+/// Persists finished matches (summary, result, replay, frames) and updates win/loss records, Elo
+/// ratings, OpenSkill skills and league points. Runs off the tick loop so a slow database never stalls a game.
 /// </summary>
 public sealed class MatchRecorder(
     IServiceScopeFactory scopes, ILogger<MatchRecorder> logger, MatchMetrics metrics, MatchAnnouncer announcer, AchievementService achievements) : BackgroundService
@@ -95,12 +95,13 @@ public sealed class MatchRecorder(
         // Second and later copies of a house bot have no player row, so they keep no record.
         var ids = seats.Select(s => s.PlayerId).ToList();
         var known = await db.Players.Where(p => ids.Contains(p.Id)).Select(p => p.Id).ToListAsync(ct);
-        Dictionary<Guid, (int Before, int After)>? ratingChanges = null;
+        Dictionary<Guid, (int Before, int After)> ratingChanges = [];
+        Dictionary<Guid, PlayerStatsRecord> stats = [];
 
         // Exhibitions between house bots are entertainment, not ladder games.
         if (seats.Any(s => !s.IsHouseBot))
         {
-            var stats = await db.PlayerStats.Where(s => known.Contains(s.PlayerId) && s.Category == host.Category && s.Season == Seasons.Current)
+            stats = await db.PlayerStats.Where(s => known.Contains(s.PlayerId) && s.Category == host.Category && s.Season == Seasons.Current)
                 .ToDictionaryAsync(s => s.PlayerId, ct);
             foreach (var id in known.Where(id => !stats.ContainsKey(id)))
             {
@@ -135,32 +136,61 @@ public sealed class MatchRecorder(
                 .OrderByDescending(p => p.Winner).ThenByDescending(p => p.Score.Total).ToList();
             if (rated)
             {
-                var places = ranked.Select(p => 1 + ranked.Count(q =>
-                    (q.Winner && !p.Winner) || (q.Winner == p.Winner && q.Score.Total > p.Score.Total))).ToList();
+                var places = OpenSkill.Places(ranked.Select(p => (p.Winner, p.Score.Total)).ToList());
                 var ratings = Elo.UpdateMany(ranked.Select(p => stats[p.PlayerId].Rating).ToList(), places);
-                ratingChanges = [];
+                var skills = OpenSkill.Rate(ranked.Select(p => OpenSkill.Of(stats[p.PlayerId])).ToList(), places);
                 for (var i = 0; i < ranked.Count; i++)
                 {
-                    ratingChanges[ranked[i].PlayerId] = (stats[ranked[i].PlayerId].Rating, ratings[i]);
-                    stats[ranked[i].PlayerId].Rating = ratings[i];
-                }
-            }
-
-            if (host.Category != MatchCategory.Practice)
-            {
-                var points = LeaguePoints.Award(ranked.Select(p => p.Score.Total).ToList());
-                for (var i = 0; i < ranked.Count; i++)
-                {
-                    stats[ranked[i].PlayerId].Points += points[i];
+                    var s = stats[ranked[i].PlayerId];
+                    ratingChanges[ranked[i].PlayerId] = (s.Rating, ratings[i]);
+                    s.Rating = ratings[i];
+                    (s.Mu, s.Sigma) = (skills[i].Mu, skills[i].Sigma);
                 }
             }
         }
 
-        db.MatchPlayers.AddRange(MatchHistory.Rows(host.Id, completedAt, host.Category, result,
+        var rows = MatchHistory.Rows(host.Id, completedAt, host.Category, result,
             seats.Select((s, slot) => new HistorySeat(s.PlayerId, slot, s.IsHouseBot, s.OwnerAccountId)).ToList(),
-            known.ToHashSet(), ratingChanges, replay.Surrenders.Select(s => s.Slot).ToHashSet()));
+            known.ToHashSet(), rated ? ratingChanges : null, replay.Surrenders.Select(s => s.Slot).ToHashSet(), host.ParentMatchId);
+        await AddLeaguePointsAsync(db, stats, rows, ct);
+        db.MatchPlayers.AddRange(rows);
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Recorded {Category} match {MatchId} ({Reason}, rated: {Rated})", host.Category, host.Id, result.Outcome.Reason, rated);
+    }
+
+    /// <summary>
+    /// Adds a match's league points (already on its history <paramref name="rows"/>) to the season totals.
+    /// A heat of a league match changes its bot's total by how much it changes that night's
+    /// <see cref="LeaguePoints.Night"/> (every heat of the night, less the lowest once there are two),
+    /// so heats can be recorded one at a time, in any order, and the total always comes out the same.
+    /// </summary>
+    internal static async Task AddLeaguePointsAsync(NetRtsDb db, IReadOnlyDictionary<Guid, PlayerStatsRecord> stats, IReadOnlyList<MatchPlayerRecord> rows, CancellationToken ct)
+    {
+        var counted = rows.Where(r => r.Category != MatchCategory.Practice && stats.ContainsKey(r.PlayerId)).ToList();
+        if (counted.Count == 0)
+        {
+            return;
+        }
+
+        var ids = counted.Select(r => r.PlayerId).ToList();
+        var nights = counted.Where(r => r.LeagueMatchId is not null).Select(r => r.LeagueMatchId).Distinct().ToList();
+        var earlier = (await db.MatchPlayers.AsNoTracking()
+                .Where(r => r.LeagueMatchId != null && nights.Contains(r.LeagueMatchId) && ids.Contains(r.PlayerId))
+                .Select(r => new { r.MatchId, r.PlayerId, LeagueMatchId = r.LeagueMatchId!.Value, r.Points })
+                .ToListAsync(ct))
+            .ToLookup(r => (r.PlayerId, r.LeagueMatchId), r => (r.MatchId, r.Points));
+
+        foreach (var row in counted)
+        {
+            if (row.LeagueMatchId is not { } night)
+            {
+                stats[row.PlayerId].Points += row.Points;
+                continue;
+            }
+
+            var before = earlier[(row.PlayerId, night)].Where(e => e.MatchId != row.MatchId).Select(e => e.Points).ToList();
+            stats[row.PlayerId].Points += LeaguePoints.Night([.. before, row.Points]) - LeaguePoints.Night(before);
+        }
     }
 }

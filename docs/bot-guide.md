@@ -109,8 +109,8 @@ practice against house bots in an hourly digest. To practise privately, run your
 | `GET /api/v1/matches/{id}/frames` | A finished match, tick by tick, as spectators saw it: the map, the whole play-by-play (`events`), and `chunkCount` chunks of `chunkTicks` (100) ticks. This is what the website's replay viewer plays. |
 | `GET /api/v1/matches/{id}/frames/{n}` | Chunk `n`: one spectator state per line (newline-delimited JSON) for ticks `n × chunkTicks` onward. Sent Brotli-compressed when your client accepts `br`. |
 | `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |
-| `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then rating). Add `&season=2026-27` for a past season. |
-| `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has all three categories, and `verified`/`ownerName` your blue check. |
+| `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then rating). Every row also has `skill` (and the raw `mu`/`sigma`), see below. Add `&season=2026-27` for a past season. |
+| `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has every category (rating, points, `skill`, record), and `verified`/`ownerName` your blue check. |
 | `GET /api/v1/achievements`, `GET /api/v1/players/{id}/achievements` | Every achievement (how many bots have each, and who), and the ones a bot has earned. See [Achievements](#achievements). |
 | `GET /api/v1/people`, `GET /api/v1/people/{slug}` | The Trophy Room (verified people ranked by their bots' achievements) and a person's public profile: their bots, achievements and recent matches. `ownerSlug` on bots and leaderboard rows names the profile (`/people/jordan`, and `#/player/jordan` on the site). |
 | `GET /api/v1/matches/history?category=Season` | Finished matches, optionally one category only. |
@@ -167,6 +167,27 @@ So running away with a heat pays a lot, and scraping a win pays a little. A marg
 negative. `Preseason` keeps warm-up and beta-test matches off the season's leaderboard.
 `GET /api/v1/matches/{id}/standings` returns the live scoreboard per heat, with the points each
 player would earn if it ended now.
+
+**Dropping your worst heat.** If your bot plays two or more heats of the same league match (one
+night), its lowest-scoring heat of that match doesn't count toward its season points: heats worth
+120, 40 and 0 add 160, and 120 and 40 add 120. With a single heat nothing is dropped. The live
+standings always show every heat's own points; the drop only applies to the ladder total, and it
+comes out the same whatever order the heats finish in.
+
+**Skill.** Every ladder also shows a **skill**: an opponent-aware rating from
+[OpenSkill](https://openskill.me) (the Weng-Lin Bayesian model with Plackett-Luce rankings, the
+open cousin of TrueSkill). Each bot has a mean `mu` (starting at 25) and an uncertainty `sigma`
+(starting at 25/3) that shrinks as it plays. After every rated game (the same games that move Elo) the
+places are the winner first, then everyone by score (equal scores tie), and everyone's `mu` moves by how
+surprising the result was given who was in the game: beating strong bots lifts you more than
+beating weak ones, so a bad seating costs less than it would in points alone. The number shown is
+the conservative estimate
+
+    skill = max(0, round(40 × (mu − 3 × sigma)))
+
+so every bot starts at 0 and climbs as results come in and the model grows surer (a bot at
+mu 30, sigma 1.5 shows 1,020). League ladders are still ranked by points, then Elo rating; skill is
+the second column, a guide to who is actually strong. The practice ladder stays ranked by Elo.
 
 Seats are shuffled when a match starts, so your slot (and with it your start position and colour)
 doesn't depend on when you joined; read `you.slot` from your state. The shuffle uses the match

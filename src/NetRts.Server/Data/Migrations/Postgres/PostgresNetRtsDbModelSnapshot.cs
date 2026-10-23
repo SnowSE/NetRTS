@@ -153,6 +153,9 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<int>("Rating")
                         .HasColumnType("integer");
 
+                    b.Property<int>("Skill")
+                        .HasColumnType("integer");
+
                     b.HasKey("Date", "Category", "PlayerId");
 
                     b.HasIndex("PlayerId");
@@ -236,6 +239,9 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<bool>("IsHouseBot")
                         .HasColumnType("boolean");
 
+                    b.Property<Guid?>("LeagueMatchId")
+                        .HasColumnType("uuid");
+
                     b.Property<Guid?>("OwnerAccountId")
                         .HasColumnType("uuid");
 
@@ -243,6 +249,9 @@ namespace NetRts.Server.Data.Migrations.Postgres
                         .HasColumnType("integer");
 
                     b.Property<int>("PlayerCount")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Points")
                         .HasColumnType("integer");
 
                     b.Property<int?>("RatingAfter")
@@ -289,6 +298,8 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.HasKey("MatchId", "PlayerId");
 
                     b.HasIndex("CompletedAt");
+
+                    b.HasIndex("LeagueMatchId", "PlayerId");
 
                     b.HasIndex("PlayerId", "CompletedAt");
 
@@ -432,11 +443,17 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<int>("Losses")
                         .HasColumnType("integer");
 
+                    b.Property<double>("Mu")
+                        .HasColumnType("double precision");
+
                     b.Property<int>("Points")
                         .HasColumnType("integer");
 
                     b.Property<int>("Rating")
                         .HasColumnType("integer");
+
+                    b.Property<double>("Sigma")
+                        .HasColumnType("double precision");
 
                     b.Property<int>("Wins")
                         .HasColumnType("integer");

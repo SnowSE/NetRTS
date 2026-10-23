@@ -18,7 +18,7 @@ public static class MatchHistory
 
     /// <summary>
     /// One row per registered bot in the match (<paramref name="known"/>: second and later copies of a
-    /// house bot aren't registered).
+    /// house bot aren't registered). <paramref name="leagueMatchId"/> is a heat's parent league match.
     /// </summary>
     public static List<MatchPlayerRecord> Rows(
         Guid matchId,
@@ -28,12 +28,14 @@ public static class MatchHistory
         IReadOnlyList<HistorySeat> seats,
         IReadOnlySet<Guid> known,
         IReadOnlyDictionary<Guid, (int Before, int After)>? ratings = null,
-        IReadOnlySet<int>? surrenderedSlots = null)
+        IReadOnlySet<int>? surrenderedSlots = null,
+        Guid? leagueMatchId = null)
     {
         var players = result.Players;
         var places = players.ToDictionary(p => p.Slot, p => 1 + players.Count(q =>
             (q.Winner && !p.Winner) || (q.Winner == p.Winner && q.Score.Total > p.Score.Total)));
         var bySlot = seats.ToDictionary(s => s.Slot);
+        var points = LeagueMatchPoints(category, result, seats, known);
         var rows = new List<MatchPlayerRecord>();
         foreach (var p in players)
         {
@@ -66,6 +68,8 @@ public static class MatchHistory
                 RatingBefore = rating?.Before,
                 RatingAfter = rating?.After,
                 Strategy = Strategies.Classify(p.Stats),
+                Points = points.GetValueOrDefault(p.Slot),
+                LeagueMatchId = leagueMatchId,
             });
         }
 
@@ -77,5 +81,23 @@ public static class MatchHistory
         }
 
         return rows;
+    }
+
+    /// <summary>
+    /// League points by slot (none in practice): <see cref="LeaguePoints.Award"/> over the registered
+    /// bots in finishing order (the winner, then by score), as the ladder has always counted them.
+    /// </summary>
+    private static Dictionary<int, int> LeagueMatchPoints(MatchCategory category, MatchResultDto result, IReadOnlyList<HistorySeat> seats, IReadOnlySet<Guid> known)
+    {
+        if (category == MatchCategory.Practice || seats.All(s => s.IsHouseBot))
+        {
+            return [];
+        }
+
+        var registered = seats.Where(s => known.Contains(s.PlayerId)).Select(s => s.Slot).ToHashSet();
+        var ranked = result.Players.Where(p => registered.Contains(p.Slot))
+            .OrderByDescending(p => p.Winner).ThenByDescending(p => p.Score.Total).ToList();
+        var points = LeaguePoints.Award(ranked.Select(p => p.Score.Total).ToList());
+        return ranked.Select((p, i) => (p.Slot, Points: points[i])).ToDictionary(x => x.Slot, x => x.Points);
     }
 }

@@ -1,5 +1,5 @@
 // Spectator UI: hash router + home view.
-import { api, html, raw, setHtml, slotVar, displayName, playerLabel, botAndOwner, verifiedBadge, timeAgo, fmt, outcomeHtml, esc } from './util.js';
+import { api, html, raw, setHtml, slotVar, displayName, playerLabel, botAndOwner, verifiedBadge, timeAgo, fmt, outcomeHtml, esc, SKILL_TITLE } from './util.js';
 import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
@@ -9,6 +9,7 @@ import { mountAchievements, mountBot } from './achievements.js';
 import { mountTrophyRoom, mountPerson } from './people.js';
 
 const main = document.getElementById('main');
+const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
 let teardown = null;
 
 function route() {
@@ -84,7 +85,7 @@ api('/api/v1/account').then(showAccountLink).catch(() => {});
 const CATEGORIES = [
   { key: 'Practice', label: say('Practice', 'Scrimmage'), note: 'Every match bots start themselves. Open to everyone.' },
   { key: 'Preseason', label: say('Preseason', 'Preseason'), note: 'Warm-up league matches (beta testing). Ranked by points; they don\'t count toward the season.' },
-  { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: each heat\'s top four score their margins over the players below them.' },
+  { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: each heat\'s top four score their margins over the players below them; a bot that plays two or more heats of one match drops its lowest. Skill weighs who you beat.' },
   { key: 'Championship', label: say('Championship', 'Championship'), note: 'Championship matches; Discord-verified bots only. Ranked by points, like the season.' },
 ];
 
@@ -367,13 +368,17 @@ Authorization: Bearer &lt;apiKey&gt;
       if (!alive || category !== root.querySelector('input[name="ladder-cat"]:checked')?.value) return;
       setHtml(el, list.length ? html`
         <div class="table-scroll"><table class="ladder">
-          <caption class="visually-hidden">${say('Players ranked by rating', 'Badgers ranked by rating')}</caption>
-          <thead><tr><th scope="col">#</th><th scope="col">Player</th>${category !== 'Practice' ? html`<th scope="col"><abbr title="League points: score margins over the rest of each match's top four">Pts</abbr></th>` : ''}<th scope="col">Rating</th>
+          <caption class="visually-hidden">${category === 'Practice' ? say('Players ranked by rating', 'Badgers ranked by rating') : say('Players ranked by points', 'Badgers ranked by points')}</caption>
+          <thead><tr><th scope="col">#</th><th scope="col">Player</th>${category !== 'Practice'
+            ? html`<th scope="col"><abbr title="League points: score margins over the rest of each match's top four (a bot's lowest heat of a night with two or more is dropped)">Pts</abbr></th>${SKILL_TH}<th scope="col">Rating</th>`
+            : html`<th scope="col">Rating</th>${SKILL_TH}`}
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
           <tbody>${list.map((p) => html`
             <tr><td>${p.rank}</td>
               <td>${botAndOwner(p)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
-              ${category !== 'Practice' ? html`<td class="rating">${fmt(p.points)}</td>` : ''}<td class="${category === 'Practice' ? 'rating' : ''}">${Math.round(p.rating)}</td><td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
+              ${category !== 'Practice'
+                ? html`<td class="rating">${fmt(p.points)}</td><td>${fmt(p.skill)}</td><td>${Math.round(p.rating)}</td>`
+                : html`<td class="rating">${Math.round(p.rating)}</td><td>${fmt(p.skill)}</td>`}<td>${p.wins}</td><td>${p.losses}</td><td>${p.draws}</td></tr>`)}
           </tbody>
         </table></div>` : category === 'Practice'
         ? html`<p class="empty">${say('No ranked players yet.', 'No ranked badgers yet.')}</p>`

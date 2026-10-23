@@ -65,7 +65,7 @@ export function mountPerson(root, id) {
         ${p.bots.length ? html`<div class="table-scroll"><table class="ladder bots">
           <thead><tr><th scope="col">${say('Bot', 'Badger')}</th>${p.bots[0].records.map((r) => html`<th scope="col">${r.category}</th>`)}</tr></thead>
           <tbody>${p.bots.map((b) => html`<tr><td>${botAndOwner(b, { owner: false })}</td>
-            ${b.records.map((r) => html`<td><span class="rating">${fmt(r.rating)}</span><br><span class="muted small">${r.wins}-${r.losses}-${r.draws}</span></td>`)}</tr>`)}
+            ${b.records.map((r) => html`<td><span class="rating">${fmt(r.rating)}</span><br><span class="muted small">${r.wins}-${r.losses}-${r.draws} · skill ${fmt(r.skill)}</span></td>`)}</tr>`)}
           </tbody></table></div>` : html`<p class="empty">No ${say('bots', 'badgers')}.</p>`}
       </section>
 
