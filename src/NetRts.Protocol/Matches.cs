@@ -86,6 +86,21 @@ public sealed record MatchSummaryDto
     public Guid? ParentMatchId { get; init; }
 }
 
+/// <summary>One page of finished matches from the archive (GET /api/v1/matches/archive), newest first.</summary>
+public sealed record MatchArchivePageDto
+{
+    /// <summary>How many finished matches pass the filters, across every page.</summary>
+    public int Total { get; init; }
+
+    /// <summary>How many matching matches come before this page.</summary>
+    public int Skip { get; init; }
+
+    /// <summary>The page size asked for (1-100).</summary>
+    public int Limit { get; init; }
+
+    public IReadOnlyList<MatchSummaryDto> Matches { get; init; } = [];
+}
+
 /// <summary>Change a running match's speed. Either field may be left out.</summary>
 public sealed record MatchSpeedRequest
 {

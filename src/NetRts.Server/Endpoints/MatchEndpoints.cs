@@ -40,6 +40,9 @@ public static class MatchEndpoints
         matches.MapGet("/history", History)
             .WithSummary("Recently completed matches from the archive, optionally only one category.");
 
+        matches.MapGet("/archive", Archive)
+            .WithSummary("Every finished match, a page at a time, newest first. ?player= keeps matches with a bot or verified owner whose name contains it; separate names with commas to find matches with all of them.");
+
         matches.MapGet("/{matchId:guid}", async (Guid matchId, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
                 if (leagues.Find(matchId) is { } league)
@@ -477,6 +480,41 @@ public static class MatchEndpoints
             .Select(m => m.SummaryJson)
             .ToListAsync(ct);
         return rows.Select(json => JsonSerializer.Deserialize<MatchSummaryDto>(json, NetRtsClient.JsonOptions)!).ToList();
+    }
+
+    private static async Task<MatchArchivePageDto> Archive(NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct,
+        int skip = 0, int limit = 25, MatchCategory? category = null, string? player = null)
+    {
+        skip = Math.Max(0, skip);
+        limit = Math.Clamp(limit, 1, 100);
+        var query = db.Matches.AsNoTracking().Where(m => category == null || m.Category == category);
+
+        // Each name must be a bot in the match or its owner at the time; owners are only searchable by
+        // the name spectators see beside their bots (verified owners only).
+        var anyOwner = !discord.Value.HasServer;
+        var names = (player ?? "").Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(n => n.ToLowerInvariant()).Distinct().Take(4);
+        foreach (var name in names)
+        {
+            query = query.Where(m => db.MatchPlayers.Any(r => r.MatchId == m.Id
+                && (db.Players.Any(p => p.Id == r.PlayerId && p.Name.ToLower().Contains(name))
+                    || db.Accounts.Any(a => a.Id == r.OwnerAccountId && (anyOwner || a.InServer)
+                                            && (a.ServerNickname ?? a.GlobalName ?? a.Username).ToLower().Contains(name)))));
+        }
+
+        var total = await query.CountAsync(ct);
+        var rows = await query
+            .OrderByDescending(m => m.CompletedAt).ThenBy(m => m.Id)
+            .Skip(skip).Take(limit)
+            .Select(m => m.SummaryJson)
+            .ToListAsync(ct);
+        return new MatchArchivePageDto
+        {
+            Total = total,
+            Skip = skip,
+            Limit = limit,
+            Matches = rows.Select(json => JsonSerializer.Deserialize<MatchSummaryDto>(json, NetRtsClient.JsonOptions)!).ToList(),
+        };
     }
 
     /// <summary>409 MATCH_NOT_STARTED, for anything that needs a running match.</summary>

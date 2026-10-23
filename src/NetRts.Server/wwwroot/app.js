@@ -1,5 +1,5 @@
 // Spectator UI: hash router + home view.
-import { api, html, raw, setHtml, slotVar, displayName, playerLabel, botAndOwner, verifiedBadge, timeAgo, fmt, outcomeHtml, esc, SKILL_TITLE } from './util.js';
+import { api, html, raw, setHtml, botAndOwner, verifiedBadge, fmt, esc, matchRow, SKILL_TITLE } from './util.js';
 import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
@@ -7,6 +7,7 @@ import { mountLeague } from './league.js';
 import { mountRecaps, showLatestRecap } from './recaps.js';
 import { mountAchievements, mountBot } from './achievements.js';
 import { mountTrophyRoom, mountPerson } from './people.js';
+import { mountHistory } from './history.js';
 
 const main = document.getElementById('main');
 const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
@@ -24,6 +25,7 @@ function route() {
   const bot = hash.match(/^#\/bot\/([0-9a-fA-F-]{36})\/?$/);
   const trophyRoom = /^#\/trophy-room\/?$/.test(hash);
   const person = hash.match(/^#\/player\/([A-Za-z0-9-]{1,48})\/?$/);
+  const history = hash.match(/^#\/history\/?(?:\?(.*))?$/);
   const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -44,6 +46,8 @@ function route() {
     teardown = mountTrophyRoom(main);
   } else if (person) {
     teardown = mountPerson(main, person[1]);
+  } else if (history) {
+    teardown = mountHistory(main, new URLSearchParams(history[1] ?? ''));
   } else {
     teardown = mountHome(main);
   }
@@ -151,6 +155,7 @@ function mountHome(root) {
         <section aria-labelledby="hist-h">
           <h2 id="hist-h">${say('Recent results', 'Recent brawls')}</h2>
           <div id="history"><p class="empty">Loading results…</p></div>
+          <p class="small more-link"><a href="#/history">${say('All past matches', 'All past brawls')}</a> <span class="muted">· search by ${say('bot', 'badger')} or player, and watch any replay</span></p>
         </section>
       </div>
       <div>
@@ -395,39 +400,6 @@ Authorization: Bearer &lt;apiKey&gt;
   refresh();
 
   return () => { alive = false; clearTimeout(timer); stopRecap(); };
-}
-
-/** One row of a match list. Finished matches leave out the status column: they all say "Completed". */
-function matchRow(m, { status = true } = {}) {
-  const players = [...(m.players || [])].sort((a, b) => a.slot - b.slot);
-  // A league match lists who has joined (they're split into heats later), not a matchup.
-  const shown = m.heats ? players.slice(0, 12) : players;
-  const names = !players.length
-    ? html`<span class="muted">${say('no players yet', 'no badgers yet')}</span>`
-    : m.heats
-      ? html`${shown.map((p, i) => html`${i ? ', ' : ''}${playerLabel(p, { owner: false })}`)}${players.length > shown.length ? html` <span class="muted">+${players.length - shown.length} more</span>` : ''}`
-      : players.map((p, i) => html`${i ? html`<span class="vs-sep">vs</span>` : ''}<span class="pname" style="--pc:${slotVar(p.slot)}">${playerLabel(p, { owner: false })}</span>`);
-  const open = m.maxPlayers - players.length;
-  let meta;
-  if (m.heats) {
-    // A league match, played in heats.
-    meta = m.status === 'Waiting'
-      ? (m.heats.length ? html`${m.heats.length} heats · starting soon` : html`<b>${players.length}</b> joined · verified bots, join now`)
-      : html`${m.heats.filter((h) => h.status !== 'Completed').length} of ${m.heats.length} heats live`;
-  } else if (m.status === 'Completed' && m.outcome) {
-    meta = html`${outcomeHtml(m.outcome, m.players)}<br>${timeAgo(m.createdAt)}`;
-  } else if (m.status === 'Waiting') {
-    meta = html`${open} seat${open === 1 ? '' : 's'} open`;
-  } else {
-    const pct = m.maxTicks ? Math.min(100, (m.tick / m.maxTicks) * 100) : 0;
-    meta = html`tick ${fmt(m.tick)} / ${fmt(m.maxTicks)}<div class="minibar" aria-hidden="true"><span style="width:${pct.toFixed(1)}%"></span></div>`;
-  }
-  // A name keeps pointing at the newest match that uses it, so finished matches link by id.
-  const key = m.name && m.status !== 'Completed' ? m.name : m.matchId;
-  return html`<li><a class="match-row ${status ? '' : 'no-status'}" href="#/match/${key}" aria-label="${m.status} ${say('match', 'brawl')}: ${players.map((p) => displayName(p.name)).join(' versus ')}">
-    ${status ? html`<span class="status ${m.status}">${m.status === 'Active' ? 'Live' : m.status}</span>` : ''}
-    <span class="who">${m.category && m.category !== 'Practice' ? html`<span class="tag cat ${m.category}">${m.category}</span>` : ''}${m.name ? html`<b style="margin-right:8px">${m.name}</b>` : ''}${names}${m.heats ? '' : html`<span class="muted small" style="margin-left:8px">${m.mapWidth}×${m.mapHeight}</span>`}</span>
-    <span class="meta">${meta}</span></a></li>`;
 }
 
 route();

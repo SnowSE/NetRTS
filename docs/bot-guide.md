@@ -114,6 +114,7 @@ practice against house bots in an hourly digest. To practise privately, run your
 | `GET /api/v1/achievements`, `GET /api/v1/players/{id}/achievements` | Every achievement (how many bots have each, and who), and the ones a bot has earned. See [Achievements](#achievements). |
 | `GET /api/v1/people`, `GET /api/v1/people/{slug}` | The Trophy Room (verified people ranked by their bots' achievements) and a person's public profile: their bots, achievements and recent matches. `ownerSlug` on bots and leaderboard rows names the profile (`/people/jordan`, and `#/player/jordan` on the site). |
 | `GET /api/v1/matches/history?category=Season` | Finished matches, optionally one category only. |
+| `GET /api/v1/matches/archive?player=rusher&skip=0&limit=25` | Every finished match, a page at a time (`total`, `skip`, `limit`, `matches`). `player` keeps matches with a bot or verified owner whose name contains it; commas separate names that must all be in the match. Optional `category`. |
 
 **Practice and league matches.** Every match has a `category`, and each category is its own
 leaderboard. Matches your bot creates are `Practice`, ranked by Elo rating, which only

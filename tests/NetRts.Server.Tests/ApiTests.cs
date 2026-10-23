@@ -256,6 +256,56 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task The_archive_pages_through_finished_matches_and_finds_them_by_bot_or_owner_name()
+    {
+        var tag = Guid.NewGuid().ToString("N")[..8];
+        var owner = factory.ClientFor(await factory.NewAccountAsync(nickname: $"Owner {tag}"));
+        var reg = await (await owner.PostAsJsonAsync("/api/v1/account/bots", new RegisterPlayerRequest { Name = $"arc-{tag}" }, Ct))
+            .Content.ReadFromJsonAsync<RegisterPlayerResponse>(NetRtsClient.JsonOptions, Ct);
+        var mine = new NetRtsClient(factory.CreateClient(), reg!.ApiKey);
+        var (rival, rivalInfo) = await factory.NewPlayerAsync($"riv{tag}");
+
+        var played = new List<Guid>();
+        for (var i = 0; i < 3; i++)
+        {
+            var match = await mine.CreateMatchAsync(new CreateMatchRequest(), Ct);
+            await rival.JoinMatchAsync(match.MatchId, Ct);
+            await rival.SurrenderAsync(match.MatchId, Ct);
+            var host = factory.Matches.Get(match.MatchId)!;
+            while (!host.Recorded)
+            {
+                await Task.Delay(20, Ct);
+            }
+
+            played.Add(match.MatchId);
+        }
+
+        var solo = await mine.CreateMatchAsync(new CreateMatchRequest { HouseBots = ["sitter"] }, Ct);
+        await mine.SurrenderAsync(solo.MatchId, Ct);
+        while (!factory.Matches.Get(solo.MatchId)!.Recorded)
+        {
+            await Task.Delay(20, Ct);
+        }
+
+        var http = factory.CreateClient();
+        Task<MatchArchivePageDto?> Page(string query) =>
+            http.GetFromJsonAsync<MatchArchivePageDto>($"/api/v1/matches/archive?{query}", NetRtsClient.JsonOptions, Ct);
+
+        // By bot name, case-insensitively, a page at a time, newest first.
+        var first = await Page($"player=ARC-{tag}&limit=3");
+        Assert.Equal(4, first!.Total);
+        Assert.Equal([solo.MatchId, played[2], played[1]], first.Matches.Select(m => m.MatchId));
+        var second = await Page($"player=arc-{tag}&limit=3&skip=3");
+        Assert.Equal(played[0], Assert.Single(second!.Matches).MatchId);
+
+        // By the verified owner's name, and every comma-separated name must be in the match.
+        Assert.Equal(4, (await Page($"player={Uri.EscapeDataString($"owner {tag}")}"))!.Total);
+        var both = await Page($"player={Uri.EscapeDataString($"owner {tag}, {rivalInfo.Name}")}");
+        Assert.Equal(3, both!.Total);
+        Assert.Equal(0, (await Page($"player=arc-{tag},nobody-{tag}"))!.Total);
+    }
+
+    [Fact]
     public async Task Matches_can_be_named_and_names_are_unique_until_the_match_ends()
     {
         var (host, _) = await factory.NewPlayerAsync();

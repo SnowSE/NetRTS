@@ -1391,3 +1391,27 @@ a.owner:hover { text-decoration: underline; }
 .result-Win { color: var(--ok); }
 .result-Loss { color: var(--danger); }
 .result-Draw { color: var(--muted); }
+
+/* ---------- past matches ---------- */
+
+.more-link { margin: 10px 0 0; }
+.history-page { display: grid; gap: 16px; max-width: 900px; }
+.history-page .headline, .history-page .lede, .history-page > p { margin: 0; }
+.history-filters {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; gap: 12px; align-items: start;
+  background: var(--panel); border: 1px solid var(--line); padding: 16px;
+}
+.history-filters input {
+  min-height: 44px; padding: 8px 10px; width: 100%;
+  border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg);
+}
+.history-filters .btn { margin-top: calc(0.875rem * 1.5 + 4px); }
+.pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.pager [aria-disabled="true"] { opacity: 0.4; cursor: default; }
+.history-day h2 { font-size: 1rem; margin: 16px 0 6px; }
+@media (max-width: 640px) {
+  .history-filters { grid-template-columns: 1fr 1fr; }
+  .history-filters .grow { grid-column: 1 / -1; }
+  .history-filters .btn { margin-top: 0; width: 100%; }
+  .history-filters .field:last-child { grid-column: 1 / -1; }
+}
