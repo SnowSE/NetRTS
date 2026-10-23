@@ -213,7 +213,8 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
 
         await using var scope = factory.Services.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
-        var stats = await db.PlayerStats.AsNoTracking().ToListAsync(Ct);
+        // Only these players: other tests share the database and may have set skills by hand.
+        var stats = await db.PlayerStats.AsNoTracking().Where(s => ids.Contains(s.PlayerId)).ToListAsync(Ct);
         var rows = await db.MatchPlayers.AsNoTracking().ToListAsync(Ct);
         Assert.Contains(rows, r => r.LeagueMatchId == night && r.Points > 0);
 
