@@ -31,12 +31,12 @@ Deliberate deviations are marked **Δ**.
 | 030 Queue size in state | `you.queuedCommands`, `you.queueCapacity`. |
 | 031–036 Construction | `Build`: workers walk to the site, cost paid when ground breaks, progress = worker-ticks, `constructionPercent`. Site validation (bounds, rock, buildings, deposits, enemy units, prerequisites, ore). |
 | 037–042 Production | `Produce` with `count`; queue of 5 per building; spawns adjacent. **Δ** cost is paid when queued rather than when the item reaches the front, so a rejection is immediate. |
-| 043 Unit types | Worker, Soldier, Scout, plus Archer (ranged). |
-| 044 Building types | Command Center, Barracks, Resource Depot (drop-off + storage), plus TechLab (research) and Guard Tower (defence). |
+| 043 Unit types | Worker, Soldier, Scout, plus Archer (ranged) and Trebuchet (siege: minimum range, delayed shells that hit a tile). |
+| 044 Building types | Command Center, Barracks, Resource Depot (drop-off + storage), plus TechLab (research), Guard Tower (defence) and Siege Workshop (trebuchets; needs the SiegeEngineering upgrade). |
 | 045–046 Distinct stats | `GameRules`; published at `GET /api/v1/rules`. |
 | 047–051 Combat | Range checks, armor, simultaneous resolution, removal at 0 hp, freed tiles. |
 | 052–055 Resources | Finite deposits, continuous mine-and-haul, storage capacity, no negative balances. |
-| 056–060 Upgrades | Weapons, Armor, Mobility, Harvesting — two tiers each, tier 2 requires tier 1; apply to current and future units. |
+| 056–060 Upgrades | Weapons, Armor, Mobility, Harvesting — two tiers each, tier 2 requires tier 1; apply to current and future units. Plus SiegeEngineering, which unlocks the Siege Workshop. |
 | 061 Score | Destruction, economy, survival; live in every state response. |
 | 062 Elimination | Losing your last Command Center. **Δ** extra Command Centers can be built, so it's the *last* one. |
 | 063–064 Time limit | Highest total wins; ties are draws. |

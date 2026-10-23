@@ -22,8 +22,17 @@ public sealed record UnitStatsDto
     /// <summary>Attack reach in tiles (Chebyshev distance: diagonals count as 1).</summary>
     public int Range { get; init; }
 
+    /// <summary>Targets closer than this (Chebyshev) are too close to hit. 0 = no minimum.</summary>
+    public int MinRange { get; init; }
+
     /// <summary>Ticks between attacks.</summary>
     public int AttackCooldown { get; init; }
+
+    /// <summary>
+    /// 0 = attacks land at once. Otherwise the unit lobs a shell at the target's tile that lands this many
+    /// ticks later, hitting every enemy on that tile then; targets that move off it are missed.
+    /// </summary>
+    public int ShotTicks { get; init; }
 
     /// <summary>Sight radius in tiles (Euclidean).</summary>
     public int Vision { get; init; }
@@ -53,6 +62,9 @@ public sealed record BuildingStatsDto
     public IReadOnlyList<UnitType> Produces { get; init; } = [];
     public bool CanResearch { get; init; }
     public IReadOnlyList<BuildingType> Requires { get; init; } = [];
+
+    /// <summary>An upgrade that must be researched before this building can be started, if any.</summary>
+    public UpgradeType? RequiresUpgrade { get; init; }
 }
 
 public sealed record UpgradeStatsDto

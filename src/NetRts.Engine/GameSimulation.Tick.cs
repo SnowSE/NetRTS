@@ -62,6 +62,8 @@ public sealed partial class GameSimulation
             }
         }
 
+        LandShells(attacks);
+
         var killers = new Dictionary<int, Attack>();
         foreach (var attack in attacks)
         {
@@ -251,8 +253,7 @@ public sealed partial class GameSimulation
         {
             case OrderKind.Idle:
                 unit.Activity = UnitActivity.Idle;
-                if (unit.Type != UnitType.Worker
-                    && FindEnemy(unit.Owner, unit.Position, unit.Stats.Range, unitsOnly: false) is { } nearby)
+                if (unit.Type != UnitType.Worker && FindTarget(unit) is { } nearby)
                 {
                     unit.Activity = UnitActivity.Attacking;
                     TryAttack(unit, nearby, attacks);
@@ -316,8 +317,13 @@ public sealed partial class GameSimulation
         unit.Activity = UnitActivity.Attacking;
         if (unit.Position.Chebyshev(target.Position) <= unit.Stats.Range)
         {
+            // Inside the minimum range a siege unit holds its fire; the target has to back off (or be dealt with by others).
             unit.ClearPath();
-            TryAttack(unit, target, attacks);
+            if (unit.Position.Chebyshev(target.Position) >= unit.Stats.MinRange)
+            {
+                TryAttack(unit, target, attacks);
+            }
+
             return;
         }
 
@@ -334,9 +340,58 @@ public sealed partial class GameSimulation
             return;
         }
 
-        attacks.Add(new Attack(unit, unit.Owner, target, DamageAgainst(unit, target)));
+        if (unit.Stats.ShotTicks > 0)
+        {
+            _shells.Add(new Shell(unit, unit.Position, target.Position, Tick, Tick + unit.Stats.ShotTicks));
+        }
+        else
+        {
+            attacks.Add(new Attack(unit, unit.Owner, target, DamageAgainst(unit, target)));
+        }
+
         unit.Cooldown = unit.Stats.AttackCooldown;
     }
+
+    /// <summary>Shells due this tick hit every enemy of their owner on the tile they land on; whoever moved away is missed.</summary>
+    private void LandShells(List<Attack> attacks)
+    {
+        foreach (var shell in _shells.Where(s => s.LandsTick <= Tick).ToList())
+        {
+            _shells.Remove(shell);
+            var owner = shell.Attacker.Owner;
+            foreach (var unit in _units.Where(u => u.Owner != owner && !u.Dead && u.Position == shell.Target))
+            {
+                attacks.Add(new Attack(shell.Attacker, owner, unit, DamageAgainst(shell.Attacker, unit)));
+            }
+
+            if (_buildingAt[Index(shell.Target)] is var id and not 0 && _entities[id] is BuildingEntity { Dead: false } building && building.Owner != owner)
+            {
+                attacks.Add(new Attack(shell.Attacker, owner, building, DamageAgainst(shell.Attacker, building)));
+            }
+        }
+    }
+
+    /// <summary>
+    /// What an idle combat unit fires at: the closest visible enemy it can hit from where it stands.
+    /// Siege units, whose shells land late, pick targets that are standing still first.
+    /// </summary>
+    private Entity? FindTarget(UnitEntity unit)
+    {
+        var visibility = VisibilityFor(unit.Owner);
+        bool InReach(Entity e) => InStrikeZone(unit, e.Position) && IsVisible(visibility, e.Position);
+        if (unit.Stats.ShotTicks > 0
+            && ClosestEnemy(unit.Owner, unit.Position, e => InReach(e) && !IsMoving(e), unitsOnly: false) is { } still)
+        {
+            return still;
+        }
+
+        return ClosestEnemy(unit.Owner, unit.Position, InReach, unitsOnly: false);
+    }
+
+    private static bool InStrikeZone(UnitEntity unit, Point target) =>
+        unit.Position.Chebyshev(target) is var d && d <= unit.Stats.Range && d >= unit.Stats.MinRange;
+
+    private static bool IsMoving(Entity e) => e is UnitEntity { Path.Count: > 0 };
 
     private int DamageAgainst(Entity attacker, Entity target)
     {
@@ -362,11 +417,13 @@ public sealed partial class GameSimulation
         return ClosestEnemy(owner, from, e => from.Chebyshev(e.Position) <= range && IsVisible(visibility, e.Position), unitsOnly);
     }
 
-    /// <summary>Closest enemy inside this unit's own sight radius (used by attack-move).</summary>
+    /// <summary>Closest enemy inside this unit's own sight radius and outside its minimum range (used by attack-move).</summary>
     private Entity? FindEnemyInSight(UnitEntity unit)
     {
         var r2 = unit.Stats.Vision * unit.Stats.Vision;
-        return ClosestEnemy(unit.Owner, unit.Position, e => unit.Position.DistanceSquared(e.Position) <= r2, unitsOnly: false);
+        return ClosestEnemy(unit.Owner, unit.Position,
+            e => unit.Position.DistanceSquared(e.Position) <= r2 && unit.Position.Chebyshev(e.Position) >= unit.Stats.MinRange,
+            unitsOnly: false);
     }
 
     /// <summary>
@@ -672,6 +729,7 @@ public sealed partial class GameSimulation
     {
         player.Eliminated = true;
         player.CommandQueue.Clear();
+        _shells.RemoveAll(s => s.Attacker.Owner == player.Slot);
         foreach (var unit in _units.Where(u => u.Owner == player.Slot).ToList())
         {
             _units.Remove(unit);

@@ -14,6 +14,7 @@ public static class Strategies
         ["serum-gambit"] = "Serum gambit",
         ["worker-uprising"] = "Worker uprising",
         ["tower-turtle"] = "Tower turtle",
+        ["siege-push"] = "Siege push",
         ["archer-rush"] = "Archer rush",
         ["soldier-rush"] = "Soldier rush",
         ["scout-swarm"] = "Scout swarm",
@@ -40,7 +41,8 @@ public static class Strategies
         var soldiers = Trained(UnitType.Soldier);
         var archers = Trained(UnitType.Archer);
         var scouts = Trained(UnitType.Scout);
-        var army = soldiers + archers + scouts;
+        var trebuchets = Trained(UnitType.Trebuchet);
+        var army = soldiers + archers + scouts + trebuchets;
         var early = stats.FirstCombatUnitTick is < 150;
 
         if (stats.SerumTaken)
@@ -56,6 +58,11 @@ public static class Strategies
         if (Built(BuildingType.GuardTower) >= 4)
         {
             return "tower-turtle";
+        }
+
+        if (trebuchets >= 2)
+        {
+            return "siege-push";
         }
 
         if (army > 0 && scouts * 10 >= army * 6)

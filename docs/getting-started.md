@@ -129,8 +129,8 @@ That beats `sitter`. Beating `balanced` takes more thought — scouting, upgrade
 ## Rules in one breath
 
 64×64 map · you start with a Command Center, 5 workers and 500 ore · workers carry 10 ore per trip ·
-Worker 50, Soldier 100, Archer 125 (ranged), Scout 75 (fast) · Barracks 150, Resource Depot 100,
-TechLab 150, Guard Tower 125 · damage minus armor, minimum 1 · lose your last Command Center and
+Worker 50, Soldier 100, Archer 125 (ranged), Scout 75 (fast), Trebuchet 350 (siege) · Barracks 150,
+Resource Depot 100, TechLab 150, Guard Tower 125, Siege Workshop 250 (after SiegeEngineering) · damage minus armor, minimum 1 · lose your last Command Center and
 you're out · otherwise highest score after 1800 ticks wins (destruction + ore mined + value of
 what survives).
 

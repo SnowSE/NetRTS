@@ -1281,6 +1281,7 @@ function legendItems() {
     [unitName('Soldier'), shape('Soldier')],
     [unitName('Archer'), shape('Archer')],
     [unitName('Scout'), shape('Scout')],
+    [unitName('Trebuchet'), shape('Trebuchet')],
     ['Building', '<svg viewBox="0 0 14 14" aria-hidden="true"><rect x="1" y="1" width="12" height="12"/></svg>'],
     ['Under construction', '<svg viewBox="0 0 14 14" aria-hidden="true"><rect class="hollow" x="1.5" y="1.5" width="11" height="11"/><path class="hollow" d="M1.5 9.5l8-8M4.5 12.5l8-8"/></svg>'],
     SNOW

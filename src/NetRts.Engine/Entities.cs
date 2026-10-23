@@ -202,6 +202,9 @@ internal sealed class BuildingEntity : Entity
     private int HpForWork(int work) => Stats.MaxHp / 10 + Stats.MaxHp * 9 / 10 * work / Stats.BuildWork;
 }
 
+/// <summary>A siege shot in flight: it lands on <see cref="Target"/> at the end of <see cref="LandsTick"/>.</summary>
+internal sealed record Shell(UnitEntity Attacker, Point From, Point Target, int FiredTick, int LandsTick);
+
 internal sealed class ProductionItem(UnitType type)
 {
     public UnitType Type { get; } = type;

@@ -9,6 +9,7 @@ public enum UnitType
     Soldier,
     Archer,
     Scout,
+    Trebuchet,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<BuildingType>))]
@@ -19,6 +20,7 @@ public enum BuildingType
     ResourceDepot,
     TechLab,
     GuardTower,
+    SiegeWorkshop,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<UpgradeType>))]
@@ -32,6 +34,7 @@ public enum UpgradeType
     Mobility2,
     Harvesting1,
     Harvesting2,
+    SiegeEngineering,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<CommandType>))]

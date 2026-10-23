@@ -158,6 +158,141 @@ function scout(badger) {
   return all;
 }
 
+// ---------------------------------------------------------------- siege
+
+// The trebuchet's throwing arm turns about its axle at this height (limb 7: the arm, limb 9: the stone in
+// its sling, hidden once thrown). The shader swings both by iDraw.x radians; iDraw.y = 1 hides the stone.
+const AXLE_Y = 0.36;
+// The Snow Mobile's roof cannon (limb 8) slides back along its barrel by iDraw.x when it fires.
+
+function trebuchet() {
+  // A wooden trebuchet on four wheels: a rail frame, two A-frames carrying the axle, a long throwing arm
+  // with a boxed counterweight on the short end, and a sling with its stone lying in the trough behind.
+  const b = new Builder();
+  const wood = K.wood, dark = K.woodDark, iron = K.steelDark;
+  for (const x of [-0.12, 0.12]) {
+    b.add(box(0.035, 0.045, 0.52), dark, { at: [x, 0.09, 0] })                       // side rails
+      .add(box(0.006, 0.05, 0.2), K.team, { team: 1, at: [x + Math.sign(x) * 0.02, 0.1, -0.02] });   // painted boards
+    for (const z of [-0.17, 0.17]) {
+      b.add(cyl(0.065, 0.065, 0.026, 10), dark, { at: [x * 1.3, 0.065, z], rot: [0, 0, Math.PI / 2] })
+        .add(cyl(0.02, 0.02, 0.034, 6), iron, { at: [x * 1.3, 0.065, z], rot: [0, 0, Math.PI / 2] });
+    }
+    // The A-frame: two legs leaning in to meet under the axle, and a brace across.
+    const len = Math.hypot(AXLE_Y - 0.09, 0.15), tilt = Math.atan2(0.15, AXLE_Y - 0.09);
+    b.add(box(0.026, len, 0.026), wood, { at: [x, (AXLE_Y + 0.09) / 2, 0.075], rot: [-tilt, 0, 0] })
+      .add(box(0.026, len, 0.026), wood, { at: [x, (AXLE_Y + 0.09) / 2, -0.075], rot: [tilt, 0, 0] })
+      .add(box(0.022, 0.022, 0.2), dark, { at: [x, 0.2, 0] });
+  }
+  for (const z of [-0.23, 0, 0.23]) b.add(box(0.27, 0.03, 0.035), dark, { at: [0, 0.09, z] });   // cross beams
+  b.add(box(0.2, 0.012, 0.16), wood, { at: [0, 0.1, -0.31] })                          // the trough
+    .add(box(0.24, 0.03, 0.03), dark, { at: [0, 0.1, -0.25] })
+    .add(cyl(0.016, 0.016, 0.3, 6), iron, { at: [0, AXLE_Y, 0], rot: [0, 0, Math.PI / 2] })   // axle
+    .add(cyl(0.03, 0.03, 0.18, 8), dark, { at: [0, 0.14, -0.2], rot: [0, 0, Math.PI / 2] })   // winch
+    .add(cyl(0.006, 0.006, 0.2, 4), dark, { at: [0.16, 0.14, -0.2], rot: [0.7, 0, 0] })
+    .add(cyl(0.006, 0.006, 0.18, 4), dark, { at: [0.12, AXLE_Y + 0.11, 0] })            // pennant on its staff
+    .add(box(0.005, 0.05, 0.09), K.team, { team: 1, at: [0.12, AXLE_Y + 0.17, -0.045] });
+
+  // The arm at rest: the long end down behind, the counterweight up in front (see the shader's limb 7).
+  const phi = -2.44, dy = Math.sin(phi), dz = Math.cos(phi);   // the long end's direction in the y-z plane
+  const along = (r) => [0, AXLE_Y + dy * r, dz * r];
+  const arm = { limb: 7, joint: AXLE_Y };
+  b.add(box(0.032, 0.032, 0.58), wood, { ...arm, at: along(0.145), rot: [-phi, 0, 0] })
+    .add(box(0.04, 0.04, 0.04), iron, { ...arm, at: along(0) })
+    // The counterweight: an iron-banded box of stones hanging from the short end.
+    .add(box(0.15, 0.12, 0.11), dark, { ...arm, at: along(-0.19), rot: [-phi, 0, 0] })
+    .add(box(0.155, 0.02, 0.115), iron, { ...arm, at: along(-0.17), rot: [-phi, 0, 0] })
+    .add(box(0.155, 0.02, 0.115), iron, { ...arm, at: along(-0.23), rot: [-phi, 0, 0] });
+  // The sling's ropes hang from the tip to the pouch in the trough.
+  const tip = along(0.43);
+  b.add(cyl(0.004, 0.004, 0.09, 3), K.white, { ...arm, at: [0, (tip[1] + 0.1) / 2, tip[2] - 0.03], rot: [0.6, 0, 0] })
+    .add(box(0.07, 0.015, 0.06), K.leather, { ...arm, at: [0, 0.115, tip[2] - 0.06] })
+    .add(ball(0.04, 0), K.stone, { limb: 9, joint: AXLE_Y, at: [0, 0.145, tip[2] - 0.06] });
+  return b.build();
+}
+
+function snowMobile() {
+  // The Snow Mobile: Snow College's step van (a retired Snap-on tool truck), as wrapped today. A tall
+  // navy box with a white roof cap, a flat cab front over a short hood and grille, a white swoosh
+  // rising along each side with an orange pinstripe, the orange "S" on a dark panel behind the door,
+  // white wheels and bumper. The roof carries a cannon where the real one carries its bubble machine.
+  const b = new Builder();
+  const navy = col('#1d3470'), deep = col('#14214a'), blue = col('#3a64ad'), orange = col('#f58025');
+  const white = col('#f4f4f2'), grey = col('#b9bcc0'), tyre = col('#1b1b1d');
+  // Wheels: white steel rims on black tyres, the front pair under the cab.
+  for (const z of [-0.16, 0.17]) {
+    for (const x of [-0.12, 0.12]) {
+      b.add(cyl(0.062, 0.062, 0.05, 12), tyre, { at: [x, 0.062, z], rot: [0, 0, Math.PI / 2] })
+        .add(cyl(0.036, 0.036, 0.055, 10), white, { at: [x, 0.062, z], rot: [0, 0, Math.PI / 2] })
+        .add(cyl(0.012, 0.012, 0.06, 6), grey, { at: [x, 0.062, z], rot: [0, 0, Math.PI / 2] });
+    }
+  }
+  b.add(box(0.22, 0.05, 0.52), K.black, { at: [0, 0.1, -0.01] });                       // chassis
+  // The box body, cab and all, with a lighter blue sheen high on the sides and a white roof cap.
+  b.add(box(0.27, 0.34, 0.49), navy, { at: [0, 0.29, -0.035] })
+    .add(box(0.274, 0.1, 0.4), blue, { at: [0, 0.39, -0.07] })
+    .add(box(0.28, 0.035, 0.5), white, { at: [0, 0.475, -0.035] })
+    .add(box(0.26, 0.012, 0.48), col('#e2e3e0'), { at: [0, 0.497, -0.035] });
+  for (const x of [-0.12, 0.12]) b.add(box(0.016, 0.018, 0.4), K.team, { team: 1, at: [x, 0.51, -0.05] });   // roof rails in the team's colour
+  // The cab front: a two-pane windscreen, raked a little, under a navy header with the orange S and
+  // "SNOW COLLEGE" in white.
+  for (const x of [-0.064, 0.064]) b.add(box(0.118, 0.11, 0.01), K.pane, { glow: 0.1, at: [x, 0.355, 0.21], rot: [-0.12, 0, 0] });
+  b.add(box(0.008, 0.11, 0.012), deep, { at: [0, 0.355, 0.212], rot: [-0.12, 0, 0] })
+    .add(box(0.03, 0.03, 0.006), orange, { at: [-0.075, 0.435, 0.208] })
+    .add(box(0.13, 0.014, 0.006), white, { at: [0.02, 0.435, 0.208] });
+  // The hood: a short navy nose with a grey grille, round headlamps and a white bumper.
+  b.add(box(0.25, 0.15, 0.08), navy, { at: [0, 0.175, 0.24] })
+    .add(box(0.25, 0.03, 0.07), blue, { at: [0, 0.255, 0.235], rot: [0.25, 0, 0] })
+    .add(box(0.1, 0.085, 0.008), grey, { at: [0, 0.175, 0.282] });
+  for (let i = 0; i < 4; i++) b.add(box(0.1, 0.005, 0.01), K.steelDark, { at: [0, 0.145 + i * 0.02, 0.285] });
+  for (const x of [-0.088, 0.088]) {
+    b.add(cyl(0.022, 0.022, 0.012, 10), col('#fff4d0'), { glow: 0.8, at: [x, 0.19, 0.282], rot: [Math.PI / 2, 0, 0] })
+      .add(box(0.022, 0.01, 0.006), orange, { glow: 0.4, at: [x, 0.155, 0.282] });
+  }
+  b.add(box(0.28, 0.04, 0.03), white, { at: [0, 0.11, 0.29] });
+  // Each side: the cab door window and mirror, the white swoosh with its orange pinstripe rising toward
+  // the back, an orange chevron, and the big orange S on its dark panel. The S is built for whoever
+  // looks at that side, so it reads the right way round on both.
+  for (const s of [-1, 1]) {
+    const x = s * 0.137;
+    b.add(box(0.006, 0.09, 0.06), K.pane, { at: [x, 0.35, 0.165] })
+      .add(box(0.006, 0.2, 0.004), deep, { at: [x, 0.28, 0.13] })                         // door seam
+      .add(cyl(0.004, 0.004, 0.05, 4), K.black, { at: [s * 0.155, 0.33, 0.2], rot: [0, 0, Math.PI / 2] })
+      .add(box(0.012, 0.06, 0.025), K.black, { at: [s * 0.18, 0.33, 0.2] })
+      .add(box(0.006, 0.07, 0.36), white, { at: [x, 0.27, -0.08], rot: [0.32, 0, 0] })
+      .add(box(0.007, 0.012, 0.3), orange, { at: [s * 0.138, 0.32, -0.07], rot: [0.32, 0, 0] })
+      .add(box(0.007, 0.014, 0.08), orange, { at: [s * 0.138, 0.43, -0.2], rot: [-0.5, 0, 0] });
+    const zc = 0.065, w = 0.05, t = 0.014, top = 0.43, h = 0.1;
+    b.add(box(0.006, 0.15, 0.095), deep, { at: [x, 0.375, zc] });
+    for (const y of [top, top - h / 2, top - h]) b.add(box(0.008, t, w + t), orange, { at: [s * 0.139, y, zc] });
+    b.add(box(0.008, h / 2, t), orange, { at: [s * 0.139, top - h / 4, zc + s * w / 2] })
+      .add(box(0.008, h / 2, t), orange, { at: [s * 0.139, top - 3 * h / 4, zc - s * w / 2] });
+  }
+  b.add(box(0.2, 0.02, 0.03), grey, { at: [0, 0.11, -0.285] })                           // rear step
+    .add(box(0.03, 0.02, 0.01), K.red, { glow: 0.6, at: [-0.11, 0.17, -0.282] })
+    .add(box(0.03, 0.02, 0.01), K.red, { glow: 0.6, at: [0.11, 0.17, -0.282] });
+  // The roof cannon, over the cab where the bubble machine sits: a navy turret ring with steel cheeks
+  // and the barrel raised a little (limb 8 recoils).
+  const ty = 0.5, tz = 0.06, lift = 0.22;
+  b.add(cyl(0.07, 0.08, 0.04, 12), deep, { at: [0, ty + 0.02, tz] })
+    .add(box(0.025, 0.07, 0.09), K.steelDark, { at: [-0.05, ty + 0.07, tz] })
+    .add(box(0.025, 0.07, 0.09), K.steelDark, { at: [0.05, ty + 0.07, tz] });
+  const gun = { limb: 8 };
+  const bz = (r) => tz + Math.cos(lift) * r, by = (r) => ty + 0.08 + Math.sin(lift) * r;
+  b.add(cyl(0.024, 0.036, 0.3, 10), K.black, { ...gun, at: [0, by(0.1), bz(0.1)], rot: [Math.PI / 2 - lift, 0, 0] })
+    .add(ball(0.045, 1), K.black, { ...gun, at: [0, by(-0.04), bz(-0.04)] })
+    .add(cyl(0.032, 0.032, 0.03, 10), orange, { ...gun, at: [0, by(0.24), bz(0.24)], rot: [Math.PI / 2 - lift, 0, 0] })
+    .add(cyl(0.03, 0.03, 0.02, 10), K.team, { team: 1, ...gun, at: [0, by(0.02), bz(0.02)], rot: [Math.PI / 2 - lift, 0, 0] });
+  return b.build();
+}
+
+/** A shot in flight: a rough stone (classic) or an iron cannonball (Snow College). */
+function shell(badger) {
+  const b = new Builder();
+  if (badger) b.add(ball(0.055, 2), col('#26272b'), {}).add(ball(0.012, 0), K.ember, { glow: 2, at: [0, 0.052, 0] });
+  else b.add(ball(0.065, 0), K.stone, { scale: [1, 0.86, 1.1] });
+  return b.build();
+}
+
 // ---------------------------------------------------------------- buildings
 
 
@@ -357,6 +492,77 @@ function watchTower() {
   return b.build();
 }
 
+function siegeShed() {
+  // Classic siege workshop: an open-sided timber shed under a gabled roof, a half-built throwing arm on
+  // trestles inside, a stack of lumber, and a timber crane with a hook at one corner.
+  const b = new Builder();
+  foundation(b);
+  for (const [x, z] of [[-0.36, -0.28], [0, -0.28], [0.36, -0.28], [-0.36, 0.28], [0, 0.28], [0.36, 0.28]]) {
+    b.add(box(0.045, 0.42, 0.045), K.woodDark, { at: [x, 0.28, z] });
+  }
+  b.add(box(0.78, 0.04, 0.05), K.woodDark, { at: [0, 0.49, -0.28] })
+    .add(box(0.78, 0.04, 0.05), K.woodDark, { at: [0, 0.49, 0.28] })
+    .add(prism(0.84, 0.26, 0.66), K.team, { team: 1, at: [0, 0.64, 0], rot: [0, Math.PI / 2, 0], scale: [1, 1, 1.32] })
+    .add(box(0.64, 0.24, 0.02), K.wood, { at: [0, 0.2, -0.27] });                    // the back wall, half high
+  // Trestles and the arm being shaped on them, with its iron fittings waiting beside it.
+  for (const x of [-0.2, 0.15]) {
+    b.add(box(0.03, 0.1, 0.16), K.wood, { at: [x, 0.12, 0.02] })
+      .add(box(0.05, 0.02, 0.18), K.woodDark, { at: [x, 0.175, 0.02] });
+  }
+  b.add(box(0.6, 0.04, 0.04), col('#b08a5a'), { at: [-0.02, 0.205, 0.02], rot: [0, 0.08, 0] })
+    .add(box(0.1, 0.08, 0.1), K.woodDark, { at: [0.26, 0.13, 0.04] })
+    .add(cyl(0.035, 0.035, 0.04, 8), K.steelDark, { at: [0.26, 0.19, 0.04], rot: [0, 0, Math.PI / 2] })
+    .add(cyl(0.06, 0.06, 0.02, 10), K.woodDark, { at: [-0.3, 0.13, -0.1], rot: [0, 0, Math.PI / 2] });   // a spare wheel
+  // Lumber stacked outside.
+  for (let i = 0; i < 6; i++) {
+    b.add(box(0.05, 0.035, 0.36), i % 2 ? K.wood : col('#a07a4c'), { at: [0.38 + (i % 2) * 0.055, 0.09 + Math.floor(i / 2) * 0.037, 0.06] });
+  }
+  // The crane: a mast, a jib reaching out over the yard, a rope and a hook.
+  b.add(box(0.05, 0.78, 0.05), K.woodDark, { at: [-0.4, 0.46, 0.36] })
+    .add(box(0.04, 0.04, 0.42), K.wood, { at: [-0.4, 0.8, 0.2], rot: [-0.25, 0, 0] })
+    .add(box(0.03, 0.3, 0.03), K.wood, { at: [-0.4, 0.66, 0.29], rot: [0.7, 0, 0] })
+    .add(cyl(0.004, 0.004, 0.4, 3), K.white, { at: [-0.4, 0.66, 0.02] })
+    .add(new THREE.TorusGeometry(0.02, 0.006, 4, 8, Math.PI * 1.4), K.steelDark, { at: [-0.4, 0.44, 0.02], rot: [0, Math.PI / 2, Math.PI] })
+    .add(box(0.08, 0.06, 0.08), K.wood, { at: [-0.4, 0.4, 0.02] })
+    .add(box(0.012, 0.12, 0.08), K.team, { team: 1, at: [-0.4, 0.68, 0.39] });
+  return b.build();
+}
+
+function washburn() {
+  // The Washburn Building on Snow College's Richfield campus, home of the welding and automotive shops:
+  // a long, low tan-block building with a flat roof, big roll-up bay doors (one up, a welder's glow
+  // inside), a navy sign band, rooftop units and team-coloured trim along the parapet.
+  const b = new Builder();
+  foundation(b);
+  const block = col('#cdb68c'), blockDark = col('#b39a70'), navy = col('#00205b'), door = col('#9aa0a6');
+  b.add(box(0.84, 0.36, 0.62), block, { at: [0, 0.25, -0.02] })
+    .add(box(0.86, 0.04, 0.64), K.team, { team: 1, at: [0, 0.45, -0.02] })              // the parapet cap
+    .add(box(0.84, 0.03, 0.62), blockDark, { at: [0, 0.1, -0.02] })                       // block course near the ground
+    .add(box(0.2, 0.08, 0.14), K.slate, { at: [0.22, 0.51, -0.1] })                       // rooftop units
+    .add(box(0.12, 0.06, 0.1), K.steel, { at: [-0.18, 0.5, -0.15] })
+    .add(cyl(0.02, 0.02, 0.14, 6), K.steelDark, { at: [-0.3, 0.54, -0.2] })               // the shop's exhaust stack
+    .add(box(0.62, 0.05, 0.012), navy, { at: [0, 0.4, 0.296] })                           // sign band
+    .add(box(0.4, 0.016, 0.004), col('#f47b20'), { glow: 0.25, at: [0, 0.4, 0.303] });
+  // Two bay doors on the front: the left one down (ribbed steel), the right one up, the shop lit inside.
+  b.add(box(0.26, 0.27, 0.01), door, { at: [-0.18, 0.205, 0.293] });
+  for (let i = 0; i < 6; i++) b.add(box(0.26, 0.006, 0.006), K.steelDark, { at: [-0.18, 0.09 + i * 0.045, 0.3] });
+  b.add(box(0.26, 0.27, 0.01), col('#2a2622'), { at: [0.16, 0.205, 0.292] })
+    .add(box(0.26, 0.05, 0.014), door, { at: [0.16, 0.315, 0.296] })                    // the rolled-up door
+    .add(box(0.12, 0.09, 0.01), K.ember, { glow: 1.2, at: [0.2, 0.13, 0.294] })           // a welder's glow
+    .add(ball(0.018, 0), col('#cfe8ff'), { glow: 3, at: [0.17, 0.14, 0.29] })
+    .add(box(0.08, 0.06, 0.06), K.steelDark, { at: [0.08, 0.1, 0.27] });                 // a workbench
+  for (const x of [-0.33, -0.03, 0.31]) b.add(box(0.012, 0.28, 0.02), blockDark, { at: [x, 0.21, 0.3] });   // piers between the bays
+  // A side door and a band of shop windows down each side.
+  b.add(box(0.01, 0.17, 0.08), K.woodDark, { at: [0.425, 0.165, 0.15] });
+  for (const s of [-1, 1]) {
+    for (const z of [-0.22, -0.06, 0.08]) {
+      b.add(box(0.01, 0.06, 0.1), z === -0.06 ? K.window : K.pane, { glow: z === -0.06 ? 0.5 : 0, at: [s * 0.425, 0.33, z] });
+    }
+  }
+  flag(b, 0.36, 0.47, 0.2, 0.22);
+  return b.build();
+}
+
 // ---------------------------------------------------------------- resources & props
 
 function oreCluster() {
@@ -425,6 +631,7 @@ export function buildModels(badger) {
     ResourceDepot: () => depot(badger),
     TechLab: makerspace,
     GuardTower: badger ? bellTower : watchTower,
+    SiegeWorkshop: badger ? washburn : siegeShed,
   };
   const slotOf = (slot) => ((slot % 16) + 16) % 16;
   return {
@@ -433,6 +640,8 @@ export function buildModels(badger) {
       Soldier: { geo: soldier(badger), height: 0.52, scale: 1.08 },
       Archer: { geo: archer(badger), height: 0.52 },
       Scout: { geo: scout(badger), height: 0.7 },
+      // A vehicle, not a walker: the view rolls it along instead of striding (see updateUnits).
+      Trebuchet: { geo: badger ? snowMobile() : trebuchet(), height: 0.6, scale: 1.15, vehicle: true },
     },
     building(type, slot) {
       if (badger && type === 'CommandCenter') {
@@ -449,6 +658,7 @@ export function buildModels(badger) {
     nugget: nugget(badger),
     shield: roundShield(),
     scaffold: scaffold(),
+    shell: shell(badger),
   };
 }
 
@@ -470,7 +680,19 @@ export function entityMaterial() {
         // Swing limbs about the hip or shoulder: iWalk = (phase, leg swing, arm swing). A negative arm
         // swing raises both arms together, up to that many radians (a pickaxe, hammer or sword chop).
         float kind = abs(limb.x);
-        if (kind > 3.5) {
+        if (kind > 6.5) {
+          // Siege engines. The trebuchet's arm (7) and the stone in its sling (9) turn about the axle,
+          // whose height is limb.y, by iDraw.x radians; iDraw.y = 1 while the stone is away. The Snow
+          // Mobile's cannon (8) slides back along its barrel by iDraw.x when it fires.
+          if (kind > 7.5 && kind < 8.5) {
+            transformed += vec3(0.0, -0.025, -0.075) * iDraw.x;
+          } else {
+            float c = cos(iDraw.x), s = sin(iDraw.x);
+            vec3 p = transformed - vec3(0.0, limb.y, 0.0);
+            transformed = vec3(p.x, p.y * c - p.z * s, p.y * s + p.z * c) + vec3(0.0, limb.y, 0.0);
+            if (kind > 8.5 && iDraw.y > 0.5) transformed = vec3(0.0, limb.y, 0.0);
+          }
+        } else if (kind > 3.5) {
           // An archer's bow (4), string (5) and nocked arrow (6). iDraw = (raise, pull): the bow comes up
           // from the hip to aim out front, the string bends back toward the archer, and the arrow on it
           // slides back with the string and only shows while there's an arrow to loose.

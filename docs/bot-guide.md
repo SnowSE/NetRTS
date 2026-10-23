@@ -29,16 +29,19 @@ own campus building and its own student housing.
 | On the field | In the API | |
 |---|---|---|
 | Worker, Soldier, Archer, Scout | `Worker`, `Soldier`, `Archer`, `Scout` | Units keep their names in both themes |
+| Snow Mobile: the college's old Snap-on tool truck, with a cannon on the roof | `Trebuchet` | Siege: outranges the Bell Tower |
 | HQ: Noyes Building, Greenwood Student Center, Eccles Center, Huntsman Library, ... (one per player slot) | `CommandCenter` | Lose your last one and you're out |
 | Housing: Suites at Academy Square, Anderson Hall, Mary Nielson Hall, Snow Hall, ... (one per player slot) | `Barracks` | Trains soldiers, archers and scouts |
 | Co-op Store | `ResourceDepot` | Closer drop-off for grubs, more storage |
 | GRSC Makerspace | `TechLab` | Researches upgrades |
 | The Bell Tower | `GuardTower` | Fires on anyone close |
+| Washburn Welding Shop (Richfield campus) | `SiegeWorkshop` | Builds Snow Mobiles |
 | Grubs, dug from grub patches | ore (`resources`, `Gather`) | What everything costs |
 | Intro to Chemistry → Organic Chemistry | `Weapons1` → `Weapons2` | More damage |
 | Unit Testing → Code Review | `Armor1` → `Armor2` | More armor |
 | Algorithms → Parallel Computing | `Mobility1` → `Mobility2` | More speed |
 | Intro to Biology → Entomology | `Harvesting1` → `Harvesting2` | More grubs per dig (know your insects) |
+| Welding Technology | `SiegeEngineering` | Unlocks the Washburn Welding Shop |
 | Sleepy Sitter, Honey Badger, Blue Badger, Grub Hoarder | `sitter`, `rusher`, `balanced`, `economist` | House badgers |
 
 ## The loop
@@ -234,6 +237,8 @@ every start position.
   "resources": [ { "id": 4, "x": 2, "y": 6, "remaining": 940 }, … ],
   "rememberedBuildings": [ { "id": 212, "owner": 1, "type": "Barracks", "x": 51, "y": 49,
                              "hp": 700, "maxHp": 700, "completed": true, "lastSeenTick": 31 }, … ],
+  "shells":    [ { "owner": 1, "attackerId": 240, "fromX": 40, "fromY": 12, "x": 34, "y": 12,
+                   "firedTick": 41, "landsTick": 44 }, … ],
   "events":    [ { "tick": 42, "kind": "UnitProduced", "message": "Worker 88 ready at (8,8)", "entityId": 88 }, … ],
   "outcome": null
 }
@@ -247,6 +252,8 @@ every start position.
   when last seen (`lastSeenTick`). An entry is dropped once you see the tile again and the building
   is gone. You can't `Attack` a remembered building by id until you see it again, but you can
   attack-move to its position.
+- `shells` are siege shots in flight: yours, plus any landing on a tile you can see. A shell hits
+  whatever enemy of its owner is on tile `(x, y)` when `landsTick` ends, so get off that tile.
 - `you.incomePerMinute` is the ore you banked in the last 60 ticks (a minute at normal speed).
 - Every unit, building and deposit shares one id space, so an id is unambiguous.
 - Event kinds: `CommandFailed` (carries `commandId`), `UnitProduced`, `UnitLost`, `UnitKilled`,
@@ -322,9 +329,17 @@ about five tiles away; richer contested ore sits near the centre.
 | Soldier | 100 | 12 | 110 | 9 | 1 | 1 | 1 | 5 | 10 | Barracks |
 | Archer | 125 | 14 | 60 | 12 | 0 | 4 | 2 | 6 | 9 | Barracks |
 | Scout | 75 | 8 | 55 | 5 | 0 | 1 | 1 | 8 | 20 | Barracks |
+| Trebuchet | 350 | 45 | 150 | 40 | 0 | 3–7 | 8 | 7 | 5 | SiegeWorkshop |
 
 Speed is in tenths of a tile per tick (10 = one tile per tick). Range and adjacency use Chebyshev
 distance (diagonals count as 1); vision uses Euclidean distance.
+
+**Siege.** The Trebuchet outranges guard towers (7 vs 5) but can't hit anything closer than 3 tiles
+(`minRange`), and it is slow. It doesn't hit its target directly: it lobs a shell at the target's
+tile, which lands `shotTicks` (3) ticks later and hits every enemy standing on that tile then,
+units and building alike. Units that keep moving dodge it; buildings and units that stand still
+don't. An idle Trebuchet fires at enemies that are standing still before ones on the move. Like any
+unit it can only target what you can see, so pair it with spotters and an escort.
 
 **Buildings**
 
@@ -335,6 +350,7 @@ distance (diagonals count as 1); vision uses Euclidean distance.
 | ResourceDepot | 100 | 25 | 450 | 1 | 6 | Ore drop-off. +750 storage. |
 | TechLab | 150 | 40 | 550 | 1 | 6 | Researches upgrades. Requires a Barracks. |
 | GuardTower | 125 | 35 | 500 | 2 | 7 | Shoots enemy units: 10 damage, range 5. Requires a Barracks. |
+| SiegeWorkshop | 250 | 60 | 650 | 1 | 6 | Trains trebuchets. Requires a TechLab and the SiegeEngineering upgrade (`requiresUpgrade` in the rules). |
 
 Build work is in worker-ticks: two workers finish a Barracks in 20 ticks. Sites start at 10% HP and
 gain the rest as they're built.
@@ -347,6 +363,7 @@ gain the rest as they're built.
 | Armor1 / Armor2 | 150 / 250 | 40 / 60 | +1 armor each, all units |
 | Mobility1 / Mobility2 | 100 / 200 | 30 / 45 | +2 speed each, all units |
 | Harvesting1 / Harvesting2 | 100 / 200 | 30 / 45 | +1 ore per mining tick each |
+| SiegeEngineering | 200 | 60 | Unlocks the SiegeWorkshop |
 
 Upgrades apply instantly to existing and future units.
 
@@ -358,7 +375,7 @@ time, so two units can kill each other. Idle soldiers/archers/scouts fight back 
 already in range; workers never attack unless ordered.
 
 **Each tick runs in this order:** your queued commands → production & research → unit behaviour
-and movement → combat → deaths → elimination & victory checks.
+and movement → shells due this tick land → combat → deaths → elimination & victory checks.
 
 ## Scoring and victory
 

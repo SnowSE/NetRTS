@@ -78,13 +78,15 @@ Anderson Hall is a `Barracks`), so every bot library and tutorial still applies:
 | ⚔️ **Soldier** | `Soldier` | Tough, close-up. |
 | 🏹 **Archer** | `Archer` | Shoots from four tiles away. |
 | 👃 **Scout** | `Scout` | Twice as fast, and sniffs out the enemy furthest off. |
+| 🚚 **Snow Mobile** | `Trebuchet` | The college's old Snap-on tool truck with a cannon on the roof. Slow and pricey, but it shells campus buildings from beyond Bell Tower range. Anything that keeps moving dodges the shot. |
 | 🏛️ **HQ** | `CommandCenter` | Each team's own campus building: the **Noyes Building**, **Greenwood Student Center**, **Eccles Center**, **Huntsman Library** and on through 16 seats. Lose your last one and you're out. |
 | 🏠 **Housing** | `Barracks` | Each team's own address: **Suites at Academy Square**, **Anderson Hall**, **Mary Nielson Hall**, **Snow Hall**, then the Ephraim apartments. Trains soldiers, archers and scouts. |
 | 🧺 **Co-op Store** | `ResourceDepot` | A closer place to drop grubs off, and room to store more. |
 | 🧪 **GRSC Makerspace** | `TechLab` | Coursework: Intro to Chemistry → Organic Chemistry, Unit Testing → Code Review, Algorithms → Parallel Computing, Intro to Biology → Entomology. |
 | 🔔 **The Bell Tower** | `GuardTower` | Shoots anything that wanders too close. |
+| 🔥 **Washburn Welding Shop** | `SiegeWorkshop` | The Richfield campus shop that builds Snow Mobiles, once the Makerspace has taught **Welding Technology**. |
 
-Four kinds of badger, five buildings, eight upgrades, and a rule set small enough to learn in an
+Four kinds of badger, a siege truck, six buildings, nine upgrades, and a rule set small enough to learn in an
 afternoon, with plenty of strategy hiding in it: rush early, out-dig the opponent, turtle behind
 bell towers, out-study them, or scout their campus and strike where they're weak.
 

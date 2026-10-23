@@ -169,6 +169,11 @@ public sealed partial class GameSimulation
             }
         }
 
+        if (stats.RequiresUpgrade is { } upgrade && !player.Upgrades.Contains(upgrade))
+        {
+            return Error("MISSING_PREREQUISITE", $"{type} requires the {upgrade} upgrade.");
+        }
+
         if (player.Resources < stats.Cost)
         {
             return Error("INSUFFICIENT_RESOURCES", $"{type} costs {stats.Cost}; you have {player.Resources}.");

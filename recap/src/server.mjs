@@ -62,7 +62,7 @@ export async function matchClip(matchId, ticks = 120) {
       if (f.tick < best || f.tick > best + ticks) continue;
       frames.push({
         tick: f.tick,
-        units: f.units.map((u) => [u.x, u.y, u.owner, ['Worker', 'Soldier', 'Archer', 'Scout'].indexOf(u.type), +(u.hp / u.maxHp).toFixed(2)]),
+        units: f.units.map((u) => [u.x, u.y, u.owner, ['Worker', 'Soldier', 'Archer', 'Scout', 'Trebuchet'].indexOf(u.type), +(u.hp / u.maxHp).toFixed(2)]),
         buildings: f.buildings.map((b) => [b.x, b.y, b.owner, b.type, +(b.hp / b.maxHp).toFixed(2), b.completed ? 1 : 0]),
         resources: f.resources.map((r) => [r.x, r.y]),
         players: f.players.map((p) => ({ slot: p.slot, name: p.name, eliminated: p.eliminated, score: p.score.destruction + p.score.economy + p.score.survival })),

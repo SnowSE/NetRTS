@@ -289,6 +289,11 @@ export class Effects {
     mesh.renderOrder = 1;
     this.scene.add(mesh);
     this.scorches.push(mesh);
+    // Siege shells leave a lot of these: past a limit the oldest fade from the record.
+    if (this.scorches.length > 90) {
+      const old = this.scorches.shift();
+      this.scene.remove(old); old.geometry.dispose(); old.material.dispose();
+    }
   }
 
   // ---------------------------------------------------------------- projectiles
@@ -334,6 +339,81 @@ export class Effects {
       this.flash.position.set(p.x, p.y + 0.5, p.z);
       this.flash.intensity = 6;
     }
+  }
+
+  // ---------------------------------------------------------------- siege (the view flies the shells)
+
+  /**
+   * A siege engine fires from p: a cannon (Snow College) flashes and belches smoke along its barrel
+   * (dir, a unit vector); a trebuchet's arm thumps into its stop and shakes dust from the frame.
+   */
+  shellLaunch(p, cannon, dir) {
+    this.onSound?.(cannon ? 'cannon' : 'siege', p);
+    if (cannon) {
+      this.glow.emit(p.x, p.y, p.z, 0, 0, 0, { life: 0.12, size: 0.55, color: [3, 2.6, 1.8] });
+      for (let i = 0; i < 14; i++) {
+        const s = rand(1, 3.5);
+        this.glow.emit(p.x, p.y, p.z, dir.x * s + rand(-0.4, 0.4), dir.y * s + rand(-0.2, 0.5), dir.z * s + rand(-0.4, 0.4),
+          { life: rand(0.12, 0.3), size: rand(0.08, 0.16), grow: 0.6, color: [3, 1.9, 0.8], cool: 2, drag: 5 });
+      }
+      for (let i = 0; i < 8; i++) {
+        const s = rand(0.4, 1.4);
+        this.soft.emit(p.x, p.y, p.z, dir.x * s + rand(-0.2, 0.2), dir.y * s + rand(0.1, 0.4), dir.z * s + rand(-0.2, 0.2),
+          { life: rand(1.2, 2), size: rand(0.12, 0.2), grow: 2.8, color: [0.72, 0.7, 0.68], alpha: 0.55, drag: 2 });
+      }
+      if (this.flash.intensity < 5) {
+        this.flash.position.set(p.x, p.y + 0.2, p.z);
+        this.flash.intensity = 5;
+      }
+    } else {
+      this.dust(this.groundAt(p), 6, [0.62, 0.55, 0.44], 0.5);
+    }
+  }
+
+  /** A shell's trail as it flies: a wisp of smoke behind a cannonball, grit behind a stone. */
+  shellTrail(p, cannon) {
+    if (cannon) this.soft.emit(p.x, p.y, p.z, rand(-0.05, 0.05), rand(0, 0.1), rand(-0.05, 0.05), { life: rand(0.5, 0.8), size: 0.07, grow: 2.2, color: [0.5, 0.48, 0.46], alpha: 0.3, drag: 1 });
+    else this.soft.emit(p.x, p.y, p.z, 0, 0, 0, { life: 0.3, size: 0.04, grow: 1, color: [0.55, 0.5, 0.42], alpha: 0.35 });
+  }
+
+  /**
+   * A shell lands on p (on the ground): a heavy thud, a crater of thrown earth and stones, a shockwave
+   * and a shake; a cannonball also bursts in a short fireball.
+   */
+  shellImpact(p, cannon, s = 1) {
+    this.onSound?.('shellHit', p);
+    if (cannon) {
+      this.onSound?.('explosion', p);
+      for (let i = 0; i < 26 * s; i++) {
+        const a = Math.random() * Math.PI * 2, sp = rand(0.4, 2) * s;
+        this.glow.emit(p.x, p.y + 0.1, p.z, Math.cos(a) * sp, rand(0.5, 2.2) * s, Math.sin(a) * sp,
+          { life: rand(0.35, 0.7), size: rand(0.16, 0.32) * s, grow: 1, color: [3, 2.3, 1.4], cool: 1.8, drag: 2.6, gravity: -0.4 });
+      }
+    }
+    this.spark(p, 10, [2.2, 1.6, 0.8], 1.2 * s);
+    // Earth thrown up in a ring, then a hanging cloud of dust.
+    for (let i = 0; i < 24 * s; i++) {
+      const a = Math.random() * Math.PI * 2, sp = rand(0.6, 2) * s;
+      this.soft.emit(p.x, p.y + 0.05, p.z, Math.cos(a) * sp, rand(1, 3) * s, Math.sin(a) * sp,
+        { life: rand(0.5, 0.9), size: rand(0.04, 0.08) * s, color: [0.4, 0.31, 0.22], alpha: 0.95, gravity: 7, drag: 0.8 });
+    }
+    this.dust(p, 14, [0.6, 0.53, 0.42], 1.1 * s);
+    const clods = [[0.38, 0.3, 0.22], [0.3, 0.24, 0.17], [0.5, 0.47, 0.42]];
+    for (let i = 0; i < 9 * s; i++) {
+      if (this.debris.items.length >= this.debris.max) break;
+      this.debris.items.push({
+        x: p.x + rand(-0.1, 0.1), y: p.y + 0.08, z: p.z + rand(-0.1, 0.1),
+        vx: rand(-1.8, 1.8) * s, vy: rand(1.5, 3.5) * s, vz: rand(-1.8, 1.8) * s,
+        rx: rand(0, 6), ry: rand(0, 6), spin: rand(-10, 10), size: rand(0.5, 1.1) * s, life: rand(1.5, 2.5), c: clods[i % clods.length],
+      });
+    }
+    this.ring(p, [1, 0.85, 0.6], 1.5 * s, 0.45, 0.55);
+    this.scorch(p, cannon ? 0.42 : 0.32);
+    if (this.flash.intensity < 10) {
+      this.flash.position.set(p.x, p.y + 0.6, p.z);
+      this.flash.intensity = cannon ? 10 : 4;
+    }
+    this.shake = Math.max(this.shake, 0.3 * s);
   }
 
   groundAt(p) { return new THREE.Vector3(p.x, this.terrain.heightAt(p.x, p.z), p.z); }

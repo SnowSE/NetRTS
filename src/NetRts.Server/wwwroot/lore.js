@@ -37,7 +37,12 @@ export const BUILDING_NAME = {
   ResourceDepot: 'Co-op Store',
   TechLab: 'GRSC Makerspace',
   GuardTower: 'The Bell Tower',
+  // Richfield campus: the Washburn Building houses the technical shops, welding among them.
+  SiegeWorkshop: 'Washburn Welding Shop',
 };
+
+/** Units keep their API names, except the siege unit: Snow College's old Snap-on tool truck, now with a cannon on the roof. */
+export const UNIT_NAME = { Trebuchet: 'Snow Mobile' };
 
 /** Upgrades are coursework: tier 1 is the intro class, tier 2 the upper-division one. */
 export const UPGRADE_NAME = {
@@ -45,6 +50,7 @@ export const UPGRADE_NAME = {
   Armor1: 'Unit Testing', Armor2: 'Code Review',
   Mobility1: 'Algorithms', Mobility2: 'Parallel Computing',
   Harvesting1: 'Intro to Biology', Harvesting2: 'Entomology',
+  SiegeEngineering: 'Welding Technology',
 };
 
 /** House bots keep their API names; these are their mascot-league nicknames. */
@@ -63,8 +69,8 @@ const bySlot = (list, slot) => list[((slot % list.length) + list.length) % list.
 /** "CommandCenter" -> "Command Center". */
 export const spaced = (s) => String(s ?? '').replace(/([a-z])([A-Z0-9])/g, '$1 $2');
 
-/** Units keep their API names (Worker, Soldier, Archer, Scout) in every theme. */
-export const unitName = (t) => t;
+/** Units keep their API names (Worker, Soldier, Archer, Scout, Trebuchet), but the Trebuchet is the Snow Mobile in the Snow theme. */
+export const unitName = (t) => (SNOW ? UNIT_NAME[t] ?? t : t);
 export const upgradeName = (t) => (SNOW ? UPGRADE_NAME[t] ?? t : spaced(t));
 export const hqName = (slot) => bySlot(HQ_NAME, slot);
 export const housingName = (slot) => bySlot(HOUSING_NAME, slot);
@@ -88,6 +94,8 @@ export function buildingRole(type) {
     ResourceDepot: `A drop-off point for ${ore} near the diggings; stores 750 more.`,
     TechLab: say('Researches upgrades: weapons, armor, mobility and harvesting.', 'Classes: researches upgrades for weapons, armor, mobility and harvesting.'),
     GuardTower: 'Defense: fires at enemies within 5 tiles (10 damage each tick).',
+    SiegeWorkshop: say('Builds trebuchets. Needs a Tech Lab and Siege Engineering.',
+      'Welding shop: builds Snow Mobiles. Needs the Makerspace and Welding Technology.'),
   }[type] ?? '';
 }
 
@@ -96,8 +104,9 @@ export function badgerize(text) {
   if (!SNOW) return String(text ?? '');
   return String(text ?? '')
     .replace(/\bhouse-(\w+)/g, (m, bot) => BOT_NICKNAME[bot] ?? m)
-    .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower)\b/g, (m) => BUILDING_NAME[m])
-    .replace(/\b((?:Weapons|Armor|Mobility|Harvesting)[12])\b/g, (m) => UPGRADE_NAME[m])
+    .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower|SiegeWorkshop)\b/g, (m) => BUILDING_NAME[m])
+    .replace(/\b((?:Weapons|Armor|Mobility|Harvesting)[12]|SiegeEngineering)\b/g, (m) => UPGRADE_NAME[m])
+    .replace(/\bTrebuchet\b/g, UNIT_NAME.Trebuchet)
     .replace(/\bDeposit\b/g, 'Grub patch')
     .replace(/\bKilled enemy\b/g, 'Bowled over enemy')
     .replace(/\bDestroyed enemy\b/g, 'Flattened enemy');

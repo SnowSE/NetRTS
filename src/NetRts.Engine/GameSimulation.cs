@@ -36,6 +36,7 @@ public sealed partial class GameSimulation
     private readonly List<UnitEntity> _units = [];
     private readonly List<BuildingEntity> _buildings = [];
     private readonly List<DepositEntity> _deposits = [];
+    private readonly List<Shell> _shells = [];
     private readonly Dictionary<int, Entity> _entities = [];
     private readonly int[] _buildingAt;
     private readonly int[] _depositAt;
@@ -271,7 +272,8 @@ public sealed partial class GameSimulation
             string.Join(',', _players.Select(p => $"{p.Resources}:{p.Destruction}:{p.Gathered}:{p.Eliminated}")),
             string.Join(',', _units.Select(u => $"{u.Id}:{u.Position.X}:{u.Position.Y}:{u.Hp}:{u.Carrying}:{(int)u.Order}")),
             string.Join(',', _buildings.Select(b => $"{b.Id}:{b.Hp}:{b.Work}:{b.Rally}")),
-            string.Join(',', _deposits.Select(d => $"{d.Id}:{d.Hp}")));
+            string.Join(',', _deposits.Select(d => $"{d.Id}:{d.Hp}")),
+            string.Join(',', _shells.Select(s => $"{s.Attacker.Id}:{s.Target.X}:{s.Target.Y}:{s.LandsTick}")));
 
     private long Enqueue(int slot, CommandRequest request, bool boosted = false)
     {

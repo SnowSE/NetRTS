@@ -253,6 +253,7 @@ public sealed record SpectatorStateDto
     public IReadOnlyList<UnitDto> Units { get; init; } = [];
     public IReadOnlyList<BuildingDto> Buildings { get; init; } = [];
     public IReadOnlyList<ResourceDepositDto> Resources { get; init; } = [];
+    public IReadOnlyList<ShellDto> Shells { get; init; } = [];
     public IReadOnlyList<GameEventDto> Events { get; init; } = [];
     public MatchOutcomeDto? Outcome { get; init; }
 }

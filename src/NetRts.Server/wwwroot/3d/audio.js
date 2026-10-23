@@ -448,7 +448,7 @@ function noiseBuffer(ctx) {
 // ---------------------------------------------------------------- sound effects
 
 /** The shortest gap between two of the same effect, in seconds: a big fight shouldn't be a roar. */
-const SFX_GAP = { sword: 0.05, arrow: 0.045, arrowHit: 0.05, mine: 0.07, hammer: 0.08, chip: 0.06, death: 0.06, spawn: 0.08, tower: 0.08, blast: 0.07, explosion: 0.15, explosionBig: 0.2, complete: 0.3 };
+const SFX_GAP = { sword: 0.05, arrow: 0.045, arrowHit: 0.05, mine: 0.07, hammer: 0.08, chip: 0.06, death: 0.06, spawn: 0.08, tower: 0.08, blast: 0.07, explosion: 0.15, explosionBig: 0.2, complete: 0.3, siege: 0.1, cannon: 0.1, shellHit: 0.08 };
 
 class ChipSfx {
   constructor(ctx, out) {
@@ -502,6 +502,22 @@ class ChipSfx {
         this.tone(out, t + 0.06, this.square, 80, 25, len * 0.6, 0.25);
         return len;
       }
+      case 'siege':
+        // A trebuchet lets go: the arm's wooden thunk against its stop, and the whoosh of the sling.
+        this.tone(out, t, this.square, v(150), 70, 0.12, 0.3);
+        this.hiss(out, t + 0.02, 0.3, 500, 0.3, 'bandpass', 1400);
+        return 0.34;
+      case 'cannon':
+        // The Snow Mobile's roof cannon: a sharp crack over a deep boom.
+        this.hiss(out, t, 0.08, 3000, 0.5, 'highpass');
+        this.hiss(out, t, 0.5, 900, 0.8, 'lowpass', 120);
+        this.tone(out, t, this.square, v(95), 35, 0.3, 0.35);
+        return 0.5;
+      case 'shellHit':
+        // A heavy shot landing: a thud you feel, and earth thrown up.
+        this.tone(out, t, this.square, v(70), 28, 0.35, 0.4);
+        this.hiss(out, t, 0.55, 1200, 0.75, 'lowpass', 100);
+        return 0.55;
       case 'death':
         [740, 560, 380].forEach((f, i) => this.tone(out, t + i * 0.05, this.square, v(f), f * 0.8, 0.05, 0.12));
         return 0.18;

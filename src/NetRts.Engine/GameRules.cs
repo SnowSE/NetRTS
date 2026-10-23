@@ -12,7 +12,9 @@ public sealed record UnitStats(
     int AttackCooldown,
     int Vision,
     int Speed,
-    BuildingType ProducedAt);
+    BuildingType ProducedAt,
+    int MinRange = 0,
+    int ShotTicks = 0);
 
 public sealed record BuildingStats(
     int Cost,
@@ -27,7 +29,8 @@ public sealed record BuildingStats(
     bool IsDropOff,
     IReadOnlyList<UnitType> Produces,
     bool CanResearch,
-    IReadOnlyList<BuildingType> Requires);
+    IReadOnlyList<BuildingType> Requires,
+    UpgradeType? RequiresUpgrade = null);
 
 public sealed record UpgradeStats(int Cost, int ResearchTicks, UpgradeType? Requires, string Effect);
 
@@ -59,6 +62,10 @@ public static class GameRules
         [UnitType.Soldier] = new(Cost: 100, BuildTicks: 12, MaxHp: 110, Damage: 9, Armor: 1, Range: 1, AttackCooldown: 1, Vision: 5, Speed: 10, ProducedAt: BuildingType.Barracks),
         [UnitType.Archer] = new(Cost: 125, BuildTicks: 14, MaxHp: 60, Damage: 12, Armor: 0, Range: 4, AttackCooldown: 2, Vision: 6, Speed: 9, ProducedAt: BuildingType.Barracks),
         [UnitType.Scout] = new(Cost: 75, BuildTicks: 8, MaxHp: 55, Damage: 5, Armor: 0, Range: 1, AttackCooldown: 1, Vision: 8, Speed: 20, ProducedAt: BuildingType.Barracks),
+
+        // Outranges guard towers but can't hit anything close, and its shells land late, so it wants an escort.
+        [UnitType.Trebuchet] = new(Cost: 350, BuildTicks: 45, MaxHp: 150, Damage: 40, Armor: 0, Range: 7, AttackCooldown: 8, Vision: 7, Speed: 5,
+            ProducedAt: BuildingType.SiegeWorkshop, MinRange: 3, ShotTicks: 3),
     };
 
     public static readonly IReadOnlyDictionary<BuildingType, BuildingStats> Buildings = new Dictionary<BuildingType, BuildingStats>
@@ -73,6 +80,9 @@ public static class GameRules
             StorageBonus: 0, IsDropOff: false, Produces: [], CanResearch: true, Requires: [BuildingType.Barracks]),
         [BuildingType.GuardTower] = new(Cost: 125, BuildWork: 35, MaxHp: 500, Armor: 2, Vision: 7, Damage: 10, Range: 5, AttackCooldown: 1,
             StorageBonus: 0, IsDropOff: false, Produces: [], CanResearch: false, Requires: [BuildingType.Barracks]),
+        [BuildingType.SiegeWorkshop] = new(Cost: 250, BuildWork: 60, MaxHp: 650, Armor: 1, Vision: 6, Damage: 0, Range: 0, AttackCooldown: 0,
+            StorageBonus: 0, IsDropOff: false, Produces: [UnitType.Trebuchet], CanResearch: false, Requires: [BuildingType.TechLab],
+            RequiresUpgrade: UpgradeType.SiegeEngineering),
     };
 
     public static readonly IReadOnlyDictionary<UpgradeType, UpgradeStats> Upgrades = new Dictionary<UpgradeType, UpgradeStats>
@@ -85,6 +95,7 @@ public static class GameRules
         [UpgradeType.Mobility2] = new(200, 45, UpgradeType.Mobility1, $"+{MobilityBonusPerTier} more speed"),
         [UpgradeType.Harvesting1] = new(100, 30, null, $"+{HarvestingBonusPerTier} ore gathered per mining tick"),
         [UpgradeType.Harvesting2] = new(200, 45, UpgradeType.Harvesting1, $"+{HarvestingBonusPerTier} more ore per mining tick"),
+        [UpgradeType.SiegeEngineering] = new(200, 60, null, "Unlocks the SiegeWorkshop, which builds Trebuchets"),
     };
 
     /// <summary>
@@ -109,6 +120,8 @@ public static class GameRules
             Vision = kv.Value.Vision,
             Speed = kv.Value.Speed,
             ProducedAt = kv.Value.ProducedAt,
+            MinRange = kv.Value.MinRange,
+            ShotTicks = kv.Value.ShotTicks,
         }).ToList(),
         Buildings = Buildings.Select(kv => new BuildingStatsDto
         {
@@ -126,6 +139,7 @@ public static class GameRules
             Produces = kv.Value.Produces,
             CanResearch = kv.Value.CanResearch,
             Requires = kv.Value.Requires,
+            RequiresUpgrade = kv.Value.RequiresUpgrade,
         }).ToList(),
         Upgrades = Upgrades.Select(kv => new UpgradeStatsDto
         {
@@ -151,6 +165,7 @@ public static class GameRules
             "Damage dealt = max(1, attacker damage - target armor). All attacks in a tick land simultaneously.",
             "Unit costs are paid when production is queued; building costs when the first worker starts construction.",
             "Ore beyond your storage capacity is lost. Storage = sum of StorageBonus of your completed buildings.",
+            "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then. They can't fire inside MinRange.",
             "Idle combat units fight back against enemies already in range. Attack-move (Attack with a position) engages anything seen en route.",
             "A player with no Command Center (finished or under construction) is eliminated.",
             "At the tick limit the highest total score wins; equal scores are a draw.",

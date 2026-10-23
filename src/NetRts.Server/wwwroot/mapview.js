@@ -4,16 +4,16 @@
 // Level of detail follows the on-screen tile size (Te, in device pixels):
 //   Te <  9   plain shapes, no building letters
 //   Te >= 9   shapes + building letters
-//   Te >= 26  illustrated glyphs (pickaxe, sword & shield, bow, eye; keep, crossed swords, crate,
-//             flask, tower — or the Snow College set), production / research bars, health bars on everything damaged
+//   Te >= 26  illustrated glyphs (pickaxe, sword & shield, bow, eye, trebuchet; keep, crossed swords, crate,
+//             flask, tower, anvil — or the Snow College set), production / research bars, health bars on everything damaged
 //   Te >= 56  labels: unit ids and building names
 import { playerColours, cssVar } from './util.js';
 import { SNOW, buildingName } from './lore.js';
 
-const CLASSIC_GLYPH = { CommandCenter: 'C', Barracks: 'B', ResourceDepot: 'D', TechLab: 'T', GuardTower: 'G' };
+const CLASSIC_GLYPH = { CommandCenter: 'C', Barracks: 'B', ResourceDepot: 'D', TechLab: 'T', GuardTower: 'G', SiegeWorkshop: 'S' };
 // Snow College letters: HQs and housing by the first letter of their campus name, then Co-op Store,
-// Makerspace and The Bell Tower.
-const SNOW_GLYPH = { ResourceDepot: 'C', TechLab: 'M', GuardTower: 'T' };
+// Makerspace, The Bell Tower and the Washburn welding shop.
+const SNOW_GLYPH = { ResourceDepot: 'C', TechLab: 'M', GuardTower: 'T', SiegeWorkshop: 'W' };
 const glyph = (b) => (!SNOW ? CLASSIC_GLYPH[b.type]
   : b.type === 'CommandCenter' || b.type === 'Barracks' ? buildingName(b.type, b.owner)[0] : SNOW_GLYPH[b.type]);
 const unitIcon = (...args) => (SNOW ? snowUnitIcon : classicUnitIcon)(...args);
@@ -22,6 +22,7 @@ const DETAIL = 26;
 const LABELS = 56;
 const MAX_TILE = 112; // largest on-screen tile, in device pixels
 const SHOT_BURST = 280; // ms a tower fireball's burst lasts
+const SHELL_BLAST = 520; // ms a siege shell's impact lasts
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 export class MapView {
@@ -40,6 +41,9 @@ export class MapView {
     this.onCameraChange = null;  // callback(view) when zoom / follow changes
     this.anim = new Map();       // unit id -> {fx, fy, tx, ty, t0, dur}
     this.shots = [];             // guard tower fireballs in flight or bursting: {fx, fy, id, tx, ty, t0, dur}
+    this.blasts = [];            // siege shells that just landed: {x, y, t0}
+    this.stateAt = 0;            // when the current state arrived, and how long a tick lasts (ms), to fly shells between frames
+    this.tickMs = 0;
     this.oreMax = new Map();     // deposit id -> largest remaining seen
     this.dirty = true;
     this.raf = 0;
@@ -316,7 +320,10 @@ export class MapView {
       });
     }
     this.anim = next;
+    this.stateAt = now;
+    this.tickMs = dur / 0.9;
     this.towerShots(prev, state, now, dur);
+    this.shellBlasts(prev, state, now);
     if (this.follow) {
       // Only re-aim when the fight has really moved, so the camera doesn't jitter between skirmishes.
       const spot = this.hotspot();
@@ -341,9 +348,10 @@ export class MapView {
     this.shots = this.shots.filter((f) => now - f.t0 < f.dur + SHOT_BURST);
     const before = new Map(prev.units.map((u) => [u.id, u.hp]));
     const targeted = new Set(s.units.filter((u) => u.activity === 'Attacking').map((u) => u.targetId));
+    const shelled = new Set((prev.shells || []).filter((sh) => sh.landsTick === s.tick).map((sh) => sh.y * 4096 + sh.x));
     const towers = s.buildings.filter((b) => b.type === 'GuardTower' && b.completed);
     for (const u of s.units) {
-      if (!(u.hp < (before.get(u.id) ?? 0)) || targeted.has(u.id)) continue;
+      if (!(u.hp < (before.get(u.id) ?? 0)) || targeted.has(u.id) || shelled.has(u.y * 4096 + u.x)) continue;
       let best = null, bd = Infinity;
       for (const b of towers) {
         if (b.owner === u.owner) continue;
@@ -357,8 +365,17 @@ export class MapView {
     }
   }
 
+  /** Siege shells that landed this tick leave a blast where they came down. */
+  shellBlasts(prev, s, now) {
+    if (!prev || s.tick !== prev.tick + 1 || reducedMotion()) { this.blasts.length = 0; return; }
+    this.blasts = this.blasts.filter((b) => now - b.t0 < SHELL_BLAST);
+    for (const sh of prev.shells || []) {
+      if (sh.landsTick === s.tick) this.blasts.push({ x: sh.x + 0.5, y: sh.y + 0.5, t0: now });
+    }
+  }
+
   animating(now) {
-    if (this.shots.length) return true;
+    if (this.shots.length || this.blasts.length || this.state?.shells?.length) return true;
     for (const a of this.anim.values()) {
       if (a.dur && now - a.t0 < a.dur && (a.fx !== a.tx || a.fy !== a.ty)) return true;
     }
@@ -457,6 +474,7 @@ export class MapView {
       this.drawBuildings(g, s, Te, inView);
       this.drawUnits(g, s, Te, now, inView);
       this.drawShots(g, Te, now);
+      this.drawShells(g, s, Te, now);
       if (this.vision != null) {
         if (!this.fogCache) this.buildFog();
         if (this.fogCache !== 'none') g.drawImage(this.fogCache, 0, 0, W * Te, H * Te);
@@ -611,6 +629,64 @@ export class MapView {
     }
   }
 
+  /**
+   * Siege shells: a target ring on the tile they will land on, the shell lobbed high on its way there
+   * (with its shadow on the ground), then a blast of dust and fire.
+   */
+  drawShells(g, s, T, now) {
+    const shells = s.shells || [];
+    if (!shells.length && !this.blasts.length) return;
+    const since = this.tickMs > 0 ? Math.min(1, (now - this.stateAt) / this.tickMs) : 0;
+    g.save();
+    g.lineCap = 'round';
+    for (const sh of shells) {
+      const fx = sh.fromX + 0.5, fy = sh.fromY + 0.5, tx = sh.x + 0.5, ty = sh.y + 0.5;
+      const t = Math.min(1, (s.tick - sh.firedTick + since) / Math.max(1, sh.landsTick - sh.firedTick));
+      g.strokeStyle = this.teamColour(sh.owner);
+      g.globalAlpha = 0.5 + 0.4 * t;
+      g.lineWidth = Math.max(1, T / 14);
+      g.setLineDash([T / 8, T / 10]);
+      g.beginPath();
+      g.arc(tx * T, ty * T, T * (0.48 - 0.12 * t), 0, Math.PI * 2);
+      g.stroke();
+      g.setLineDash([]);
+      const gx = (fx + (tx - fx) * t) * T, gy = (fy + (ty - fy) * t) * T;
+      const lift = (0.6 + Math.hypot(tx - fx, ty - fy) * 0.35) * Math.sin(Math.PI * t) * T;
+      g.globalAlpha = 0.3;
+      g.fillStyle = this.theme.outline;
+      g.beginPath();
+      g.ellipse(gx, gy, T * 0.16, T * 0.08, 0, 0, Math.PI * 2);
+      g.fill();
+      g.globalAlpha = 1;
+      g.fillStyle = SNOW ? '#2b2b2b' : '#7a6e5c';
+      g.strokeStyle = this.theme.outline;
+      g.lineWidth = Math.max(1, T / 24);
+      g.beginPath();
+      g.arc(gx, gy - lift, Math.max(2, T * 0.17), 0, Math.PI * 2);
+      g.fill();
+      g.stroke();
+    }
+    g.globalAlpha = 1;
+    this.blasts = this.blasts.filter((b) => now - b.t0 < SHELL_BLAST);
+    for (const b of this.blasts) {
+      const k = (now - b.t0) / SHELL_BLAST;
+      const cx = b.x * T, cy = b.y * T;
+      g.globalAlpha = 0.6 * (1 - k);
+      g.fillStyle = '#8a7a62';
+      for (let i = 0; i < 6; i++) {
+        const ang = i * Math.PI / 3 + 0.4;
+        g.beginPath();
+        g.arc(cx + Math.cos(ang) * T * 0.45 * k, cy + Math.sin(ang) * T * 0.45 * k, T * (0.18 + 0.2 * k), 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+      g.globalCompositeOperation = 'lighter';
+      glowDot(g, cx, cy, T * (0.5 + k * 0.6) * (1 - k), 'rgba(255,150,60,');
+      g.globalCompositeOperation = 'source-over';
+    }
+    g.restore();
+  }
+
   /** Tower fireballs: a flare at the tower, a burning streak, then a burst of fire where it lands. */
   drawShots(g, T, now) {
     if (!this.shots.length) return;
@@ -719,7 +795,7 @@ export class MapView {
       g.stroke();
       if (detailed) {
         // Triangles and diamonds have less room inside, so their icons sit lower / smaller.
-        const iconScale = { Worker: 0.62, Soldier: 0.62, Archer: 0.55, Scout: 0.5 }[u.type] ?? 0.55;
+        const iconScale = { Worker: 0.62, Soldier: 0.62, Archer: 0.55, Scout: 0.5, Trebuchet: 0.66 }[u.type] ?? 0.55;
         unitIcon(g, u.type, cx, cy + (u.type === 'Archer' ? r * 0.22 : 0), r * iconScale, this.theme.glyph, col);
       }
       if (u.carrying > 0 && r >= 2) {
@@ -790,6 +866,13 @@ export function unitPath(g, type, cx, cy, r) {
       g.lineTo(cx + r * 0.8, cy);
       g.lineTo(cx, cy + r * 1.1);
       g.lineTo(cx - r * 0.8, cy);
+      g.closePath();
+      break;
+    case 'Trebuchet': // hexagon
+      for (let i = 0; i < 6; i++) {
+        const a = Math.PI / 6 + i * Math.PI / 3;
+        g[i ? 'lineTo' : 'moveTo'](cx + Math.cos(a) * r * 1.05, cy + Math.sin(a) * r * 1.05);
+      }
       g.closePath();
       break;
     default: // Worker: circle
@@ -900,6 +983,31 @@ function snowUnitIcon(g, type, cx, cy, s, ink, accent) {
       }
       break;
     }
+    case 'Trebuchet': { // the Snow Mobile: the college's step van, side on, with a cannon on the roof
+      g.fillRect(-s * 0.9, -s * 0.35, s * 1.45, s * 0.9); // the box body, cab and all
+      g.fillRect(s * 0.55, s * 0.05, s * 0.35, s * 0.5);  // the short hood
+      g.lineWidth = Math.max(1.4, s * 0.2); // the cannon, over the cab
+      g.beginPath();
+      g.moveTo(s * 0.05, -s * 0.45);
+      g.lineTo(s * 0.75, -s * 0.85);
+      g.stroke();
+      g.fillRect(-s * 0.12, -s * 0.55, s * 0.36, s * 0.22);
+      g.fillStyle = accent; // windscreen, the white swoosh rising toward the back, and wheels
+      g.fillRect(s * 0.3, -s * 0.22, s * 0.2, s * 0.2);
+      g.beginPath();
+      g.moveTo(-s * 0.85, -s * 0.05);
+      g.lineTo(s * 0.25, s * 0.3);
+      g.lineTo(s * 0.25, s * 0.42);
+      g.lineTo(-s * 0.85, s * 0.1);
+      g.closePath();
+      g.fill();
+      for (const x of [-0.55, 0.55]) {
+        g.beginPath();
+        g.arc(s * x, s * 0.62, s * 0.2, 0, Math.PI * 2);
+        g.fill();
+      }
+      break;
+    }
   }
   g.restore();
 }
@@ -1001,6 +1109,29 @@ function snowBuildingIcon(g, type, cx, cy, s, ink, accent) {
       g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
       break;
     }
+    case 'SiegeWorkshop': { // the Washburn Building's welding shop: a low shop with a roll-up bay door and a spark
+      g.fillRect(-s * 0.9, -s * 0.35, s * 1.8, s * 1.2);
+      g.fillStyle = accent;
+      g.fillRect(-s * 0.6, s * 0.0, s * 0.75, s * 0.85); // bay door
+      g.strokeStyle = ink;
+      g.lineWidth = Math.max(1, s * 0.08);
+      for (const y of [0.22, 0.44, 0.66]) {
+        g.beginPath();
+        g.moveTo(-s * 0.6, s * y);
+        g.lineTo(s * 0.15, s * y);
+        g.stroke();
+      }
+      g.strokeStyle = accent; // the welding spark
+      g.lineWidth = Math.max(1, s * 0.1);
+      g.beginPath();
+      for (let i = 0; i < 4; i++) {
+        const a = i * Math.PI / 4;
+        g.moveTo(s * 0.55 + Math.cos(a) * s * 0.22, s * 0.25 + Math.sin(a) * s * 0.22);
+        g.lineTo(s * 0.55 - Math.cos(a) * s * 0.22, s * 0.25 - Math.sin(a) * s * 0.22);
+      }
+      g.stroke();
+      break;
+    }
   }
   g.restore();
 }
@@ -1077,6 +1208,24 @@ function classicUnitIcon(g, type, cx, cy, s, ink, accent) {
       g.fillStyle = accent;
       g.beginPath();
       g.arc(0, 0, s * 0.3, 0, Math.PI * 2);
+      g.fill();
+      break;
+    }
+    case 'Trebuchet': { // an A-frame with its throwing arm cocked and a counterweight
+      g.lineWidth = Math.max(1.2, s * 0.16);
+      g.beginPath();
+      g.moveTo(-s * 0.6, s * 0.8); // frame
+      g.lineTo(0, -s * 0.1);
+      g.lineTo(s * 0.6, s * 0.8);
+      g.moveTo(-s * 0.85, s * 0.8);
+      g.lineTo(s * 0.85, s * 0.8);
+      g.moveTo(-s * 0.85, -s * 0.85); // arm
+      g.lineTo(s * 0.45, s * 0.3);
+      g.stroke();
+      g.fillRect(s * 0.3, s * 0.2, s * 0.38, s * 0.34); // counterweight
+      g.fillStyle = accent;
+      g.beginPath(); // the stone in the sling
+      g.arc(-s * 0.85, -s * 0.85, s * 0.16, 0, Math.PI * 2);
       g.fill();
       break;
     }
@@ -1188,6 +1337,32 @@ function classicBuildingIcon(g, type, cx, cy, s, ink, accent) {
       g.fill();
       g.fillStyle = accent;
       g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
+      break;
+    }
+    case 'SiegeWorkshop': { // an anvil with a hammer above it
+      g.beginPath();
+      g.moveTo(-s * 0.85, s * 0.05);
+      g.lineTo(s * 0.8, s * 0.05);
+      g.lineTo(s * 0.55, s * 0.35);
+      g.lineTo(s * 0.3, s * 0.35);
+      g.lineTo(s * 0.45, s * 0.85);
+      g.lineTo(-s * 0.45, s * 0.85);
+      g.lineTo(-s * 0.3, s * 0.35);
+      g.quadraticCurveTo(-s * 0.75, s * 0.35, -s * 0.85, s * 0.05);
+      g.closePath();
+      g.fill();
+      g.strokeStyle = accent;
+      g.lineWidth = Math.max(1.2, s * 0.14);
+      g.beginPath(); // hammer handle and head
+      g.moveTo(-s * 0.1, -s * 0.15);
+      g.lineTo(s * 0.55, -s * 0.8);
+      g.stroke();
+      g.save();
+      g.translate(-s * 0.1, -s * 0.15);
+      g.rotate(-Math.PI / 4);
+      g.fillStyle = accent;
+      g.fillRect(-s * 0.1, -s * 0.25, s * 0.2, s * 0.5);
+      g.restore();
       break;
     }
   }

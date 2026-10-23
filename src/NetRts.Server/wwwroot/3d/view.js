@@ -35,6 +35,12 @@ const SHIELD_BLUE = new THREE.Color('#2f6bff');
 const TOWER_RANGE = 5;   // GameRules: guard towers reach 5 tiles in every direction, diagonals included
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smooth = (t) => t * t * (3 - 2 * t);
+// Siege engines (models.js): the trebuchet's arm swings this far over (radians) to let its stone go, from
+// rest at this angle about its axle; the arm's tip is this far out. The Snow Mobile's cannon fires from
+// its muzzle (in model units, facing +z).
+const ARM_UP = 2.5, ARM_REST = -2.44, ARM_AXLE = 0.36, ARM_TIP = 0.43;
+const MUZZLE = { y: 0.635, z: 0.304 };
+const SIEGE_COOLDOWN = 8;   // GameRules: a trebuchet fires every 8 ticks
 
 /** An instanced mesh with the per-instance attributes the entity material reads, growing as needed. */
 class Instances {
@@ -176,6 +182,7 @@ export class View3D {
     this.units = new Map();      // id -> animated unit
     this.buildings = new Map();  // id -> building record
     this.corpses = [];
+    this.shells = new Map();     // "attackerId:firedTick" -> a siege shot the view is flying (updateShells)
     this.oreMax = new Map();
     this.lastSet = 0;
     this.interval = 300;
@@ -332,6 +339,7 @@ export class View3D {
     L.nugget = new Instances(this.scene, this.models.nugget, this.mat, this.depthMat, 32);
     L.shield = new Instances(this.scene, this.models.shield, this.mat, this.depthMat, 16);
     L.scaffold = new Instances(this.scene, this.models.scaffold, this.mat, this.depthMat, 8);
+    L.shell = new Instances(this.scene, this.models.shell, this.mat, this.depthMat, 16);
     for (const k of ['nugget', 'deposit']) L[k].mesh.castShadow = k === 'deposit';
     this.layers = L;
 
@@ -461,6 +469,7 @@ export class View3D {
       this.effects.clear();
       this.corpses.length = 0;
       this.queue.length = 0;
+      this.shells.clear();
     }
     if (this.range && !s.buildings.some((b) => b.id === this.range.id)) this.showRange(null);
     this.lastSet = now;
@@ -529,6 +538,31 @@ export class View3D {
       a.deathFx = fx;
     }
 
+    // Siege shots: the view flies each one itself (updateShells), from when the picture reaches the tick
+    // it was fired until the frame it has come down in. A shot is known by who fired it and when, so it's
+    // only launched once however many frames it shows up in.
+    const shelled = new Set();   // tiles a shot came down on in this frame
+    for (const sh of s.shells || []) {
+      const key = `${sh.attackerId}:${sh.firedTick}`;
+      const due = now + lag + Math.max(0, sh.landsTick - s.tick) * this.interval;
+      let r = this.shells.get(key);
+      if (!r) {
+        r = { sh, t0: now + lag - Math.max(0, s.tick - sh.firedTick) * this.interval, t1: due };
+        this.shells.set(key, r);
+        const a = this.units.get(sh.attackerId);
+        if (a && (!a.fireT || r.t0 > a.fireT)) { a.fireT = r.t0; a.aim = { x: sh.x + 0.5, z: sh.y + 0.5, until: due }; }
+      }
+      if (!r.pinned) r.t1 = Math.max(r.t0 + 120, due);
+    }
+    for (const [key, r] of this.shells) {
+      if (r.landed && r.sh.landsTick < s.tick - 1) { this.shells.delete(key); continue; }
+      if (r.pinned || r.sh.landsTick > s.tick) continue;
+      // It comes down in this frame: land it as the picture gets here, with the hits it does.
+      r.pinned = true;
+      r.t1 = Math.max(r.t0 + 120, now + lag);
+      shelled.add(r.sh.y * 4096 + r.sh.x);
+    }
+
     // Who hit whom: archers loose arrows, melee units strike, towers fire on what nothing else is hitting.
     const attackers = new Map();
     for (const u of s.units) {
@@ -553,7 +587,7 @@ export class View3D {
       }
       // Frames don't always name the target while a unit is attack-moving, and a crowd stacked on one
       // tile beside a building fights from a little further back, so look a tile beyond reach.
-      const reach = (u.type === 'Archer' ? 4 : 1) + 1;
+      const reach = (u.type === 'Archer' ? 4 : u.type === 'Trebuchet' ? 7 : 1) + 1;
       let best = null, bd = Infinity;
       for (const o of s.units) {
         if (o.owner === u.owner) continue;
@@ -572,6 +606,12 @@ export class View3D {
     }
     for (const u of hurt) {
       const a = this.units.get(u.id);
+      if (shelled.has(u.y * 4096 + u.x)) {
+        // Caught under a siege shot: hit as it lands (updateShells), not by whoever is targeting it.
+        a.hitT = now + lag + 30;
+        a.hitFrom = null;
+        continue;
+      }
       const archer = this.anyArcher(attackers.get(u.id));
       a.hitT = now + lag + (archer ? 140 + flight * 1000 : 150);
       a.hitFrom = attackers.get(u.id)?.[0];
@@ -597,7 +637,7 @@ export class View3D {
         if (Math.random() < 0.5) q(() => this.effects.dust(p, 2, [0.7, 0.62, 0.5], 0.5));
       }
       if (fx && b.hp < rec.b.hp && b.completed) {
-        rec.hitT = now + lag + 150;
+        rec.hitT = now + lag + (shelled.has(b.y * 4096 + b.x) ? 30 : 150);
         strike(b.id, p, def.height);
       }
       rec.b = b;
@@ -751,6 +791,7 @@ export class View3D {
     }
     if (!this.manual) this.rig.update(dt, this.effects.shake);
     this.updateUnits(now, gameDt);
+    this.updateShells(now);
     this.updateBuildings(now, gameDt);
     this.effects.update(gameDt);
     this.updateSun();
@@ -810,7 +851,8 @@ export class View3D {
         this.units.delete(id);
         const p = this.unitPos(a, rt);
         if (a.deathFx) {
-          this.effects.death(this.ground(p.x, p.z), teamRGB(a.u.owner));
+          if (this.models.units[a.u.type].vehicle) this.effects.explosion(this.ground(p.x, p.z), teamRGB(a.u.owner), false);
+          else this.effects.death(this.ground(p.x, p.z), teamRGB(a.u.owner));
           const from = a.hitFrom && positions.get(a.hitFrom.id);
           this.corpses.push({ a, x: p.x, z: p.z, t0: now, away: from ? Math.atan2(p.x - from.x, p.z - from.z) : a.yaw + Math.PI });
         }
@@ -830,6 +872,7 @@ export class View3D {
       const moving = speed > 0.35;
       const working = !moving && (u.activity === 'Gathering' || u.activity === 'Building');
       const carrying = u.carrying > 0;
+      const vehicle = this.models.units[u.type].vehicle;
 
       // What a fighter is hitting, where it is right now (it may be moving too).
       let tp = null;
@@ -841,7 +884,10 @@ export class View3D {
       // Face where we're going, or what we're working on or hitting; glance about when idle.
       let want = a.yaw;
       if (moving) want = Math.atan2(p.vx, p.vz);
-      else if (tp) {
+      else if (vehicle && a.aim && now < a.aim.until + 400) {
+        // A siege engine turns to face the tile it's about to shell.
+        if (Math.hypot(a.aim.x - p.x, a.aim.z - p.z) > 0.05) want = Math.atan2(a.aim.x - p.x, a.aim.z - p.z);
+      } else if (tp) {
         if (Math.hypot(tp.x - p.x, tp.z - p.z) > 0.05) want = Math.atan2(tp.x - p.x, tp.z - p.z);
       } else if (u.targetId != null && working) {
         const tb = this.buildings.get(u.targetId)?.b;
@@ -862,7 +908,22 @@ export class View3D {
       let pull = 0;                                        // archer: how far the bowstring is drawn
       const fighting = u.activity === 'Attacking' && !moving && tp;
 
-      if (moving) {
+      if (vehicle) {
+        // Siege engines roll rather than walk: no stride, only a low rumble and a lean into turns on the
+        // move, and a lurch when they fire (the shot itself is flown by updateShells).
+        if (moving) {
+          a.rumble = (a.rumble ?? 0) + dt * (8 + speed * 10);
+          y += Math.abs(Math.sin(a.rumble)) * 0.005 * this.unitScale;
+          pitch = Math.sin(a.rumble * 0.37) * 0.012;
+          roll = -clamp(turn * 0.12, -0.08, 0.08);
+        }
+        const since = now - (a.fireT ?? -1e9);
+        if (since >= 0 && since < 600) {
+          const kick = Math.sin(Math.min(1, since / 120) * Math.PI / 2) * Math.exp(-since / 220);
+          fwd = -kick * 0.035 * this.unitScale;
+          pitch -= kick * 0.07;
+        }
+      } else if (moving) {
         // A proper walk: legs and arms swing in opposition, the body bobs on every step and sways at the
         // hips, leaning into the pace and banking into turns. The stride quickens with speed so feet
         // keep up with the ground; scouts' mounts gallop. Loads make for a heavier, shorter gait.
@@ -989,7 +1050,7 @@ export class View3D {
         a.raise = (a.raise ?? 0) + ((fighting ? 1 : 0) - (a.raise ?? 0)) * (1 - Math.exp(-8 * dt));
         if (a.raise > 0.02) chop = Math.max(chop, a.raise);
       }
-      const draw = u.type === 'Archer' ? [a.raise ?? 0, pull] : null;
+      const draw = u.type === 'Archer' ? [a.raise ?? 0, pull] : vehicle ? this.siegePose(a, now) : null;
       if (chop >= 0) {
         a.arm = 0;
         const reachUp = u.type === 'Archer' ? -1.45 : -2.1;   // arms out level to aim, or overhead to chop
@@ -1033,7 +1094,8 @@ export class View3D {
       const t = (now - c.t0) / 1000;
       const fall = Math.min(1, t / 0.35);
       const y = this.terrain.heightAt(c.x, c.z) - Math.max(0, t - 1.2) * 0.25;
-      e.set(-fall * Math.PI / 2 * 0.95, c.away + Math.PI, 0);   // face the blow, topple away from it
+      // Face the blow and topple away from it; a wrecked siege engine only slumps.
+      e.set(-fall * (this.models.units[c.a.u.type].vehicle ? 0.25 : Math.PI / 2 * 0.95), c.away + Math.PI, 0);
       const s = (this.models.units[c.a.u.type].scale || 1) * (c.a.scale || 1);
       m.compose(v.set(c.x, y, c.z), q.setFromEuler(e), sc.set(s, s, s));
       L['u' + c.a.u.type].push(m, teamOf(c.a.u.owner).clone().multiplyScalar(0.5));
@@ -1057,6 +1119,92 @@ export class View3D {
     } else {
       this.marker.visible = false;
     }
+  }
+
+  /**
+   * A siege engine's moving parts (iDraw, see models.js) a moment after it fired at a.fireT. The
+   * trebuchet's arm swings over to let the stone go right at the shot's launch, quivers at the top, then
+   * is winched back down before the next shot: [arm angle, 1 while the stone is away]. The Snow Mobile's
+   * cannon kicks back and runs out again: [recoil, 0].
+   */
+  siegePose(a, now) {
+    const since = now - (a.fireT ?? -1e9);
+    if (this.badger) return [since < 0 || since > 1200 ? 0 : since < 40 ? since / 40 : Math.exp(-(since - 40) / 220), 0];
+    const reload = Math.max(400, SIEGE_COOLDOWN * this.interval);
+    const swing = Math.min(320, reload * 0.15), hold = Math.min(450, reload * 0.2), back = reload * 0.85;
+    const t = since + swing;   // the arm starts over before the stone lets go
+    if (t < 0 || t >= back) return [0, 0];
+    if (t < swing) return [ARM_UP * (t / swing) ** 2, 0];
+    if (t < swing + hold) {
+      const w = (t - swing) / hold;
+      return [ARM_UP + Math.sin(w * Math.PI * 3) * 0.12 * (1 - w), 1];
+    }
+    return [ARM_UP * (1 - smooth((t - swing - hold) / (back - swing - hold))), 1];
+  }
+
+  /** Where a siege shot leaves from: the arm's tip or the cannon's muzzle, or its tile if the engine is gone. */
+  muzzle(sh) {
+    const a = this.units.get(sh.attackerId), p = a && this.positions?.get(a.id);
+    if (!p) return this.ground(sh.fromX + 0.5, sh.fromY + 0.5).add(new THREE.Vector3(0, 0.6, 0));
+    const s = (this.models.units[a.u.type].scale || 1) * (a.scale || 1) * this.unitScale;
+    const ang = ARM_REST - ARM_UP;
+    const ly = this.badger ? MUZZLE.y : ARM_AXLE + Math.sin(ang) * ARM_TIP, lz = this.badger ? MUZZLE.z : Math.cos(ang) * ARM_TIP;
+    return new THREE.Vector3(p.x + Math.sin(a.yaw) * lz * s, this.terrain.heightAt(p.x, p.z) + ly * s, p.z + Math.cos(a.yaw) * lz * s);
+  }
+
+  /**
+   * Siege shots in flight: each leaves its engine when the picture reaches the tick it was fired and
+   * drops on its tile in a high arc, landing as the picture reaches the frame it came down in. The tile
+   * it's falling on is marked in the owner's colour, so you can watch units scramble out of the way.
+   */
+  updateShells(now) {
+    const L = this.layers.shell;
+    L.begin();
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+    const white = new THREE.Color('#ffffff'), ringCol = new THREE.Color(), spinAxis = new THREE.Vector3(1, 0, 0.4).normalize();
+    let ri = this.rings.count;
+    for (const r of this.shells.values()) {
+      const sh = r.sh;
+      if (r.landed || now < r.t0) continue;
+      if (!r.from) {
+        r.from = this.muzzle(sh);
+        r.to = this.ground(sh.x + 0.5, sh.y + 0.5);
+        // Only make a show of the launch if the picture is there for it (not on joining mid-flight).
+        if (now - r.t0 < 300) {
+          const d = new THREE.Vector3(r.to.x - r.from.x, 0, r.to.z - r.from.z).normalize();
+          this.effects.shellLaunch(r.from, this.badger, d.multiplyScalar(Math.cos(0.4)).setY(Math.sin(0.4)));
+        }
+      }
+      const t = clamp((now - r.t0) / Math.max(1, r.t1 - r.t0), 0, 1);
+      if (t >= 1) {
+        r.landed = true;
+        this.effects.shellImpact(r.to, this.badger, this.unitScale);
+        this.hotspots.push({ x: r.to.x, z: r.to.z, t: now, size: 6 });
+        continue;
+      }
+      if (this.vision != null && sh.owner !== this.vision && !this.visibleTo(sh.x, sh.y) && !this.visibleTo(sh.fromX, sh.fromY)) continue;
+      const dist = Math.hypot(r.to.x - r.from.x, r.to.z - r.from.z);
+      const arc = 0.9 + dist * 0.32;
+      v.lerpVectors(r.from, r.to, t);
+      v.y += 4 * arc * t * (1 - t);
+      m.compose(v, q.setFromAxisAngle(spinAxis, t * 9 + sh.firedTick), sc.setScalar(this.unitScale * this.arrowScale));
+      L.push(m, white);
+      this.effects.shellTrail(v, this.badger);
+      // The mark on the target tile tightens as the shot comes down.
+      if (ri < this.rings.instanceMatrix.count) {
+        const rs = (2.6 - 1.4 * t) * (1 + Math.sin(now * 0.02) * 0.06);
+        m.compose(v.set(r.to.x, r.to.y + 0.025, r.to.z), q.identity(), sc.set(rs, 1, rs));
+        this.rings.setMatrixAt(ri, m);
+        this.rings.setColorAt(ri, ringCol.copy(teamOf(sh.owner)).multiplyScalar(0.6 + t));
+        ri++;
+      }
+    }
+    // Forget shots that never came down (the frames that would have landed them were skipped).
+    for (const [key, r] of this.shells) if (!r.landed && now > r.t1 + 5000) this.shells.delete(key);
+    L.end();
+    this.rings.count = ri;
+    this.rings.instanceMatrix.needsUpdate = true;
+    if (this.rings.instanceColor) this.rings.instanceColor.needsUpdate = true;
   }
 
   buildingLayer(def) {
@@ -1107,6 +1255,11 @@ export class View3D {
       const sh = hit * 0.012 * this.buildingScale;
       m.compose(v.set(x + Math.sin(now * 0.09) * sh, y, z + Math.cos(now * 0.11) * sh), q, sc.setScalar(this.buildingScale));
       this.buildingLayer(def).push(m, teamOf(b.owner), flash, rec.cut);
+      if (this.badger && b.type === 'SiegeWorkshop' && b.completed && Math.random() < dt * 2.5) {
+        // The welding shop at work: sparks spill from the open bay door.
+        const lx = 0.18 * this.buildingScale, lz = 0.32 * this.buildingScale, c = Math.cos(yaw), sn = Math.sin(yaw);
+        this.effects.spark(new THREE.Vector3(x + lx * c + lz * sn, y + 0.14 * this.buildingScale, z - lx * sn + lz * c), 4, [2.4, 2.3, 2.1], 0.45);
+      }
       if (!b.completed) L.scaffold.push(m, white);
       if (b.completed && b.hp < b.maxHp) {
         const hurt = 1 - b.hp / b.maxHp;

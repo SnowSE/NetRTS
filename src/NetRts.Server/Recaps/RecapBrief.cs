@@ -124,6 +124,8 @@ public sealed class RecapBrief(
                 ["ResourceDepot"] = "Co-op Store",
                 ["TechLab"] = "GRSC Makerspace",
                 ["GuardTower"] = "The Bell Tower",
+                ["SiegeWorkshop"] = "Washburn Welding Shop (Richfield campus)",
+                ["Trebuchet"] = "Snow Mobile (an old Snap-on tool truck in Snow College colours, with a cannon on the roof)",
                 ["Weapons1"] = "Intro to Chemistry",
                 ["Weapons2"] = "Organic Chemistry",
                 ["Armor1"] = "Unit Testing",
@@ -132,6 +134,7 @@ public sealed class RecapBrief(
                 ["Mobility2"] = "Parallel Computing",
                 ["Harvesting1"] = "Intro to Biology",
                 ["Harvesting2"] = "Entomology",
+                ["SiegeEngineering"] = "Welding Technology",
             },
         }
         : new RecapLoreDto { Game = "NetRTS", Ore = "ore", Setting = "A real-time strategy game played by bots over a REST API." };

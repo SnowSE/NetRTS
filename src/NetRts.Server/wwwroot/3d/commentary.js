@@ -145,6 +145,10 @@ export class Commentary {
     const prevUnits = new Map(prev.units.map((u) => [u.id, u]));
     const bldgs = new Map(s.buildings.map((b) => [b.id, b]));
     const attackersOf = (list, id) => list.filter((u) => u.activity === 'Attacking' && u.targetId === id);
+    // Siege shots that came down since the last frame: whoever fired one hit what was on its tile.
+    const landed = new Map();
+    for (const sh of prev.shells || []) if (sh.landsTick <= s.tick) landed.set(sh.y * 4096 + sh.x, sh.owner);
+    const shellOn = (e) => landed.get(e.y * 4096 + e.x);
 
     // Units trained, lost and killed.
     for (const u of s.units) {
@@ -153,13 +157,15 @@ export class Commentary {
     for (const u of prev.units) {
       if (units.has(u.id)) continue;
       say(u.owner, 'lost_unit');
-      const killer = attackersOf(prev.units, u.id).find((a) => a.owner !== u.owner)?.owner ?? this.towerNear(prev, u);
+      const shot = shellOn(u);
+      const killer = shot != null && shot !== u.owner ? shot
+        : attackersOf(prev.units, u.id).find((a) => a.owner !== u.owner)?.owner ?? this.towerNear(prev, u);
       if (killer != null) say(killer, 'kill');
     }
     // Hurt by a tower (nobody else was hitting it).
     for (const u of s.units) {
       const before = prevUnits.get(u.id);
-      if (before && u.hp < before.hp && !attackersOf(s.units, u.id).length) {
+      if (before && u.hp < before.hp && !attackersOf(s.units, u.id).length && shellOn(u) == null) {
         const tower = this.towerNear(s, u);
         if (tower != null) say(tower, 'tower');
       }
@@ -174,7 +180,8 @@ export class Commentary {
     for (const b of prev.buildings) {
       if (bldgs.has(b.id)) continue;
       say(b.owner, 'lost_building');
-      const by = attackersOf(prev.units, b.id).find((a) => a.owner !== b.owner)?.owner;
+      const shot = shellOn(b);
+      const by = shot != null && shot !== b.owner ? shot : attackersOf(prev.units, b.id).find((a) => a.owner !== b.owner)?.owner;
       if (by != null) say(by, 'destroyed_building');
     }
     // Research finished, players knocked out, armies on the move, and workers early on.

@@ -65,6 +65,10 @@ public sealed partial class GameSimulation
             RememberedBuildings = player.Remembered.Values
                 .Where(r => !IsVisible(visibility, new Point(r.X, r.Y)))
                 .ToList(),
+            Shells = _shells
+                .Where(s => s.Attacker.Owner == slot || IsVisible(visibility, s.Target))
+                .Select(ToDto)
+                .ToList(),
             Events = player.Events.Where(e => e.Tick > since).ToList(),
             Outcome = Outcome,
         };
@@ -97,6 +101,7 @@ public sealed partial class GameSimulation
             Units = _units.Select(u => ToDto(u, revealOrders: true)).ToList(),
             Buildings = _buildings.Select(b => ToDto(b, revealQueues: true)).ToList(),
             Resources = _deposits.Select(ToDto).ToList(),
+            Shells = _shells.Select(ToDto).ToList(),
             Events = _spectatorEvents.Where(e => e.Tick > since).ToList(),
             Outcome = Outcome,
         };
@@ -213,6 +218,18 @@ public sealed partial class GameSimulation
 
     private static ResearchDto ToResearchDto(BuildingEntity b) =>
         new(b.Research!.Type, b.Research.Progress * 100 / GameRules.Upgrades[b.Research.Type].ResearchTicks, b.Id);
+
+    private static ShellDto ToDto(Shell s) => new()
+    {
+        Owner = s.Attacker.Owner,
+        AttackerId = s.Attacker.Id,
+        FromX = s.From.X,
+        FromY = s.From.Y,
+        X = s.Target.X,
+        Y = s.Target.Y,
+        FiredTick = s.FiredTick,
+        LandsTick = s.LandsTick,
+    };
 
     private static ResourceDepositDto ToDto(DepositEntity d) => new()
     {
