@@ -27,6 +27,13 @@ public sealed record BotPlan
 
     /// <summary>Distance from our buildings at which enemies count as a threat.</summary>
     public int DefenseRadius { get; init; } = 10;
+
+    /// <summary>
+    /// Trebuchets to keep (0 = none). Until they're built, money goes to them first and the army only
+    /// grows to <see cref="AttackThreshold"/>; the attack waits for them, and the rest of the army
+    /// escorts them in a ring.
+    /// </summary>
+    public int SiegeCount { get; init; }
 }
 
 /// <summary>
@@ -36,6 +43,14 @@ public sealed record BotPlan
 public class PlanBot(string name, BotPlan plan) : IBotStrategy
 {
     private const int RetargetEveryTicks = 15;
+    private const int EscortEveryTicks = 3;
+
+    // Where escorts stand around the trebuchets: the eight neighbours two tiles out, then three.
+    private static readonly (int X, int Y)[] Ring =
+    [
+        (2, 0), (-2, 0), (0, 2), (0, -2), (2, 2), (-2, -2), (2, -2), (-2, 2),
+        (3, 0), (-3, 0), (0, 3), (0, -3), (3, 3), (-3, -3), (3, -3), (-3, 3),
+    ];
 
     // Build orders we issued whose building hasn't appeared yet: site -> (type, tick issued).
     private readonly Dictionary<(int X, int Y), (BuildingType Type, int Tick)> _pendingSites = [];
@@ -64,6 +79,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         FollowBuildOrder(view, commands, ref budget);
         FinishAbandonedSites(view, commands);
         Research(view, commands, ref budget);
+        TrainSiege(view, commands, ref budget);
         TrainArmy(view, commands, ref budget);
         CommandArmy(view, commands);
         PutIdleWorkersToWork(view, commands);
@@ -122,7 +138,8 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
 
             // Steps are a strict order: if this one can't happen yet, save up for it.
             var stats = view.Rules.Buildings.First(b => b.Type == step.Type);
-            var prerequisitesMet = stats.Requires.All(r => view.MyBuildings.Any(b => b.Type == r && b.Completed));
+            var prerequisitesMet = stats.Requires.All(r => view.MyBuildings.Any(b => b.Type == r && b.Completed))
+                                   && (stats.RequiresUpgrade is not { } upgrade || view.State.You.Upgrades.Contains(upgrade));
             if (view.Workers.Count < step.MinWorkers || !prerequisitesMet || budget < stats.Cost)
             {
                 return;
@@ -209,9 +226,39 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         }
     }
 
+    /// <summary>Siege still to come: fewer trebuchets alive or in production than the plan wants.</summary>
+    private bool SiegePending(BotView view) =>
+        Plan.SiegeCount > 0
+        && view.Siege.Count + view.MyBuildings.Sum(b => b.Production.Count(p => p.UnitType == UnitType.Trebuchet)) < Plan.SiegeCount;
+
+    private void TrainSiege(BotView view, List<CommandRequest> commands, ref int budget)
+    {
+        if (!SiegePending(view))
+        {
+            return;
+        }
+
+        var workshop = view.MyBuildings.FirstOrDefault(b => b.Type == BuildingType.SiegeWorkshop && b.Completed && b.Production.Count == 0);
+        var cost = view.UnitCost(UnitType.Trebuchet);
+        if (workshop is null || budget < cost)
+        {
+            return;
+        }
+
+        var rally = view.RallyPoint();
+        commands.Add(new CommandRequest { Type = CommandType.Produce, BuildingId = workshop.Id, UnitType = UnitType.Trebuchet, X = rally.X, Y = rally.Y });
+        budget -= cost;
+    }
+
     private void TrainArmy(BotView view, List<CommandRequest> commands, ref int budget)
     {
         if (Plan.ArmyMix.Count == 0)
+        {
+            return;
+        }
+
+        // Saving for siege: keep just enough of an army to defend with, and to escort it.
+        if (SiegePending(view) && view.Escorts.Count >= Plan.AttackThreshold)
         {
             return;
         }
@@ -235,6 +282,12 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
 
     private void CommandArmy(BotView view, List<CommandRequest> commands)
     {
+        if (Plan.SiegeCount > 0)
+        {
+            CommandSiegeArmy(view, commands);
+            return;
+        }
+
         var army = view.Army;
         var tick = view.State.Tick;
 
@@ -279,6 +332,83 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         if (stragglers.Length > 0)
         {
             commands.Add(new CommandRequest { Type = CommandType.Move, UnitIds = stragglers, X = rally.X, Y = rally.Y });
+        }
+    }
+
+    /// <summary>
+    /// The siege push: wait at the rally point until every trebuchet is out and the escort is big
+    /// enough, then roll out. The trebuchets attack-move on the target (they stop to shell anything in
+    /// range); the escorts attack-move to spots in a ring around them, a step ahead, so they meet whatever
+    /// comes at the siege and fall back in beside it. When the trebuchets are gone, the rest come home.
+    /// </summary>
+    private void CommandSiegeArmy(BotView view, List<CommandRequest> commands)
+    {
+        var tick = view.State.Tick;
+        var siege = view.Siege;
+        var escorts = view.Escorts;
+
+        if (!_attacking && siege.Count >= Plan.SiegeCount && escorts.Count >= Plan.AttackThreshold)
+        {
+            _attacking = true;
+            _lastRetargetTick = -RetargetEveryTicks;
+        }
+        else if (_attacking && siege.Count == 0)
+        {
+            _attacking = false; // the siege is lost; regroup and build more
+        }
+
+        var target = _attacking ? view.AttackTarget() : null;
+        if (target is null)
+        {
+            var rally = view.RallyPoint();
+            var stragglers = view.Army
+                .Where(u => u.Activity == UnitActivity.Idle && Dist(u.X, u.Y, rally.X, rally.Y) > 3)
+                .Select(u => u.Id)
+                .ToArray();
+            if (stragglers.Length > 0)
+            {
+                commands.Add(new CommandRequest { Type = CommandType.Move, UnitIds = stragglers, X = rally.X, Y = rally.Y });
+            }
+
+            return;
+        }
+
+        if (tick - _lastRetargetTick >= RetargetEveryTicks || siege.Any(u => u.Activity == UnitActivity.Idle))
+        {
+            commands.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = siege.Select(u => u.Id).ToArray(), X = target.Value.X, Y = target.Value.Y });
+            _lastRetargetTick = tick;
+        }
+
+        if (tick % EscortEveryTicks != 0)
+        {
+            return;
+        }
+
+        // The ring is centred a step ahead of the trebuchets, toward the target.
+        var cx = (int)Math.Round(siege.Average(u => u.X));
+        var cy = (int)Math.Round(siege.Average(u => u.Y));
+        cx += Math.Sign(target.Value.X - cx);
+        cy += Math.Sign(target.Value.Y - cy);
+        for (var i = 0; i < escorts.Count; i++)
+        {
+            var escort = escorts[i];
+            var (dx, dy) = Ring[i % Ring.Length];
+            var (x, y) = (Math.Clamp(cx + dx, 0, view.Map.Width - 1), Math.Clamp(cy + dy, 0, view.Map.Height - 1));
+
+            // An escort already fighting near the siege keeps at it; one that wandered off or is idle falls in.
+            var nearSiege = Dist(escort.X, escort.Y, cx, cy) <= 4;
+            if (escort.Activity == UnitActivity.Attacking && nearSiege
+                || escort.Destination is { } d && d.X == x && d.Y == y && escort.Activity != UnitActivity.Idle)
+            {
+                continue;
+            }
+
+            if (escort.Activity == UnitActivity.Idle && escort.X == x && escort.Y == y)
+            {
+                continue;
+            }
+
+            commands.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = [escort.Id], X = x, Y = y });
         }
     }
 

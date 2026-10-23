@@ -152,7 +152,7 @@ the engine is deterministic, so a seed plus the command log reproduces any brawl
 | House badger | API name | Plays like |
 |---|---|---|
 | **Sleepy Sitter** | `sitter` | Digs grubs and never fights back. Your first win. |
-| **Honey Badger** | `rusher` | Doesn't care. Two dorms' worth of soldiers early, attacks before you're ready. |
+| **Honey Badger** | `rusher` | Doesn't care. Races to two Snow Mobiles and rolls them at your campus ringed by soldiers. |
 | **Blue Badger** | `balanced` | Steady economy, mixed team, upgrades, attacks in waves. |
 | **Grub Hoarder** | `economist` | Out-digs everyone, hides behind bell towers, arrives late with an enormous clan. |
 

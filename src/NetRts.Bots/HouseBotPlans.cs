@@ -2,17 +2,24 @@ using NetRts.Protocol;
 
 namespace NetRts.Bots;
 
-/// <summary>Early aggression: few workers, two barracks, constant soldiers, attack at six.</summary>
+/// <summary>
+/// Siege rush: a barracks, then straight up the tech to two trebuchets, which roll out ringed by eight
+/// soldiers and scouts as soon as they're ready. A second barracks follows to keep the escort coming.
+/// </summary>
 public sealed class RusherBot() : PlanBot("rusher", new BotPlan
 {
-    TargetWorkers = 8,
+    TargetWorkers = 14,
     BuildOrder =
     [
         new(BuildingType.Barracks, 1, MinWorkers: 6, SitePreference.TowardEnemy),
-        new(BuildingType.Barracks, 2, MinWorkers: 7, SitePreference.TowardEnemy),
+        new(BuildingType.TechLab, 1, MinWorkers: 7),
+        new(BuildingType.SiegeWorkshop, 1, MinWorkers: 8),
+        new(BuildingType.Barracks, 2, MinWorkers: 9, SitePreference.TowardEnemy),
     ],
+    Upgrades = [UpgradeType.SiegeEngineering],
     ArmyMix = [UnitType.Soldier, UnitType.Soldier, UnitType.Soldier, UnitType.Scout],
-    AttackThreshold = 6,
+    AttackThreshold = 8,
+    SiegeCount = 2,
 });
 
 /// <summary>Greedy economy, towers for safety, upgrades, then a big late push.</summary>

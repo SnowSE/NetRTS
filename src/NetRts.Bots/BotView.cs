@@ -21,6 +21,8 @@ public sealed class BotView
         EnemyBuildings = State.Buildings.Where(b => b.Owner != me).ToList();
         Workers = MyUnits.Where(u => u.Type == UnitType.Worker).ToList();
         Army = MyUnits.Where(u => u.Type != UnitType.Worker).ToList();
+        Siege = Army.Where(u => u.Type == UnitType.Trebuchet).ToList();
+        Escorts = Army.Where(u => u.Type != UnitType.Trebuchet).ToList();
         CommandCenter = MyBuildings.Where(b => b.Type == BuildingType.CommandCenter)
             .OrderByDescending(b => b.Completed).ThenBy(b => b.Id).FirstOrDefault();
 
@@ -38,6 +40,12 @@ public sealed class BotView
     public IReadOnlyList<BuildingDto> EnemyBuildings { get; }
     public IReadOnlyList<UnitDto> Workers { get; }
     public IReadOnlyList<UnitDto> Army { get; }
+
+    /// <summary>Our trebuchets.</summary>
+    public IReadOnlyList<UnitDto> Siege { get; }
+
+    /// <summary>Our army apart from the trebuchets: what escorts them.</summary>
+    public IReadOnlyList<UnitDto> Escorts { get; }
     public BuildingDto? CommandCenter { get; }
 
     public int UnitCost(UnitType type) => Rules.Units.First(u => u.Type == type).Cost;

@@ -60,6 +60,49 @@ public class FullMatchTests
         Assert.True(winner.UnitsProduced > 5, "the bot should have built an army");
     }
 
+    [Fact]
+    public void The_rusher_rolls_out_two_trebuchets_ringed_by_its_army()
+    {
+        var sim = new GameSimulation(Guid.NewGuid(), new GameConfig { Seed = 1 },
+            [new PlayerSeat(Guid.NewGuid(), "rusher"), new PlayerSeat(Guid.NewGuid(), "sitter")]);
+        var bots = new[] { HouseBots.Create("rusher"), HouseBots.Create("sitter") };
+        var rules = GameRules.ToDto();
+        var map = sim.Map.ToDto();
+        var escorted = 0;
+        while (sim.Status == MatchStatus.Active)
+        {
+            for (var slot = 0; slot < 2; slot++)
+            {
+                var commands = bots[slot].Decide(new BotContext(sim.GetPlayerView(slot), map, rules));
+                if (commands.Count > 0)
+                {
+                    sim.Submit(slot, commands);
+                }
+            }
+
+            sim.Step();
+
+            // On the march: both trebuchets well out of the base, the escort around them.
+            var units = sim.GetSpectatorView().Units.Where(u => u.Owner == 0).ToList();
+            var siege = units.Where(u => u.Type == UnitType.Trebuchet).ToList();
+            if (siege.Count == 2 && siege.All(t => t.X > 25 && t.Y > 25 && t.Activity == UnitActivity.Moving))
+            {
+                var (cx, cy) = (siege.Average(t => t.X), siege.Average(t => t.Y));
+                var escorts = units.Where(u => u.Type is not (UnitType.Worker or UnitType.Trebuchet)).ToList();
+                Assert.True(escorts.Count >= 8);
+                if (escorts.Count(e => Math.Max(Math.Abs(e.X - cx), Math.Abs(e.Y - cy)) <= 4) >= 8)
+                {
+                    escorted++;
+                }
+            }
+        }
+
+        var rusher = sim.GetResult()!.Players.Single(p => p.Name == "rusher");
+        Assert.True(rusher.Winner);
+        Assert.Equal(2, rusher.Stats!.UnitsTrained[UnitType.Trebuchet]);
+        Assert.True(escorted > 10, $"the escort should stay around the trebuchets on the march (ticks escorted: {escorted})");
+    }
+
     [Theory]
     [InlineData("rusher", "balanced", 11)]
     [InlineData("rusher", "economist", 12)]

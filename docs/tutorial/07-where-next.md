@@ -19,7 +19,7 @@ python step4_attack.py --name my-first-bot --vs balanced --tick-ms 200          
 | House bot | Plays like |
 |---|---|
 | `sitter` | Only mines. You've beaten it. |
-| `rusher` | Few workers, two Barracks, attacks early with soldiers and scouts. |
+| `rusher` | Races up the tech to two Trebuchets, then attacks with them surrounded by soldiers and scouts. |
 | `economist` | Big economy, guard towers, upgrades, a large late push. |
 | `balanced` | Steady economy, soldiers plus archers, upgrades, attacks in waves of ten. |
 
