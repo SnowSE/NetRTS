@@ -25,11 +25,12 @@ const Script = z.object({
  * The hosts speak about 2.4 words a second.
  */
 export function wordBudget(brief) {
-  if (brief.quiet) return 200;
+  const news = 80 * Math.min(2, brief.news?.length ?? 0);   // room to announce what shipped today
+  if (brief.quiet) return 200 + news;
   const t = brief.totals;
   const busy = 250 + 20 * t.realMatches + 40 * t.leagueMatches
     + 8 * Math.min(10, brief.achievements.length) + 25 * Math.min(6, brief.newBots.length) + 20 * Math.min(5, brief.surprises.length);
-  return Math.min(1100, Math.round(busy / 50) * 50);
+  return Math.min(1100, Math.round(busy / 50) * 50) + news;
 }
 
 export async function writeScript(brief) {
@@ -100,7 +101,10 @@ Rules:
 - Tease and roast bots, never people. Owners are students: be warm about them. Celebrate effort and improvement.
 - Say "${brief.lore.ore}" for the resource. You may use the brief's lore names for flavour.
 - Length: ${budget}. Lines are short: one to three sentences each. Mix the speakers; nobody talks twice in a row more than once or twice.
-- Cover, in roughly this order, whatever the brief has: a cold open; new bots and their owners; the match of the night;
+- If the brief has news (game changes that shipped today), announce every item right after the cold open, with the
+  'news' graphic and its headline as focus: say what it is, how a bot gets it (the API names), and why it matters,
+  in a few lines between the hosts. Never skip news, even on a quiet day.
+- Cover, in roughly this order, whatever the brief has: a cold open; news; new bots and their owners; the match of the night;
   power plays and surprises; new strategies (and bots switching styles); the ladders and who moved; achievements
   (first-ever and rare ones first); rivalries; bots we haven't seen in a while (a "missing persons" bit: we miss you, come back);
   what's coming up (always: ${brief.upcoming.schedule}${brief.upcoming.nextLeagueDay ? ` Next league day: ${brief.upcoming.nextLeagueDay}.` : ''}
@@ -137,13 +141,13 @@ ${JSON.stringify(brief)}` },
   return { ...script, lines: trimToBudget(script.lines, wordBudget(brief) * 1.15), writer: config.model };
 }
 
-/** Holds the script to its word budget: drops the longest lines from the middle, never the open, coming up, mentoring or sign-off. */
+/** Holds the script to its word budget: drops the longest lines from the middle, never the open, news, coming up, mentoring or sign-off. */
 function trimToBudget(lines, maxWords) {
   const words = (l) => l.text.split(/\s+/).length;
   const kept = [...lines];
   while (kept.length > 6 && kept.reduce((n, l) => n + words(l), 0) > maxWords) {
     // Drop the longest line among the middle ones that isn't coming-up or mentoring.
-    const middle = kept.slice(2, -3).filter((l) => !['upcoming', 'mentoring'].includes(l.graphic));
+    const middle = kept.slice(2, -3).filter((l) => !['news', 'upcoming', 'mentoring'].includes(l.graphic));
     if (!middle.length) break;
     kept.splice(kept.indexOf(middle.reduce((a, b) => (words(b) > words(a) ? b : a))), 1);
   }
@@ -164,6 +168,11 @@ export function templateScript(brief) {
   lines.push(say('sarge', brief.quiet
     ? `Quiet one, recruits: ${n(brief.totals.matches)} matches, and even the grubs took the day off.`
     : `${n(brief.totals.matches)} matches, ${n(brief.totals.unitsKilled)} units down and ${n(brief.totals.oreGathered)} ${brief.lore.ore} hauled home. Not bad, not bad at all.`, 'totals', '', 'calm'));
+
+  for (const item of brief.news ?? []) {
+    lines.push(say('zip', `Breaking news from the workshop: ${item.headline}!`, 'news', item.headline));
+    lines.push(say('quill', item.details, 'news', item.headline, 'calm'));
+  }
 
   if (brief.newBots.length) {
     const names = brief.newBots.slice(0, 4).map((b) => (b.owner ? `${b.name}, from ${b.owner}` : b.name));

@@ -51,6 +51,7 @@ public sealed class RecapBrief(
             Weekday = day.DayOfWeek.ToString(),
             Quiet = realMatchIds.Count < recap.Value.QuietNightMatches,
             Lore = Lore(),
+            News = RecapNews.For(day, Snow),
             Totals = new RecapTotalsDto
             {
                 Matches = byMatch.Count,

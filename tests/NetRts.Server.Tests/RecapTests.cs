@@ -57,6 +57,19 @@ public class RecapTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task The_brief_carries_news_only_on_the_day_it_shipped()
+    {
+        var shipped = await JobClient().GetFromJsonAsync<RecapBriefDto>("/api/v1/recaps/brief?date=2026-10-23", NetRtsClient.JsonOptions, Ct);
+        var item = Assert.Single(shipped!.News);
+        Assert.Equal("New unit: the Snow Mobile", item.Headline);
+        Assert.Contains("SiegeWorkshop", item.Details);
+        Assert.Equal(4, item.Facts.Count);
+
+        var after = await JobClient().GetFromJsonAsync<RecapBriefDto>("/api/v1/recaps/brief?date=2026-10-24", NetRtsClient.JsonOptions, Ct);
+        Assert.Empty(after!.News);
+    }
+
+    [Fact]
     public async Task Published_episodes_are_listed_newest_first_and_link_to_their_video()
     {
         var job = JobClient();

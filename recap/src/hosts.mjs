@@ -31,7 +31,7 @@ export const SPEAKERS = Object.keys(HOSTS);
 
 /** What the big screen behind the desk shows during a line. */
 export const GRAPHICS = [
-  'title', 'totals', 'newBots', 'match', 'powerPlays', 'surprises', 'strategies', 'ladder', 'movers',
+  'title', 'news', 'totals', 'newBots', 'match', 'powerPlays', 'surprises', 'strategies', 'ladder', 'movers',
   'achievements', 'rivalries', 'missing', 'upcoming', 'mentoring', 'none',
 ];
 

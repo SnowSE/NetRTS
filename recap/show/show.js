@@ -164,6 +164,12 @@
       `<div class="row${isFocus ? ' focus' : ''}"><div><div class="name">${name}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div><div class="val">${val ?? ''}</div></div>`;
 
     switch (graphic) {
+      case 'news': {
+        const item = (b.news ?? []).find((x) => same(x.headline, focus)) ?? b.news?.[0];
+        if (!item) return ['New today', callout('', 'Nothing new today', '')];
+        return ['New today', `<div class="callout" style="height:auto;margin-bottom:16px"><div class="k">Just shipped</div><div class="t">${esc(item.headline)}</div></div>
+          ${rows((item.facts ?? []).slice(0, 4), (f) => row(esc(f), '', '', false))}`];
+      }
       case 'totals':
         return ['By the numbers', `<div class="big-num">
           <div><b>${num(b.totals.matches)}</b><span>matches</span></div>

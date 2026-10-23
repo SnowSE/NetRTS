@@ -16,6 +16,10 @@ public sealed record RecapBriefDto
     public bool Quiet { get; init; }
 
     public required RecapLoreDto Lore { get; init; }
+
+    /// <summary>Game changes that shipped this day: the hosts announce them near the top of the show.</summary>
+    public IReadOnlyList<RecapNewsDto> News { get; init; } = [];
+
     public required RecapTotalsDto Totals { get; init; }
     public IReadOnlyList<RecapBotDto> NewBots { get; init; } = [];
     public IReadOnlyList<RecapLadderDto> Ladders { get; init; } = [];
@@ -200,6 +204,17 @@ public sealed record RecapMissingDto
     public string? Owner { get; init; }
     public int DaysAway { get; init; }
     public int Matches { get; init; }
+}
+
+public sealed record RecapNewsDto
+{
+    public string Headline { get; init; } = "";
+
+    /// <summary>What changed and how bots use it, API names included.</summary>
+    public string Details { get; init; } = "";
+
+    /// <summary>A few short facts for the big screen.</summary>
+    public IReadOnlyList<string> Facts { get; init; } = [];
 }
 
 public sealed record RecapUpcomingDto
