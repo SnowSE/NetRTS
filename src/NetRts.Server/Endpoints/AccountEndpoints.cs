@@ -62,9 +62,10 @@ public static class AccountEndpoints
 {
     public static void MapAccountEndpoints(this IEndpointRouteBuilder app)
     {
+        // IsPersistent: the sign-in cookie outlives the browser session (30 days, sliding), not just this window.
         app.MapGet("/auth/discord", (IOptions<DiscordOptions> discord, string? returnUrl) =>
                 discord.Value.Enabled
-                    ? Results.Challenge(new AuthenticationProperties { RedirectUri = SafeReturnUrl(returnUrl) }, [Accounts.DiscordScheme])
+                    ? Results.Challenge(new AuthenticationProperties { RedirectUri = SafeReturnUrl(returnUrl), IsPersistent = true }, [Accounts.DiscordScheme])
                     : ApiErrors.Error(404, "DISCORD_DISABLED", "Discord sign-in isn't configured on this server."))
             .ExcludeFromDescription();
 
