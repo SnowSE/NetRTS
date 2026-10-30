@@ -49,7 +49,9 @@ public static class Extensions
                 .AddSource(builder.Environment.ApplicationName)
                 .AddSource(NetRtsTelemetryName)
                 .AddAspNetCoreInstrumentation(options => options.Filter = context => !IsNoisy(context.Request.Path))
-                .AddHttpClientInstrumentation());
+                .AddHttpClientInstrumentation()
+                // Ahead of the exporters added below, so they only ever see the masked URL.
+                .AddProcessor(new UrlSecretsProcessor()));
 
         // Application Insights in Azure, the Aspire dashboard (OTLP) locally.
         if (!string.IsNullOrWhiteSpace(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))

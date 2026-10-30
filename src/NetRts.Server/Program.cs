@@ -36,7 +36,9 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ApiKeyCache>();
 builder.Services.AddSingleton<HouseBotDirectory>();
 builder.Services.AddSingleton<MatchMetrics>();
-builder.Services.AddHttpClient<IDiscordWebhook, DiscordWebhook>();
+// The webhook's token is in its URL, which the client's request logs (and their scope, on every log
+// line inside it) would send to Application Insights.
+builder.Services.AddHttpClient<IDiscordWebhook, DiscordWebhook>().RemoveAllLoggers();
 builder.Services.AddSingleton<MatchAnnouncer>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchAnnouncer>());
 builder.Services.Configure<RecapOptions>(builder.Configuration.GetSection(RecapOptions.Section));
