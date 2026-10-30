@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.ResponseCompression;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
 using NetRts.Bots;
 using NetRts.Server;
@@ -93,8 +94,13 @@ await InitializeDatabaseAsync(app.Services);
 app.UseApiErrors();
 app.UseResponseCompression();
 app.UseDefaultFiles();
+var contentTypes = new FileExtensionContentTypeProvider();
+// The Colab notebook (#/colab): its source, which the page splits into blocks, and the notebook itself.
+contentTypes.Mappings[".py"] = "text/plain; charset=utf-8";
+contentTypes.Mappings[".ipynb"] = "application/x-ipynb+json";
 app.UseStaticFiles(new StaticFileOptions
 {
+    ContentTypeProvider = contentTypes,
     // Always revalidate so a redeploy never leaves spectators on stale JavaScript.
     OnPrepareResponse = ctx => ctx.Context.Response.Headers.CacheControl = "no-cache",
 });

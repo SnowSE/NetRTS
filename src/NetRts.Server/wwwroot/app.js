@@ -8,6 +8,7 @@ import { mountRecaps, showLatestRecap } from './recaps.js';
 import { mountAchievements, mountBot } from './achievements.js';
 import { mountTrophyRoom, mountPerson } from './people.js';
 import { mountHistory } from './history.js';
+import { mountColab } from './colab.js';
 
 const main = document.getElementById('main');
 const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
@@ -26,7 +27,8 @@ function route() {
   const trophyRoom = /^#\/trophy-room\/?$/.test(hash);
   const person = hash.match(/^#\/player\/([A-Za-z0-9-]{1,48})\/?$/);
   const history = hash.match(/^#\/history\/?(?:\?(.*))?$/);
-  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : 'home';
+  const colab = /^#\/colab\/?$/.test(hash);
+  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -48,6 +50,8 @@ function route() {
     teardown = mountPerson(main, person[1]);
   } else if (history) {
     teardown = mountHistory(main, new URLSearchParams(history[1] ?? ''));
+  } else if (colab) {
+    teardown = mountColab(main);
   } else {
     teardown = mountHome(main);
   }

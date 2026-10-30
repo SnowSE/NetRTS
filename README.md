@@ -224,6 +224,7 @@ setup deploys to Azure (App Service plus a private PostgreSQL) with `azd up`.
 | For | Read |
 |---|---|
 | New players, first five minutes | [docs/getting-started.md](docs/getting-started.md): one page |
+| Classrooms, no installs | **Play with Google Colab** (`#/colab` on the site): slides plus Python blocks to paste into Colab. Source: [wwwroot/colab/badger_brawl.py](src/NetRts.Server/wwwroot/colab/badger_brawl.py); rebuild the notebook with `python tools/make_colab_notebook.py` |
 | New players, first bot | [docs/tutorial/](docs/tutorial/README.md): step by step in C# or Python, with screenshots |
 | Reference (and the field guide of campus names) | [docs/bot-guide.md](docs/bot-guide.md): every command, rule, stat and error code |
 | Teaching / contributors | [docs/how-it-works.md](docs/how-it-works.md): guided tour of the back end, with exercises |
