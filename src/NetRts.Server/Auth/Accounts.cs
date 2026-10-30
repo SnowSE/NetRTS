@@ -39,8 +39,8 @@ public sealed class DiscordOptions
     public string? ResultsWebhookUrl { get; set; }
 
     /// <summary>
-    /// A thread in the webhook's channel (right-click it → Copy Thread ID) that match results go to;
-    /// unset, they go to the channel itself. New league matches, achievements and recaps always do.
+    /// A thread in the webhook's channel (right-click it → Copy Thread ID) that match results,
+    /// achievements and recaps go to; unset, they go to the channel itself. New league matches always do.
     /// </summary>
     public string? ResultsThreadId { get; set; }
 

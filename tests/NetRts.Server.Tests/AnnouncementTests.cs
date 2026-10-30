@@ -253,7 +253,8 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
             await Task.Delay(100, Ct);
         }
 
-        Assert.Single(Contents(), c => c.Contains("first ever to earn", StringComparison.Ordinal) && c.Contains("Hello, World", StringComparison.Ordinal));
+        var first = Assert.Single(factory.Webhook.Sent.ToArray(), m => m["content"]?.GetValue<string>() is { } c && c.Contains("first ever to earn", StringComparison.Ordinal) && c.Contains("Hello, World", StringComparison.Ordinal));
+        Assert.Equal("42", factory.Webhook.ThreadOf[first]);
 
         // The day's digest goes out with the nightly ladder snapshot.
         var snapshots = factory.Services.GetRequiredService<NetRts.Server.Recaps.LadderSnapshots>();
@@ -261,6 +262,7 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         var digest = await NextEmbedAsync(e => e["title"]!.GetValue<string>().StartsWith("Achievements unlocked", StringComparison.Ordinal));
         Assert.Contains($"**{info.Name}**: Hello, World", digest["description"]!.GetValue<string>());
         Assert.Equal("https://netrts.test/#/achievements", digest["url"]!.GetValue<string>());
+        Assert.Equal("42", factory.Webhook.ThreadOf[LastMessageFor(digest)]);
     }
 
     [Fact]
@@ -291,6 +293,7 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         Assert.Contains("Monday, January 14", embed["description"]!.GetValue<string>());
         Assert.Equal($"https://netrts.test/recaps/{episode.Id}/thumbnail", embed["image"]!["url"]!.GetValue<string>());
         Assert.Single(Embeds(), e => e["url"]?.GetValue<string>() == embed["url"]!.GetValue<string>());
+        Assert.Equal("42", factory.Webhook.ThreadOf[LastMessageFor(embed)]);
     }
 
     /// <summary>A bot claimed by a new Discord account with this server nickname.</summary>

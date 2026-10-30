@@ -185,8 +185,8 @@ never earn achievements, and lose any they had the next time the server starts.
 
 ## Announcing results in Discord
 
-The shared server posts to the coding-competition channel, and match results (league rounds and
-finals, the practice roundup) to its #results thread:
+The shared server posts to the coding-competition channel's #results thread, except new league
+matches and the super-soldier news, which go to the channel itself:
 
 - **A new league match** (preseason, season, championship): its name and a link, as soon as an
   admin creates it, so people can point their bots at it.

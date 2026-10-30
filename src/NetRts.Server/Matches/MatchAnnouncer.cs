@@ -47,9 +47,9 @@ public sealed class DiscordWebhook(HttpClient http, IOptions<DiscordOptions> opt
 
 /// <summary>
 /// Announces finished matches in the coding-competition Discord channel, when a results webhook is
-/// configured (the shared server; private servers leave it unset). Results go to the channel's results
-/// thread when <see cref="DiscordOptions.ResultsThreadId"/> is set; everything else (new league matches,
-/// achievements, recaps) to the channel itself:
+/// configured (the shared server; private servers leave it unset). Results, achievements and recaps go to
+/// the channel's results thread when <see cref="DiscordOptions.ResultsThreadId"/> is set; new league
+/// matches and the serum news to the channel itself:
 /// <list type="bullet">
 /// <item>season and championship matches: one message once every heat of a round has finished, with each heat's top
 /// players and points, and one when the match is closed, with each bot's total and the ladder;</item>
@@ -310,7 +310,7 @@ public sealed class MatchAnnouncer(
         }
 
         var title = $"Achievements unlocked {day.ToString("dddd, MMMM d", CultureInfo.InvariantCulture)}: {total} by {bots.Count} bot{(bots.Count == 1 ? "" : "s")}";
-        Post(Embed(title, Link("#/achievements"), string.Join("\n", shown), MatchCategory.Practice, null));
+        Post(Embed(title, Link("#/achievements"), string.Join("\n", shown), MatchCategory.Practice, null), results: true);
     }
 
     /// <summary>A bot is the first ever to earn some achievements (one message for all of them).</summary>
@@ -319,7 +319,7 @@ public sealed class MatchAnnouncer(
         if (Enabled && achievements.Count > 0)
         {
             var list = string.Join("\n", achievements.Select(a => $"🏅 **{Escape(a.Name)}**: {Escape(a.Description)}"));
-            Send(new JsonObject { ["content"] = Truncate($"{Who(botName, false, verified, ownerName)} is the first ever to earn\n{list}", 2000) });
+            Send(new JsonObject { ["content"] = Truncate($"{Who(botName, false, verified, ownerName)} is the first ever to earn\n{list}", 2000) }, results: true);
         }
     }
 
@@ -339,7 +339,7 @@ public sealed class MatchAnnouncer(
             embed["image"] = new JsonObject { ["url"] = poster };
         }
 
-        Post(embed);
+        Post(embed, results: true);
     }
 
     private void Post(JsonObject embed, bool results = false) => Send(new JsonObject { ["embeds"] = new JsonArray(embed) }, results);
