@@ -38,7 +38,13 @@ public sealed class DiscordOptions
     /// </summary>
     public string? ResultsWebhookUrl { get; set; }
 
-    /// <summary>How often practice games against house bots are announced, as one digest.</summary>
+    /// <summary>
+    /// A thread in the webhook's channel (right-click it → Copy Thread ID) that match results go to;
+    /// unset, they go to the channel itself. New league matches, achievements and recaps always do.
+    /// </summary>
+    public string? ResultsThreadId { get; set; }
+
+    /// <summary>How often practice games and preseason results are announced, as one roundup.</summary>
     public int ResultsDigestMinutes { get; set; } = 60;
 
     /// <summary>Pause between Discord messages: Discord allows about 30 webhook messages a minute.</summary>

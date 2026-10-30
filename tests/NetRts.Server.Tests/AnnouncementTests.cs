@@ -25,6 +25,7 @@ public sealed class AnnouncingServerFactory : ServerFactory
         builder.UseSetting("Discord:ResultsWebhookUrl", "https://discord.test/api/webhooks/1/x");
         builder.UseSetting("NetRts:PublicUrl", "https://netrts.test/");
         builder.UseSetting("Discord:MessageGapMs", "0");
+        builder.UseSetting("Discord:ResultsThreadId", "42");
         builder.ConfigureTestServices(services => services.AddSingleton<IDiscordWebhook>(Webhook));
     }
 }
@@ -33,8 +34,12 @@ public sealed class FakeWebhook : IDiscordWebhook
 {
     public ConcurrentQueue<JsonObject> Sent { get; } = new();
 
-    public Task<TimeSpan?> SendAsync(JsonObject message, CancellationToken ct)
+    /// <summary>The thread each sent message went to (null: the channel itself).</summary>
+    public ConcurrentDictionary<JsonObject, string?> ThreadOf { get; } = new(ReferenceEqualityComparer.Instance);
+
+    public Task<TimeSpan?> SendAsync(JsonObject message, string? threadId, CancellationToken ct)
     {
+        ThreadOf[message] = threadId;
         Sent.Enqueue(message);
         return Task.FromResult<TimeSpan?>(null);
     }
@@ -46,7 +51,7 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task Practice_between_real_bots_is_announced_with_a_link_and_no_pings()
+    public async Task Practice_between_real_bots_waits_for_the_roundup_with_a_link_and_no_pings()
     {
         var (winner, winnerInfo) = await factory.NewPlayerAsync("win");
         var (loser, loserInfo) = await factory.NewPlayerAsync("lose");
@@ -55,10 +60,16 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         factory.Matches.Get(match.MatchId)!.Advance(2);
         await loser.SurrenderAsync(match.MatchId, Ct);
 
-        var embed = await NextEmbedAsync(e => e["url"]?.GetValue<string>() == $"https://netrts.test/#/match/{match.MatchId}");
-        Assert.Equal($"{winnerInfo.Name} beat {loserInfo.Name}", embed["title"]!.GetValue<string>());
-        Assert.Contains("By surrender", embed["description"]!.GetValue<string>());
+        await WaitUntilAsync(() => factory.Matches.Get(match.MatchId)!.Recorded);
+        await Task.Delay(300, Ct);
+        Assert.DoesNotContain(Embeds(), e => e.ToJsonString().Contains(match.MatchId.ToString()));
+
+        factory.Announcer.FlushDigest();
+        var embed = await RoundupWithAsync(match.MatchId);
+        Assert.StartsWith("Practice roundup", embed["title"]!.GetValue<string>(), StringComparison.Ordinal);
+        Assert.Contains($"🏆 **{winnerInfo.Name}** beat **{loserInfo.Name}** · [watch](https://netrts.test/#/match/{match.MatchId})", embed["description"]!.GetValue<string>());
         Assert.Empty(LastMessageFor(embed)["allowed_mentions"]!["parse"]!.AsArray());
+        Assert.Equal("42", factory.Webhook.ThreadOf[LastMessageFor(embed)]);
     }
 
     [Fact]
@@ -78,10 +89,8 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         Assert.DoesNotContain(Embeds(), e => e["url"]?.GetValue<string>()?.Contains(match.MatchId.ToString()) == true);
 
         factory.Announcer.FlushDigest();
-        var digest = await NextEmbedAsync(e => e["title"]!.GetValue<string>().StartsWith("Practice vs house bots", StringComparison.Ordinal)
-                                               && e["description"]!.GetValue<string>().Contains(match.MatchId.ToString()));
-        Assert.Contains("lost to sitter (house bot)", digest["description"]!.GetValue<string>());
-        Assert.Contains($"**{bot.Name}**", digest["description"]!.GetValue<string>());
+        var digest = await RoundupWithAsync(match.MatchId);
+        Assert.Contains($"**{bot.Name}** won 0 of 1 against sitter · [latest]", digest["description"]!.GetValue<string>());
         Assert.DoesNotContain(Embeds(), e => e.ToJsonString().Contains(exhibitionId.ToString()));
     }
 
@@ -127,9 +136,47 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         Assert.Contains("pts", fields[0]!["value"]!.GetValue<string>());
         Assert.Contains("(Owner", fields[0]!["value"]!.GetValue<string>());
 
+        Assert.Equal("42", factory.Webhook.ThreadOf[LastMessageFor(embed)]);
+
         await Task.Delay(2500, Ct);
         Assert.Single(Embeds(), IsResults);
-        Assert.Single(Embeds(), e => e["url"]?.GetValue<string>() == leagueUrl && e["title"]!.GetValue<string>().StartsWith("Season match open", StringComparison.Ordinal));
+        var open = Assert.Single(Embeds(), e => e["url"]?.GetValue<string>() == leagueUrl && e["title"]!.GetValue<string>().StartsWith("Season match open", StringComparison.Ordinal));
+        Assert.Null(factory.Webhook.ThreadOf[LastMessageFor(open)]);
+    }
+
+    [Fact]
+    public async Task Preseason_results_wait_for_the_roundup()
+    {
+        var admin = factory.ClientFor(await factory.NewAccountAsync(admin: true));
+        var name = $"pre-{Guid.NewGuid():N}"[..12];
+        var created = await admin.PostAsJsonAsync("/api/v1/admin/matches",
+            new CreateLeagueMatchRequest { Category = MatchCategory.Preseason, Name = name }, NetRtsClient.JsonOptions, Ct);
+        var match = (await created.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+        var bots = new List<(NetRtsClient Client, Guid Id)>();
+        for (var i = 0; i < 2; i++)
+        {
+            var owner = factory.ClientFor(await factory.NewAccountAsync(nickname: $"Pre{i}"));
+            var reg = await (await owner.PostAsJsonAsync("/api/v1/account/bots", new RegisterPlayerRequest { Name = $"ps{i}-{Guid.NewGuid():N}"[..14] }, Ct))
+                .Content.ReadFromJsonAsync<RegisterPlayerResponse>(NetRtsClient.JsonOptions, Ct);
+            var bot = new NetRtsClient(factory.CreateClient(), reg!.ApiKey);
+            await bot.JoinMatchAsync(match.MatchId, Ct);
+            bots.Add((bot, reg.PlayerId));
+        }
+
+        var split = await admin.PostAsJsonAsync($"/api/v1/admin/matches/{match.MatchId}/heats", new SplitHeatsRequest { Sizes = [2] }, NetRtsClient.JsonOptions, Ct);
+        var heat = factory.Matches.Get((await split.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!.Heats![0].MatchId)!;
+        (await admin.PostAsync($"/api/v1/admin/matches/{match.MatchId}/start", null, Ct)).EnsureSuccessStatusCode();
+        heat.Advance(2);
+        await bots[0].Client.SurrenderAsync(match.MatchId, Ct);
+        await WaitUntilAsync(() => heat.Recorded);
+        await Task.Delay(300, Ct);
+        Assert.DoesNotContain(Embeds(), e => e["title"]!.GetValue<string>().StartsWith($"Preseason: {name}", StringComparison.Ordinal));
+
+        factory.Announcer.FlushDigest();
+        var roundup = await NextEmbedAsync(e => e["title"]!.GetValue<string>().Contains("roundup", StringComparison.Ordinal)
+                                                && e["description"]!.GetValue<string>().Contains($"**{name}**", StringComparison.Ordinal));
+        Assert.Contains("**Preseason**", roundup["description"]!.GetValue<string>());
+        Assert.Contains($"[results](https://netrts.test/#/match/{match.MatchId})", roundup["description"]!.GetValue<string>());
     }
 
     [Fact]
@@ -142,7 +189,9 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         factory.Matches.Get(match.MatchId)!.Advance(2);
         await loser.SurrenderAsync(match.MatchId, Ct);
 
-        var embed = await NextEmbedAsync(e => e["url"]?.GetValue<string>() == $"https://netrts.test/#/match/{match.MatchId}");
+        await WaitUntilAsync(() => factory.Matches.Get(match.MatchId)!.Recorded);
+        factory.Announcer.FlushDigest();
+        var embed = await RoundupWithAsync(match.MatchId);
         var description = embed["description"]!.GetValue<string>();
         Assert.Contains($@"**{winnerName}** ✅ (\*Star\*\_Lord)", description);
         Assert.Contains(@"(\[Groot\]\(x\))", description);
@@ -275,6 +324,11 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
 
     private JsonObject LastMessageFor(JsonObject embed) =>
         factory.Webhook.Sent.ToArray().Last(m => m["embeds"]?.AsArray().Any(e => ReferenceEquals(e, embed)) == true);
+
+    /// <summary>The roundup that lists this match.</summary>
+    private Task<JsonObject> RoundupWithAsync(Guid matchId) =>
+        NextEmbedAsync(e => e["title"]!.GetValue<string>().StartsWith("Practice roundup", StringComparison.Ordinal)
+                            && e["description"]!.GetValue<string>().Contains(matchId.ToString()));
 
     private async Task<JsonObject> NextEmbedAsync(Func<JsonObject, bool> match)
     {

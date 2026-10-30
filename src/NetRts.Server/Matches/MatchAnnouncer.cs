@@ -15,16 +15,25 @@ namespace NetRts.Server.Matches;
 /// <summary>Posts a message to the Discord channel webhook (see <see cref="DiscordOptions.ResultsWebhookUrl"/>).</summary>
 public interface IDiscordWebhook
 {
-    /// <summary>Sends one webhook message; returns how long Discord asked us to wait before retrying, if it rate-limited us.</summary>
-    Task<TimeSpan?> SendAsync(JsonObject message, CancellationToken ct);
+    /// <summary>
+    /// Sends one webhook message, into the thread <paramref name="threadId"/> of the webhook's channel when
+    /// given; returns how long Discord asked us to wait before retrying, if it rate-limited us.
+    /// </summary>
+    Task<TimeSpan?> SendAsync(JsonObject message, string? threadId, CancellationToken ct);
 }
 
 public sealed class DiscordWebhook(HttpClient http, IOptions<DiscordOptions> options) : IDiscordWebhook
 {
-    public async Task<TimeSpan?> SendAsync(JsonObject message, CancellationToken ct)
+    public async Task<TimeSpan?> SendAsync(JsonObject message, string? threadId, CancellationToken ct)
     {
+        var url = options.Value.ResultsWebhookUrl!;
+        if (!string.IsNullOrWhiteSpace(threadId))
+        {
+            url += (url.Contains('?') ? "&" : "?") + "thread_id=" + Uri.EscapeDataString(threadId.Trim());
+        }
+
         using var content = new StringContent(message.ToJsonString(), Encoding.UTF8, "application/json");
-        using var response = await http.PostAsync(options.Value.ResultsWebhookUrl, content, ct);
+        using var response = await http.PostAsync(url, content, ct);
         if (response.StatusCode == HttpStatusCode.TooManyRequests)
         {
             using var body = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
@@ -38,12 +47,14 @@ public sealed class DiscordWebhook(HttpClient http, IOptions<DiscordOptions> opt
 
 /// <summary>
 /// Announces finished matches in the coding-competition Discord channel, when a results webhook is
-/// configured (the shared server; private servers leave it unset):
+/// configured (the shared server; private servers leave it unset). Results go to the channel's results
+/// thread when <see cref="DiscordOptions.ResultsThreadId"/> is set; everything else (new league matches,
+/// achievements, recaps) to the channel itself:
 /// <list type="bullet">
-/// <item>league matches: one message once every heat of a round has finished, with each heat's top players and points, and
-/// one when the match is closed, with each bot's total and the ladder;</item>
-/// <item>practice between real bots: one short message each;</item>
-/// <item>practice against house bots only: an hourly digest, so iterating on a bot doesn't flood the channel;</item>
+/// <item>season and championship matches: one message once every heat of a round has finished, with each heat's top
+/// players and points, and one when the match is closed, with each bot's total and the ladder;</item>
+/// <item>practice games with at least one real bot, and preseason results: a roundup every few hours
+/// (<see cref="DiscordOptions.ResultsDigestMinutes"/>), so iterating on a bot doesn't flood the channel;</item>
 /// <item>house-bot exhibitions: nothing.</item>
 /// </list>
 /// Posting happens in the background; a failure is logged and skipped, never holding up a match.
@@ -55,8 +66,9 @@ public sealed class MatchAnnouncer(
     TimeProvider time,
     ILogger<MatchAnnouncer> logger) : BackgroundService
 {
-    private readonly Channel<JsonObject> _outbox = Channel.CreateBounded<JsonObject>(new BoundedChannelOptions(200) { FullMode = BoundedChannelFullMode.DropOldest });
+    private readonly Channel<(JsonObject Message, string? ThreadId)> _outbox = Channel.CreateBounded<(JsonObject, string?)>(new BoundedChannelOptions(200) { FullMode = BoundedChannelFullMode.DropOldest });
     private readonly List<MatchSummaryDto> _digest = [];
+    private readonly List<string> _preseasonDigest = [];
     private readonly HashSet<(Guid League, int Round)> _announcedRounds = [];
     private const string SerumMilestone = "serum";
 
@@ -77,10 +89,6 @@ public sealed class MatchAnnouncer(
         {
             AnnounceRoundIfDone(parent, host.Id);
         }
-        else if (summary.Players.Count(p => !p.IsHouseBot) >= 2)
-        {
-            Post(PracticeMessage(summary));
-        }
         else if (summary.Players.Any(p => !p.IsHouseBot))
         {
             lock (_gate)
@@ -90,20 +98,51 @@ public sealed class MatchAnnouncer(
         }
     }
 
-    /// <summary>Posts the digest of practice games against house bots, if there were any.</summary>
+    /// <summary>Posts the roundup of practice games and preseason results, if there were any.</summary>
     public void FlushDigest()
     {
+        if (TakeDigest() is { } message)
+        {
+            Send(message, results: true);
+        }
+    }
+
+    /// <summary>A deploy shouldn't swallow hours of practice: post what's been gathered on the way out.</summary>
+    public override async Task StopAsync(CancellationToken cancellationToken)
+    {
+        await base.StopAsync(cancellationToken);
+        if (Enabled && TakeDigest() is { } message)
+        {
+            try
+            {
+                await services.GetRequiredService<IDiscordWebhook>().SendAsync(message, ResultsThread, cancellationToken);
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                logger.LogWarning(ex, "Could not post the practice roundup to Discord");
+            }
+        }
+    }
+
+    private JsonObject? TakeDigest()
+    {
         List<MatchSummaryDto> games;
+        List<string> preseason;
         lock (_gate)
         {
-            games = [.. _digest];
+            (games, preseason) = ([.. _digest], [.. _preseasonDigest]);
             _digest.Clear();
+            _preseasonDigest.Clear();
         }
 
-        if (games.Count > 0)
+        if (games.Count == 0 && preseason.Count == 0)
         {
-            Post(DigestMessage(games));
+            return null;
         }
+
+        var message = new JsonObject { ["embeds"] = new JsonArray(DigestMessage(games, preseason)) };
+        message["allowed_mentions"] = new JsonObject { ["parse"] = new JsonArray() };
+        return message;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -111,14 +150,14 @@ public sealed class MatchAnnouncer(
         var digestEvery = TimeSpan.FromMinutes(Math.Max(1, discord.Value.ResultsDigestMinutes));
         _ = DigestLoopAsync(digestEvery, stoppingToken);
         var webhook = services.GetRequiredService<IDiscordWebhook>();
-        await foreach (var message in _outbox.Reader.ReadAllAsync(stoppingToken))
+        await foreach (var (message, threadId) in _outbox.Reader.ReadAllAsync(stoppingToken))
         {
             try
             {
-                if (await webhook.SendAsync(message, stoppingToken) is { } retryAfter)
+                if (await webhook.SendAsync(message, threadId, stoppingToken) is { } retryAfter)
                 {
                     await Task.Delay(retryAfter, time, stoppingToken);
-                    await webhook.SendAsync(message, stoppingToken);
+                    await webhook.SendAsync(message, threadId, stoppingToken);
                 }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
@@ -200,6 +239,14 @@ public sealed class MatchAnnouncer(
             return;
         }
 
+        if (category == MatchCategory.Preseason)
+        {
+            var top = string.Join(", ", totals.Take(3).Select((t, i) => $"{i + 1}. {Who(t.Name, false, t.Verified, t.OwnerName)} · {t.Points.ToString("N0", CultureInfo.InvariantCulture)} pts"));
+            var link = leagueId is { } match ? $" · [results]({Link($"#/match/{match}")})" : "";
+            AddPreseason($"• {(name is null ? "A match" : $"**{Escape(name)}**")} is final: {(top.Length == 0 ? "nobody scored" : top)}{link}");
+            return;
+        }
+
         var rows = totals.Take(15).Select((t, i) =>
         {
             var heats = t.HeatPoints.Count < 2 ? "" : $" ({string.Join(" + ", t.HeatPoints.Select(p => p.ToString("N0", CultureInfo.InvariantCulture)))}, lowest dropped)";
@@ -220,7 +267,7 @@ public sealed class MatchAnnouncer(
                 $"{e.Rank}. {Who(e.Name, e.IsHouseBot, e.Verified, e.OwnerName)} · {e.Points.ToString("N0", CultureInfo.InvariantCulture)} pts · skill {e.Skill.ToString("N0", CultureInfo.InvariantCulture)}")), 1024),
             ["inline"] = false,
         });
-        Post(embed);
+        Post(embed, results: true);
     }
 
     /// <summary>An admin has created a league match: say what it's called and where to join it.</summary>
@@ -295,14 +342,16 @@ public sealed class MatchAnnouncer(
         Post(embed);
     }
 
-    private void Post(JsonObject embed) => Send(new JsonObject { ["embeds"] = new JsonArray(embed) });
+    private void Post(JsonObject embed, bool results = false) => Send(new JsonObject { ["embeds"] = new JsonArray(embed) }, results);
 
-    private void Send(JsonObject message)
+    private void Send(JsonObject message, bool results = false)
     {
         // Names are shown as text; never ping anyone.
         message["allowed_mentions"] = new JsonObject { ["parse"] = new JsonArray() };
-        _outbox.Writer.TryWrite(message);
+        _outbox.Writer.TryWrite((message, results ? ResultsThread : null));
     }
+
+    private string? ResultsThread => string.IsNullOrWhiteSpace(discord.Value.ResultsThreadId) ? null : discord.Value.ResultsThreadId;
 
     private void AnnounceRoundIfDone(Guid parentId, Guid heatId)
     {
@@ -333,42 +382,75 @@ public sealed class MatchAnnouncer(
             }
         }
 
-        Post(LeagueMessage(league, round == 1 && onlyRound ? null : round, heats.Select(h => LeagueMatchManager.StandingsOf(h, round)).ToList()));
+        var standings = heats.Select(h => LeagueMatchManager.StandingsOf(h, round)).ToList();
+        if (league.Category == MatchCategory.Preseason)
+        {
+            var winners = string.Join(", ", standings.Select(h => h.Players.FirstOrDefault()).OfType<StandingDto>().Select(p => Who(p.Name, false, p.Verified, p.OwnerName)));
+            AddPreseason($"• **{Escape(league.Name)}**{(onlyRound ? "" : $", round {round}")}: {standings.Count} heat{(standings.Count == 1 ? "" : "s")}" +
+                         (winners.Length == 0 ? "" : $", won by {winners}") + $" · [results]({Link($"#/match/{league.Id}")})");
+            return;
+        }
+
+        Post(LeagueMessage(league, round == 1 && onlyRound ? null : round, standings), results: true);
+    }
+
+    private void AddPreseason(string line)
+    {
+        lock (_gate)
+        {
+            _preseasonDigest.Add(line);
+        }
     }
 
     // ------------------------------------------------------------------ messages
 
-    private JsonObject PracticeMessage(MatchSummaryDto m)
+    private JsonObject DigestMessage(List<MatchSummaryDto> games, List<string> preseason)
     {
-        var winner = m.Players.FirstOrDefault(p => p.PlayerId == m.Outcome!.WinnerId);
-        var title = winner is null
-            ? $"Draw: {string.Join(" vs ", m.Players.Select(p => p.Name))}"
-            : m.Players.Count == 2
-                ? $"{winner.Name} beat {m.Players.First(p => p.PlayerId != winner.PlayerId).Name}"
-                : $"{winner.Name} won a {m.Players.Count}-player match";
-        return Embed(Truncate(title, 250), Link($"#/match/{m.MatchId}"),
-            $"{HowItEnded(m.Outcome!)}\n{string.Join("\n", m.Players.Select(p => (p.PlayerId == winner?.PlayerId ? "🏆 " : "• ") + Who(p.Name, p.IsHouseBot, p.Verified, p.OwnerName)))}",
-            m.Category, "Practice");
-    }
-
-    private JsonObject DigestMessage(List<MatchSummaryDto> games)
-    {
-        var lines = games.Take(10).Select(g =>
+        var sections = new List<string>();
+        var versus = games.Where(g => g.Players.Count(p => !p.IsHouseBot) >= 2).ToList();
+        if (versus.Count > 0)
         {
-            var bot = g.Players.First(p => !p.IsHouseBot);
-            var won = g.Outcome!.WinnerId == bot.PlayerId;
-            var houses = string.Join(", ", g.Players.Where(p => p.IsHouseBot).Select(p => HouseName(p.Name)));
-            var verb = g.Outcome.WinnerId is null ? "drew with" : won ? "beat" : "lost to";
-            return $"• {Who(bot.Name, false, bot.Verified, bot.OwnerName)} {verb} {houses} · [watch]({Link($"#/match/{g.MatchId}")})";
-        }).ToList();
-        if (games.Count > 10)
-        {
-            lines.Add($"…and {games.Count - 10} more");
+            sections.Add(Section($"Bot vs bot ({versus.Count})", versus.Select(g => $"{PracticeResult(g)} · [watch]({Link($"#/match/{g.MatchId}")})").ToList()));
         }
 
-        var wins = games.Count(g => g.Players.Any(p => !p.IsHouseBot && p.PlayerId == g.Outcome!.WinnerId));
-        return Embed($"Practice vs house bots: {games.Count} game{(games.Count == 1 ? "" : "s")}, {wins} won by players",
-            Link("#/"), Truncate(string.Join("\n", lines), 4000), MatchCategory.Practice, null);
+        // Against house bots: one line per bot, however many games it played.
+        var solo = games.Except(versus)
+            .GroupBy(g => g.Players.First(p => !p.IsHouseBot).PlayerId)
+            .OrderByDescending(b => b.Count())
+            .Select(b =>
+            {
+                var bot = b.Last().Players.First(p => !p.IsHouseBot);
+                var wins = b.Count(g => g.Outcome!.WinnerId == bot.PlayerId);
+                var houses = string.Join(", ", b.SelectMany(g => g.Players.Where(p => p.IsHouseBot).Select(p => HouseBot(p.Name))).Distinct().Order(StringComparer.Ordinal));
+                return $"• {Who(bot.Name, false, bot.Verified, bot.OwnerName)} won {wins} of {b.Count()} against {houses} · [latest]({Link($"#/match/{b.Last().MatchId}")})";
+            }).ToList();
+        if (solo.Count > 0)
+        {
+            sections.Add(Section($"Against house bots ({games.Count - versus.Count})", solo));
+        }
+
+        if (preseason.Count > 0)
+        {
+            sections.Add(Section("Preseason", preseason));
+        }
+
+        var title = games.Count == 0 ? "Preseason roundup" : $"Practice roundup: {games.Count} game{(games.Count == 1 ? "" : "s")}";
+        return Embed(title, Link("#/"), Truncate(string.Join("\n\n", sections), 4000), MatchCategory.Practice, null);
+    }
+
+    /// <summary>A bold heading over at most ten lines.</summary>
+    private static string Section(string heading, List<string> lines) =>
+        $"**{heading}**\n" + string.Join("\n", lines.Take(10)) + (lines.Count > 10 ? $"\n…and {lines.Count - 10} more" : "");
+
+    private static string PracticeResult(MatchSummaryDto m)
+    {
+        static string Name(MatchPlayerDto p) => Who(p.Name, p.IsHouseBot, p.Verified, p.OwnerName);
+        var winner = m.Players.FirstOrDefault(p => p.PlayerId == m.Outcome!.WinnerId);
+        return winner is null
+            ? $"• Draw: {string.Join(" vs ", m.Players.Select(Name))}"
+            : m.Players.Count == 2
+                ? $"🏆 {Name(winner)} beat {Name(m.Players.First(p => p.PlayerId != winner.PlayerId))}"
+                : $"🏆 {Name(winner)} won a {m.Players.Count}-player match";
     }
 
     private JsonObject LeagueMessage(LeagueMatch league, int? round, List<HeatStandingsDto> heats)
@@ -434,19 +516,15 @@ public sealed class MatchAnnouncer(
     private string? Link(string fragment) =>
         string.IsNullOrWhiteSpace(options.Value.PublicUrl) ? null : options.Value.PublicUrl.TrimEnd('/') + "/" + fragment;
 
-    private static string HowItEnded(MatchOutcomeDto o) => o.Reason switch
-    {
-        MatchEndReason.Elimination => $"By elimination after {o.Ticks:N0} ticks",
-        MatchEndReason.Surrender => $"By surrender after {o.Ticks:N0} ticks",
-        _ => o.WinnerId is null ? $"Draw at the time limit ({o.Ticks:N0} ticks)" : $"On score at the time limit ({o.Ticks:N0} ticks)",
-    };
-
     private static string Who(string name, bool houseBot, bool verified, string? owner) =>
         houseBot ? HouseName(name)
         : $"**{Escape(name)}**" + (verified ? " ✅" : "") + (verified && owner is not null ? $" ({Escape(owner)})" : "");
 
     /// <summary>"house-rusher 2" → "rusher 2 (house bot)".</summary>
-    private static string HouseName(string name) => $"{Escape(name.StartsWith("house-", StringComparison.Ordinal) ? name[6..] : name)} (house bot)";
+    private static string HouseName(string name) => $"{HouseBot(name)} (house bot)";
+
+    /// <summary>"house-rusher 2" → "rusher 2".</summary>
+    private static string HouseBot(string name) => Escape(name.StartsWith("house-", StringComparison.Ordinal) ? name[6..] : name);
 
     private static string Escape(string text)
     {

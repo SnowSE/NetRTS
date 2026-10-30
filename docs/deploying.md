@@ -185,27 +185,31 @@ never earn achievements, and lose any they had the next time the server starts.
 
 ## Announcing results in Discord
 
-The shared server posts to the coding-competition channel:
+The shared server posts to the coding-competition channel, and match results (league rounds and
+finals, the practice roundup) to its #results thread:
 
 - **A new league match** (preseason, season, championship): its name and a link, as soon as an
   admin creates it, so people can point their bots at it.
-- **League matches:** one message once every heat has finished, with each heat's top four and
-  their points, linking to the match's scoreboard page.
+- **Season and championship matches:** one message once every heat has finished, with each heat's
+  top four and their points, linking to the match's scoreboard page, and one when it's closed.
 - **Achievements:** the first bot ever to earn each one, straight away; and every night at
   midnight, a digest of everything earned that day, bot by bot.
 - **The nightly recap:** last night's episode, with its poster and a link, at 6:30 a.m. local time
   (`Recap__AnnounceAt`), or as soon as it's published if that's later in the day. Once per episode.
-- **Practice between real bots:** one short message each.
-- **Practice against house bots:** one digest every hour (`Discord__ResultsDigestMinutes`).
+- **Practice (scrimmages) and preseason results:** one roundup every hour
+  (`Discord__ResultsDigestMinutes`): games between real bots one by one, each bot's record against
+  the house bots, and preseason rounds. Whatever's gathered is posted when the server shuts down,
+  so a deploy doesn't lose it.
 - **House-bot exhibitions:** nothing.
 
 To turn it on, open the channel's settings → **Integrations → Webhooks → New Webhook**, copy its
-URL, and set two app settings on the web app:
+URL, and set these app settings on the web app:
 
 | Setting | Value |
 |---|---|
 | `Discord__ResultsWebhookUrl` | the webhook URL (treat it as a secret: anyone with it can post) |
 | `NetRts__PublicUrl` | `https://netrts.snowse.io`, so messages link to the matches |
+| `Discord__ResultsThreadId` | optional: the thread for results (right-click it → **Copy Thread ID**; it must be in the webhook's channel). Unset, results go to the channel |
 
 Leave `Discord__ResultsWebhookUrl` unset anywhere else (local runs, private servers) and nothing is
 posted. Messages show bot names and owners' nicknames as text with mentions turned off, so nobody
