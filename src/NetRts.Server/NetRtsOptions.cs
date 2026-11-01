@@ -41,6 +41,18 @@ public sealed class NetRtsOptions
 
     public int MaxLiveMatches { get; set; } = 50;
     public int MaxWaitingMatchesPerPlayer { get; set; } = 3;
+
+    /// <summary>
+    /// Practice matches one bot may have running at once. Each runs until its time limit (30 minutes at
+    /// the default speed) whether or not anyone is playing it, so without a cap one bot could fill the server.
+    /// </summary>
+    public int MaxRunningMatchesPerPlayer { get; set; } = 3;
+
+    /// <summary>
+    /// A running practice match whose creator hasn't read its state or sent commands for this long has been
+    /// left (the bot crashed or was stopped). Starting a match past the cap above surrenders those first.
+    /// </summary>
+    public int AbandonedMatchSeconds { get; set; } = 40;
     public int MaxConcurrentExhibitions { get; set; } = 4;
 
     /// <summary>Waiting matches nobody joins are dropped after this long.</summary>
@@ -64,7 +76,8 @@ public sealed class NetRtsOptions
     /// <summary>API requests allowed per second per player in each match (4x this across all of a player's matches).</summary>
     public int RequestsPerSecond { get; set; } = 30;
 
-    public int RegistrationsPerMinutePerIp { get; set; } = 5;
+    /// <summary>A classroom shares one address, so this leaves room for a whole class signing up at once.</summary>
+    public int RegistrationsPerMinutePerIp { get; set; } = 25;
 
     public int ExhibitionsPerMinutePerIp { get; set; } = 10;
 }

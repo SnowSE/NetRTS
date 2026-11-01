@@ -53,18 +53,19 @@ public class LiveMatchTests(TickingServerFactory factory) : IClassFixture<Tickin
     public async Task Ten_concurrent_matches_all_progress()
     {
         var ct = TestContext.Current.CancellationToken;
-        var matches = new List<MatchSummaryDto>();
-        var (client, _) = await factory.NewPlayerAsync();
+        var matches = new List<(NetRtsClient Client, MatchSummaryDto Match)>();
+        // One bot per match: a bot may only have a few running at once.
         for (var i = 0; i < 10; i++)
         {
-            matches.Add(await client.CreateMatchAsync(new CreateMatchRequest
+            var (client, _) = await factory.NewPlayerAsync();
+            matches.Add((client, await client.CreateMatchAsync(new CreateMatchRequest
             {
                 HouseBots = ["balanced"],
                 Settings = new MatchSettingsDto { TickIntervalMs = 50, MaxTicks = 40 },
-            }, ct));
+            }, ct)));
         }
 
-        foreach (var m in matches)
+        foreach (var (client, m) in matches)
         {
             var state = await client.GetStateAsync(m.MatchId, waitForTick: 40, ct: ct);
             Assert.Equal(MatchStatus.Completed, state.Status);

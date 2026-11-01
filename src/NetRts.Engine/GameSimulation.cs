@@ -90,6 +90,8 @@ public sealed partial class GameSimulation
 
     public int SlotOf(Guid playerId) => _players.FindIndex(p => p.Id == playerId);
 
+    public bool IsEliminated(int slot) => _players[slot].Eliminated;
+
     public int QueueSize(int slot) => _players[slot].CommandQueue.Count;
 
     /// <summary>Validates and queues commands for execution on upcoming ticks.</summary>

@@ -112,6 +112,8 @@ public sealed partial class MatchManager(
                 throw new MatchException(429, "TOO_MANY_WAITING_MATCHES", $"You already have {waitingByCreator} matches waiting for opponents.");
             }
 
+            EnsureRunningCapacity(creatorId);
+
             if (name is not null && _matches.Values.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase) && m.Status != MatchStatus.Completed))
             {
                 throw new MatchException(409, "MATCH_NAME_TAKEN", $"A match named '{name}' is already waiting or running.");
@@ -331,6 +333,42 @@ public sealed partial class MatchManager(
         if (host.IsFull)
         {
             host.Start(_options.AutoTick, TimeSpan.FromMilliseconds(_options.StartDelayMs));
+        }
+    }
+
+    /// <summary>
+    /// At most <see cref="NetRtsOptions.MaxRunningMatchesPerPlayer"/> running practice matches per creator. A bot
+    /// that crashed or was stopped leaves its match running with nobody playing it: past the cap, those are
+    /// surrendered rather than turning the restarted bot away.
+    /// </summary>
+    private void EnsureRunningCapacity(Guid creatorId)
+    {
+        List<MatchHost> Running() => _matches.Values
+            .Where(m => m.CreatorId == creatorId && m.Category == MatchCategory.Practice && m.IsPlaying(creatorId))
+            .OrderBy(m => m.CreatedAt)
+            .ToList();
+
+        var running = Running();
+        if (running.Count < _options.MaxRunningMatchesPerPlayer)
+        {
+            return;
+        }
+
+        var abandonedBefore = DateTime.UtcNow - TimeSpan.FromSeconds(_options.AbandonedMatchSeconds);
+        foreach (var host in running.Where(m => m.CreatorSeenAt < abandonedBefore))
+        {
+            if (host.Surrender(creatorId))
+            {
+                _logger.LogInformation("Surrendered abandoned match {MatchId} so {PlayerId} could start another", host.Id, creatorId);
+            }
+        }
+
+        running = Running();
+        if (running.Count >= _options.MaxRunningMatchesPerPlayer)
+        {
+            throw new MatchException(429, "TOO_MANY_RUNNING_MATCHES",
+                $"You already have {running.Count} matches running ({string.Join(", ", running.Select(m => m.Id))}). " +
+                "Surrender one (POST /api/v1/matches/{id}/surrender) or let it finish, then start another.");
         }
     }
 

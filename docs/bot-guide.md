@@ -76,7 +76,7 @@ Authorization: Bearer nrts_…
 ```
 
 (`X-Api-Key: nrts_…` also works.) Names are 3–32 letters, digits, `_` or `-`. Registration is
-limited to 5 per minute per IP address, so register once and reuse the key.
+limited to 25 per minute per IP address (a classroom shares one), so register once and reuse the key.
 
 ### Verify your bot with Discord
 
@@ -95,7 +95,7 @@ away, practice and preseason games in an hourly roundup. To practise privately, 
 
 | Call | What it does |
 |---|---|
-| `POST /api/v1/matches` | Create a practice match. Body (all optional): `{"name":"cs1400-lab", "maxPlayers":2, "houseBots":["balanced"], "settings":{"tickIntervalMs":1000,"maxTicks":1800,"mapWidth":64,"mapHeight":64,"seed":42}}`. It starts as soon as every seat is filled — with `houseBots` that is immediately. A `name` (3–32 letters, digits, `_` or `-`) lets others find the match; no two unfinished matches share one (`409 MATCH_NAME_TAKEN`). |
+| `POST /api/v1/matches` | Create a practice match. Body (all optional): `{"name":"cs1400-lab", "maxPlayers":2, "houseBots":["balanced"], "settings":{"tickIntervalMs":1000,"maxTicks":1800,"mapWidth":64,"mapHeight":64,"seed":42}}`. It starts as soon as every seat is filled — with `houseBots` that is immediately. A `name` (3–32 letters, digits, `_` or `-`) lets others find the match; no two unfinished matches share one (`409 MATCH_NAME_TAKEN`). A bot can have three of its own matches running at once (`429 TOO_MANY_RUNNING_MATCHES`, listing them); starting another first surrenders any it has stopped playing, meaning no `state` or `commands` call for 40 seconds, so a bot that crashed and restarted isn't locked out. |
 | `GET /api/v1/matches?status=Waiting` | Open matches you can join, with their `name` if they have one. |
 | `GET /api/v1/matches/named/{name}` | The match with that name: the one waiting or running, otherwise the most recent. The spectator page takes names too: `/#/match/{name}`. |
 | `POST /api/v1/matches/{id}/join` | Take a free seat. League matches (preseason, season, championship) take Discord-verified bots only (`403 NOT_VERIFIED`), one per person. |
@@ -492,6 +492,7 @@ Every non-2xx response has the same body:
 Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `403 NOT_VERIFIED` (claim your bot with
 Discord first), `409 MATCH_CLOSED` (a round of the league match is split into heats or being played; join between rounds), `409 MATCH_FINISHED` (the league match has been closed), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
 `409 MATCH_NOT_STARTED` (keep long-polling with `waitForTick=0`), `409 MATCH_FULL`,
+`429 TOO_MANY_RUNNING_MATCHES` (surrender one, or let it finish),
 `400 INVALID_JSON`, `413 REQUEST_TOO_LARGE` (bodies are capped at 256 KB), `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and
 120/second across all of a bot's matches).
 

@@ -50,6 +50,7 @@ public sealed class MatchHost
     private RecordedFrames? _frames;
     private int _tickIntervalMs;
     private DateTime? _pausedAt;
+    private DateTime? _creatorSeenAt;
     private PeriodicTimer? _timer;
 
     public MatchHost(Guid id, string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics,
@@ -75,6 +76,21 @@ public sealed class MatchHost
     public MatchSettings Settings { get; }
     public bool IsExhibition { get; }
     public MatchCategory Category { get; }
+
+    /// <summary>
+    /// When the creator last read its state or sent commands here (when the match was created, until it
+    /// does). A practice match whose creator stopped long ago is one nobody is playing.
+    /// </summary>
+    public DateTime CreatorSeenAt
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _creatorSeenAt ?? CreatedAt;
+            }
+        }
+    }
 
     /// <summary>For a heat: the league match it belongs to. Heats start when the admin starts that match.</summary>
     public Guid? ParentMatchId { get; set; }
@@ -362,6 +378,7 @@ public sealed class MatchHost
         lock (_gate)
         {
             var slot = _sim?.SlotOf(playerId) ?? -1;
+            SeenPlayer(playerId);
             var boosted = serum is not null && _serums.TryGetValue(playerId, out var key)
                           && CryptographicOperations.FixedTimeEquals(Encoding.UTF8.GetBytes(serum), Encoding.UTF8.GetBytes(key));
             return slot < 0 ? null : _sim!.Submit(slot, commands, boosted);
@@ -418,6 +435,16 @@ public sealed class MatchHost
         }
     }
 
+    /// <summary>The player is in this running match and hasn't been eliminated (or surrendered).</summary>
+    public bool IsPlaying(Guid playerId)
+    {
+        lock (_gate)
+        {
+            var slot = _sim?.SlotOf(playerId) ?? -1;
+            return slot >= 0 && _sim!.Status == MatchStatus.Active && !_sim.IsEliminated(slot);
+        }
+    }
+
     public bool Surrender(Guid playerId)
     {
         bool finished;
@@ -451,8 +478,17 @@ public sealed class MatchHost
     {
         lock (_gate)
         {
+            SeenPlayer(playerId);
             var slot = _sim?.SlotOf(playerId) ?? -1;
             return slot < 0 ? null : _sim!.GetPlayerView(slot, sinceTick) with { TickIntervalMs = _tickIntervalMs, Paused = _pausedAt is not null };
+        }
+    }
+
+    private void SeenPlayer(Guid playerId)
+    {
+        if (playerId == CreatorId)
+        {
+            _creatorSeenAt = DateTime.UtcNow;
         }
     }
 
