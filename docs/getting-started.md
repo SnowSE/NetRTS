@@ -23,7 +23,8 @@ repository and run:
 dotnet run --project src/NetRts.Server        # then SERVER=http://localhost:5080
 ```
 
-Open `$SERVER` in a browser to watch matches, and `$SERVER/scalar` for interactive API docs where you can try every call.
+Open `$SERVER` in a browser to watch matches, and `$SERVER/#/api` for the API page: every call with code to copy and a
+Run button (the full typed reference is at `$SERVER/scalar`).
 
 ## 2. Register your bot (once)
 

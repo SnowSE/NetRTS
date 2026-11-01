@@ -1,0 +1,565 @@
+{
+  "info": {
+    "name": "Badger Brawl",
+    "description": "The calls a Badger Brawl bot makes, in order. \"Register your bot\" saves your API key and \"Start a match\" saves the match id, so the calls after them just work. Set baseUrl to point at another server (http://localhost:5080 for your own). Explained, with code in four languages, at https://netrts.snowse.io/#/api",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{apiKey}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://netrts.snowse.io"
+    },
+    {
+      "key": "apiKey",
+      "value": ""
+    },
+    {
+      "key": "matchId",
+      "value": ""
+    },
+    {
+      "key": "matchName",
+      "value": "cs1400-lab"
+    }
+  ],
+  "item": [
+    {
+      "name": "Your bot",
+      "item": [
+        {
+          "name": "Register your bot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/players",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "players"
+              ]
+            },
+            "description": "Once per bot. The apiKey in the answer is shown only once: keep it.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"my-bot\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.apiKey) pm.collectionVariables.set('apiKey', body.apiKey);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Check your key",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/players/me",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "players",
+                "me"
+              ]
+            },
+            "description": "Your bot's profile and record."
+          }
+        },
+        {
+          "name": "House bots you can play",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/bots",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "bots"
+              ]
+            },
+            "description": "sitter never fights back: beat it first.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Game rules",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/rules",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "rules"
+              ]
+            },
+            "description": "Every cost, unit stat and timing.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Playing a match",
+      "item": [
+        {
+          "name": "Start a match against a house bot",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches"
+              ]
+            },
+            "description": "Starts at once. Keep the matchId from the answer.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"houseBots\": [\n    \"sitter\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.matchId) pm.collectionVariables.set('matchId', body.matchId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Open matches you can join",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches?status=Waiting",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches"
+              ],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "Waiting"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Find a match by name",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/named/{{matchName}}",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "named",
+                "{{matchName}}"
+              ]
+            },
+            "description": "Keep the matchId from the answer.",
+            "auth": {
+              "type": "noauth"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "if (body.matchId) pm.collectionVariables.set('matchId', body.matchId);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Join a match",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/join",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "join"
+              ]
+            }
+          }
+        },
+        {
+          "name": "The map",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/map",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "map"
+              ]
+            },
+            "description": "Terrain and every start position.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Read the state",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/state?waitForTick=0",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "state"
+              ],
+              "query": [
+                {
+                  "key": "waitForTick",
+                  "value": "0"
+                }
+              ]
+            },
+            "description": "Long-polls until tick waitForTick has been simulated: 0 waits for the start. Then ask for the tick after the one you got."
+          }
+        },
+        {
+          "name": "Send orders",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/commands",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "commands"
+              ]
+            },
+            "description": "Use ids from the state: a grub deposit from resources, your CommandCenter from buildings.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"commands\": [\n    {\n      \"type\": \"Gather\",\n      \"units\": \"idle\",\n      \"unitType\": \"Worker\",\n      \"targetId\": 4\n    },\n    {\n      \"type\": \"Produce\",\n      \"buildingId\": 30,\n      \"unitType\": \"Worker\",\n      \"count\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Drop your queued orders",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/commands",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "commands"
+              ]
+            }
+          }
+        },
+        {
+          "name": "Speed up a match against house bots",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/speed",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "speed"
+              ]
+            },
+            "description": "Or {\"paused\": true}.",
+            "auth": {
+              "type": "noauth"
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tickIntervalMs\": 250\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Surrender",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/surrender",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "surrender"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "After a match",
+      "item": [
+        {
+          "name": "The result",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/result",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "result"
+              ]
+            },
+            "description": "Winner, scores and stats (409 until the match ends).",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "The replay",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/{{matchId}}/replay",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "{{matchId}}",
+                "replay"
+              ]
+            },
+            "description": "Seed and every command: enough to re-simulate the match.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Players and ladders",
+      "item": [
+        {
+          "name": "Leaderboard",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/leaderboard?category=Practice",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "leaderboard"
+              ],
+              "query": [
+                {
+                  "key": "category",
+                  "value": "Practice"
+                }
+              ]
+            },
+            "description": "Practice, Preseason, Season or Championship.",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "Recent results",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/matches/history?limit=10",
+              "host": [
+                "{{baseUrl}}"
+              ],
+              "path": [
+                "api",
+                "v1",
+                "matches",
+                "history"
+              ],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "10"
+                }
+              ]
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

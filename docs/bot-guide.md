@@ -2,8 +2,10 @@
 
 A Badger Brawl bot is any program that can make HTTP requests. Each tick (1 second by default) the
 server simulates the world; between ticks your bot reads what it can see and queues orders.
-This guide covers everything a bot needs; live, typed API docs with a playground are at **`/scalar`**, and every
-balance number is served by **`GET /api/v1/rules`**.
+This guide covers everything a bot needs. The site's **API page (`/#/api`)** walks through your first match
+with code to copy in curl, Python, C# and JavaScript, a Run button on every call, and request files for VS Code,
+Visual Studio, Rider and Postman; the full typed reference is at **`/scalar`**, and every balance number is
+served by **`GET /api/v1/rules`**.
 
 - [The loop](#the-loop)
 - [Authentication](#authentication)

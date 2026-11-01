@@ -1,0 +1,133 @@
+# Badger Brawl: the calls a bot makes, in the order it makes them.
+# VS Code (REST Client extension), Visual Studio and Rider: click "Send Request" above a call.
+# Every call is explained, with code in curl, Python, C# and JavaScript, at https://netrts.snowse.io/#/api
+
+@server = https://netrts.snowse.io
+# @server = http://localhost:5080
+
+# Your bot's API key: send "Register your bot", then paste the apiKey from the answer here.
+@key = nrts_your_key_here
+# The match you're playing: paste the matchId from "Start a match" (or "Find a match by name").
+@matchId = 00000000-0000-0000-0000-000000000000
+@matchName = cs1400-lab
+
+
+### ============================== Your bot ==============================
+
+### Register your bot
+# Once per bot. The apiKey in the answer is shown only once: keep it.
+POST {{server}}/api/v1/players
+Content-Type: application/json
+
+{
+  "name": "my-bot"
+}
+
+### Check your key
+# Your bot's profile and record.
+GET {{server}}/api/v1/players/me
+Authorization: Bearer {{key}}
+
+### House bots you can play
+# sitter never fights back: beat it first.
+GET {{server}}/api/v1/bots
+
+### Game rules
+# Every cost, unit stat and timing.
+GET {{server}}/api/v1/rules
+
+
+### ============================== Playing a match ==============================
+
+### Start a match against a house bot
+# Starts at once. Keep the matchId from the answer.
+POST {{server}}/api/v1/matches
+Authorization: Bearer {{key}}
+Content-Type: application/json
+
+{
+  "houseBots": [
+    "sitter"
+  ]
+}
+
+### Open matches you can join
+GET {{server}}/api/v1/matches?status=Waiting
+
+### Find a match by name
+# Keep the matchId from the answer.
+GET {{server}}/api/v1/matches/named/{{matchName}}
+
+### Join a match
+POST {{server}}/api/v1/matches/{{matchId}}/join
+Authorization: Bearer {{key}}
+
+### The map
+# Terrain and every start position.
+GET {{server}}/api/v1/matches/{{matchId}}/map
+
+### Read the state
+# Long-polls until tick waitForTick has been simulated: 0 waits for the start. Then ask for the tick after the one you got.
+GET {{server}}/api/v1/matches/{{matchId}}/state?waitForTick=0
+Authorization: Bearer {{key}}
+
+### Send orders
+# Use ids from the state: a grub deposit from resources, your CommandCenter from buildings.
+POST {{server}}/api/v1/matches/{{matchId}}/commands
+Authorization: Bearer {{key}}
+Content-Type: application/json
+
+{
+  "commands": [
+    {
+      "type": "Gather",
+      "units": "idle",
+      "unitType": "Worker",
+      "targetId": 4
+    },
+    {
+      "type": "Produce",
+      "buildingId": 30,
+      "unitType": "Worker",
+      "count": 1
+    }
+  ]
+}
+
+### Drop your queued orders
+DELETE {{server}}/api/v1/matches/{{matchId}}/commands
+Authorization: Bearer {{key}}
+
+### Speed up a match against house bots
+# Or {"paused": true}.
+POST {{server}}/api/v1/matches/{{matchId}}/speed
+Content-Type: application/json
+
+{
+  "tickIntervalMs": 250
+}
+
+### Surrender
+POST {{server}}/api/v1/matches/{{matchId}}/surrender
+Authorization: Bearer {{key}}
+
+
+### ============================== After a match ==============================
+
+### The result
+# Winner, scores and stats (409 until the match ends).
+GET {{server}}/api/v1/matches/{{matchId}}/result
+
+### The replay
+# Seed and every command: enough to re-simulate the match.
+GET {{server}}/api/v1/matches/{{matchId}}/replay
+
+
+### ============================== Players and ladders ==============================
+
+### Leaderboard
+# Practice, Preseason, Season or Championship.
+GET {{server}}/api/v1/leaderboard?category=Practice
+
+### Recent results
+GET {{server}}/api/v1/matches/history?limit=10

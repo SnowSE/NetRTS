@@ -100,6 +100,8 @@ var contentTypes = new FileExtensionContentTypeProvider();
 // The Colab notebook (#/colab): its source, which the page splits into blocks, and the notebook itself.
 contentTypes.Mappings[".py"] = "text/plain; charset=utf-8";
 contentTypes.Mappings[".ipynb"] = "application/x-ipynb+json";
+// The API page's request files (#/api) for VS Code, Visual Studio and Rider.
+contentTypes.Mappings[".http"] = "text/plain; charset=utf-8";
 app.UseStaticFiles(new StaticFileOptions
 {
     ContentTypeProvider = contentTypes,

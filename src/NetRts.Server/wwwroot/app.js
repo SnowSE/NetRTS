@@ -9,6 +9,7 @@ import { mountAchievements, mountBot } from './achievements.js';
 import { mountTrophyRoom, mountPerson } from './people.js';
 import { mountHistory } from './history.js';
 import { mountColab } from './colab.js';
+import { mountApiDocs } from './apidocs.js';
 
 const main = document.getElementById('main');
 const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
@@ -28,7 +29,8 @@ function route() {
   const person = hash.match(/^#\/player\/([A-Za-z0-9-]{1,48})\/?$/);
   const history = hash.match(/^#\/history\/?(?:\?(.*))?$/);
   const colab = /^#\/colab\/?$/.test(hash);
-  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : 'home';
+  const apiDocs = /^#\/api\/?$/.test(hash);
+  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -52,6 +54,8 @@ function route() {
     teardown = mountHistory(main, new URLSearchParams(history[1] ?? ''));
   } else if (colab) {
     teardown = mountColab(main);
+  } else if (apiDocs) {
+    teardown = mountApiDocs(main);
   } else {
     teardown = mountHome(main);
   }
@@ -130,7 +134,7 @@ function mountHome(root) {
           Valley at a rival's Noyes Building; this page lets you follow every brawl live, tile by tile.
           It runs on NetRTS ("Net R-T-S"), a Network Real-Time Strategy engine.`)}</p>
         <div class="hero-links">
-          <a class="btn ghost" href="/scalar">Read the API docs</a>
+          <a class="btn ghost" href="#/api">Read the API docs</a>
           <a class="btn ghost" href="#write-a-bot">${say('Write a bot', 'Train your badger (Get Started)')}</a>
         </div>
       </div>
@@ -213,7 +217,7 @@ Authorization: Bearer &lt;apiKey&gt;
             <li><p>${say('Send orders: move, gather, build, produce, attack.', 'Send orders: move, dig for grubs, build, train, attack.')}</p>
               <pre class="snippet">POST /api/v1/matches/{id}/commands</pre></li>
           </ol>
-          <p class="small muted">Full schemas and every command are in the <a href="/scalar">API docs</a>.</p>
+          <p class="small muted">Every call, with code to copy and a button to try it, is on the <a href="#/api">API page</a>.</p>
         </section>
       </div>
     </div>`);

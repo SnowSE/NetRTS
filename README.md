@@ -164,8 +164,10 @@ Beat the Sleepy Sitter in your first hour. Beating the Grub Hoarder takes a real
   <img src="docs/images/api-playground.png" width="860" alt="The Scalar API reference open at the state endpoint: parameters, every response code, a ready-to-run C# sample and the full JSON response shape.">
 </p>
 
-Every endpoint, schema and error code is browsable at `/scalar`, with ready-made code samples and
-a "Test Request" button that uses your API key. The docs walk you from first request to a bot that
+The site's API page (`/#/api`) walks through a first match one call at a time: copy-and-paste code in
+curl, Python, C# and JavaScript, a Run button on every call, and request files for VS Code, Visual Studio,
+Rider and Postman (`src/NetRts.Server/wwwroot/requests/`). Every schema and error code is also browsable at
+`/scalar`, with a "Test Request" button that uses your API key. The docs walk you from first request to a bot that
 wins, in **C# or Python**: pick a language on any example and the rest follow.
 
 ## Play in two minutes
