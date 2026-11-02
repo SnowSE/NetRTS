@@ -46,7 +46,7 @@ export function mountLeague(root, initial) {
     try {
       match = await api(`/api/v1/matches/${matchId}`);
       standings = match.status !== 'Waiting' ? await api(`/api/v1/matches/${matchId}/standings`) : null;
-      if (alive && !busy) render();
+      if (alive && !busy && !editing()) render();
     } catch (e) {
       if (!alive) return;
       if (e.status === 404) {
@@ -57,6 +57,9 @@ export function mountLeague(root, initial) {
     }
     if (alive) timer = setTimeout(load, 2000);
   }
+
+  /** Redrawing would take the cursor out of a box the admin is typing in (and lose the arrows' steps), so wait. */
+  const editing = () => document.activeElement?.matches?.('.league-admin input') && root.contains(document.activeElement);
 
   function render() {
     const m = match;
@@ -214,7 +217,8 @@ export function mountLeague(root, initial) {
             <input id="sizes" name="sizes" value="${sizesText ?? ''}" placeholder="${n >= 2 ? evenSplit(n, suggested).join(', ') : ''}" autocomplete="off" inputmode="numeric"></div>
           <div class="field"><label for="even">Or split evenly into</label>
             <div class="inline"><input id="even" type="number" min="1" max="${Math.max(1, Math.floor(n / 2))}" value="${evenCount ?? suggested}" inputmode="numeric">
-              <button type="button" class="btn ghost" id="even-btn">heats</button></div></div>
+              <button type="button" class="btn ghost" id="even-btn">heats</button></div>
+            ${n < 4 ? html`<p class="muted small">Two or more heats need at least 4 players.</p>` : ''}</div>
         </div>
         <div class="league-actions">
           <button class="btn" type="submit">${stage === 'split' ? 'Reshuffle' : `Split round ${next} into heats`}</button>
@@ -238,6 +242,7 @@ export function mountLeague(root, initial) {
     if (!canEdit) return;
     const base = `/api/v1/admin/matches/${m.matchId}`;
     $('sizes')?.addEventListener('input', (e) => { sizesText = e.target.value; });
+    $('even')?.addEventListener('input', (e) => { evenCount = Number(e.target.value) || null; });
     $('even-btn')?.addEventListener('click', () => {
       evenCount = Math.max(1, Number($('even').value) || 1);
       sizesText = evenSplit(m.players.length, evenCount).join(', ');
