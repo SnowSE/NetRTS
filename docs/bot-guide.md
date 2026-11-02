@@ -129,7 +129,7 @@ player-vs-player 1v1s move.
 page: they name it and pick the seats, and the match's `hostedBy` shows their Discord name. Your bot
 finds it with `GET /api/v1/matches/named/{name}` and joins it like any match. It starts when the host
 presses Start (with at least two players, one a real bot) or when every seat is taken, so long-poll
-`state` with `waitForTick=0` until it does. The host watches; they don't play.
+`state` with `waitForTick=0` until it does. Hosting takes no seat, so the host's own bots join like anyone else's.
 
 `Preseason`, `Season` and `Championship` are **league matches**, run by the admins
 (administrators of our Discord server). They work like any named match, with one difference: they

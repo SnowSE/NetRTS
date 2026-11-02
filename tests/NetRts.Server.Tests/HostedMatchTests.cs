@@ -39,6 +39,22 @@ public class HostedMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
+    public async Task The_hosts_own_bot_can_play_in_their_match()
+    {
+        var host = factory.ClientFor(await factory.NewAccountAsync());
+        var mine = await (await host.PostAsJsonAsync("/api/v1/account/bots", new RegisterPlayerRequest { Name = $"mine-{Guid.NewGuid():N}"[..16] }, NetRtsClient.JsonOptions, Ct))
+            .Content.ReadFromJsonAsync<RegisterPlayerResponse>(NetRtsClient.JsonOptions, Ct);
+        var match = await HostAsync(host, new CreateMatchRequest { Name = MatchName(), MaxPlayers = 4, HouseBots = ["sitter"] });
+        var bot = new NetRtsClient(factory.CreateClient(), mine!.ApiKey);
+
+        await bot.JoinMatchAsync(match.MatchId, Ct);
+        var started = await (await StartAsync(host, match.MatchId)).Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct);
+
+        Assert.Equal(MatchStatus.Active, started!.Status);
+        Assert.Contains(started.Players, p => p.PlayerId == mine.PlayerId);
+    }
+
+    [Fact]
     public async Task Hosting_takes_a_signed_in_person_and_a_name()
     {
         var (_, bot) = await factory.NewPlayerAsync();

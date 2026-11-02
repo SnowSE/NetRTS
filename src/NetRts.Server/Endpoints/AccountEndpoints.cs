@@ -117,7 +117,7 @@ public static class AccountEndpoints
             })
             .Produces<MatchSummaryDto>(201)
             .ProducesErrors()
-            .WithSummary("Host a named practice match for bots to join (they find it by name). You don't play; start it when they're in.");
+            .WithSummary("Host a named practice match for bots to join (they find it by name). Your own bots can join too; start it when they're in.");
 
         hosted.MapGet("/", (ClaimsPrincipal user, MatchManager manager) =>
                 manager.HostedBy(user.AccountId()).Select(m => m.ToSummary()).ToList())

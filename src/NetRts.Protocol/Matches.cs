@@ -86,8 +86,9 @@ public sealed record MatchSummaryDto
     public Guid? ParentMatchId { get; init; }
 
     /// <summary>
-    /// For a match someone hosted from their account page on the website: their Discord name. They don't
-    /// play; bots join it by name, and it starts when the host starts it (or when every seat is taken).
+    /// For a match someone hosted from their account page on the website: their Discord name. Hosting
+    /// takes no seat; bots (the host's too) join it by name, and it starts when the host starts it (or
+    /// when every seat is taken).
     /// </summary>
     public string? HostedBy { get; init; }
 }

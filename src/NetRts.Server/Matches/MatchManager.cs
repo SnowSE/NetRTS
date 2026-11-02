@@ -111,7 +111,7 @@ public sealed partial class MatchManager(
     }
 
     /// <summary>
-    /// A named practice match a person hosts from the website. The host doesn't play: bots join it by
+    /// A named practice match a person hosts from the website. Hosting takes no seat: bots (the host's too) join it by
     /// name, and it starts when the host starts it (<see cref="StartHosted"/>) or when every seat is taken.
     /// </summary>
     public MatchHost Host(Guid accountId, string hostName, CreateMatchRequest request)

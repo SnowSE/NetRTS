@@ -121,7 +121,7 @@ export function mountAccount(root, onAccount) {
       <h2 id="host-h">${say('Host a match', 'Host a brawl')}</h2>
       <p class="muted small">Run a practice match for your class or your friends. Name it, have everyone point their
         ${say('bots', 'badgers')} at that name (<code>GET /api/v1/matches/named/{name}</code>, then join it), and start it here once
-        they're in. You watch rather than play. It also starts by itself when every seat is taken.</p>
+        they're in. Your own ${say('bots', 'badgers')} can join too. It also starts by itself when every seat is taken.</p>
       <form id="host" class="panel-form" novalidate>
         <div class="form-row">
           <div class="field"><label for="hm-name">Match name</label>

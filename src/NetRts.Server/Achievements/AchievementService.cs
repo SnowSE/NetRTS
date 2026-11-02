@@ -127,7 +127,7 @@ public sealed class AchievementService(
 
     /// <summary>
     /// Host with the Most: a match hosted from the website that two or more real bots played goes to every
-    /// bot the host owns (achievements belong to bots; the host doesn't play).
+    /// bot the host owns (achievements belong to bots, and hosting takes no seat).
     /// </summary>
     private async Task AwardHostAsync(Guid matchId, Guid hostAccountId, CancellationToken ct)
     {
