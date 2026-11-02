@@ -170,6 +170,11 @@ export function mountApiDocs(root) {
 
   const $ = (id) => root.querySelector('#' + id);
   const walk = $('walk'), ref = $('ref');
+  // The router owns the hash (#requests would leave for the home page), so this link scrolls instead.
+  root.querySelector('a[href="#requests"]').addEventListener('click', (e) => {
+    e.preventDefault();
+    $('requests').scrollIntoView({ behavior: 'smooth' });
+  });
 
   // ---- the key, the match and the language
   const keyInput = $('api-key'), matchInput = $('match-id');
