@@ -16,12 +16,12 @@ public class AchievementTests(ServerFactory factory) : IClassFixture<ServerFacto
     [Fact]
     public async Task The_catalog_lists_every_achievement_and_keeps_hidden_ones_secret()
     {
-        Assert.Equal(75, AchievementCatalog.All.Count);
+        Assert.Equal(76, AchievementCatalog.All.Count);
         Assert.Equal(AchievementCatalog.All.Count, AchievementCatalog.All.Select(a => a.Id).Distinct().Count());
         Assert.All(AchievementCatalog.All, a => Assert.True(a.Id.Length <= 40));
 
         var catalog = await GetAsync<List<AchievementDto>>("/api/v1/achievements");
-        Assert.Equal(75, catalog.Count);
+        Assert.Equal(76, catalog.Count);
         var serum = catalog.Single(a => a.Id == "super-soldier");
         Assert.True(serum.Hidden);
         Assert.Equal("???", serum.Name);

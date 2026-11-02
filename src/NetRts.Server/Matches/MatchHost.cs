@@ -97,6 +97,12 @@ public sealed class MatchHost
 
     /// <summary>For a heat: play in the order the seats were filled, which the league match planned.</summary>
     public bool KeepSeatOrder { get; set; }
+
+    /// <summary>For a match hosted from the website: the account that hosted it, which may start or call it off.</summary>
+    public Guid? HostAccountId { get; set; }
+
+    /// <summary>The host's Discord name (see <see cref="HostAccountId"/>).</summary>
+    public string? HostedBy { get; set; }
     public DateTime CreatedAt { get; }
     public DateTime? CompletedAt { get; private set; }
     public bool Recorded { get; set; }
@@ -570,6 +576,7 @@ public sealed class MatchHost
                 SpeedAdjustable = SpeedAdjustableLocked,
                 Category = Category,
                 ParentMatchId = ParentMatchId,
+                HostedBy = HostedBy,
             };
         }
     }

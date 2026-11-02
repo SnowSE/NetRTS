@@ -23,14 +23,17 @@ public sealed class AchievementService(
     IOptions<DiscordOptions> discord,
     ILogger<AchievementService> logger) : BackgroundService
 {
-    private readonly Channel<Guid> _queue = Channel.CreateUnbounded<Guid>();
+    private readonly Channel<(Guid MatchId, Guid? HostAccountId)> _queue = Channel.CreateUnbounded<(Guid, Guid?)>();
     private int _pending;
 
-    /// <summary>Queues a just-recorded match (its history rows already saved) for its achievements.</summary>
-    public void MatchRecorded(Guid matchId)
+    /// <summary>
+    /// Queues a just-recorded match (its history rows already saved) for its achievements.
+    /// <paramref name="hostAccountId"/> is whoever hosted it from the website, if anyone did.
+    /// </summary>
+    public void MatchRecorded(Guid matchId, Guid? hostAccountId = null)
     {
         Interlocked.Increment(ref _pending);
-        _queue.Writer.TryWrite(matchId);
+        _queue.Writer.TryWrite((matchId, hostAccountId));
     }
 
     /// <summary>For tests: waits until every queued match has been checked.</summary>
@@ -59,11 +62,15 @@ public sealed class AchievementService(
             Interlocked.Decrement(ref _pending);
         }
 
-        await foreach (var matchId in _queue.Reader.ReadAllAsync(stoppingToken))
+        await foreach (var (matchId, hostAccountId) in _queue.Reader.ReadAllAsync(stoppingToken))
         {
             try
             {
                 await EvaluateAsync(matchId, stoppingToken);
+                if (hostAccountId is { } host)
+                {
+                    await AwardHostAsync(matchId, host, stoppingToken);
+                }
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -115,6 +122,53 @@ public sealed class AchievementService(
             var context = new AchievementContext(row, result.Players.First(p => p.Slot == row.Slot), result.Players, history,
                 opponents.ToLookup(o => o.MatchId), match.MaxTicks, houseBots.Ids, verified, bestRating, ownerBots, options.Value.Zone);
             await AwardAsync(db, context, match.CompletedAt, announce: (bot.Name, verified, verified ? bot.Owner!.DisplayName : null), ct);
+        }
+    }
+
+    /// <summary>
+    /// Host with the Most: a match hosted from the website that two or more real bots played goes to every
+    /// bot the host owns (achievements belong to bots; the host doesn't play).
+    /// </summary>
+    private async Task AwardHostAsync(Guid matchId, Guid hostAccountId, CancellationToken ct)
+    {
+        await using var scope = scopes.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
+        var completedAt = await db.Matches.Where(m => m.Id == matchId).Select(m => (DateTime?)m.CompletedAt).FirstOrDefaultAsync(ct);
+        var realBots = await db.MatchPlayers.CountAsync(r => r.MatchId == matchId && !r.IsHouseBot, ct);
+        var host = await db.Accounts.AsNoTracking().FirstOrDefaultAsync(a => a.Id == hostAccountId, ct);
+        if (completedAt is null || realBots < 2 || host is null || discord.Value.IsUnranked(host))
+        {
+            return;
+        }
+
+        var bots = await db.Players.AsNoTracking()
+            .Where(p => p.OwnerAccountId == hostAccountId
+                        && !db.BotAchievements.Any(a => a.PlayerId == p.Id && a.AchievementId == AchievementCatalog.HostWithTheMost))
+            .OrderBy(p => p.Name)
+            .ToListAsync(ct);
+        if (bots.Count == 0)
+        {
+            return;
+        }
+
+        var first = !await db.BotAchievements.AnyAsync(a => a.AchievementId == AchievementCatalog.HostWithTheMost, ct);
+        foreach (var bot in bots)
+        {
+            db.BotAchievements.Add(new BotAchievementRecord
+            {
+                PlayerId = bot.Id,
+                AchievementId = AchievementCatalog.HostWithTheMost,
+                EarnedAt = completedAt.Value,
+                MatchId = matchId,
+            });
+        }
+
+        await db.SaveChangesAsync(ct);
+        if (first)
+        {
+            var verified = Accounts.IsVerified(host, discord.Value);
+            var achievement = AchievementCatalog.ById[AchievementCatalog.HostWithTheMost];
+            announcer.FirstToEarn(bots[0].Name, verified, verified ? host.DisplayName : null, [(achievement.Name, achievement.Description)]);
         }
     }
 

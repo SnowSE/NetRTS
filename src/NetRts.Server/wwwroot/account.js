@@ -1,4 +1,4 @@
-// Account page: Discord sign-in, the bots you own, and (for Discord server admins) league matches.
+// Account page: Discord sign-in, the bots you own, matches you host, and (for Discord server admins) league matches.
 import { api, html, setHtml, playerLabel, verifiedBadge, fmt } from './util.js';
 import { GAME, say } from './lore.js';
 import { earnedHtml } from './achievements.js';
@@ -13,6 +13,7 @@ export function mountAccount(root, onAccount) {
   let info = null;
   let shownKey = null;   // { name, apiKey } after registering a bot or replacing a key: shown once
   let message = null;    // { error: bool, text }
+  let hostTimer = null;   // refreshes the matches you're hosting while any is waiting or running
   const failed = /[?&]error=discord/.test(location.hash);
 
   async function load() {
@@ -105,12 +106,40 @@ export function mountAccount(root, onAccount) {
         </form>
       </div>
 
+      ${hostHtml()}
       ${a.isAdmin ? adminHtml() : ''}
       ${a.isAdmin && info.telemetryLinks?.length ? telemetryHtml(info.telemetryLinks) : ''}
     </div>`);
 
     wire();
+    loadHosted();
     if (a.isAdmin) loadLeagueMatches();
+  }
+
+  function hostHtml() {
+    return html`<section aria-labelledby="host-h" class="admin">
+      <h2 id="host-h">${say('Host a match', 'Host a brawl')}</h2>
+      <p class="muted small">Run a practice match for your class or your friends. Name it, have everyone point their
+        ${say('bots', 'badgers')} at that name (<code>GET /api/v1/matches/named/{name}</code>, then join it), and start it here once
+        they're in. You watch rather than play. It also starts by itself when every seat is taken.</p>
+      <form id="host" class="panel-form" novalidate>
+        <div class="form-row">
+          <div class="field"><label for="hm-name">Match name</label>
+            <input id="hm-name" name="name" autocomplete="off" spellcheck="false" placeholder="cs1400-lab" pattern="[A-Za-z0-9_-]{3,32}" required></div>
+          <div class="field"><label for="hm-seats">Seats</label>
+            <input id="hm-seats" name="maxPlayers" type="number" min="2" max="16" value="8" inputmode="numeric"></div>
+        </div>
+        <div class="form-row">
+          <div class="field"><label for="hm-tick">Milliseconds per tick</label>
+            <input id="hm-tick" name="tickIntervalMs" type="number" min="100" max="10000" step="50" value="1000" inputmode="numeric"></div>
+          <div class="field"><label for="hm-ticks">Tick limit</label>
+            <input id="hm-ticks" name="maxTicks" type="number" min="10" max="20000" value="1800" inputmode="numeric"></div>
+        </div>
+        <div><button class="btn" type="submit">${say('Host match', 'Host brawl')}</button></div>
+      </form>
+      <h3 style="margin-top:20px">Your hosted matches</h3>
+      <div id="hosted"><p class="empty">Loading…</p></div>
+    </section>`;
   }
 
   function adminHtml() {
@@ -200,6 +229,22 @@ export function mountAccount(root, onAccount) {
       load();
     }));
 
+    $('host').addEventListener('submit', (ev) => act(ev, async (form) => {
+      const name = form.get('name').trim();
+      await api('/api/v1/account/matches', {
+        method: 'POST',
+        body: {
+          name,
+          maxPlayers: Number(form.get('maxPlayers')) || undefined,
+          settings: {
+            tickIntervalMs: Number(form.get('tickIntervalMs')) || undefined,
+            maxTicks: Number(form.get('maxTicks')) || undefined,
+          },
+        },
+      });
+      return `You're hosting ${name}. Bots join it by that name; start it under Your hosted matches when they're in.`;
+    }));
+
     $('league')?.addEventListener('submit', (ev) => {
       ev.preventDefault();
       const form = new FormData(ev.target);
@@ -234,6 +279,64 @@ export function mountAccount(root, onAccount) {
     load();
   }
 
+  async function loadHosted() {
+    clearTimeout(hostTimer);
+    const el = root.querySelector('#hosted');
+    if (!el) return;
+    let list;
+    try {
+      list = await api('/api/v1/account/matches');
+    } catch (e) {
+      if (alive && el.isConnected) setHtml(el, html`<p class="error">Could not load your hosted matches: ${e.message}</p>`);
+      return;
+    }
+    if (!alive || !el.isConnected) return;
+    setHtml(el, list.length ? html`<ul class="match-list hosted">${list.map(hostedRow)}</ul>`
+      : html`<p class="empty">None right now. Matches you host show up here until a while after they finish.</p>`);
+    el.querySelectorAll('[data-start], [data-calloff]').forEach((b) => b.addEventListener('click', () => hostAction(b)));
+    if (list.some((m) => m.status !== 'Completed')) hostTimer = setTimeout(loadHosted, 3000);
+  }
+
+  function hostedRow(m) {
+    const real = m.players.filter((p) => !p.isHouseBot).length;
+    const ready = m.players.length >= 2 && real >= 1;
+    const status = m.status === 'Waiting' ? `waiting · ${m.players.length} of ${m.maxPlayers} seats taken`
+      : m.status === 'Active' ? `under way · tick ${fmt(m.tick)}` : 'finished';
+    return html`<li>
+      <div class="league-row">
+        <a href="#/match/${m.status === 'Completed' ? m.matchId : m.name}"><b>${m.name}</b></a>
+        <span class="muted small">${status}</span>
+      </div>
+      <p class="hosted-players small">${m.players.length
+        ? m.players.map((p, i) => html`${i ? ', ' : ''}${playerLabel(p)}`)
+        : html`<span class="muted">No ${say('bots', 'badgers')} yet. They join with the name <code>${m.name}</code>.</span>`}</p>
+      ${m.status === 'Waiting' ? html`<div class="league-actions">
+        <button type="button" class="btn start" data-start="${m.matchId}" ${ready ? '' : 'disabled'}>Start with ${m.players.length}</button>
+        <button type="button" class="link-btn danger" data-calloff="${m.matchId}">Call off</button>
+        ${ready ? '' : html`<span class="muted small">Needs two players, one of them a real bot.</span>`}
+      </div>` : ''}
+    </li>`;
+  }
+
+  // Calling a match off takes a second click to confirm.
+  async function hostAction(b) {
+    if (b.dataset.calloff && b.dataset.armed !== 'true') {
+      b.dataset.armed = 'true';
+      b.textContent = 'Call it off for everyone. Sure?';
+      return;
+    }
+    b.disabled = true;
+    try {
+      if (b.dataset.start) await api(`/api/v1/account/matches/${b.dataset.start}/start`, { method: 'POST' });
+      else await api(`/api/v1/account/matches/${b.dataset.calloff}`, { method: 'DELETE' });
+    } catch (e) {
+      message = { error: true, text: e.message };
+      render();
+      return;
+    }
+    loadHosted();
+  }
+
   async function loadLeagueMatches() {
     const el = root.querySelector('#league-matches');
     try {
@@ -249,5 +352,5 @@ export function mountAccount(root, onAccount) {
   }
 
   load();
-  return () => { alive = false; };
+  return () => { alive = false; clearTimeout(hostTimer); };
 }

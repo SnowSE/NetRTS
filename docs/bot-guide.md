@@ -125,6 +125,12 @@ away, practice and preseason games in an hourly roundup. To practise privately, 
 leaderboard. Matches your bot creates are `Practice`, ranked by Elo rating, which only
 player-vs-player 1v1s move.
 
+**Hosted matches.** Anyone signed in on the website can host a practice match from their account
+page: they name it and pick the seats, and the match's `hostedBy` shows their Discord name. Your bot
+finds it with `GET /api/v1/matches/named/{name}` and joins it like any match. It starts when the host
+presses Start (with at least two players, one a real bot) or when every seat is taken, so long-poll
+`state` with `waitForTick=0` until it does. The host watches; they don't play.
+
 `Preseason`, `Season` and `Championship` are **league matches**, run by the admins
 (administrators of our Discord server). They work like any named match, with one difference: they
 are played in **rounds**. For each round the admin splits everyone into **heats**, separate games of
@@ -472,6 +478,7 @@ and a person's account page shows every achievement any of their bots has earned
 | Showing up | Nemesis Defeated | Beat a bot that has beaten you 5 or more times. | Gold |
 | Showing up | Glow Up | Win 5 more of your last 20 matches against real bots than of your first 20. | Gold |
 | Showing up | Stable Owner | Your owner has 3 verified bots that have each beaten a real bot. | Gold |
+| Showing up | Host with the Most | Your owner hosts a match from their account page that two or more real bots play to the end. Every bot the host owns gets it. | Bronze |
 | Ladder and league | Climber | Reach a rating of 1300 in any category (everyone starts at 1200). | Silver |
 | Ladder and league | Elite | Reach a rating of 1500 in any category. | Gold |
 | Ladder and league | Top Ten | Be in the top 10 of the season ladder when it's checked each night. | Gold |

@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using NetRts.Protocol;
 using NetRts.Server.Auth;
 using NetRts.Server.Data;
+using NetRts.Server.Matches;
 
 namespace NetRts.Server.Endpoints;
 
@@ -104,6 +105,36 @@ public static class AccountEndpoints
         bots.MapDelete("/{playerId:guid}", Release)
             .ProducesErrors()
             .WithSummary("Give up ownership of one of your bots (it loses its blue check).");
+
+        // Hosting: a named practice match the signed-in person runs for bots to join, like an admin's league match.
+        var hosted = account.MapGroup("/matches").RequireAuthorization(Accounts.SignedInPolicy);
+
+        hosted.MapPost("/", async (CreateMatchRequest request, ClaimsPrincipal user, MatchManager manager, NetRtsDb db, CancellationToken ct) =>
+            {
+                var host = await db.Accounts.AsNoTracking().FirstAsync(a => a.Id == user.AccountId(), ct);
+                var match = manager.Host(host.Id, host.DisplayName, request);
+                return Results.Created($"/api/v1/matches/{match.Id}", match.ToSummary());
+            })
+            .Produces<MatchSummaryDto>(201)
+            .ProducesErrors()
+            .WithSummary("Host a named practice match for bots to join (they find it by name). You don't play; start it when they're in.");
+
+        hosted.MapGet("/", (ClaimsPrincipal user, MatchManager manager) =>
+                manager.HostedBy(user.AccountId()).Select(m => m.ToSummary()).ToList())
+            .Produces<List<MatchSummaryDto>>()
+            .WithSummary("The matches you're hosting, newest first (finished ones until they're tidied away).");
+
+        hosted.MapPost("/{matchId:guid}/start", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
+                manager.StartHosted(matchId, user.AccountId()).ToSummary())
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Start a match you're hosting with the bots that have joined (at least two players, one a real bot).");
+
+        hosted.MapDelete("/{matchId:guid}", (Guid matchId, ClaimsPrincipal user, MatchManager manager) =>
+                manager.CancelHosted(matchId, user.AccountId()).ToSummary())
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Call off a match you're hosting that hasn't started.");
     }
 
     private static async Task<AccountDto> Get(

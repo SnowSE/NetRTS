@@ -61,6 +61,9 @@ public sealed class NetRtsOptions
     /// <summary>Season and championship matches wait this long for their players before they're dropped.</summary>
     public int LeagueMatchTimeoutMinutes { get; set; } = 24 * 60;
 
+    /// <summary>Matches hosted from the website wait this long for their host to start them (a class period, say).</summary>
+    public int HostedMatchTimeoutMinutes { get; set; } = 120;
+
     /// <summary>
     /// A league match that was never closed (say the server restarted mid-match) has its points added
     /// to the ladder this long after its last heat finished.

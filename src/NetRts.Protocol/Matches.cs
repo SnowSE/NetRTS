@@ -84,6 +84,12 @@ public sealed record MatchSummaryDto
 
     /// <summary>For a heat: the league match it belongs to.</summary>
     public Guid? ParentMatchId { get; init; }
+
+    /// <summary>
+    /// For a match someone hosted from their account page on the website: their Discord name. They don't
+    /// play; bots join it by name, and it starts when the host starts it (or when every seat is taken).
+    /// </summary>
+    public string? HostedBy { get; init; }
 }
 
 /// <summary>One page of finished matches from the archive (GET /api/v1/matches/archive), newest first.</summary>

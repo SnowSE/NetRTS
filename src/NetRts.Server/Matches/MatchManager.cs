@@ -83,6 +83,112 @@ public sealed partial class MatchManager(
     public MatchHost Create(Seat creator, CreateMatchRequest request)
     {
         var creatorId = creator.PlayerId;
+        var (maxPlayers, bots, settings, name) = Validate(request);
+
+        lock (_createGate)
+        {
+            EnsureCapacity();
+            var waitingByCreator = _matches.Values.Count(m => m.CreatorId == creatorId && m.Status == MatchStatus.Waiting);
+            if (waitingByCreator >= _options.MaxWaitingMatchesPerPlayer)
+            {
+                throw new MatchException(429, "TOO_MANY_WAITING_MATCHES", $"You already have {waitingByCreator} matches waiting for opponents.");
+            }
+
+            EnsureRunningCapacity(creatorId);
+
+            EnsureNameFree(name);
+            var host = NewHost(name, creatorId, maxPlayers, settings, isExhibition: false);
+            host.TryJoin(creator);
+            foreach (var (seat, strategy) in houseBots.SeatsFor(bots))
+            {
+                host.TryJoin(seat, strategy);
+            }
+
+            _matches[host.Id] = host;
+            StartIfFull(host);
+            return host;
+        }
+    }
+
+    /// <summary>
+    /// A named practice match a person hosts from the website. The host doesn't play: bots join it by
+    /// name, and it starts when the host starts it (<see cref="StartHosted"/>) or when every seat is taken.
+    /// </summary>
+    public MatchHost Host(Guid accountId, string hostName, CreateMatchRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new MatchException(400, "INVALID_NAME", "Give the match a name so bots can find it.");
+        }
+
+        var (maxPlayers, bots, settings, name) = Validate(request);
+        lock (_createGate)
+        {
+            EnsureCapacity();
+            var waiting = _matches.Values.Count(m => m.HostAccountId == accountId && m.Status == MatchStatus.Waiting);
+            if (waiting >= _options.MaxWaitingMatchesPerPlayer)
+            {
+                throw new MatchException(429, "TOO_MANY_WAITING_MATCHES", $"You already have {waiting} hosted matches waiting to start.");
+            }
+
+            EnsureNameFree(name);
+            var host = NewHost(name, null, maxPlayers, settings, isExhibition: false);
+            host.HostAccountId = accountId;
+            host.HostedBy = hostName;
+            foreach (var (seat, strategy) in houseBots.SeatsFor(bots))
+            {
+                host.TryJoin(seat, strategy);
+            }
+
+            _matches[host.Id] = host;
+            _logger.LogInformation("{Host} is hosting match {MatchId} ({Name})", hostName, host.Id, name);
+            return host;
+        }
+    }
+
+    /// <summary>The matches this account hosted that are still in memory, newest first.</summary>
+    public IReadOnlyList<MatchHost> HostedBy(Guid accountId) => All.Where(m => m.HostAccountId == accountId).ToList();
+
+    /// <summary>The host starts their match with whoever has joined so far.</summary>
+    public MatchHost StartHosted(Guid matchId, Guid accountId)
+    {
+        var host = HostedMatch(matchId, accountId);
+        if (host.Status != MatchStatus.Waiting)
+        {
+            throw new MatchException(409, "MATCH_ALREADY_STARTED", "The match has already started.");
+        }
+
+        var seats = host.Seats;
+        if (seats.Count < 2 || seats.All(s => s.IsHouseBot))
+        {
+            throw new MatchException(409, "NOT_ENOUGH_PLAYERS", "A match needs at least two players, one of them a real bot. Wait for bots to join.");
+        }
+
+        host.Start(_options.AutoTick, TimeSpan.FromMilliseconds(_options.StartDelayMs));
+        return host;
+    }
+
+    /// <summary>The host calls off their match before it starts.</summary>
+    public MatchHost CancelHosted(Guid matchId, Guid accountId) => Cancel(HostedMatch(matchId, accountId).Id);
+
+    private MatchHost HostedMatch(Guid matchId, Guid accountId)
+    {
+        var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
+        return host.HostAccountId == accountId
+            ? host
+            : throw new MatchException(403, "NOT_HOST", "Only the person who hosted this match can start or call it off.");
+    }
+
+    private void EnsureNameFree(string? name)
+    {
+        if (name is not null && _matches.Values.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase) && m.Status != MatchStatus.Completed))
+        {
+            throw new MatchException(409, "MATCH_NAME_TAKEN", $"A match named '{name}' is already waiting or running.");
+        }
+    }
+
+    private (int MaxPlayers, IReadOnlyList<string> Bots, MatchSettings Settings, string? Name) Validate(CreateMatchRequest request)
+    {
         var maxPlayers = request.MaxPlayers ?? 2;
         if (maxPlayers is < 2 or > MapGenerator.MaxPlayers)
         {
@@ -103,33 +209,7 @@ public sealed partial class MatchManager(
             throw new MatchException(400, "INVALID_NAME", "Match names are 3-32 characters: letters, digits, '_' or '-'.");
         }
 
-        lock (_createGate)
-        {
-            EnsureCapacity();
-            var waitingByCreator = _matches.Values.Count(m => m.CreatorId == creatorId && m.Status == MatchStatus.Waiting);
-            if (waitingByCreator >= _options.MaxWaitingMatchesPerPlayer)
-            {
-                throw new MatchException(429, "TOO_MANY_WAITING_MATCHES", $"You already have {waitingByCreator} matches waiting for opponents.");
-            }
-
-            EnsureRunningCapacity(creatorId);
-
-            if (name is not null && _matches.Values.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase) && m.Status != MatchStatus.Completed))
-            {
-                throw new MatchException(409, "MATCH_NAME_TAKEN", $"A match named '{name}' is already waiting or running.");
-            }
-
-            var host = NewHost(name, creatorId, maxPlayers, settings, isExhibition: false);
-            host.TryJoin(creator);
-            foreach (var (seat, strategy) in houseBots.SeatsFor(bots))
-            {
-                host.TryJoin(seat, strategy);
-            }
-
-            _matches[host.Id] = host;
-            StartIfFull(host);
-            return host;
-        }
+        return (maxPlayers, bots, settings, name);
     }
 
     /// <summary>
@@ -147,11 +227,7 @@ public sealed partial class MatchManager(
         lock (_createGate)
         {
             EnsureCapacity();
-            if (_matches.Values.Any(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase) && m.Status != MatchStatus.Completed))
-            {
-                throw new MatchException(409, "MATCH_NAME_TAKEN", $"A match named '{name}' is already waiting or running.");
-            }
-
+            EnsureNameFree(name);
             var host = NewHost(name, null, seats.Count, settings, isExhibition: false, category);
             host.ParentMatchId = parentMatchId;
             host.KeepSeatOrder = true;
@@ -257,7 +333,8 @@ public sealed partial class MatchManager(
             throw new MatchException(409, "CANNOT_LEAVE", "You can only leave a match you joined that hasn't started. Use surrender instead.");
         }
 
-        if (host.Seats.All(s => s.IsHouseBot) && _matches.TryRemove(matchId, out _))
+        // Nobody real is left to play the house bots, unless someone is hosting the match for bots to join.
+        if (host.HostAccountId is null && host.Seats.All(s => s.IsHouseBot) && _matches.TryRemove(matchId, out _))
         {
             host.Stop();
         }
@@ -307,7 +384,8 @@ public sealed partial class MatchManager(
         foreach (var host in _matches.Values)
         {
             var status = host.Status;
-            var timeout = host.Category == MatchCategory.Practice ? _options.WaitingMatchTimeoutMinutes : _options.LeagueMatchTimeoutMinutes;
+            var timeout = host.HostAccountId is not null ? _options.HostedMatchTimeoutMinutes
+                : host.Category == MatchCategory.Practice ? _options.WaitingMatchTimeoutMinutes : _options.LeagueMatchTimeoutMinutes;
             var expiredWaiting = status == MatchStatus.Waiting && now - host.CreatedAt > TimeSpan.FromMinutes(timeout);
             var agedOut = status == MatchStatus.Completed && host.Recorded && host.CompletedAt is { } done
                           && now - done > TimeSpan.FromMinutes(_options.CompletedMatchRetentionMinutes);

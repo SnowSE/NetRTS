@@ -42,6 +42,7 @@ public static class AchievementCatalog
 
     public const string TopTen = "top-ten";
     public const string NumberOne = "number-one";
+    public const string HostWithTheMost = "host-with-the-most";
 
     private const AchievementTier Bronze = AchievementTier.Bronze;
     private const AchievementTier Silver = AchievementTier.Silver;
@@ -152,6 +153,8 @@ public static class AchievementCatalog
         new("glow-up", "Glow Up", "Win 5 more of your last 20 matches against real bots than of your first 20.", ShowingUp, Gold, c => c.GlowUp >= 5),
         new("stable-owner", "Stable Owner", "Your owner has 3 verified bots that have each beaten a real bot.", ShowingUp, Gold,
             c => c.Verified && c.RealWins > 0 && c.OwnerBotsWithRealWins >= 3),
+        new(HostWithTheMost, "Host with the Most", "Your owner hosts a match from their account page that two or more real bots play to the end.",
+            ShowingUp, Bronze, null),
 
         // Ladder and league
         new("climber", "Climber", "Reach a rating of 1300 in any category (everyone starts at 1200).", Ladder, Silver, c => c.BestRating >= 1300),

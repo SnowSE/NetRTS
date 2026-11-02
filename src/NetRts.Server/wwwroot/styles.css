@@ -1266,6 +1266,10 @@ html.map-full { overflow: hidden; }
 .telemetry-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
 .telemetry-links a { font-weight: 600; }
 .league-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 4px; border-bottom: 1px solid var(--line); }
+.hosted li { padding-bottom: 12px; }
+.hosted .league-row { border-bottom: 0; padding-bottom: 4px; }
+.hosted .hosted-players { margin: 0 4px 10px; }
+.hosted .league-actions { align-items: center; padding: 0 4px; }
 
 /* ---------- league matches and heats ---------- */
 

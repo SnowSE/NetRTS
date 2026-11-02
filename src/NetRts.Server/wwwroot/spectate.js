@@ -766,6 +766,16 @@ export function mountSpectate(root, matchKey) {
     setHtml(overlay, html`<div>${busy ? html`<span class="spinner" aria-hidden="true"></span>` : ''}<strong>${title}</strong>${body ? html`<span>${body}</span>` : ''}</div>`);
   }
 
+  function showWaiting() {
+    const open = summary ? summary.maxPlayers - summary.players.length : 0;
+    const seats = `${open} seat${open === 1 ? '' : 's'} still open.`;
+    setOverlay(say('Waiting for the match to start', 'Waiting for the opening whistle'), summary?.hostedBy
+      ? `Hosted by ${summary.hostedBy}, who starts it when the ${say('bots', 'badgers')} are in. ${open > 0 ? seats : ''}`
+      : open > 0
+        ? `${seats} The map appears when every ${say('player', 'badger')} has joined.`
+        : 'The map appears as soon as the first tick runs.');
+  }
+
   // ---------- data flow
   async function loadSummary() {
     try {
@@ -799,10 +809,7 @@ export function mountSpectate(root, matchKey) {
       return true;
     } catch (e) {
       if (e.code === 'MATCH_NOT_STARTED' || e.status === 409) {
-        const open = summary ? summary.maxPlayers - summary.players.length : 0;
-        setOverlay(say('Waiting for the match to start', 'Waiting for the opening whistle'), open > 0
-          ? `${open} seat${open === 1 ? '' : 's'} still open. The map appears when every ${say('player', 'badger')} has joined.`
-          : 'The map appears as soon as the first tick runs.');
+        showWaiting();
       } else {
         setOverlay('Could not load the map', e.message);
       }
@@ -816,10 +823,7 @@ export function mountSpectate(root, matchKey) {
     renderAll();
     if (summary.status === 'Waiting') {
       // Polling the summary avoids a stream of 409s from /map while seats fill.
-      const open = summary.maxPlayers - summary.players.length;
-      setOverlay(say('Waiting for the match to start', 'Waiting for the opening whistle'), open > 0
-        ? `${open} seat${open === 1 ? '' : 's'} still open. The map appears when every ${say('player', 'badger')} has joined.`
-        : 'The map appears as soon as the first tick runs.');
+      showWaiting();
       later(start, 2000);
       return;
     }

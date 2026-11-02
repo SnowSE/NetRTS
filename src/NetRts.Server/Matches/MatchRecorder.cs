@@ -32,7 +32,7 @@ public sealed class MatchRecorder(
             {
                 await RecordAsync(host, stoppingToken);
                 host.Recorded = true;
-                achievements.MatchRecorded(host.Id);
+                achievements.MatchRecorded(host.Id, host.HostAccountId);
                 metrics.MatchRecorded(Stopwatch.GetElapsedTime(started));
                 announcer.MatchRecorded(host);
             }
