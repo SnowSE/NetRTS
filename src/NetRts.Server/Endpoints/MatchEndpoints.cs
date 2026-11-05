@@ -313,39 +313,51 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Server-sent events: one spectator snapshot per tick until the match ends.");
 
+        // Running a league match: admins, and the league runners they pick (who's done what is logged).
+        var league = app.MapGroup("/api/v1/admin/matches").WithTags("Admin").RequireAuthorization(Accounts.LeagueRunnerPolicy)
+            .AddEndpointFilter(async (context, next) =>
+            {
+                var http = context.HttpContext;
+                http.RequestServices.GetRequiredService<ILoggerFactory>().CreateLogger("NetRts.Server.League")
+                    .LogInformation("League: {Method} {Path} by {Name} ({AccountId})",
+                        http.Request.Method, http.Request.Path.Value, http.User.FindFirstValue(ClaimTypes.Name), http.User.AccountId());
+                return await next(context);
+            });
+
+        // Taking a bot out and calling a match off stay with the admins: a runner may well have a bot in it.
         var admin = app.MapGroup("/api/v1/admin/matches").WithTags("Admin").RequireAuthorization(Accounts.AdminPolicy);
 
-        admin.MapPost("/", (CreateLeagueMatchRequest request, LeagueMatchManager leagues, MatchAnnouncer announcer) =>
+        league.MapPost("/", (CreateLeagueMatchRequest request, ClaimsPrincipal user, LeagueMatchManager leagues, MatchAnnouncer announcer) =>
             {
-                var league = leagues.Create(request);
-                announcer.LeagueMatchOpened(league);
-                return Results.Created($"/api/v1/matches/{league.Id}", leagues.ToSummary(league));
+                var match = leagues.Create(request);
+                announcer.LeagueMatchOpened(match, user.FindFirstValue(ClaimTypes.Name));
+                return Results.Created($"/api/v1/matches/{match.Id}", leagues.ToSummary(match));
             })
             .Produces<MatchSummaryDto>(201)
             .ProducesErrors()
-            .WithSummary("Create a preseason, season or championship match for verified bots to join (Discord server administrators, signed in on the website).");
+            .WithSummary("Create a preseason, season or championship match for verified bots to join (admins and league runners, signed in on the website).");
 
-        admin.MapPost("/{matchId:guid}/heats", (Guid matchId, SplitHeatsRequest request, LeagueMatchManager leagues) =>
+        league.MapPost("/{matchId:guid}/heats", (Guid matchId, SplitHeatsRequest request, LeagueMatchManager leagues) =>
                 leagues.ToSummary(leagues.Split(matchId, request.Sizes)))
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Shuffle everyone into heats of these sizes (they must add up to everyone who joined). Again to reshuffle.");
 
-        admin.MapDelete("/{matchId:guid}/heats", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Unsplit(matchId)))
+        league.MapDelete("/{matchId:guid}/heats", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Unsplit(matchId)))
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Undo the split and reopen the match to new players.");
 
-        admin.MapPost("/{matchId:guid}/start", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Start(matchId)))
+        league.MapPost("/{matchId:guid}/start", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.Start(matchId)))
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Start every heat of the split round at once.");
 
-        admin.MapPost("/{matchId:guid}/close", async (Guid matchId, LeagueMatchManager leagues, LeagueFinalizer finalizer, CancellationToken ct) =>
+        league.MapPost("/{matchId:guid}/close", async (Guid matchId, LeagueMatchManager leagues, LeagueFinalizer finalizer, CancellationToken ct) =>
             {
-                var league = leagues.Close(matchId);
-                await finalizer.FinishAsync(league, TimeSpan.FromSeconds(15), ct);
-                return leagues.ToSummary(league);
+                var match = leagues.Close(matchId);
+                await finalizer.FinishAsync(match, TimeSpan.FromSeconds(15), ct);
+                return leagues.ToSummary(match);
             })
             .Produces<MatchSummaryDto>()
             .ProducesErrors()

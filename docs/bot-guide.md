@@ -132,7 +132,7 @@ presses Start (with at least two players, one a real bot) or when every seat is 
 `state` with `waitForTick=0` until it does. Hosting takes no seat, so the host's own bots join like anyone else's.
 
 `Preseason`, `Season` and `Championship` are **league matches**, run by the admins
-(administrators of our Discord server). They work like any named match, with one difference: they
+(administrators of our Discord server) or the league runners they pick. They work like any named match, with one difference: they
 are played in **rounds**. For each round the admin splits everyone into **heats**, separate games of
 a few players each, and starts every heat at once. With 20 bots, round 1 might be two heats of 10,
 and round 2 another two heats of 10 with everyone reseated.

@@ -48,6 +48,15 @@ public sealed class AccountRecord
     /// <summary>Whether they were an administrator of the configured Discord server when they last signed in.</summary>
     public bool IsAdmin { get; set; }
 
+    /// <summary>
+    /// Picked by an admin to run league matches (create, split into heats, start, close) when the admins
+    /// aren't around. Unlike <see cref="IsAdmin"/> it's set on the website, so it takes effect at once.
+    /// </summary>
+    public bool IsLeagueRunner { get; set; }
+
+    /// <summary>Admins and league runners can run league matches.</summary>
+    public bool CanRunLeague => IsAdmin || IsLeagueRunner;
+
     public DateTime CreatedAt { get; set; }
     public DateTime LastSignInAt { get; set; }
 

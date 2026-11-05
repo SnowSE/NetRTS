@@ -1,4 +1,5 @@
-// Account page: Discord sign-in, the bots you own, matches you host, and (for Discord server admins) league matches.
+// Account page: Discord sign-in, the bots you own, matches you host, and (for Discord server admins and the
+// league runners they pick) league matches. Admins also pick the league runners here.
 import { api, html, setHtml, playerLabel, verifiedBadge, fmt } from './util.js';
 import { GAME, say } from './lore.js';
 import { earnedHtml } from './achievements.js';
@@ -53,7 +54,7 @@ export function mountAccount(root, onAccount) {
         ${a.avatarUrl ? html`<img class="avatar big" src="${a.avatarUrl}" alt="" width="56" height="56">` : ''}
         <div>
           <h1 class="headline">${a.displayName}${verifiedBadge({ verified: a.verified, ownerName: a.displayName })}</h1>
-          <p class="muted" style="margin:4px 0 0">@${a.username}${a.isAdmin ? html`<span class="tag">admin</span>` : ''}${a.profileSlug ? html` · <a href="#/player/${a.profileSlug}">Your public profile</a>` : ''}</p>
+          <p class="muted" style="margin:4px 0 0">@${a.username}${a.isAdmin ? html`<span class="tag">admin</span>` : a.isLeagueRunner ? html`<span class="tag">league runner</span>` : ''}${a.profileSlug ? html` · <a href="#/player/${a.profileSlug}">Your public profile</a>` : ''}</p>
         </div>
         <button type="button" class="btn ghost" id="sign-out">Sign out</button>
       </div>
@@ -107,13 +108,15 @@ export function mountAccount(root, onAccount) {
       </div>
 
       ${hostHtml()}
-      ${a.isAdmin ? adminHtml() : ''}
+      ${a.canRunLeague ? adminHtml(a.isAdmin) : ''}
+      ${a.isAdmin ? runnersHtml() : ''}
       ${a.isAdmin && info.telemetryLinks?.length ? telemetryHtml(info.telemetryLinks) : ''}
     </div>`);
 
     wire();
     loadHosted();
-    if (a.isAdmin) loadLeagueMatches();
+    if (a.canRunLeague) loadLeagueMatches();
+    if (a.isAdmin) loadRunners();
   }
 
   function hostHtml() {
@@ -142,11 +145,12 @@ export function mountAccount(root, onAccount) {
     </section>`;
   }
 
-  function adminHtml() {
+  function adminHtml(isAdmin) {
     return html`<section aria-labelledby="admin-h" class="admin">
       <h2 id="admin-h">League matches</h2>
-      <p class="muted small">You administer our Discord server, so you can run preseason, season and championship matches.
-        Create one, let verified bots join it, then on its page split everyone into heats and start them all at once.</p>
+      <p class="muted small">${isAdmin ? 'You administer our Discord server' : 'An admin picked you as a league runner'}, so you can run preseason, season and championship matches.
+        Create one, let verified bots join it, then on its page split everyone into heats and start them all at once.
+        ${isAdmin ? '' : 'Taking a bot out of a match and calling a match off stay with the admins.'}</p>
       <form id="league" class="panel-form" novalidate>
         <fieldset class="field"><legend>Category</legend>
           <div class="segmented">
@@ -168,6 +172,64 @@ export function mountAccount(root, onAccount) {
       <h3 style="margin-top:20px">Current league matches</h3>
       <div id="league-matches"><p class="empty">Loading…</p></div>
     </section>`;
+  }
+
+  function runnersHtml() {
+    return html`<section aria-labelledby="runners-h" class="admin">
+      <h2 id="runners-h">League runners</h2>
+      <p class="muted small">Pick someone to run league matches when you can't be there: they can create them, split them into
+        heats, start each round and close them, but not take bots out or call matches off. It takes effect at once, and so does
+        taking it away.</p>
+      <div id="runners"><p class="empty">Loading…</p></div>
+    </section>`;
+  }
+
+  async function loadRunners() {
+    const el = root.querySelector('#runners');
+    if (!el) return;
+    let people;
+    try {
+      people = await api('/api/v1/admin/runners');
+    } catch (e) {
+      if (alive && el.isConnected) setHtml(el, html`<p class="error">Could not load the league runners: ${e.message}</p>`);
+      return;
+    }
+    if (!alive || !el.isConnected) return;
+    const runners = people.filter((p) => p.isLeagueRunner && !p.isAdmin);
+    const candidates = people.filter((p) => !p.isLeagueRunner && !p.isAdmin);
+    setHtml(el, html`
+      ${runners.length ? html`<ul class="match-list">${runners.map((p) => html`
+        <li class="league-row"><span>${p.avatarUrl ? html`<img class="avatar" src="${p.avatarUrl}" alt="" width="24" height="24"> ` : ''}<b>${p.displayName}</b>
+          <span class="muted small">@${p.username}</span></span>
+          <button type="button" class="link-btn danger" data-unrunner="${p.accountId}" data-name="${p.displayName}">Remove</button></li>`)}</ul>`
+        : html`<p class="empty">No league runners. Only the admins can run league matches.</p>`}
+      ${candidates.length ? html`<form id="add-runner" class="panel-form" novalidate>
+        <div class="form-row">
+          <div class="field"><label for="runner-pick">Person</label>
+            <select id="runner-pick" name="accountId" required>${candidates.map((p) => html`
+              <option value="${p.accountId}">${p.displayName} (@${p.username})</option>`)}</select></div>
+        </div>
+        <div><button class="btn" type="submit">Make league runner</button></div>
+      </form>` : ''}`);
+    el.querySelector('#add-runner')?.addEventListener('submit', (ev) => act(ev, async (form) => {
+      const p = await api(`/api/v1/admin/runners/${form.get('accountId')}`, { method: 'PUT' });
+      return `${p.displayName} can run league matches now.`;
+    }));
+    el.querySelectorAll('[data-unrunner]').forEach((b) => b.addEventListener('click', async () => {
+      if (b.dataset.armed !== 'true') {
+        b.dataset.armed = 'true';
+        b.textContent = 'Stop them running matches?';
+        return;
+      }
+      b.disabled = true;
+      try {
+        await api(`/api/v1/admin/runners/${b.dataset.unrunner}`, { method: 'DELETE' });
+        message = { error: false, text: `${b.dataset.name} can't run league matches any more.` };
+      } catch (e) {
+        message = { error: true, text: e.message };
+      }
+      load();
+    }));
   }
 
   function telemetryHtml(links) {

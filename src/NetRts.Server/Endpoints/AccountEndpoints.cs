@@ -48,8 +48,25 @@ public sealed record AccountProfileDto
     /// <summary>Discord server administrators are game admins.</summary>
     public bool IsAdmin { get; init; }
 
+    /// <summary>Picked by an admin to run league matches.</summary>
+    public bool IsLeagueRunner { get; init; }
+
+    /// <summary>Admins and league runners can create, split, start and close league matches.</summary>
+    public bool CanRunLeague { get; init; }
+
     /// <summary>Their public profile's name (#/player/{slug}) when they're verified.</summary>
     public string? ProfileSlug { get; init; }
+}
+
+/// <summary>A verified person an admin can make a league runner (or already has).</summary>
+public sealed record LeagueRunnerDto
+{
+    public Guid AccountId { get; init; }
+    public string DisplayName { get; init; } = "";
+    public string Username { get; init; } = "";
+    public string? AvatarUrl { get; init; }
+    public bool IsAdmin { get; init; }
+    public bool IsLeagueRunner { get; init; }
 }
 
 public sealed record ClaimBotRequest
@@ -135,7 +152,63 @@ public static class AccountEndpoints
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Call off a match you're hosting that hasn't started.");
+
+        // League runners: people an admin picks to run league matches while the admins are away.
+        var runners = app.MapGroup("/api/v1/admin/runners").WithTags("Admin").RequireAuthorization(Accounts.AdminPolicy);
+
+        runners.MapGet("/", Runners)
+            .Produces<List<LeagueRunnerDto>>()
+            .WithSummary("Everyone verified, with who's an admin and who's a league runner (admins only).");
+
+        runners.MapPut("/{accountId:guid}", (Guid accountId, NetRtsDb db, IOptions<DiscordOptions> discord, ILoggerFactory logs, ClaimsPrincipal user, CancellationToken ct) =>
+                SetRunner(accountId, true, db, discord, logs, user, ct))
+            .Produces<LeagueRunnerDto>()
+            .ProducesErrors()
+            .WithSummary("Let this person create, split, start and close league matches. Takes effect at once (admins only).");
+
+        runners.MapDelete("/{accountId:guid}", (Guid accountId, NetRtsDb db, IOptions<DiscordOptions> discord, ILoggerFactory logs, ClaimsPrincipal user, CancellationToken ct) =>
+                SetRunner(accountId, false, db, discord, logs, user, ct))
+            .Produces<LeagueRunnerDto>()
+            .ProducesErrors()
+            .WithSummary("Stop this person running league matches. Takes effect at once (admins only).");
     }
+
+    private static async Task<List<LeagueRunnerDto>> Runners(NetRtsDb db, IOptions<DiscordOptions> discord, CancellationToken ct) =>
+        (await db.Accounts.AsNoTracking().ToListAsync(ct))
+            .Where(a => Accounts.IsVerified(a, discord.Value))
+            .Select(RunnerOf)
+            .OrderBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private static async Task<IResult> SetRunner(Guid accountId, bool runner, NetRtsDb db, IOptions<DiscordOptions> discord, ILoggerFactory logs, ClaimsPrincipal user, CancellationToken ct)
+    {
+        var account = await db.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, ct);
+        if (account is null)
+        {
+            return ApiErrors.NotFound("Account");
+        }
+
+        if (runner && !Accounts.IsVerified(account, discord.Value))
+        {
+            return ApiErrors.Error(409, "NOT_VERIFIED", $"{account.DisplayName} isn't in our Discord server, so they can't run league matches.");
+        }
+
+        account.IsLeagueRunner = runner;
+        await db.SaveChangesAsync(ct);
+        logs.CreateLogger("NetRts.Server.League").LogInformation("League runner {Change}: {Runner} ({RunnerId}) by {Name}",
+            runner ? "added" : "removed", account.DisplayName, account.Id, user.FindFirstValue(ClaimTypes.Name));
+        return Results.Ok(RunnerOf(account));
+    }
+
+    private static LeagueRunnerDto RunnerOf(AccountRecord a) => new()
+    {
+        AccountId = a.Id,
+        DisplayName = a.DisplayName,
+        Username = a.Username,
+        AvatarUrl = Accounts.AvatarUrl(a),
+        IsAdmin = a.IsAdmin,
+        IsLeagueRunner = a.IsLeagueRunner,
+    };
 
     private static async Task<AccountDto> Get(
         HttpContext context, NetRtsDb db, IOptions<DiscordOptions> options, IOptions<NetRtsOptions> netRts, CancellationToken ct)
@@ -165,6 +238,8 @@ public static class AccountEndpoints
                 InServer = record.InServer,
                 Verified = Accounts.IsVerified(record, discord),
                 IsAdmin = record.IsAdmin,
+                IsLeagueRunner = record.IsLeagueRunner,
+                CanRunLeague = record.CanRunLeague,
                 ProfileSlug = (await ProfileSlugs.LoadAsync(db, discord, ct)).Of(record.Id),
             },
             Bots = await PlayerEndpoints.ProfilesAsync(db, discord, db.Players.Where(p => p.OwnerAccountId == record.Id), ct),

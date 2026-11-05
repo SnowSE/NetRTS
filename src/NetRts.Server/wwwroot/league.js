@@ -1,8 +1,9 @@
 // A league match (preseason, season, championship), played in rounds: the queue filling up, each
 // round's heats as the admin arranges them (in seat order around the map), then a live scoreboard
 // per heat, and each bot's total for the match. Bots can join between rounds. Discord server admins
-// also get the controls to split, reshuffle and start each round's heats at once, and to close the
-// match, which puts its points on the ladder.
+// and the league runners they pick also get the controls to split, reshuffle and start each round's
+// heats at once, and to close the match, which puts its points on the ladder. Taking a bot out and
+// calling the match off are for admins only.
 import { api, html, setHtml, playerLabel, slotVar, fmt } from './util.js';
 import { GAME, say } from './lore.js';
 
@@ -35,12 +36,17 @@ export function mountLeague(root, initial) {
   let match = initial;
   let standings = null;
   let isAdmin = false;
+  let canRun = false;   // admins and league runners
   let message = null;   // { error, text }
   let busy = false;
   let sizesText = null; // what the admin typed, kept across refreshes
   let evenCount = null;
 
-  api('/api/v1/account').then((a) => { isAdmin = Boolean(a?.account?.isAdmin); if (alive) render(); }).catch(() => {});
+  api('/api/v1/account').then((a) => {
+    isAdmin = Boolean(a?.account?.isAdmin);
+    canRun = Boolean(a?.account?.canRunLeague);
+    if (alive) render();
+  }).catch(() => {});
 
   async function load() {
     try {
@@ -69,7 +75,8 @@ export function mountLeague(root, initial) {
     const pending = pendingHeats(m);
     const round = lastRound(m);
     if (sizesText === null && pending.length) sizesText = pending.map((h) => h.playerIds.length).join(', ');
-    const canEdit = isAdmin && stage !== 'running' && stage !== 'closed';
+    const canEdit = canRun && stage !== 'running' && stage !== 'closed';
+    const canRemove = canEdit && isAdmin;
     const stageText = {
       queueing: 'Taking players',
       split: `Round ${round} split into heats, waiting for the start`,
@@ -95,7 +102,7 @@ export function mountLeague(root, initial) {
         (<code>POST /api/v1/matches/${m.matchId}/join</code>, or by name: <code>--join-match ${m.name}</code>) and long-poll its state.
         When the admin starts a round, each bot is playing in its own heat.</p>` : ''}
 
-      ${isAdmin ? adminHtml(m, stage, canEdit) : ''}
+      ${canRun ? adminHtml(m, stage, canEdit) : ''}
 
       ${stage === 'split' ? html`<section aria-labelledby="heats-h">
         <h2 id="heats-h">Round ${round} heats</h2>
@@ -104,7 +111,7 @@ export function mountLeague(root, initial) {
           <article class="league-match">
             <h3>${h.name}<span class="muted small">${h.playerIds.length} players</span></h3>
             <ol class="league-players">${aroundTheMap(h.playerIds.length).map((slot) =>
-              seatHtml(byId.get(h.playerIds[slot]) ?? { playerId: h.playerIds[slot], name: '?' }, slot, canEdit))}</ol>
+              seatHtml(byId.get(h.playerIds[slot]) ?? { playerId: h.playerIds[slot], name: '?' }, slot, canRemove))}</ol>
           </article>`)}
         </div></section>` : ''}
 
@@ -115,18 +122,18 @@ export function mountLeague(root, initial) {
       ${stage === 'queueing' || stage === 'between' ? html`<section aria-labelledby="queue-h">
         <h2 id="queue-h">${stage === 'between' ? 'In the next round' : 'Joined'}</h2>
         ${m.players.length
-          ? html`<ol class="league-players queue">${m.players.map((p, i) => seatHtml(p, i, canEdit))}</ol>`
+          ? html`<ol class="league-players queue">${m.players.map((p, i) => seatHtml(p, i, canRemove))}</ol>`
           : html`<p class="empty">Nobody has joined yet.</p>`}
       </section>` : ''}
     </div>`);
     wire(m, stage, canEdit);
   }
 
-  function seatHtml(p, i, canEdit) {
+  function seatHtml(p, i, canRemove) {
     return html`<li style="--pc:${slotVar(i)}">
       <span class="dot ${p.connected ? 'on' : 'off'}" title="${p.connected ? 'Connected: made an API call in the last 40 s' : 'Not connected'}"></span>
       <span class="league-name">${playerLabel(p)}</span>
-      ${canEdit ? html`<button type="button" class="link-btn" data-remove="${p.playerId}" aria-label="Remove ${p.name}">Remove</button>` : ''}
+      ${canRemove ? html`<button type="button" class="link-btn" data-remove="${p.playerId}" aria-label="Remove ${p.name}">Remove</button>` : ''}
     </li>`;
   }
 
@@ -230,10 +237,10 @@ export function mountLeague(root, initial) {
         <button type="button" class="btn start" id="close">Close match and finalize</button>
       </div>` : ''}
       ${stage === 'split' ? html`<div class="start-box">
-        <p>${idle ? html`<b>${idle}</b> of ${n} bots aren't connected. Remove them, or start anyway and they'll sit idle.` : html`All ${n} bots are connected.`}</p>
+        <p>${idle ? html`<b>${idle}</b> of ${n} bots aren't connected. ${isAdmin ? 'Remove them, or start' : 'Start'} anyway and they'll sit idle.` : html`All ${n} bots are connected.`}</p>
         <button type="button" class="btn start" id="start">Start round ${next}: all ${pendingHeats(m).length} heats</button>
       </div>` : ''}
-      ${m.status === 'Waiting' ? html`<p><button type="button" class="link-btn danger" id="cancel">Call off this match</button></p>` : ''}
+      ${m.status === 'Waiting' && isAdmin ? html`<p><button type="button" class="link-btn danger" id="cancel">Call off this match</button></p>` : ''}
     </section>`;
   }
 

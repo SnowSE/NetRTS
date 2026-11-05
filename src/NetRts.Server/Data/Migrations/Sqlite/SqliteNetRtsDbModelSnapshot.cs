@@ -81,6 +81,9 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsLeagueRunner")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("LastSignInAt")
                         .HasColumnType("TEXT");
 

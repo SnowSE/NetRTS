@@ -75,8 +75,12 @@ public static class Accounts
     public const string SignedInPolicy = "SignedIn";
     public const string AdminPolicy = "Admin";
 
+    /// <summary>Admins, and the league runners they pick: may create and run league matches.</summary>
+    public const string LeagueRunnerPolicy = "LeagueRunner";
+
     private const string AccountIdClaim = "netrts:account";
     private const string AdminClaim = "netrts:admin";
+    private const string LeagueClaim = "netrts:league";
 
     /// <summary>Discord's ADMINISTRATOR permission bit.</summary>
     private const ulong AdministratorPermission = 0x8;
@@ -98,7 +102,7 @@ public static class Accounts
             o.SlidingExpiration = true;
             // This is an API: answer with status codes instead of redirecting to a login page.
             o.Events.OnRedirectToLogin = ctx => WriteError(ctx.Response, 401, "NOT_SIGNED_IN", "Sign in with Discord first.");
-            o.Events.OnRedirectToAccessDenied = ctx => WriteError(ctx.Response, 403, "FORBIDDEN", "Only Discord server administrators can do that.");
+            o.Events.OnRedirectToAccessDenied = ctx => WriteError(ctx.Response, 403, "FORBIDDEN", "Only the admins (or the league runners they pick) can do that.");
             // Rebuild the claims from the database on every request, so a deleted account or lost admin
             // role takes effect without waiting for the cookie to expire.
             o.Events.OnValidatePrincipal = async ctx =>
@@ -146,7 +150,8 @@ public static class Accounts
 
         services.AddAuthorizationBuilder()
             .AddPolicy(SignedInPolicy, p => p.AddAuthenticationSchemes(CookieScheme).RequireClaim(AccountIdClaim))
-            .AddPolicy(AdminPolicy, p => p.AddAuthenticationSchemes(CookieScheme).RequireClaim(AccountIdClaim).RequireClaim(AdminClaim, "true"));
+            .AddPolicy(AdminPolicy, p => p.AddAuthenticationSchemes(CookieScheme).RequireClaim(AccountIdClaim).RequireClaim(AdminClaim, "true"))
+            .AddPolicy(LeagueRunnerPolicy, p => p.AddAuthenticationSchemes(CookieScheme).RequireClaim(AccountIdClaim).RequireClaim(LeagueClaim, "true"));
     }
 
     /// <summary>A bot's blue check: claimed by an account that is verified (in the Discord server, when one is configured).</summary>
@@ -171,6 +176,7 @@ public static class Accounts
                 new Claim(AccountIdClaim, account.Id.ToString()),
                 new Claim(ClaimTypes.Name, account.DisplayName),
                 new Claim(AdminClaim, account.IsAdmin ? "true" : "false"),
+                new Claim(LeagueClaim, account.CanRunLeague ? "true" : "false"),
             ],
             CookieScheme));
 

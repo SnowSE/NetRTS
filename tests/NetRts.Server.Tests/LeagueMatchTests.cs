@@ -5,6 +5,7 @@ using Microsoft.Extensions.DependencyInjection;
 using NetRts.Bots;
 using NetRts.Protocol;
 using NetRts.Server.Data;
+using NetRts.Server.Endpoints;
 using NetRts.Server.Matches;
 
 namespace NetRts.Server.Tests;
@@ -41,6 +42,52 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
 
         (await admin.DeleteAsync($"/api/v1/admin/matches/{match.MatchId}", Ct)).EnsureSuccessStatusCode();
         Assert.Equal(HttpStatusCode.NotFound, (await factory.CreateClient().GetAsync($"/api/v1/matches/{match.MatchId}", Ct)).StatusCode);
+    }
+
+    [Fact]
+    public async Task Admins_pick_league_runners_who_create_split_start_and_close_matches_at_once_but_dont_remove_bots_or_call_matches_off()
+    {
+        var admin = factory.ClientFor(await factory.NewAccountAsync(admin: true));
+        var runnerAccount = await factory.NewAccountAsync(nickname: "Stand-in");
+        var runner = factory.ClientFor(runnerAccount);   // signed in before being picked: the same cookie gains the right
+        var request = new CreateLeagueMatchRequest { Category = MatchCategory.Season, Name = MatchName() };
+
+        Assert.Equal(HttpStatusCode.Forbidden, (await runner.PostAsJsonAsync("/api/v1/admin/matches", request, NetRtsClient.JsonOptions, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await runner.PutAsync($"/api/v1/admin/runners/{runnerAccount.Id}", null, Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await runner.GetAsync("/api/v1/admin/runners", Ct)).StatusCode);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsync($"/api/v1/admin/runners/{Guid.NewGuid()}", null, Ct)).StatusCode);
+
+        var picked = await (await admin.PutAsync($"/api/v1/admin/runners/{runnerAccount.Id}", null, Ct)).Content.ReadFromJsonAsync<LeagueRunnerDto>(NetRtsClient.JsonOptions, Ct);
+        Assert.True(picked!.IsLeagueRunner);
+        var everyone = (await admin.GetFromJsonAsync<List<LeagueRunnerDto>>("/api/v1/admin/runners", NetRtsClient.JsonOptions, Ct))!;
+        Assert.Contains(everyone, r => r.AccountId == runnerAccount.Id && r.IsLeagueRunner && !r.IsAdmin);
+        var me = (await runner.GetFromJsonAsync<AccountDto>("/api/v1/account", NetRtsClient.JsonOptions, Ct))!.Account!;
+        Assert.True(me.CanRunLeague);
+        Assert.False(me.IsAdmin);
+
+        var match = await CreateAsync(runner, request);
+        var bots = new List<NetRtsClient>();
+        for (var i = 0; i < 2; i++)
+        {
+            var bot = (await VerifiedBotAsync($"r{i}")).Client;
+            await bot.JoinMatchAsync(match.MatchId, Ct);
+            bots.Add(bot);
+        }
+
+        var heat = await SplitAsync(runner, match.MatchId, 2);
+        var someone = heat.Heats![0].PlayerIds[0];
+        Assert.Equal(HttpStatusCode.Forbidden, (await runner.DeleteAsync($"/api/v1/admin/matches/{match.MatchId}/players/{someone}", Ct)).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await runner.DeleteAsync($"/api/v1/admin/matches/{match.MatchId}", Ct)).StatusCode);
+        Assert.Equal(MatchStatus.Active, (await PostAsync<MatchSummaryDto>(runner, $"/api/v1/admin/matches/{match.MatchId}/start")).Status);
+        await bots[0].SurrenderAsync(match.MatchId, Ct);
+        Assert.True((await PostAsync<MatchSummaryDto>(runner, $"/api/v1/admin/matches/{match.MatchId}/close")).Closed);
+
+        // Unpicked, and it's gone on their next request.
+        (await admin.DeleteAsync($"/api/v1/admin/runners/{runnerAccount.Id}", Ct)).EnsureSuccessStatusCode();
+        var again = request with { Name = MatchName() };
+        Assert.Equal(HttpStatusCode.Forbidden, (await runner.PostAsJsonAsync("/api/v1/admin/matches", again, NetRtsClient.JsonOptions, Ct)).StatusCode);
+        Assert.False((await runner.GetFromJsonAsync<AccountDto>("/api/v1/account", NetRtsClient.JsonOptions, Ct))!.Account!.CanRunLeague);
     }
 
     [Fact]

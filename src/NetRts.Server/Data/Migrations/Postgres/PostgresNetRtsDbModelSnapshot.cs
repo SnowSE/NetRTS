@@ -88,6 +88,9 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<bool>("IsAdmin")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsLeagueRunner")
+                        .HasColumnType("boolean");
+
                     b.Property<DateTime>("LastSignInAt")
                         .HasColumnType("timestamp with time zone");
 

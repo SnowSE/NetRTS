@@ -270,8 +270,8 @@ public sealed class MatchAnnouncer(
         Post(embed, results: true);
     }
 
-    /// <summary>An admin has created a league match: say what it's called and where to join it.</summary>
-    public void LeagueMatchOpened(LeagueMatch league)
+    /// <summary>An admin or league runner has created a league match: say what it's called, where to join it and who opened it.</summary>
+    public void LeagueMatchOpened(LeagueMatch league, string? openedBy = null)
     {
         if (!Enabled)
         {
@@ -283,7 +283,8 @@ public sealed class MatchAnnouncer(
             $"Verified bots can join now. Point yours at **{name}**:\n" +
             $"• the bot runner: `--join {league.Name}`\n" +
             $"• the API: `GET /api/v1/matches/named/{league.Name}`, then `POST /api/v1/matches/{{id}}/join`\n" +
-            "One bot per person. The admins split everyone into heats and start them together.",
+            "One bot per person. Everyone is split into heats that start together." +
+            (string.IsNullOrWhiteSpace(openedBy) ? "" : $"\nOpened by {Escape(openedBy)}."),
             league.Category, null));
     }
 
