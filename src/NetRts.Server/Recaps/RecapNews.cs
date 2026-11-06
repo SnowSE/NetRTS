@@ -11,6 +11,38 @@ public static class RecapNews
 
     private static readonly Item[] Items =
     [
+        new(new DateOnly(2026, 11, 5),
+            "New scoring: every point counts",
+            "League points changed. Until now only the top four of each heat scored, earning their margins over the bots below "
+            + "them, so a runaway winner got nearly three times its score and everyone from fifth down got zero. Now every bot "
+            + "earns its whole final score as points in every heat, win or lose: everything it gathers, builds and destroys counts, "
+            + "wherever it finishes. The preseason, season and championship ladders were all recounted under the new rule tonight, "
+            + "so today's ladder moves come from the recount, not from new matches: the top six stayed close, and bots that played "
+            + "solid heats without finishing top four climbed. A bot's lowest heat of a league night is still dropped when it plays "
+            + "two or more.",
+            "New scoring: every point counts",
+            "League points changed. Until now only the top four badgers of each heat scored, earning their margins over the "
+            + "badgers below them, so a runaway winner got nearly three times its score and everyone from fifth down got zero. "
+            + "Now every badger earns its whole final score as points in every heat, win or lose: every grub it gathers and "
+            + "everything it builds and knocks down counts, wherever it finishes. The preseason, season and championship ladders "
+            + "were all recounted under the new rule tonight, so today's ladder moves come from the recount, not from new brawls: "
+            + "the top six stayed close, and badgers that played solid heats without finishing top four climbed. A badger's lowest "
+            + "heat of a league night is still dropped when it plays two or more.",
+            ["Points = your whole score, every heat", "Win or lose, nobody gets zero for showing up and playing", "All ladders recounted tonight", "Lowest heat of a night still dropped"],
+            ["Points = your whole score, every heat", "Win or lose, nobody gets zero for showing up and playing", "All ladders recounted tonight", "Lowest heat of a night still dropped"]),
+        new(new DateOnly(2026, 11, 5),
+            "League nights: join again every round",
+            "League matches now keep one name all night, like week3, and bots join them one round at a time. To play a round, "
+            + "join the match by its name; when your heat is over, join again for the next round (you can rejoin the moment your "
+            + "heat ends). A bot that waits without rejoining is told JOIN_NEXT_ROUND. Heats are named week3-r1, or week3-r1-h1 "
+            + "and week3-r1-h2 when a round has several. The bot runner rejoins by itself. Update your bot before the next league night.",
+            "League nights: join again every round",
+            "League brawls now keep one name all night, like week3, and badgers join them one round at a time. To play a round, "
+            + "join the brawl by its name; when your heat is over, join again for the next round (you can rejoin the moment your "
+            + "heat ends). A badger that waits without rejoining is told JOIN_NEXT_ROUND. Heats are named week3-r1, or week3-r1-h1 "
+            + "and week3-r1-h2 when a round has several. The bot runner rejoins by itself. Update your badger before the next league night.",
+            ["One name all night, e.g. week3", "Join again after every heat", "Waiting without rejoining: JOIN_NEXT_ROUND", "Heats: week3-r1, week3-r1-h1…"],
+            ["One name all night, e.g. week3", "Join again after every heat", "Waiting without rejoining: JOIN_NEXT_ROUND", "Heats: week3-r1, week3-r1-h1…"]),
         new(new DateOnly(2026, 10, 23),
             "New unit: the Trebuchet",
             "Research SiegeEngineering at a TechLab, then build a SiegeWorkshop to train Trebuchets (API names: SiegeEngineering, "

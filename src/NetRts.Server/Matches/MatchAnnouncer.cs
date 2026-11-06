@@ -333,8 +333,12 @@ public sealed class MatchAnnouncer(
         }
 
         var day = DateOnly.FromDateTime(episode.Date).ToString("dddd, MMMM d", CultureInfo.InvariantCulture);
+        // Audio only, for listening on the go: the episode's MP3 and the podcast feed.
+        var listen = !string.IsNullOrEmpty(episode.Audio) && Link($"recaps/{episode.Id}/audio.mp3") is { } mp3
+            ? $"\n🎧 [Listen instead]({mp3}) · [Podcast feed]({Link("recaps/podcast.xml")})"
+            : "";
         var embed = Embed(Truncate($"📺 {episode.Title}", 250), Link($"#/recaps/{episode.Id}"),
-            Truncate($"Last night's recap is up: the highlights from {day}.\n{Escape(episode.Summary)}", 4000), MatchCategory.Practice, null);
+            Truncate($"Last night's recap is up: the highlights from {day}.\n{Escape(episode.Summary)}", 3800) + listen, MatchCategory.Practice, null);
         if (!string.IsNullOrEmpty(episode.Thumbnail) && Link($"recaps/{episode.Id}/thumbnail") is { } poster)
         {
             embed["image"] = new JsonObject { ["url"] = poster };

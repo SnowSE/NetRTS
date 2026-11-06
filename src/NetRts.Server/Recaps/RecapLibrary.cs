@@ -83,7 +83,7 @@ public sealed class RecapLibrary(
             {
                 var date = LadderSnapshots.Stored(DateOnly.ParseExact(request.Date, "yyyy-MM-dd", System.Globalization.CultureInfo.InvariantCulture));
                 var existing = await db.RecapEpisodes.AsNoTracking().FirstOrDefaultAsync(e => e.Date == date, ct);
-                if (existing is null || existing.Video != request.Video || existing.Title != request.Title)
+                if (existing is null || existing.Video != request.Video || existing.Title != request.Title || existing.Audio != (request.Audio ?? ""))
                 {
                     var (episode, error) = await RecapEndpoints.UpsertAsync(db, request, time.GetUtcNow().UtcDateTime, ct);
                     if (episode is null)

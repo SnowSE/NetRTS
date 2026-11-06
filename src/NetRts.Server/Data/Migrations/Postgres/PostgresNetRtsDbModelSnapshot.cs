@@ -482,6 +482,13 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<DateTime?>("AnnouncedAt")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Audio")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<long>("AudioBytes")
+                        .HasColumnType("bigint");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 

@@ -263,6 +263,9 @@ public sealed record RecapEpisodeDto
     /// <summary>Its poster frame, or null.</summary>
     public string? ThumbnailUrl { get; init; }
 
+    /// <summary>The episode as audio only (an MP3, also in the podcast feed at /recaps/podcast.xml), or null.</summary>
+    public string? AudioUrl { get; init; }
+
     public int DurationSeconds { get; init; }
 
     /// <summary>The script; only when one episode is asked for.</summary>
@@ -280,6 +283,12 @@ public sealed record PublishRecapRequest
     public string Video { get; init; } = "";
 
     public string? Thumbnail { get; init; }
+
+    /// <summary>The soundtrack as an MP3 (blob name or absolute URL), for the podcast; and its size in bytes.</summary>
+    public string? Audio { get; init; }
+
+    public long AudioBytes { get; init; }
+
     public int DurationSeconds { get; init; }
     public IReadOnlyList<RecapLineDto> Transcript { get; init; } = [];
 }

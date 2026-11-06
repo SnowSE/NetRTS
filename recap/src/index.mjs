@@ -1,4 +1,4 @@
-// The nightly recap job: brief → script → voices → render → upload → publish.
+// The nightly recap job: brief → script → voices → render (video, and an MP3 for the podcast) → upload → publish.
 //
 //   node src/index.mjs                     # what the Container Apps job runs (see README.md)
 //   node src/index.mjs --local --date 2026-10-20 --voices silent --script template
@@ -11,6 +11,7 @@ import { speak } from './voices.mjs';
 import { buildTimeline, writeWav } from './timeline.mjs';
 import { render } from './render.mjs';
 import { pruneDay, upload, uploadJson } from './upload.mjs';
+import { addMissingAudio, encodeMp3 } from './podcast.mjs';
 
 const step = (what) => console.log(`[recap] ${what}`);
 
@@ -61,6 +62,10 @@ async function main() {
   });
   step(`rendered ${videoFile}`);
 
+  const podcastFile = path.join(dir, 'recap.mp3');
+  const audioBytes = await encodeMp3(audioFile, podcastFile, { title: script.title, date: brief.date });
+  step(`encoded ${podcastFile} for the podcast`);
+
   if (!config.publish) {
     step('local run: not uploading or publishing');
     return;
@@ -69,6 +74,7 @@ async function main() {
   step('uploading');
   const video = await upload(videoFile, `${brief.date}/recap-${Date.now()}.mp4`, 'video/mp4');
   const thumbnail = await upload(posterFile, `${brief.date}/poster-${Date.now()}.jpg`, 'image/jpeg');
+  const audio = await upload(podcastFile, `${brief.date}/recap-${Date.now()}.mp3`, 'audio/mpeg');
 
   // The episode's details go next to the video, so the server finds it by itself even if telling it
   // directly fails; then tell it directly, so it's on the site right away.
@@ -78,11 +84,13 @@ async function main() {
     summary: script.summary,
     video,
     thumbnail,
+    audio,
+    audioBytes,
     durationSeconds: Math.round(timeline.duration),
     transcript: timeline.lines.map((l) => ({ speaker: l.speaker, text: l.text, start: +l.start.toFixed(2) })),
   };
   await uploadJson(details, `${brief.date}/episode.json`);
-  await pruneDay(brief.date, [video, thumbnail, `${brief.date}/episode.json`]);
+  await pruneDay(brief.date, [video, thumbnail, audio, `${brief.date}/episode.json`]);
 
   step('publishing');
   try {
@@ -90,6 +98,14 @@ async function main() {
     step(`published episode ${episode.id}`);
   } catch (e) {
     step(`couldn't tell the server (${e.message}); it will pick the episode up from storage`);
+  }
+
+  // Earlier episodes without an MP3 (from before the podcast) get one from their video.
+  try {
+    const added = await addMissingAudio();
+    if (added) step(`added the podcast audio to ${added} earlier episode${added === 1 ? '' : 's'}`);
+  } catch (e) {
+    step(`couldn't add audio to earlier episodes (${e.message})`);
   }
 }
 

@@ -13,6 +13,12 @@ function player(e) {
     ${e.thumbnailUrl ? html`poster="${e.thumbnailUrl}"` : ''} src="${e.videoUrl}" aria-label="${SHOW}: ${e.title}"></video>`;
 }
 
+/** Audio only, for people who'd rather listen: the MP3, and the podcast feed for podcast apps. */
+const FEED = '/recaps/podcast.xml';
+function listen(e) {
+  return e.audioUrl ? html`<p class="small recap-listen">🎧 <a href="${e.audioUrl}" download>Listen (MP3)</a> · <a href="${FEED}">Podcast feed</a></p>` : '';
+}
+
 /** New episodes arrive overnight; an open page looks again this often, and whenever it's shown again. */
 const CHECK_EVERY_MS = 5 * 60 * 1000;
 
@@ -45,7 +51,7 @@ export function showLatestRecap(section) {
     } catch {
       return;
     }
-    if (!section.isConnected || (shown && shown.id === e.id && shown.title === e.title)) return;
+    if (!section.isConnected || (shown && shown.id === e.id && shown.title === e.title && shown.audioUrl === e.audioUrl)) return;
     shown = e;
     renderLatest(section, e);
   });
@@ -64,6 +70,7 @@ function renderLatest(section, e) {
         <p class="recap-title">${e.title}</p>
         <p class="muted small">${SHOW} · ${when(e.date)} · ${length(e.durationSeconds)}</p>
         ${e.summary ? html`<p class="small">${e.summary}</p>` : ''}
+        ${listen(e)}
       </div>
     </div>`);
 }
@@ -76,6 +83,8 @@ export function mountRecaps(root, openId) {
     <p class="lede">Every night our three ${say('', 'badger ')}commentators, Zip the Scout, Sarge the Soldier and Quill the Archer,
       run down the day: new ${say('bots', 'badgers')}, new strategies, the ladder, the upsets and who's gone missing.
       New episodes show up here on their own.</p>
+    <p class="small">🎧 Rather listen than watch? Every episode has an MP3, and the show is a podcast: add
+      <a href="${FEED}">${location.origin}${FEED}</a> to your podcast app (in most, "Add by URL" or "Follow a show by URL").</p>
     <div id="episodes" aria-busy="true" aria-live="polite"><p class="empty">Loading episodes…</p></div>
   </div>`);
   const el = root.querySelector('#episodes');
@@ -90,7 +99,7 @@ export function mountRecaps(root, openId) {
       if (shown === null && el.isConnected) setHtml(el, html`<p class="error">Could not load the episodes: ${e.message}</p>`);
       return;
     }
-    const key = list.map((e) => `${e.id}:${e.title}`).join('|');
+    const key = list.map((e) => `${e.id}:${e.title}:${e.audioUrl ?? ''}`).join('|');
     if (!el.isConnected || key === shown) return;
     shown = key;
     el.setAttribute('aria-busy', 'false');
@@ -118,6 +127,7 @@ export function mountRecaps(root, openId) {
             <h2>${e.title}</h2>
             <p class="muted small">${when(e.date)} · ${length(e.durationSeconds)}</p>
             ${e.summary ? html`<p>${e.summary}</p>` : ''}
+            ${listen(e)}
             <details data-transcript="${e.id}"><summary>Transcript</summary><div class="transcript"><p class="muted small">Loading…</p></div></details>
           </div>
         </article>

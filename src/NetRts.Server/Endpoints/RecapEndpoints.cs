@@ -80,6 +80,15 @@ public static class RecapEndpoints
         app.MapGet("/recaps/{id:guid}/thumbnail", (Guid id, NetRtsDb db, RecapVideos videos, CancellationToken ct) =>
                 RedirectAsync(db, videos, id, e => e.Thumbnail, ct))
             .ExcludeFromDescription();
+
+        // The podcast: each episode's MP3 (a stable address for podcast apps, redirecting to a fresh link)
+        // and the feed that lists them.
+        app.MapMethods("/recaps/{id:guid}/audio.mp3", ["GET", "HEAD"], (Guid id, NetRtsDb db, RecapVideos videos, CancellationToken ct) =>
+                RedirectAsync(db, videos, id, e => e.Audio, ct))
+            .ExcludeFromDescription();
+
+        app.MapGet("/recaps/podcast.xml", RecapPodcast.FeedAsync)
+            .ExcludeFromDescription();
     }
 
     private static async Task<IResult> Publish(PublishRecapRequest request, HttpContext http, NetRtsDb db, IOptions<RecapOptions> recap,
@@ -119,6 +128,8 @@ public static class RecapEndpoints
         episode.Summary = Truncate(request.Summary?.Trim() ?? "", 2000);
         episode.Video = Truncate(request.Video.Trim(), 512);
         episode.Thumbnail = Truncate(request.Thumbnail?.Trim() ?? "", 512);
+        episode.Audio = Truncate(request.Audio?.Trim() ?? "", 512);
+        episode.AudioBytes = string.IsNullOrEmpty(episode.Audio) ? 0 : Math.Max(0, request.AudioBytes);
         episode.DurationSeconds = Math.Max(0, request.DurationSeconds);
         episode.TranscriptJson = JsonSerializer.Serialize(request.Transcript ?? [], NetRtsClient.JsonOptions);
         episode.CreatedAt = now;
@@ -129,7 +140,7 @@ public static class RecapEndpoints
     private static async Task<IResult> RedirectAsync(NetRtsDb db, RecapVideos videos, Guid id, Func<RecapEpisodeRecord, string> pick, CancellationToken ct)
     {
         var episode = await db.RecapEpisodes.AsNoTracking().FirstOrDefaultAsync(e => e.Id == id, ct);
-        return episode is not null && await videos.UrlAsync(pick(episode), ct) is { } url
+        return episode is not null && !string.IsNullOrEmpty(pick(episode)) && await videos.UrlAsync(pick(episode), ct) is { } url
             ? Results.Redirect(url.ToString())
             : ApiErrors.NotFound("Video");
     }
@@ -156,6 +167,7 @@ public static class RecapEndpoints
         Summary = e.Summary,
         VideoUrl = $"/recaps/{e.Id}/video",
         ThumbnailUrl = string.IsNullOrEmpty(e.Thumbnail) ? null : $"/recaps/{e.Id}/thumbnail",
+        AudioUrl = string.IsNullOrEmpty(e.Audio) ? null : $"/recaps/{e.Id}/audio.mp3",
         DurationSeconds = e.DurationSeconds,
         Transcript = transcript ? JsonSerializer.Deserialize<List<RecapLineDto>>(e.TranscriptJson, NetRtsClient.JsonOptions) : null,
     };

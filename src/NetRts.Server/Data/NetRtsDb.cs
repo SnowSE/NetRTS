@@ -287,6 +287,12 @@ public sealed class RecapEpisodeRecord
     /// <summary>Its poster frame, the same way; empty if none.</summary>
     public string Thumbnail { get; set; } = "";
 
+    /// <summary>Its soundtrack as an MP3 for the podcast, the same way; empty if none.</summary>
+    public string Audio { get; set; } = "";
+
+    /// <summary>The MP3's size, which the podcast feed has to state.</summary>
+    public long AudioBytes { get; set; }
+
     public int DurationSeconds { get; set; }
 
     /// <summary>Serialized list of RecapLineDto: who said what, for the transcript.</summary>

@@ -12,11 +12,17 @@ Soldier (a gruff drill sergeant, deadpan) and **Quill** the Archer (the stats). 
                                   as JSON (src/script.mjs); a plain template takes over if it fails
 3. voices                         Azure AI Speech, one neural voice per host, with visemes (mouth shapes)
                                   that drive each host's voice meter and movement
-4. render                         show/index.html in headless Chromium, frame by frame, into ffmpeg
-5. upload                         the MP4, a poster and episode.json to the private "recaps" blob container
+4. render                         show/index.html in headless Chromium, frame by frame, into ffmpeg; and the
+                                  soundtrack as an MP3 for the podcast (src/podcast.mjs)
+5. upload                         the MP4, the MP3, a poster and episode.json to the private "recaps" blob container
 6. POST /api/v1/recaps            the server records the episode at once (it would also find episode.json
                                   in storage within 5 minutes); it serves short-lived links to the video
+7. earlier episodes               any episode without an MP3 (from before the podcast) gets one from its video
 ```
+
+**The podcast.** For people who'd rather listen: every episode's MP3 is at `/recaps/{id}/audio.mp3`
+(a stable address that redirects to a fresh link), linked beside each video on `#/recaps` and in the
+Discord post, and the show is a podcast feed at `/recaps/podcast.xml` for any podcast app.
 
 What's in the brief: totals, new bots, the ladders (with yesterday's ranks), rating movers,
 achievements earned (first-ever first), strategies (new ones, and bots switching style), the match of

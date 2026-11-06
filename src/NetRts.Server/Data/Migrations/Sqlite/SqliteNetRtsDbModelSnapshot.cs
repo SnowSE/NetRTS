@@ -475,6 +475,13 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.Property<DateTime?>("AnnouncedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Audio")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AudioBytes")
+                        .HasColumnType("INTEGER");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("TEXT");
 

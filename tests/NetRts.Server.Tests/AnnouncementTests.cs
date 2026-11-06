@@ -272,6 +272,7 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         {
             Id = Guid.NewGuid(), Date = LadderSnapshots.Stored(new DateOnly(2030, 1, 14)), Title = "Badgers Gone Wild",
             Summary = "Upsets everywhere.", Video = "2030-01-14/recap.mp4", Thumbnail = "2030-01-14/poster.jpg",
+            Audio = "2030-01-14/recap.mp3", AudioBytes = 1000,
         };
         await using (var scope = factory.Services.CreateAsyncScope())
         {
@@ -291,6 +292,8 @@ public class AnnouncementTests(AnnouncingServerFactory factory) : IClassFixture<
         var embed = await NextEmbedAsync(e => e["url"]?.GetValue<string>() == $"https://netrts.test/#/recaps/{episode.Id}");
         Assert.Equal("📺 Badgers Gone Wild", embed["title"]!.GetValue<string>());
         Assert.Contains("Monday, January 14", embed["description"]!.GetValue<string>());
+        Assert.Contains($"[Listen instead](https://netrts.test/recaps/{episode.Id}/audio.mp3) · [Podcast feed](https://netrts.test/recaps/podcast.xml)",
+            embed["description"]!.GetValue<string>());
         Assert.Equal($"https://netrts.test/recaps/{episode.Id}/thumbnail", embed["image"]!["url"]!.GetValue<string>());
         Assert.Single(Embeds(), e => e["url"]?.GetValue<string>() == embed["url"]!.GetValue<string>());
         Assert.Equal("42", factory.Webhook.ThreadOf[LastMessageFor(embed)]);

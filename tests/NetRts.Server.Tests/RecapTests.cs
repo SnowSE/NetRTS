@@ -112,6 +112,67 @@ public class RecapTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task Tonights_brief_announces_the_scoring_change_and_joining_every_round()
+    {
+        var brief = await JobClient().GetFromJsonAsync<RecapBriefDto>("/api/v1/recaps/brief?date=2026-11-05", NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(["New scoring: every point counts", "League nights: join again every round"], brief!.News.Select(n => n.Headline));
+        Assert.Contains("whole final score", brief.News[0].Details);
+        Assert.Contains("JOIN_NEXT_ROUND", brief.News[1].Details);
+    }
+
+    [Fact]
+    public async Task Episodes_with_audio_are_a_podcast_with_an_mp3_each()
+    {
+        var job = JobClient();
+        (await job.PostAsJsonAsync("/api/v1/recaps", new PublishRecapRequest
+        {
+            Date = "2026-08-01",
+            Title = "Badgers & Bells",
+            Summary = "A <loud> night.",
+            Video = "https://videos.test/2026-08-01.mp4",
+            Thumbnail = "https://videos.test/2026-08-01.jpg",
+            Audio = "https://videos.test/2026-08-01.mp3",
+            AudioBytes = 1_234_567,
+            DurationSeconds = 245,
+        }, NetRtsClient.JsonOptions, Ct)).EnsureSuccessStatusCode();
+        (await job.PostAsJsonAsync("/api/v1/recaps", new PublishRecapRequest
+        {
+            Date = "2026-08-02", Title = "Video only", Video = "https://videos.test/2026-08-02.mp4",
+        }, NetRtsClient.JsonOptions, Ct)).EnsureSuccessStatusCode();
+
+        var site = factory.CreateClient();
+        var list = (await site.GetFromJsonAsync<List<RecapEpisodeDto>>("/api/v1/recaps", NetRtsClient.JsonOptions, Ct))!;
+        var withAudio = list.Single(e => e.Date == "2026-08-01");
+        Assert.Equal($"/recaps/{withAudio.Id}/audio.mp3", withAudio.AudioUrl);
+        Assert.Null(list.Single(e => e.Date == "2026-08-02").AudioUrl);
+
+        using var noRedirects = factory.CreateClient(new() { AllowAutoRedirect = false });
+        var mp3 = await noRedirects.GetAsync(withAudio.AudioUrl, Ct);
+        Assert.Equal(HttpStatusCode.Redirect, mp3.StatusCode);
+        Assert.Equal("https://videos.test/2026-08-01.mp3", mp3.Headers.Location!.ToString());
+        var videoOnly = list.Single(e => e.Date == "2026-08-02");
+        Assert.Equal(HttpStatusCode.NotFound, (await noRedirects.GetAsync($"/recaps/{videoOnly.Id}/audio.mp3", Ct)).StatusCode);
+
+        var response = await site.GetAsync("/recaps/podcast.xml", Ct);
+        Assert.Equal("application/rss+xml", response.Content.Headers.ContentType!.MediaType);
+        var feed = System.Xml.Linq.XDocument.Parse(await response.Content.ReadAsStringAsync(Ct));
+        System.Xml.Linq.XNamespace itunes = "http://www.itunes.com/dtds/podcast-1.0.dtd";
+        Assert.Equal("Badger Brawl Tonight", feed.Root!.Element("channel")!.Element("title")!.Value);
+        var items = feed.Descendants("item").ToList();
+        Assert.DoesNotContain(items, i => i.Element("title")!.Value == "Video only");
+        var item = items.Single(i => i.Element("guid")!.Value == withAudio.Id.ToString());
+        Assert.Equal("Badgers & Bells", item.Element("title")!.Value);
+        Assert.Equal("A <loud> night.", item.Element("description")!.Value);
+        var enclosure = item.Element("enclosure")!;
+        Assert.EndsWith($"/recaps/{withAudio.Id}/audio.mp3", enclosure.Attribute("url")!.Value);
+        Assert.StartsWith("http", enclosure.Attribute("url")!.Value);
+        Assert.Equal("1234567", enclosure.Attribute("length")!.Value);
+        Assert.Equal("audio/mpeg", enclosure.Attribute("type")!.Value);
+        Assert.Equal("245", item.Element(itunes + "duration")!.Value);
+        Assert.Equal("Sun, 02 Aug 2026 12:30:00 GMT", item.Element("pubDate")!.Value);   // 6:30 a.m. in Ephraim, the morning after
+    }
+
+    [Fact]
     public async Task The_nightly_snapshot_records_the_ladders_and_awards_the_season_top_ten()
     {
         var (_, top) = await factory.NewPlayerAsync("season-top");

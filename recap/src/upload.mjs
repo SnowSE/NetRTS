@@ -37,3 +37,21 @@ export async function upload(file, name, contentType) {
   });
   return name;
 }
+
+/** Downloads a blob to a file. */
+export async function download(name, file) {
+  await service().getContainerClient(config.container).getBlobClient(name).downloadToFile(file);
+}
+
+/** Every day's episode.json: its blob name and contents. */
+export async function listEpisodes() {
+  const container = service().getContainerClient(config.container);
+  if (!(await container.exists())) return [];
+  const found = [];
+  for await (const blob of container.listBlobsFlat()) {
+    if (!blob.name.endsWith('/episode.json')) continue;
+    const body = await container.getBlobClient(blob.name).downloadToBuffer();
+    found.push({ name: blob.name, episode: JSON.parse(body.toString('utf8')) });
+  }
+  return found;
+}
