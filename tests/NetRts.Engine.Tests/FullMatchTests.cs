@@ -9,7 +9,7 @@ public class FullMatchTests
 {
     /// <param name="surrenderAt">Slot 1 surrenders at this tick.</param>
     /// <param name="boostAt">Slot 0 takes its boost at this tick, and sends every command boosted.</param>
-    internal static GameSimulation Play(string bot0, string bot1, int seed, int maxTicks = 1800, int? surrenderAt = null, int? boostAt = null)
+    internal static GameSimulation Play(string bot0, string bot1, int seed, int maxTicks = 1800, int? surrenderAt = null, int? boostAt = null, int? endAt = null)
     {
         var sim = new GameSimulation(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks },
             [new PlayerSeat(Guid.NewGuid(), bot0), new PlayerSeat(Guid.NewGuid(), bot1)]);
@@ -37,6 +37,11 @@ public class FullMatchTests
             {
                 sim.Surrender(1);
                 break;
+            }
+
+            if (sim.Tick == endAt)
+            {
+                sim.EndAfterThisTick();
             }
 
             sim.Step();
@@ -152,6 +157,23 @@ public class FullMatchTests
         Assert.Equal(MatchEndReason.Surrender, replay.Outcome!.Reason);
         Assert.Equal(150, replay.Tick);
         Assert.Equal(original.StateHash(), replay.StateHash());
+    }
+
+    [Fact]
+    public void Ending_a_match_early_scores_it_as_at_its_tick_limit_and_replays_the_same()
+    {
+        var original = Play("rusher", "economist", seed: 24, endAt: 200);
+
+        Assert.Equal(MatchEndReason.TimeLimit, original.Outcome!.Reason);
+        Assert.Equal(201, original.Tick);
+        Assert.Equal(201, original.GetReplay().MaxTicks);
+        var scores = original.GetResult()!.Players.OrderByDescending(p => p.Score.Total).ToList();
+        Assert.Equal(scores[0].Score.Total > scores[1].Score.Total ? scores[0].PlayerId : null, original.Outcome.WinnerId);
+
+        var replay = GameSimulation.FromReplay(original.GetReplay());
+        Assert.Equal(original.Tick, replay.Tick);
+        Assert.Equal(original.StateHash(), replay.StateHash());
+        Assert.Equal(original.Outcome.WinnerId, replay.Outcome!.WinnerId);
     }
 
     [Fact]

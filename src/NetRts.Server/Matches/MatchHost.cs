@@ -451,6 +451,21 @@ public sealed class MatchHost
         }
     }
 
+    /// <summary>Ends a running match on its next tick, scored as at its time limit (see <see cref="GameSimulation.EndAfterThisTick"/>).</summary>
+    public bool EndAfterThisTick()
+    {
+        lock (_gate)
+        {
+            if (_sim is not { Status: MatchStatus.Active })
+            {
+                return false;
+            }
+
+            _sim.EndAfterThisTick();
+            return true;
+        }
+    }
+
     public bool Surrender(Guid playerId)
     {
         bool finished;

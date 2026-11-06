@@ -45,6 +45,22 @@ public sealed partial class GameSimulation
     private readonly List<ReplaySurrenderDto> _replaySurrenders = [];
     private readonly List<ReplayBoostDto> _replayBoosts = [];
     private bool[][]? _visibility;
+
+    /// <summary>The tick the match ends on if nobody has won by then: the config's, unless <see cref="EndAfterThisTick"/> moved it.</summary>
+    public int TickLimit { get; private set; }
+
+    /// <summary>
+    /// Brings the tick limit forward to the next tick, so the match ends then as it would at its time
+    /// limit: the highest score wins. For an admin ending a league round early. The replay records the
+    /// new limit, so it plays out the same as a match created with it.
+    /// </summary>
+    public void EndAfterThisTick()
+    {
+        if (Status == MatchStatus.Active)
+        {
+            TickLimit = Math.Min(TickLimit, Tick + 1);
+        }
+    }
     private int _nextEntityId = 1;
     private long _nextCommandId = 1;
 
@@ -55,6 +71,7 @@ public sealed partial class GameSimulation
 
         MatchId = matchId;
         Config = config;
+        TickLimit = config.MaxTicks;
         Map = MapGenerator.Generate(config.MapWidth, config.MapHeight, config.Seed, seats.Count);
         _buildingAt = new int[Map.Width * Map.Height];
         _depositAt = new int[Map.Width * Map.Height];
@@ -259,7 +276,7 @@ public sealed partial class GameSimulation
         MapWidth = Config.MapWidth,
         MapHeight = Config.MapHeight,
         Seed = Config.Seed,
-        MaxTicks = Config.MaxTicks,
+        MaxTicks = TickLimit,
         Players = _players.Select(p => p.Id).ToList(),
         Commands = _replayCommands.ToList(),
         Surrenders = _replaySurrenders.ToList(),

@@ -21,7 +21,7 @@ public sealed partial class GameSimulation
             MatchId = MatchId,
             Tick = Tick,
             Status = Status,
-            MaxTicks = Config.MaxTicks,
+            MaxTicks = TickLimit,
             MapWidth = Map.Width,
             MapHeight = Map.Height,
             You = new SelfDto
@@ -83,7 +83,7 @@ public sealed partial class GameSimulation
             MatchId = MatchId,
             Tick = Tick,
             Status = Status,
-            MaxTicks = Config.MaxTicks,
+            MaxTicks = TickLimit,
             Players = _players.Select(p => new SpectatorPlayerDto
             {
                 PlayerId = p.Id,

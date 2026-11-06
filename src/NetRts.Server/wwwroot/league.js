@@ -211,6 +211,17 @@ export function mountLeague(root, initial) {
   }
 
   function adminHtml(m, stage, canEdit) {
+    if (stage === 'running' && canRun) {
+      const playing = (m.heats ?? []).filter((h) => (h.round ?? 1) === lastRound(m) && h.status === 'Active').length;
+      return html`<section class="admin league-admin" aria-labelledby="league-admin-h">
+        <h2 id="league-admin-h">Run this match</h2>
+        <div class="start-box">
+          <p>Round ${lastRound(m)} is being played${playing ? html` (<b>${playing}</b> heat${playing === 1 ? '' : 's'} still going)` : ''}.
+            Ending it now scores every heat still going as if it had hit its tick limit: highest score wins.</p>
+          <button type="button" class="btn start" id="end-round">End round ${lastRound(m)} now</button>
+        </div>
+      </section>`;
+    }
     if (!canEdit) return '';
     const n = m.players.length;
     const idle = m.players.filter((p) => !p.connected).length;
@@ -246,8 +257,10 @@ export function mountLeague(root, initial) {
 
   function wire(m, stage, canEdit) {
     const $ = (id) => root.querySelector('#' + id);
-    if (!canEdit) return;
     const base = `/api/v1/admin/matches/${m.matchId}`;
+    $('end-round')?.addEventListener('click', (e) => confirmThen(e.currentTarget, 'End every heat now?',
+      () => act(() => api(`${base}/end-round`, { method: 'POST' }), 'Ending the round: each heat finishes on its next tick.')));
+    if (!canEdit) return;
     $('sizes')?.addEventListener('input', (e) => { sizesText = e.target.value; });
     $('even')?.addEventListener('input', (e) => { evenCount = Number(e.target.value) || null; });
     $('even-btn')?.addEventListener('click', () => {

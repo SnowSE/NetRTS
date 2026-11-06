@@ -766,7 +766,7 @@ public sealed partial class GameSimulation
             return;
         }
 
-        if (Tick >= Config.MaxTicks)
+        if (Tick >= TickLimit)
         {
             var totals = standing.Select(p => (Player: p, Total: ScoreOf(p).Total)).OrderByDescending(t => t.Total).ToList();
             End(MatchEndReason.TimeLimit, totals[0].Total > totals[1].Total ? totals[0].Player : null);

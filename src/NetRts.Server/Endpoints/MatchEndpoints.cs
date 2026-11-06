@@ -353,6 +353,11 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Start every heat of the split round at once.");
 
+        league.MapPost("/{matchId:guid}/end-round", (Guid matchId, LeagueMatchManager leagues) => leagues.ToSummary(leagues.EndRound(matchId)))
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("End the round being played: each heat still going ends on its next tick, scored as at its tick limit (highest score wins).");
+
         league.MapPost("/{matchId:guid}/close", async (Guid matchId, LeagueMatchManager leagues, LeagueFinalizer finalizer, CancellationToken ct) =>
             {
                 var match = leagues.Close(matchId);

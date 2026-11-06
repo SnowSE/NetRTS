@@ -327,6 +327,30 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
     }
 
     /// <summary>
+    /// Ends the round being played: every heat still going ends on its next tick, scored as if it had
+    /// reached its tick limit (highest score wins). The match is then between rounds, as usual.
+    /// </summary>
+    public LeagueMatch EndRound(Guid id)
+    {
+        var league = Get(id);
+        lock (league.Gate)
+        {
+            EnsureOpen(league);
+            if (!league.RoundRunning)
+            {
+                throw new MatchException(409, "NO_ROUND_RUNNING", "No round is being played right now.");
+            }
+
+            var round = league.CurrentRound!;
+            var ending = round.Heats.Count(h => h.EndAfterThisTick());
+            league.LastActivityAt = DateTime.UtcNow;
+            logger.LogInformation("Ending round {Round} of {MatchName} early: {Count} heats still playing", round.Number, league.Name, ending);
+        }
+
+        return league;
+    }
+
+    /// <summary>
     /// Ends a started match between rounds (dropping a round that was split but not started): no more
     /// rounds or players. <see cref="LeagueFinalizer"/> then puts its points on the ladder.
     /// </summary>

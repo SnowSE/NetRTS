@@ -91,6 +91,40 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
+    public async Task Ending_a_round_early_finishes_every_heat_still_going_on_its_next_tick()
+    {
+        var admin = factory.ClientFor(await factory.NewAccountAsync(admin: true));
+        var match = await CreateAsync(admin, new CreateLeagueMatchRequest { Name = MatchName() });
+        var bots = new List<NetRtsClient>();
+        for (var i = 0; i < 4; i++)
+        {
+            var bot = (await VerifiedBotAsync($"e{i}")).Client;
+            await bot.JoinMatchAsync(match.MatchId, Ct);
+            bots.Add(bot);
+        }
+
+        var notYet = await admin.PostAsync($"/api/v1/admin/matches/{match.MatchId}/end-round", null, Ct);
+        Assert.Equal("NO_ROUND_RUNNING", (await notYet.ErrorAsync()).Code);
+
+        var split = await SplitAsync(admin, match.MatchId, 2, 2);
+        await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/start");
+        var heats = split.Heats!.Select(h => factory.Matches.Get(h.MatchId)!).ToList();
+        heats[0].Advance(3);
+        Assert.True(heats[0].Surrender(heats[0].Seats[0].PlayerId));   // one heat is already over
+        heats[1].Advance(5);
+
+        await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/end-round");
+        Assert.Equal(MatchStatus.Active, heats[1].Status);
+        heats[1].Advance();
+        Assert.Equal(MatchStatus.Completed, heats[1].Status);
+        Assert.Equal(MatchEndReason.TimeLimit, heats[1].ToSummary().Outcome!.Reason);
+        Assert.Equal(MatchEndReason.Surrender, heats[0].ToSummary().Outcome!.Reason);
+
+        // Between rounds again: the match can be closed.
+        Assert.True((await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/close")).Closed);
+    }
+
+    [Fact]
     public async Task League_matches_take_verified_bots_one_per_person()
     {
         var admin = factory.ClientFor(await factory.NewAccountAsync(admin: true));

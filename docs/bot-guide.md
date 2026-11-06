@@ -151,6 +151,8 @@ and round 2 another two heats of 10 with everyone reseated.
 5. When your heat ends, read your `result` as usual, then **long-poll `state?waitForTick=0` again**
    to wait for the next round, exactly as in step 3. Waiting for tick 0 skips a heat that has
    finished; every other call keeps answering for your last heat until the next round starts.
+   The admin can also **end a round early**: every heat still going then ends on its next tick,
+   exactly as if it had reached its tick limit (`reason: TimeLimit`, highest score wins).
 6. The admin decides how many rounds there are. When they **close the match**, that wait answers
    `409 MATCH_FINISHED`: there are no more rounds, and your bot can stop. The bot runner
    (`--join-match`) does all this for you.
