@@ -9,15 +9,17 @@ using NetRts.Server.Data;
 namespace NetRts.Server.Matches;
 
 /// <summary>
-/// A preseason, season or championship match. Verified bots join it like any match. It is played in
-/// rounds: for each one the admin splits everyone into heats (separate games) and starts them all at
-/// once. Between rounds new bots can join, and each round is seated so that bots who were neighbours
-/// before are, where possible, not neighbours again. Bots keep using this match's id: the server sends
-/// each bot's requests to its heat in the latest round it played.
+/// A preseason, season or championship match: one name (e.g. week3) and one id all night. It is played
+/// in rounds, and a bot joins it for each round it wants to play, at any time until the match is closed:
+/// it plays in the next round to be split. For each round the admin splits everyone who joined into
+/// heats (separate games) and starts them all at once, seated so that bots who were neighbours before
+/// are, where possible, not neighbours again. Bots keep using this match's id: the server sends each
+/// bot's requests to its heat.
 /// </summary>
 public sealed class LeagueMatch(Guid id, string name, MatchCategory category, int? tickIntervalMs, int? maxTicks, DateTime createdAt)
 {
     internal readonly object Gate = new();
+    /// <summary>Who has joined for the next round to be split (a split round's players are in its <see cref="LeagueRound.Entrants"/>).</summary>
     internal readonly List<(Seat Seat, DateTime JoinedAt)> Queue = [];
     internal readonly List<LeagueRound> Rounds = [];
     private TaskCompletionSource _changed = NewSignal();
@@ -82,6 +84,12 @@ public sealed class LeagueMatch(Guid id, string name, MatchCategory category, in
 
     internal bool IsQueued(Guid playerId) => Queue.Any(q => q.Seat.PlayerId == playerId);
 
+    /// <summary>Joined for a round that hasn't started: queued for the next split, or in the split round.</summary>
+    internal bool IsEntered(Guid playerId) => IsQueued(playerId) || PendingRound?.Entrants.Any(e => e.Seat.PlayerId == playerId) == true;
+
+    /// <summary>Everyone in a round that hasn't started: the split round's players, then those queued for the one after.</summary>
+    internal IEnumerable<(Seat Seat, DateTime JoinedAt)> Entrants => (PendingRound?.Entrants ?? []).Concat(Queue);
+
     /// <summary>The bot's heat in the latest started round it played in.</summary>
     internal MatchHost? PlayedHeatOf(Guid playerId) =>
         Rounds.Where(r => r.Started).Reverse().SelectMany(r => r.Heats).FirstOrDefault(m => m.HasPlayer(playerId));
@@ -98,8 +106,11 @@ public sealed class LeagueMatch(Guid id, string name, MatchCategory category, in
 }
 
 /// <summary>One round of a league match: everyone in it plays one heat, all at the same time.</summary>
-public sealed class LeagueRound(int number, List<MatchHost> heats, int repeatedNeighbours)
+public sealed class LeagueRound(int number, List<(Seat Seat, DateTime JoinedAt)> entrants, List<MatchHost> heats, int repeatedNeighbours)
 {
+    /// <summary>Who was split into this round's heats, in the order they joined (so an undone split can put them back).</summary>
+    internal List<(Seat Seat, DateTime JoinedAt)> Entrants { get; } = entrants;
+
     /// <summary>1 for the first round.</summary>
     public int Number { get; } = number;
 
@@ -168,16 +179,16 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
 
         lock (league.Gate)
         {
-            if (league.IsQueued(seat.PlayerId))
+            if (league.IsEntered(seat.PlayerId))
             {
                 return league;
             }
 
+            // Open all night: while a round is split or being played, joining is for the round after.
             EnsureOpen(league);
-            EnsureBetweenRounds(league, "MATCH_CLOSED", "isn't taking players until it ends");
-            if (league.Queue.FirstOrDefault(q => q.Seat.OwnerAccountId == seat.OwnerAccountId) is { Seat: { } other })
+            if (league.Entrants.FirstOrDefault(q => q.Seat.OwnerAccountId == seat.OwnerAccountId) is { Seat: { } other })
             {
-                throw new MatchException(409, "OWNER_ALREADY_JOINED", $"Your bot '{other.Name}' is already in this match; one bot per person.");
+                throw new MatchException(409, "OWNER_ALREADY_JOINED", $"Your bot '{other.Name}' is already in this match's next round; one bot per person.");
             }
 
             league.Queue.Add((seat, DateTime.UtcNow));
@@ -188,37 +199,41 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         return league;
     }
 
-    /// <summary>A bot gives up its place in the rounds to come (only between rounds).</summary>
+    /// <summary>A bot gives up its place in the next round (not once that round has been split into heats).</summary>
     public LeagueMatch Leave(Guid id, Guid playerId)
     {
         var league = Get(id);
         lock (league.Gate)
         {
-            if (!league.IsQueued(playerId))
+            EnsureOpen(league);
+            if (league.PendingHeatOf(playerId) is not null)
             {
-                throw new MatchException(409, "CANNOT_LEAVE", "You aren't in this match.");
+                throw new MatchException(409, "CANNOT_LEAVE", "You've been split into a heat of the next round; ask the admin to take you out, or surrender once it starts.");
             }
 
-            EnsureOpen(league);
-            EnsureBetweenRounds(league, "CANNOT_LEAVE", "can't be left until it ends; ask the admin to take you out, or surrender");
-            league.Queue.RemoveAll(q => q.Seat.PlayerId == playerId);
+            if (league.Queue.RemoveAll(q => q.Seat.PlayerId == playerId) == 0)
+            {
+                throw new MatchException(409, "CANNOT_LEAVE", "You haven't joined this match's next round.");
+            }
+
         }
 
         league.Signal();
         return league;
     }
 
-    /// <summary>An admin takes a bot out of the rounds to come, and out of its heat if already split.</summary>
+    /// <summary>An admin takes a bot out of the next round, and out of its heat if that round is split.</summary>
     public LeagueMatch Remove(Guid id, Guid playerId)
     {
         var league = Get(id);
         lock (league.Gate)
         {
             EnsureOpen(league);
-            EnsureNoRoundRunning(league);
-            if (league.Queue.RemoveAll(q => q.Seat.PlayerId == playerId) == 0)
+            var removed = league.Queue.RemoveAll(q => q.Seat.PlayerId == playerId)
+                          + (league.PendingRound?.Entrants.RemoveAll(e => e.Seat.PlayerId == playerId) ?? 0);
+            if (removed == 0)
             {
-                throw new MatchException(404, "NOT_IN_MATCH", "That bot isn't in this match.");
+                throw new MatchException(404, "NOT_IN_MATCH", "That bot isn't in this match's next round.");
             }
 
             league.PendingHeatOf(playerId)?.TryLeave(playerId);
@@ -229,9 +244,11 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
     }
 
     /// <summary>
-    /// Seats everyone in heats of the given sizes for the next round, replacing an earlier split of it.
-    /// The heats are created with their players seated (see <see cref="LeagueSeating"/>) but don't
-    /// start until <see cref="Start"/>.
+    /// Seats everyone who has joined in heats of the given sizes for the next round, replacing an earlier
+    /// split of it (and taking in anyone who joined since). The heats are created with their players
+    /// seated (see <see cref="LeagueSeating"/>) but don't start until <see cref="Start"/>. Bots joining
+    /// after this play in the round after. A round with one heat calls it {name}-r{round}; with more,
+    /// {name}-r{round}-h{heat}.
     /// </summary>
     public LeagueMatch Split(Guid id, IReadOnlyList<int> sizes)
     {
@@ -245,30 +262,33 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                 throw new MatchException(400, "INVALID_SPLIT", $"Every heat needs 2 to {MapGenerator.MaxPlayers} players.");
             }
 
-            if (sizes.Sum() != league.Queue.Count)
+            var entrants = league.Entrants.ToList();
+            if (sizes.Sum() != entrants.Count)
             {
-                throw new MatchException(400, "INVALID_SPLIT", $"The sizes add up to {sizes.Sum()}, but {league.Queue.Count} bots have joined.");
+                throw new MatchException(400, "INVALID_SPLIT", $"The sizes add up to {sizes.Sum()}, but {entrants.Count} bots have joined.");
             }
 
-            CancelPendingRound(league);
-            var number = league.Rounds.Count + 1;
-            var (seating, repeats) = LeagueSeating.Plan(league.Queue.Select(q => q.Seat).ToList(), sizes, league.PastNeighbours(), Random.Shared);
+            var number = league.Rounds.Count(r => r.Started) + 1;
+            var (seating, repeats) = LeagueSeating.Plan(entrants.Select(q => q.Seat).ToList(), sizes, league.PastNeighbours(), Random.Shared);
+            DropPendingRound(league);
+            league.Queue.Clear();
             var heats = new List<MatchHost>();
             try
             {
                 for (var i = 0; i < seating.Count; i++)
                 {
-                    var name = number == 1 ? $"{league.Name}-h{i + 1}" : $"{league.Name}-r{number}-h{i + 1}";
+                    var name = seating.Count == 1 ? $"{league.Name}-r{number}" : $"{league.Name}-r{number}-h{i + 1}";
                     heats.Add(matches.CreateHeat(league.Id, name, league.Category, seating[i], league.TickIntervalMs, league.MaxTicks));
                 }
             }
             catch
             {
                 CancelHeats(heats);
+                league.Queue.AddRange(entrants);
                 throw;
             }
 
-            league.Rounds.Add(new LeagueRound(number, heats, repeats));
+            league.Rounds.Add(new LeagueRound(number, entrants, heats, repeats));
             league.LastActivityAt = DateTime.UtcNow;
             logger.LogInformation("Split round {Round} of {MatchName} into heats of {Sizes} ({Repeats} repeated neighbours)",
                 number, league.Name, string.Join(", ", sizes), repeats);
@@ -278,7 +298,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         return league;
     }
 
-    /// <summary>Undoes the split of the next round, and lets bots join or leave again.</summary>
+    /// <summary>Undoes the split of the next round: its players are back in the queue for it, ahead of anyone who joined since.</summary>
     public LeagueMatch Unsplit(Guid id)
     {
         var league = Get(id);
@@ -370,7 +390,8 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
             }
 
             EnsureNoRoundRunning(league);
-            CancelPendingRound(league);
+            DropPendingRound(league);
+            league.Queue.Clear();
             league.ClosedAt = DateTime.UtcNow;
             league.LastActivityAt = DateTime.UtcNow;
             logger.LogInformation("Closed {MatchName} after {Rounds} rounds", league.Name, league.Rounds.Count);
@@ -418,10 +439,11 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
     }
 
     /// <summary>
-    /// The heat a bot plays in: its heat in the latest round it played. With <paramref name="nextGame"/>
-    /// (a bot waiting for a game to start) a finished heat doesn't count, so the bot waits for the next
-    /// round. Waits up to <paramref name="wait"/> for one (so a state long-poll on the league match
-    /// simply lasts until the admin starts the round); null if there still isn't one.
+    /// The heat a bot plays in: the one it's playing now, else (once it has joined for a round that hasn't
+    /// started) the next one, else its last. With <paramref name="nextGame"/> (a bot waiting for a game
+    /// to start) a finished heat doesn't count. Waits up to <paramref name="wait"/> for a round the bot
+    /// joined to start (so a state long-poll on the league match simply lasts until the admin starts it);
+    /// null if it still hasn't. A bot that hasn't joined again is told to.
     /// </summary>
     public async Task<MatchHost?> HeatForAsync(LeagueMatch league, Guid playerId, bool nextGame, TimeSpan wait, CancellationToken ct)
     {
@@ -433,12 +455,13 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
             lock (league.Gate)
             {
                 var heat = league.PlayedHeatOf(playerId);
-                if (!league.IsQueued(playerId) && heat is null)
+                var entered = league.IsEntered(playerId);
+                if (!entered && heat is null)
                 {
-                    throw new MatchException(403, "NOT_A_PARTICIPANT", "You are not playing in this match.");
+                    throw new MatchException(403, "NOT_A_PARTICIPANT", "You are not playing in this match. Join it to play in its next round.");
                 }
 
-                if (heat is not null && !(nextGame && heat.Status == MatchStatus.Completed))
+                if (heat is not null && (heat.Status != MatchStatus.Completed || (!entered && !nextGame)))
                 {
                     return heat;
                 }
@@ -446,6 +469,11 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                 if (league.Closed)
                 {
                     throw new MatchException(409, "MATCH_FINISHED", "This match has been closed; there are no more rounds.");
+                }
+
+                if (!entered)
+                {
+                    throw new MatchException(409, "JOIN_NEXT_ROUND", "Your heat is over. Join this match again (POST /join) to play in its next round.");
                 }
             }
 
@@ -509,11 +537,10 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         lock (league.Gate)
         {
             var heats = league.Rounds.SelectMany(r => r.Heats.Select(h => (Heat: h, Round: r.Number, Summary: h.ToSummary()))).ToList();
-            // Between rounds a match counts as completed, though until it is closed bots can join and the
-            // admin can split and start another round.
-            var status = !league.Started ? MatchStatus.Waiting
-                : league.RoundRunning || league.PendingRound is not null ? MatchStatus.Active
-                : MatchStatus.Completed;
+            // Waiting whenever no round is being played: until it is closed, bots can always join it.
+            var status = league.Closed ? MatchStatus.Completed
+                : league.RoundRunning ? MatchStatus.Active
+                : MatchStatus.Waiting;
             return new MatchSummaryDto
             {
                 MatchId = league.Id,
@@ -525,7 +552,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
                 MaxTicks = league.MaxTicks ?? _options.DefaultMaxTicks,
                 TickIntervalMs = league.TickIntervalMs ?? _options.DefaultTickIntervalMs,
                 CreatedAt = new DateTimeOffset(league.CreatedAt, TimeSpan.Zero),
-                Players = league.Queue.Select((q, i) => new MatchPlayerDto
+                Players = league.Entrants.Select((q, i) => new MatchPlayerDto
                 {
                     PlayerId = q.Seat.PlayerId,
                     Name = q.Seat.Name,
@@ -617,21 +644,18 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
         }
     }
 
-    /// <summary>Bots can join or leave only between rounds: not while one is split or being played.</summary>
-    private static void EnsureBetweenRounds(LeagueMatch league, string code, string what)
+    /// <summary>Undoes a split: the round's heats go, and its players go back to the front of the queue.</summary>
+    private void CancelPendingRound(LeagueMatch league)
     {
-        if (league.RoundRunning)
+        if (league.PendingRound is { } round)
         {
-            throw new MatchException(409, code, $"Round {league.CurrentRound!.Number} of this match is being played, and it {what}.");
-        }
-
-        if (league.PendingRound is { } pending)
-        {
-            throw new MatchException(409, code, $"Round {pending.Number} of this match has been split into heats, and it {what}.");
+            league.Queue.InsertRange(0, round.Entrants);
+            DropPendingRound(league);
         }
     }
 
-    private void CancelPendingRound(LeagueMatch league)
+    /// <summary>Drops the split round and its heats (its players are dealt with by the caller).</summary>
+    private void DropPendingRound(LeagueMatch league)
     {
         if (league.PendingRound is { } round)
         {

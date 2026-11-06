@@ -283,7 +283,7 @@ public sealed class MatchAnnouncer(
             $"Verified bots can join now. Point yours at **{name}**:\n" +
             $"• the bot runner: `--join {league.Name}`\n" +
             $"• the API: `GET /api/v1/matches/named/{league.Name}`, then `POST /api/v1/matches/{{id}}/join`\n" +
-            "One bot per person. Everyone is split into heats that start together." +
+            $"One bot per person. It's played in rounds: join **{name}** again for each one (the bot runner does this for you)." +
             (string.IsNullOrWhiteSpace(openedBy) ? "" : $"\nOpened by {Escape(openedBy)}."),
             league.Category, null));
     }

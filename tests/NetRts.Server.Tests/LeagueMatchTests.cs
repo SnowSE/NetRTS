@@ -175,14 +175,20 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
         Assert.False(waiting.IsCompleted);
 
         var late = (await VerifiedBotAsync("late")).Client;
-        Assert.Equal("MATCH_CLOSED", (await Assert.ThrowsAsync<NetRtsApiException>(() => late.JoinMatchAsync(match.MatchId, Ct))).Code);
         Assert.Equal("HEAT_MATCH", (await Assert.ThrowsAsync<NetRtsApiException>(() => late.JoinMatchAsync(split.Heats![0].MatchId, Ct))).Code);
 
         // Reshuffling replaces the heats; the bots never see it.
         var reshuffled = await SplitAsync(admin, match.MatchId, 2, 3);
         Assert.All(split.Heats!, h => Assert.Null(factory.Matches.Get(h.MatchId)));
 
+        // Joining while a round is split is for the round after: the heats stay as they are.
+        var queued = await late.JoinMatchAsync(match.MatchId, Ct);
+        Assert.Equal(6, queued.Players.Count);
+        Assert.Equal([2, 3], queued.Heats!.Select(h => h.PlayerIds.Count));
+
         var started = await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/start");
+        Assert.Equal("MATCH_NOT_STARTED", (await Assert.ThrowsAsync<NetRtsApiException>(() => late.GetStateAsync(match.MatchId, ct: Ct))).Code);
+        Assert.Single(started.Players);   // the late bot, waiting for the next round
         Assert.Equal(MatchStatus.Active, started.Status);
         Assert.All(reshuffled.Heats!, h =>
         {
@@ -237,7 +243,7 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
-    public async Task A_match_is_played_in_rounds_reseated_away_from_old_neighbours_and_bots_can_join_between_them()
+    public async Task A_match_is_played_in_rounds_that_bots_join_one_at_a_time_reseated_away_from_old_neighbours()
     {
         var admin = factory.ClientFor(await factory.NewAccountAsync(admin: true));
         var match = await CreateAsync(admin, new CreateLeagueMatchRequest { Name = MatchName() });
@@ -251,7 +257,7 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
 
         var round1 = await SplitAsync(admin, match.MatchId, 2, 2);
         Assert.All(round1.Heats!, h => Assert.Equal(1, h.Round));
-        Assert.Equal([$"{match.Name}-h1", $"{match.Name}-h2"], round1.Heats!.Select(h => h.Name));
+        Assert.Equal([$"{match.Name}-r1-h1", $"{match.Name}-r1-h2"], round1.Heats!.Select(h => h.Name));
         await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/start");
 
         // Heats keep the planned seat order: a bot's slot is its place in the heat's player list.
@@ -259,9 +265,11 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
         var heat1 = round1.Heats!.Single(h => h.PlayerIds.Contains(bots[0].Player.PlayerId));
         Assert.Equal(heat1.PlayerIds.ToList().IndexOf(bots[0].Player.PlayerId), opening.You.Slot);
 
-        // Nobody joins, leaves or re-splits while a round is being played.
+        // A bot can join while a round is being played, for the next one; nobody re-splits until it's over.
         var late = await VerifiedBotAsync("late");
-        Assert.Equal("MATCH_CLOSED", (await Assert.ThrowsAsync<NetRtsApiException>(() => late.Client.JoinMatchAsync(match.MatchId, Ct))).Code);
+        var during = await late.Client.JoinMatchAsync(match.MatchId, Ct);
+        Assert.Equal(MatchStatus.Active, during.Status);
+        Assert.Equal([late.Player.PlayerId], during.Players.Select(p => p.PlayerId));
         var resplit = await admin.PostAsJsonAsync($"/api/v1/admin/matches/{match.MatchId}/heats", new SplitHeatsRequest { Sizes = [4] }, NetRtsClient.JsonOptions, Ct);
         Assert.Equal("ROUND_RUNNING", (await resplit.ErrorAsync()).Code);
 
@@ -270,12 +278,21 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
             await bots.Single(b => b.Player.PlayerId == heat.PlayerIds[0]).Client.SurrenderAsync(match.MatchId, Ct);
         }
 
-        Assert.Equal(MatchStatus.Completed, (await bots[0].Client.GetMatchAsync(match.MatchId, Ct)).Status);
+        // Between rounds the match is waiting for players again; a bot's last heat answers until it joins again.
+        Assert.Equal(MatchStatus.Waiting, (await bots[0].Client.GetMatchAsync(match.MatchId, Ct)).Status);
         Assert.Equal(heat1.MatchId, (await bots[0].Client.GetResultAsync(match.MatchId, Ct)).MatchId);
+        Assert.Equal(MatchStatus.Completed, (await bots[0].Client.GetStateAsync(match.MatchId, ct: Ct)).Status);
+        var notJoined = await Assert.ThrowsAsync<NetRtsApiException>(() => bots[0].Client.WaitForStartAsync(match.MatchId, Ct));
+        Assert.Equal("JOIN_NEXT_ROUND", notJoined.Code);
 
-        // Waiting for the next game skips the finished heat; a new bot joins between rounds.
+        // Everyone joins again for round 2, and the late bot is in it too.
+        foreach (var bot in bots)
+        {
+            await bot.Client.JoinMatchAsync(match.MatchId, Ct);
+        }
+
         var waiting = bots[0].Client.WaitForStartAsync(match.MatchId, Ct);
-        await late.Client.JoinMatchAsync(match.MatchId, Ct);
+        Assert.Equal("MATCH_NOT_STARTED", (await Assert.ThrowsAsync<NetRtsApiException>(() => bots[1].Client.GetStateAsync(match.MatchId, ct: Ct))).Code);
         bots.Add(late);
         var round2 = await SplitAsync(admin, match.MatchId, 2, 3);
         Assert.False(waiting.IsCompleted);
@@ -316,6 +333,14 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
         var heatIds = new List<Guid>();
         foreach (var winner in new[] { 0, 1 })
         {
+            if (winner == 1)
+            {
+                foreach (var bot in bots)
+                {
+                    await bot.Client.JoinMatchAsync(match.MatchId, Ct);
+                }
+            }
+
             var split = await SplitAsync(admin, match.MatchId, 3);
             heatIds.Add(split.Heats![^1].MatchId);
             await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/start");
@@ -335,6 +360,8 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
         await WaitFor(() => Ladder(MatchCategory.Season), l => l.Count(e => bots.Any(b => b.Player.PlayerId == e.PlayerId)) == 3);
         Assert.All((await Ladder(MatchCategory.Season)).Where(e => bots.Any(b => b.Player.PlayerId == e.PlayerId)), e => Assert.Equal(0, e.Points));
 
+        // A bot that joined for a third round hears there won't be one.
+        await bots[2].Client.JoinMatchAsync(match.MatchId, Ct);
         var waiting = bots[2].Client.GetStateAsync(match.MatchId, waitForTick: 0, ct: Ct);
         var closed = await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/close");
         Assert.True(closed.Closed);

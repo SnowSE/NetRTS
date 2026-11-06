@@ -104,7 +104,8 @@ namespace NetRts.BotRunner
             var match = await EnterMatchAsync(client, o, ct);
             var matchId = match.MatchId;
 
-            // A league match is played in rounds: after each heat, wait for the admin to start the next.
+            // A league match is played in rounds, joined one at a time: after each heat, join again and
+            // wait for the admin to start the next round.
             var league = match.Heats is not null;
             while (true)
             {
@@ -130,7 +131,17 @@ namespace NetRts.BotRunner
                     return 0;
                 }
 
-                Log("Staying in the league match for its next round. (Ctrl+C to quit)");
+                try
+                {
+                    await client.JoinMatchAsync(matchId, ct);
+                }
+                catch (NetRtsApiException ex) when (ex.Code == "MATCH_FINISHED")
+                {
+                    Log("The admin has closed the match; there are no more rounds.");
+                    return 0;
+                }
+
+                Log("Joined the league match's next round. (Ctrl+C to quit)");
             }
         }
 
@@ -166,7 +177,7 @@ namespace NetRts.BotRunner
                     var match = await client.JoinMatchAsync(matchId, ct);
                     Log(match.Heats is null
                         ? $"Joined match {match.MatchId} ({match.Players.Count}/{match.MaxPlayers} seats taken, {Describe(match)})."
-                        : $"Joined {match.Category} match {match.Name} ({match.Players.Count} in so far). It starts when the admin starts the first round.");
+                        : $"Joined {match.Category} match {match.Name} ({match.Players.Count} in the next round so far). It starts when the admin starts the round.");
                     return match;
                 }
             }

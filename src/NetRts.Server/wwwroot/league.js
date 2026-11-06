@@ -1,6 +1,6 @@
-// A league match (preseason, season, championship), played in rounds: the queue filling up, each
-// round's heats as the admin arranges them (in seat order around the map), then a live scoreboard
-// per heat, and each bot's total for the match. Bots can join between rounds. Discord server admins
+// A league match (preseason, season, championship), played in rounds: who has joined the next round,
+// each round's heats as the admin arranges them (in seat order around the map), then a live scoreboard
+// per heat, and each bot's total for the match. Bots join for each round, at any time until it closes. Discord server admins
 // and the league runners they pick also get the controls to split, reshuffle and start each round's
 // heats at once, and to close the match, which puts its points on the ladder. Taking a bot out and
 // calling the match off are for admins only.
@@ -19,11 +19,14 @@ const pendingHeats = (m) => {
   return last.length && last.every((h) => h.status === 'Waiting') ? last : [];
 };
 
+/** Some heat has been started: the match has played a round. */
+const played = (m) => (m.heats ?? []).some((h) => h.status !== 'Waiting');
+
 /** queueing (before round 1), split (a round is arranged), running, between (rounds), or closed. */
 const stageOf = (m) => m.closed ? 'closed'
   : pendingHeats(m).length ? 'split'
   : (m.heats ?? []).some((h) => h.status === 'Active') ? 'running'
-  : m.status === 'Waiting' ? 'queueing' : 'between';
+  : played(m) ? 'between' : 'queueing';
 
 /** Slots in the order they sit around the map: corners go top-left, top-right, bottom-right, bottom-left. */
 const aroundTheMap = (n) => (n <= 4 ? [0, 2, 1, 3].filter((i) => i < n) : Array.from({ length: n }, (_, i) => i));
@@ -51,7 +54,7 @@ export function mountLeague(root, initial) {
   async function load() {
     try {
       match = await api(`/api/v1/matches/${matchId}`);
-      standings = match.status !== 'Waiting' ? await api(`/api/v1/matches/${matchId}/standings`) : null;
+      standings = played(match) ? await api(`/api/v1/matches/${matchId}/standings`) : null;
       if (alive && !busy && !editing()) render();
     } catch (e) {
       if (!alive) return;
@@ -71,9 +74,15 @@ export function mountLeague(root, initial) {
     const m = match;
     const stage = stageOf(m);
     const byId = new Map(m.players.map((p) => [p.playerId, p]));
-    const connected = m.players.filter((p) => p.connected).length;
     const pending = pendingHeats(m);
     const round = lastRound(m);
+    // Everyone listed has joined a round that hasn't started; those not in a split heat play the one after.
+    const inSplit = new Set(pending.flatMap((h) => h.playerIds));
+    const queued = m.players.filter((p) => !inSplit.has(p.playerId));
+    const nextRound = round + 1;
+    const playing = (m.heats ?? []).filter((h) => (h.round ?? 1) === round).reduce((sum, h) => sum + h.playerIds.length, 0);
+    const shown = stage === 'running' ? playing : stage === 'split' ? inSplit.size : m.players.length;
+    const connected = (stage === 'split' ? m.players.filter((p) => inSplit.has(p.playerId)) : m.players).filter((p) => p.connected).length;
     if (sizesText === null && pending.length) sizesText = pending.map((h) => h.playerIds.length).join(', ');
     const canEdit = canRun && stage !== 'running' && stage !== 'closed';
     const canRemove = canEdit && isAdmin;
@@ -81,7 +90,7 @@ export function mountLeague(root, initial) {
       queueing: 'Taking players',
       split: `Round ${round} split into heats, waiting for the start`,
       running: `Round ${round} under way`,
-      between: `Round ${round} finished · bots can join before the next round`,
+      between: `Round ${round} finished · join for round ${round + 1}`,
       closed: m.finalized ? `Final after ${round} round${round === 1 ? '' : 's'} · points are on the ${m.category.toLowerCase()} ladder` : 'Closed · adding up the points…',
     }[stage];
 
@@ -93,14 +102,15 @@ export function mountLeague(root, initial) {
           <h1 class="headline">${m.name}</h1>
           <p class="muted" style="margin:6px 0 0">${stageText} · ${fmt(m.tickIntervalMs)} ms per tick · ${fmt(m.maxTicks)} tick limit</p>
         </div>
-        <div class="league-count"><b>${m.players.length}</b> ${stage === 'running' ? 'playing' : 'joined'}
+        <div class="league-count"><b>${shown}</b> ${stage === 'running' ? 'playing' : stage === 'split' ? 'in the heats' : 'joined'}
           ${stage !== 'running' ? html`<br><span class="muted small">${connected} connected</span>` : ''}</div>
       </div>
       ${message ? html`<p class="${message.error ? 'error' : 'ok'}" role="status">${message.text}</p>` : ''}
 
-      ${stage === 'queueing' || stage === 'between' ? html`<p class="muted">Verified bots join this match like any other
-        (<code>POST /api/v1/matches/${m.matchId}/join</code>, or by name: <code>--join-match ${m.name}</code>) and long-poll its state.
-        When the admin starts a round, each bot is playing in its own heat.</p>` : ''}
+      ${stage !== 'closed' ? html`<p class="muted">Verified bots join <b>${m.name}</b> for each round they want to play
+        (<code>GET /api/v1/matches/named/${m.name}</code>, then <code>POST /api/v1/matches/{id}/join</code>, or <code>--join ${m.name}</code>) and long-poll its state.
+        When the admin starts a round, each bot is playing in its own heat; when its heat is over, it joins again for the next.
+        Joining now puts a bot in round ${nextRound}.</p>` : ''}
 
       ${canRun ? adminHtml(m, stage, canEdit) : ''}
 
@@ -119,11 +129,11 @@ export function mountLeague(root, initial) {
 
       ${standings ? dashboardHtml(standings, m) : ''}
 
-      ${stage === 'queueing' || stage === 'between' ? html`<section aria-labelledby="queue-h">
-        <h2 id="queue-h">${stage === 'between' ? 'In the next round' : 'Joined'}</h2>
-        ${m.players.length
-          ? html`<ol class="league-players queue">${m.players.map((p, i) => seatHtml(p, i, canRemove))}</ol>`
-          : html`<p class="empty">Nobody has joined yet.</p>`}
+      ${stage !== 'closed' ? html`<section aria-labelledby="queue-h">
+        <h2 id="queue-h">Joined for round ${nextRound}</h2>
+        ${queued.length
+          ? html`<ol class="league-players queue">${queued.map((p, i) => seatHtml(p, i, canRemove))}</ol>`
+          : html`<p class="empty">Nobody yet.</p>`}
       </section>` : ''}
     </div>`);
     wire(m, stage, canEdit);
@@ -224,7 +234,10 @@ export function mountLeague(root, initial) {
     }
     if (!canEdit) return '';
     const n = m.players.length;
-    const idle = m.players.filter((p) => !p.connected).length;
+    const inHeats = new Set(pendingHeats(m).flatMap((h) => h.playerIds));
+    const seated = m.players.filter((p) => inHeats.has(p.playerId));
+    const idle = seated.filter((p) => !p.connected).length;
+    const newcomers = n - seated.length;
     const suggested = Math.max(1, Math.round(n / 8));
     const next = stage === 'split' ? lastRound(m) : lastRound(m) + 1;
     return html`<section class="admin league-admin" aria-labelledby="league-admin-h">
@@ -239,19 +252,19 @@ export function mountLeague(root, initial) {
             ${n < 4 ? html`<p class="muted small">Two or more heats need at least 4 players.</p>` : ''}</div>
         </div>
         <div class="league-actions">
-          <button class="btn" type="submit">${stage === 'split' ? 'Reshuffle' : `Split round ${next} into heats`}</button>
-          ${stage === 'split' ? html`<button type="button" class="btn ghost" id="unsplit">Undo split (reopen to players)</button>` : ''}
+          <button class="btn" type="submit">${stage !== 'split' ? `Split round ${next} into heats` : newcomers ? `Reshuffle with the ${newcomers} who joined since` : 'Reshuffle'}</button>
+          ${stage === 'split' ? html`<button type="button" class="btn ghost" id="unsplit">Undo split</button>` : ''}
         </div>
       </form>
-      ${stage === 'between' ? html`<div class="start-box">
-        <p>Done with rounds? Closing the match puts its points on the ladder (each bot's heats, less its lowest) and posts the results.</p>
+      ${stage === 'between' || (stage === 'split' && played(m)) ? html`<div class="start-box">
+        <p>Done with rounds? Closing the match${stage === 'split' ? ` drops the split round ${next} and` : ''} puts its points on the ladder (each bot's heats, less its lowest) and posts the results.</p>
         <button type="button" class="btn start" id="close">Close match and finalize</button>
       </div>` : ''}
       ${stage === 'split' ? html`<div class="start-box">
-        <p>${idle ? html`<b>${idle}</b> of ${n} bots aren't connected. ${isAdmin ? 'Remove them, or start' : 'Start'} anyway and they'll sit idle.` : html`All ${n} bots are connected.`}</p>
+        <p>${idle ? html`<b>${idle}</b> of ${seated.length} bots in the heats aren't connected. ${isAdmin ? 'Remove them, or start' : 'Start'} anyway and they'll sit idle.` : html`All ${seated.length} bots in the heats are connected.`}</p>
         <button type="button" class="btn start" id="start">Start round ${next}: all ${pendingHeats(m).length} heats</button>
       </div>` : ''}
-      ${m.status === 'Waiting' && isAdmin ? html`<p><button type="button" class="link-btn danger" id="cancel">Call off this match</button></p>` : ''}
+      ${!played(m) && isAdmin ? html`<p><button type="button" class="link-btn danger" id="cancel">Call off this match</button></p>` : ''}
     </section>`;
   }
 
@@ -301,7 +314,7 @@ export function mountLeague(root, initial) {
       message = ok ? { error: false, text: ok } : null;
       busy = false;
       if (then) { then(); return; }
-      if (match.status !== 'Waiting') standings = await api(`/api/v1/matches/${matchId}/standings`).catch(() => null);
+      if (played(match)) standings = await api(`/api/v1/matches/${matchId}/standings`).catch(() => null);
     } catch (e) {
       message = { error: true, text: e.message };
     }

@@ -104,7 +104,7 @@ public static class MatchEndpoints
             .RequireAuthorization()
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
-            .WithSummary("Take a seat in a waiting match. League matches (preseason, season, championship) take Discord-verified bots, one per person; play continues on the same match id once the admin starts the heats.");
+            .WithSummary("Take a seat in a waiting match. League matches (preseason, season, championship) take Discord-verified bots, one per person, at any time until closed: join once per round you want to play (you play the next round to be split), and keep using the same match id.");
 
         matches.MapPost("/{matchId:guid}/speed", (Guid matchId, MatchSpeedRequest request, MatchManager manager, LeagueMatchManager leagues) =>
                 Results.Ok(manager.SetSpeed(NotLeague(matchId, leagues), request).ToSummary()))
@@ -125,7 +125,7 @@ public static class MatchEndpoints
             .RequireAuthorization()
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
-            .WithSummary("Give up your seat in a match that hasn't started.");
+            .WithSummary("Give up your seat in a match that hasn't started (in a league match: your place in its next round, until that round is split).");
 
         matches.MapGet("/{matchId:guid}/map", async (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db, CancellationToken ct) =>
             {
@@ -366,7 +366,7 @@ public static class MatchEndpoints
             })
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
-            .WithSummary("Close a league match between rounds: no more rounds, its points go on the ladder (each bot's heats less its lowest), and the results are posted.");
+            .WithSummary("Close a league match when no round is being played (a split round is dropped): no more rounds, its points go on the ladder (each bot's heats less its lowest), and the results are posted.");
 
         admin.MapDelete("/{matchId:guid}/players/{playerId:guid}", (Guid matchId, Guid playerId, LeagueMatchManager leagues) =>
                 leagues.ToSummary(leagues.Remove(matchId, playerId)))
@@ -561,9 +561,9 @@ public static class MatchEndpoints
 
             lock (league.Gate)
             {
-                if (league.IsQueued(playerId))
+                if (league.IsEntered(playerId))
                 {
-                    throw new MatchException(409, "MATCH_NOT_STARTED", "The admin hasn't started the first round yet.");
+                    throw new MatchException(409, "MATCH_NOT_STARTED", "The admin hasn't started the round you joined yet.");
                 }
             }
         }

@@ -138,24 +138,25 @@ a few players each, and starts every heat at once. With 20 bots, round 1 might b
 and round 2 another two heats of 10 with everyone reseated.
 
 1. An admin creates the match, e.g. `season-week3`. It shows up in `GET /api/v1/matches` and on the
-   home page.
+   home page, and keeps that name and id all night. It reads `Waiting` whenever no round is being
+   played, `Active` while one is, and `Completed` once the admin closes it.
 2. Your verified bot joins it like any match: `GET /api/v1/matches/named/season-week3`, then
-   `POST /api/v1/matches/{id}/join`. Each person may enter one bot. You can join before the first
-   round or between rounds, but not while a round is split into heats or being played
-   (`409 MATCH_CLOSED`); you then play from the next round on.
+   `POST /api/v1/matches/{id}/join`. Each person may enter one bot per round. **Joining is for one
+   round**: the next one to be split into heats. You can join at any time until the match is closed;
+   if a round has already been split or is being played, you're in the one after.
 3. Long-poll `GET /api/v1/matches/{id}/state?waitForTick=0` as usual. It keeps answering
-   `409 MATCH_NOT_STARTED` until the admin starts the round. Long-polling also shows the admin your
-   bot is connected: a bot counts as connected if it made any API call in the last 40 seconds.
+   `409 MATCH_NOT_STARTED` until the admin starts the round you joined. Long-polling also shows the
+   admin your bot is connected: a bot counts as connected if it made any API call in the last 40 seconds.
 4. Once started, keep using the **same match id**. `state`, `commands`, `surrender`, `map` and
    `result` all answer for your heat; you'll see only the players in it. Nothing else changes.
-5. When your heat ends, read your `result` as usual, then **long-poll `state?waitForTick=0` again**
-   to wait for the next round, exactly as in step 3. Waiting for tick 0 skips a heat that has
-   finished; every other call keeps answering for your last heat until the next round starts.
+5. When your heat ends, read your `result` as usual. To play the next round, **join again** and go
+   back to step 3. (If you wait without joining, `state?waitForTick=0` answers `409 JOIN_NEXT_ROUND`.)
+   You can join again as soon as your heat ends, even while other heats are still going.
    The admin can also **end a round early**: every heat still going then ends on its next tick,
    exactly as if it had reached its tick limit (`reason: TimeLimit`, highest score wins).
-6. The admin decides how many rounds there are. When they **close the match**, that wait answers
-   `409 MATCH_FINISHED`: there are no more rounds, and your bot can stop. The bot runner
-   (`--join-match`) does all this for you.
+6. The admin decides how many rounds there are. When they **close the match**, joining answers
+   `409 MATCH_FINISHED`, and so does a `state?waitForTick=0` wait: there are no more rounds, and your
+   bot can stop. The bot runner (`--join season-week3`) does all this for you.
 
 Each round is seated at random, but the match remembers who started next to whom: if a seating
 would put two bots side by side again, it is reshuffled (a small heat can't always avoid it). So a
@@ -163,8 +164,9 @@ bad draw of neighbours in one round isn't repeated in the next.
 
 Spectators watch on the match's page, `/#/match/season-week3`. They see who has joined, how the
 admin splits each round into heats (in seat order around the map), and then a live scoreboard per
-heat that links to each heat's battle view. A heat has its own id and name (`season-week3-h2` in
-round 1, `season-week3-r2-h1` in round 2) and its own result and replay.
+heat that links to each heat's battle view. A heat has its own id and name and its own result and replay:
+`season-week3-r1` when round 1 is a single heat, `season-week3-r1-h1`, `season-week3-r1-h2`, … when it
+has several, and so on for each round.
 
 Heats can't be sped up or paused. Everyone in a heat is rated by finishing place: the winner first,
 then everyone else by final score. Every pair of players counts as a mini 1v1, scaled so that a big
@@ -501,7 +503,7 @@ Every non-2xx response has the same body:
 ```
 
 Common ones: `401 UNAUTHORIZED`, `403 NOT_A_PARTICIPANT`, `403 NOT_VERIFIED` (claim your bot with
-Discord first), `409 MATCH_CLOSED` (a round of the league match is split into heats or being played; join between rounds), `409 MATCH_FINISHED` (the league match has been closed), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
+Discord first), `409 JOIN_NEXT_ROUND` (your league heat is over; join again for the next round), `409 MATCH_FINISHED` (the league match has been closed), `409 OWNER_ALREADY_JOINED`, `409 PICK_A_HEAT`, `404 MATCH_NOT_FOUND`,
 `409 MATCH_NOT_STARTED` (keep long-polling with `waitForTick=0`), `409 MATCH_FULL`,
 `429 TOO_MANY_RUNNING_MATCHES` (surrender one, or let it finish),
 `400 INVALID_JSON`, `413 REQUEST_TOO_LARGE` (bodies are capped at 256 KB), `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and

@@ -6,7 +6,7 @@ public sealed record HeatDto
     /// <summary>The heat's own id: open it to watch, or for its result and replay.</summary>
     public Guid MatchId { get; init; }
 
-    /// <summary>e.g. "season-week3-h2" in the first round, "season-week3-r2-h1" in later ones.</summary>
+    /// <summary>e.g. "season-week3-r1" for a round played as one heat, "season-week3-r2-h1" for the first of several.</summary>
     public string Name { get; init; } = "";
 
     /// <summary>The round it belongs to; 1 for the first.</summary>
