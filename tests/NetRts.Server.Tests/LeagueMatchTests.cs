@@ -499,12 +499,11 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
-    public void League_points_are_margins_over_the_rest_of_the_top_four()
+    public void League_points_are_each_players_whole_score()
     {
-        Assert.Equal([180, 60, 40, 0, 0], LeaguePoints.Award([100, 60, 50, 10, 5]));
-        Assert.Equal([30, 0], LeaguePoints.Award([80, 50]));
-        Assert.Equal([0, 0], LeaguePoints.Award([50, 80])); // won by elimination while outscored
-        Assert.Equal([0], LeaguePoints.Award([70]));
+        Assert.Equal([100, 60, 50, 10, 5], LeaguePoints.Award([100, 60, 50, 10, 5]));
+        Assert.Equal([50, 80], LeaguePoints.Award([50, 80])); // won by elimination while outscored
+        Assert.Equal([0, 70], LeaguePoints.Award([-3, 70]));
     }
 
     [Fact]

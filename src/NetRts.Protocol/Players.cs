@@ -88,9 +88,8 @@ public sealed record LeaderboardEntryDto
     public string? OwnerSlug { get; init; }
 
     /// <summary>
-    /// League points. In each match the top four (winner first, then by score) earn their score margins
-    /// over everyone below them in that four: 1st gets (s1-s2)+(s1-s3)+(s1-s4), 2nd (s2-s3)+(s2-s4),
-    /// 3rd s3-s4. Season and championship ladders are ranked by points. A bot that plays two or more
+    /// League points: each bot earns its whole final score in every match it plays. Season and
+    /// championship ladders are ranked by points. A bot that plays two or more
     /// heats of one league match doesn't count its lowest-scoring heat of that match.
     /// </summary>
     public int Points { get; init; }

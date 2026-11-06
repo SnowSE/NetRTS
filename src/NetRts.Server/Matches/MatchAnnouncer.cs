@@ -458,7 +458,7 @@ public sealed class MatchAnnouncer(
     {
         var embed = Embed(round is null ? $"{league.Category}: {league.Name} is over" : $"{league.Category}: {league.Name}, round {round} is over",
             Link($"#/match/{league.Id}"),
-            $"{heats.Sum(h => h.Players.Count)} bots in {heats.Count} heat{(heats.Count == 1 ? "" : "s")}. Points go to each heat's top four.",
+            $"{heats.Sum(h => h.Players.Count)} bots in {heats.Count} heat{(heats.Count == 1 ? "" : "s")}. Every bot's score counts as points.",
             league.Category, null);
         var fields = new JsonArray();
         foreach (var heat in heats.Take(25))

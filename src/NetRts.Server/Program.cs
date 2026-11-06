@@ -129,8 +129,13 @@ static async Task InitializeDatabaseAsync(IServiceProvider services)
 {
     await using var scope = services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<NetRtsDb>();
-    await DatabaseMigrator.MigrateAsync(db, scope.ServiceProvider.GetRequiredService<ILogger<NetRtsDb>>());
-    await SkillBackfill.RunAsync(db, scope.ServiceProvider.GetRequiredService<ILogger<NetRtsDb>>());
+    var logger = scope.ServiceProvider.GetRequiredService<ILogger<NetRtsDb>>();
+    var applied = await DatabaseMigrator.MigrateAsync(db, logger);
+    await SkillBackfill.RunAsync(db, logger);
+    if (applied.Any(m => m.EndsWith("_" + ScorePointsBackfill.Migration, StringComparison.Ordinal)))
+    {
+        await ScorePointsBackfill.RunAsync(db, logger);
+    }
 
     var directory = services.GetRequiredService<HouseBotDirectory>();
     foreach (var bot in HouseBots.All)

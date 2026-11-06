@@ -170,18 +170,9 @@ has several, and so on for each round.
 
 Heats can't be sped up or paused. Everyone in a heat is rated by finishing place: the winner first,
 then everyone else by final score. Every pair of players counts as a mini 1v1, scaled so that a big
-heat moves a rating about as much as one 1v1. League leaderboards are ranked by **points**. In each
-heat the top four earn their score margins over everyone below them in that four:
-
-| Place | Points |
-|---|---|
-| 1st | (s1 − s2) + (s1 − s3) + (s1 − s4) |
-| 2nd | (s2 − s3) + (s2 − s4) |
-| 3rd | s3 − s4 |
-| 4th and below | 0 |
-
-So running away with a heat pays a lot, and scraping a win pays a little. A margin is never
-negative. `Preseason` keeps warm-up and beta-test matches off the season's leaderboard.
+heat moves a rating about as much as one 1v1. League leaderboards are ranked by **points**: in each
+heat, every bot earns its **whole final score** as points, win or lose. So everything your bot builds
+and destroys counts, wherever it finishes. `Preseason` keeps warm-up and beta-test matches off the season's leaderboard.
 `GET /api/v1/matches/{id}/standings` returns the live scoreboard per heat, with the points each
 player would earn if it ended now.
 

@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
+using NetRts.Bots;
+using NetRts.Engine;
 using NetRts.Protocol;
 using NetRts.Server.Auth;
 using NetRts.Server.Data;
@@ -150,16 +152,22 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
     [InlineData(new[] { 3, 4, 2 })]
     public async Task A_bot_with_several_heats_in_one_league_match_drops_its_lowest(int[] sizes)
     {
-        // The same bot wins a 2-, 3- and 4-player heat of one league match (in the given order), so
-        // its heats are worth different points; the others play only some heats.
+        // The same bot wins a 2-, 3- and 4-player heat of one league match (in the given order), each
+        // played for a different number of ticks, so its heats are worth different points; the others
+        // play only some heats.
         var players = await PlayersAsync(4);
         var night = Guid.NewGuid();
         var heats = new List<int>();
+        var others = players.ToDictionary(p => p.PlayerId, _ => new List<int>());
         foreach (var size in sizes)
         {
-            var heat = await PlayHeatAsync(night, MatchCategory.Season, players.Take(size).ToList(), winner: 0);
+            var heat = await PlayHeatAsync(night, MatchCategory.Season, players.Take(size).ToList(), winner: 0, ticks: 40 * size);
             var row = await RowAsync(heat.Id, players[0]);
             heats.Add(row.Points);
+            foreach (var p in players.Take(size).Skip(1))
+            {
+                others[p.PlayerId].Add((await RowAsync(heat.Id, p)).Points);
+            }
 
             // The live standings show each heat's own points; the ladder waits for the match to close.
             Assert.Equal(row.Points, LeagueMatchManager.StandingsOf(heat).Players[0].Points);
@@ -175,7 +183,7 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
         Assert.Equal(heats, closed.Value.Totals.Single(t => t.PlayerId == players[0].PlayerId).HeatPoints);
         var final = await StatsAsync(MatchCategory.Season, players);
         Assert.Equal(heats.Sum() - heats.Min(), final[0].Points);
-        Assert.All(final.Skip(1), s => Assert.Equal(0, s.Points)); // losers' heats are worth nothing
+        Assert.All(players.Skip(1).Zip(final.Skip(1)), x => Assert.Equal(LeaguePoints.Night(others[x.First.PlayerId]), x.Second.Points)); // losers score too
         Assert.Null(await finalizer.FinalizeAsync(night, Ct)); // only once
 
         // A second league match is its own night: one heat there counts in full.
@@ -183,6 +191,40 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
         var nextPoints = (await RowAsync(next.Id, players[0])).Points;
         await finalizer.FinalizeAsync(next.ParentMatchId!.Value, Ct);
         Assert.Equal(heats.Sum() - heats.Min() + nextPoints, (await StatsAsync(MatchCategory.Season, players))[0].Points);
+    }
+
+    [Fact]
+    public async Task Switching_to_whole_score_points_recounts_history_and_ladders_but_leaves_open_matches_waiting()
+    {
+        var players = await PlayersAsync(3);
+        var night = Guid.NewGuid();
+        var first = await PlayHeatAsync(night, MatchCategory.Championship, players, winner: 0, ticks: 60);
+        var second = await PlayHeatAsync(night, MatchCategory.Championship, players, winner: 1, ticks: 120);
+        await factory.Services.GetRequiredService<LeagueFinalizer>().FinalizeAsync(night, Ct);
+        var open = await PlayHeatAsync(Guid.NewGuid(), MatchCategory.Championship, players, winner: 2);
+
+        // As the old margin rule might have left them.
+        var ids = players.Select(p => p.PlayerId).ToList();
+        await WithDbAsync(async db =>
+        {
+            await db.MatchPlayers.Where(r => ids.Contains(r.PlayerId)).ExecuteUpdateAsync(u => u.SetProperty(r => r.Points, 7), Ct);
+            return await db.PlayerStats.Where(s => ids.Contains(s.PlayerId) && s.Category == MatchCategory.Championship)
+                .ExecuteUpdateAsync(u => u.SetProperty(s => s.Points, 3), Ct);
+        });
+
+        await WithDbAsync(db => ScorePointsBackfill.RunAsync(db, NullLogger.Instance, Ct));
+
+        var stats = await StatsAsync(MatchCategory.Championship, players);
+        foreach (var (p, i) in players.Select((p, i) => (p, i)))
+        {
+            var heats = new[] { await RowAsync(first.Id, p), await RowAsync(second.Id, p) };
+            Assert.All(heats, r => Assert.Equal(Math.Max(0, r.Score), r.Points));
+            Assert.Equal(LeaguePoints.Night(heats.Select(r => r.Points).ToList()), stats[i].Points);
+
+            var waiting = await RowAsync(open.Id, p);
+            Assert.False(waiting.PointsCounted);
+            Assert.Equal(Math.Max(0, waiting.Score), waiting.Points);
+        }
     }
 
     [Fact]
@@ -283,12 +325,25 @@ public class SkillTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     /// <summary>Plays a heat of <paramref name="leagueMatchId"/> to the end (everyone else surrenders) and waits until it is recorded.</summary>
-    private async Task<MatchHost> PlayHeatAsync(Guid leagueMatchId, MatchCategory category, IReadOnlyList<RegisterPlayerResponse> players, int winner)
+    private async Task<MatchHost> PlayHeatAsync(Guid leagueMatchId, MatchCategory category, IReadOnlyList<RegisterPlayerResponse> players, int winner, int ticks = 5)
     {
         var seats = players.Select(p => new Seat(p.PlayerId, p.Name, IsHouseBot: false)).ToList();
         var heat = factory.Matches.CreateHeat(leagueMatchId, $"heat-{Guid.NewGuid():N}"[..20], category, seats, tickIntervalMs: null, maxTicks: null);
         factory.Matches.StartHeat(heat);
-        heat.Advance(5);
+        // An economist plays the winner's side, so a longer heat builds a bigger score.
+        var economist = HouseBots.Create("economist");
+        for (var t = 0; t < ticks; t++)
+        {
+            var view = heat.GetPlayerView(players[winner].PlayerId, null)!;
+            var commands = economist.Decide(new BotContext(view, heat.Map!, GameRules.ToDto()));
+            if (commands.Count > 0)
+            {
+                heat.Submit(players[winner].PlayerId, commands);
+            }
+
+            heat.Advance();
+        }
+
         foreach (var (p, i) in players.Select((p, i) => (p, i)).Where(x => x.i != winner))
         {
             Assert.True(heat.Surrender(p.PlayerId));

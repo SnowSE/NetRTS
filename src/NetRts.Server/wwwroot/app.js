@@ -97,7 +97,7 @@ api('/api/v1/account').then(showAccountLink).catch(() => {});
 const CATEGORIES = [
   { key: 'Practice', label: say('Practice', 'Scrimmage'), note: 'Every match bots start themselves. Open to everyone.' },
   { key: 'Preseason', label: say('Preseason', 'Preseason'), note: 'Warm-up league matches (beta testing). Ranked by points; they don\'t count toward the season.' },
-  { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: each heat\'s top four score their margins over the players below them; a bot that plays two or more heats of one match drops its lowest. Skill weighs who you beat.' },
+  { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: every bot earns its whole score in each heat; a bot that plays two or more heats of one match drops its lowest. Skill weighs who you beat.' },
   { key: 'Championship', label: say('Championship', 'Championship'), note: 'Championship matches; Discord-verified bots only. Ranked by points, like the season.' },
 ];
 
@@ -383,7 +383,7 @@ Authorization: Bearer &lt;apiKey&gt;
         <div class="table-scroll"><table class="ladder">
           <caption class="visually-hidden">${category === 'Practice' ? say('Players ranked by rating', 'Badgers ranked by rating') : say('Players ranked by points', 'Badgers ranked by points')}</caption>
           <thead><tr><th scope="col">#</th><th scope="col">Player</th>${category !== 'Practice'
-            ? html`<th scope="col"><abbr title="League points: score margins over the rest of each match's top four (a bot's lowest heat of a night with two or more is dropped)">Pts</abbr></th>${SKILL_TH}<th scope="col">Rating</th>`
+            ? html`<th scope="col"><abbr title="League points: each bot's whole score in each heat (a bot's lowest heat of a night with two or more is dropped)">Pts</abbr></th>${SKILL_TH}<th scope="col">Rating</th>`
             : html`<th scope="col">Rating</th>${SKILL_TH}`}
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
           <tbody>${list.map((p) => html`

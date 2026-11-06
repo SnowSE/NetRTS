@@ -96,7 +96,7 @@ public sealed class PlayerStatsRecord
     public int Draws { get; set; }
 
     /// <summary>
-    /// League points: score margins over the players below you in each match's top four. When a bot
+    /// League points: the bot's whole score in each match. When a bot
     /// plays two or more heats of one league match, its lowest-scoring heat of that night doesn't count.
     /// </summary>
     public int Points { get; set; }

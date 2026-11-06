@@ -12,7 +12,8 @@ public static class DatabaseMigrator
     /// migration but no history. Those are marked as being at that first migration, so the later ones
     /// apply on top and existing players keep their API keys.
     /// </summary>
-    public static async Task MigrateAsync(NetRtsDb db, ILogger logger, CancellationToken ct = default)
+    /// <returns>The migrations this applied.</returns>
+    public static async Task<IReadOnlyList<string>> MigrateAsync(NetRtsDb db, ILogger logger, CancellationToken ct = default)
     {
         var history = db.GetService<IHistoryRepository>();
         if (!await TableExistsAsync(db, HistoryRepository.DefaultTableName, ct) && await TableExistsAsync(db, "players", ct))
@@ -23,7 +24,9 @@ public static class DatabaseMigrator
             logger.LogWarning("Database predates migrations; marked it as at {Migration}", baseline);
         }
 
+        var pending = (await db.Database.GetPendingMigrationsAsync(ct)).ToList();
         await db.Database.MigrateAsync(ct);
+        return pending;
     }
 
     private static async Task<bool> TableExistsAsync(NetRtsDb db, string table, CancellationToken ct)
