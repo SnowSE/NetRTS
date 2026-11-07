@@ -23,7 +23,8 @@ public sealed record BlockRuleDto
 }
 
 /// <summary>
-/// A condition. Kind is one of: always, enemyNearBase, seeEnemy, count (What Op Value), minute (Op Value),
+/// A condition. Kind is one of: always, enemyNearBase, seeEnemy, count (What Op Value), grubsLeft (Op Value: the
+/// grubs left in the piles near your HQs and Co-op Stores), minute (Op Value),
 /// switch (Name), and (A, B), or (A, B), not (A).
 /// What for count: grubs, workers, fighters, a unit type (Soldier, Archer, Scout, Trebuchet) or a building
 /// type (Barracks, TechLab, ...). Units in production and buildings going up count too.
@@ -41,7 +42,8 @@ public sealed record BlockConditionDto
 
 /// <summary>
 /// An action. Kind is one of: train (Unit), trainMix (Units), build (Building, Site), research (Upgrade),
-/// attack (Who, Target), defend (Who), retreat (Who), scout.
+/// attack (Who, Target), defend (Who), retreat (Who), scout (Target: enemyBase or explore), expand (Building:
+/// ResourceDepot or CommandCenter, built beside the nearest grub pile you know of that isn't near one yet).
 /// Who: fighters or a unit type. Target: enemyBase or nearestEnemy. Site: TowardCenter, NearOre or TowardEnemy.
 /// </summary>
 public sealed record BlockActionDto

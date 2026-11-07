@@ -24,6 +24,9 @@ public sealed class BlockWords
 
     public string Ore => _snow ? "grubs" : "ore";
 
+    /// <summary>What a grubsLeft condition counts.</summary>
+    public string OreLeft => _snow ? "grubs left near your base" : "ore left near your base";
+
     public string Unit(UnitType type, int count = 1)
     {
         var one = type switch

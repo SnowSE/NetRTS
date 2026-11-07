@@ -113,18 +113,18 @@
 .bb-sentence { flex: 1 1 300px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 1.05rem; }
 .bb-word { font-weight: 700; }
 .bb-word:empty { display: none; }
-.bb-chip, .bb-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; border-radius: 999px; padding: 3px 6px; border: 2px solid; }
+.bb-chip, .bb-group { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; border-radius: 10px; padding: 4px 6px; border: 2px solid; max-width: 100%; }
 .bb-chip.cond { border-color: var(--bb-cond); background: var(--bb-cond-bg); }
 .bb-chip.act { border-color: var(--bb-act); background: var(--bb-act-bg); }
 .bb-chip.act.build { border-color: var(--bb-build); background: var(--bb-build-bg); }
 .bb-chip.switch { border-color: var(--signal); background: var(--bb-switch-bg); color: #15222a; border-radius: var(--radius-m); }
 .bb-group { border-style: dashed; border-color: var(--line); border-radius: var(--radius-m); }
 .bb-chip.editing, .bb-group.editing { outline: 3px solid var(--signal-bg); outline-offset: 2px; }
-.bb-kind { background: none; border: 0; padding: 4px 6px; min-height: 36px; font-weight: 600; cursor: pointer; border-radius: 999px; color: inherit; }
+.bb-kind { background: none; border: 0; padding: 4px 6px; min-height: 36px; font-weight: 600; cursor: pointer; border-radius: 6px; color: inherit; text-align: left; }
 .bb-kind:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
-.bb-select { width: auto; field-sizing: content; min-width: 3.5em; min-height: 36px; padding: 4px 6px; border-radius: 999px; background: var(--bg); font-weight: 600; border: 1px solid var(--line); max-width: 100%; }
+.bb-select { width: auto; field-sizing: content; min-width: 3.5em; min-height: 36px; padding: 4px 6px; border-radius: 6px; background: var(--bg); font-weight: 600; border: 1px solid var(--line); max-width: 100%; }
 .bb-chip.switch .bb-select { background: #fff; color: #15222a; }
-.bb-num-in { width: 5.5em; field-sizing: content; min-width: 3.5em; min-height: 36px; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); font-weight: 700; }
+.bb-num-in { width: 5.5em; field-sizing: content; min-width: 3.5em; min-height: 36px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); font-weight: 700; }
 .bb-plus { min-height: 36px; padding: 0 10px; border: 1px dashed var(--line); border-radius: 999px; background: none; cursor: pointer; color: var(--muted); font-weight: 600; }
 .bb-plus:hover { border-color: var(--ink); color: var(--ink); }
 .bb-tools { display: flex; gap: 4px; align-items: center; margin-left: auto; }

@@ -16,9 +16,10 @@ public static class BlockProgramValidator
     public const int MaxNumber = 100_000;
 
     public static readonly IReadOnlyList<string> Ops = ["<", "<=", ">", ">=", "="];
-    public static readonly IReadOnlyList<string> ConditionKinds = ["always", "enemyNearBase", "seeEnemy", "count", "minute", "switch", "and", "or", "not"];
-    public static readonly IReadOnlyList<string> ActionKinds = ["train", "trainMix", "build", "research", "attack", "defend", "retreat", "scout"];
+    public static readonly IReadOnlyList<string> ConditionKinds = ["always", "enemyNearBase", "seeEnemy", "count", "grubsLeft", "minute", "switch", "and", "or", "not"];
+    public static readonly IReadOnlyList<string> ActionKinds = ["train", "trainMix", "build", "research", "attack", "defend", "retreat", "scout", "expand"];
     public static readonly IReadOnlyList<string> Targets = ["enemyBase", "nearestEnemy"];
+    public static readonly IReadOnlyList<string> ScoutTargets = ["enemyBase", "explore"];
 
     /// <summary>Null when the program is fine, else a message saying what's wrong (for the editor to show).</summary>
     public static string? Validate(BlockProgramDto? program)
@@ -109,7 +110,7 @@ public static class BlockProgramValidator
                 }
 
                 return Comparison(c);
-            case "minute":
+            case "minute" or "grubsLeft":
                 return Comparison(c);
             case "switch":
                 return c.Name is not null && switches.Contains(c.Name, StringComparer.OrdinalIgnoreCase)
@@ -160,7 +161,9 @@ public static class BlockProgramValidator
                 : a.Target is not null && !Targets.Contains(a.Target) ? $"unknown target '{a.Target}'."
                 : null,
             "defend" or "retreat" => !IsWho(a.Who) ? $"unknown unit '{a.Who}'." : null,
-            "scout" => null,
+            "scout" => a.Target is not null && !ScoutTargets.Contains(a.Target) ? $"unknown place to scout '{a.Target}'." : null,
+            "expand" => a.Building is null or BuildingType.ResourceDepot or BuildingType.CommandCenter ? null
+                : $"expand builds a {BuildingType.ResourceDepot} or a {BuildingType.CommandCenter}, not a {a.Building}.",
             _ => $"unknown action '{a.Kind}'.",
         };
     }

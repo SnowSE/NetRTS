@@ -19,6 +19,9 @@ public sealed class BlockBot : IBotStrategy
     private const int PendingSiteTicks = 40;
     private const int TicksPerMinute = 60;
 
+    /// <summary>A grub pile this close to an HQ or Co-op Store counts as "near my base".</summary>
+    private const int NearBaseRange = 8;
+
     private readonly object _lock = new();
     private readonly List<BlockVersionDto> _versions = [];
     private readonly Dictionary<string, bool> _switches = new(StringComparer.OrdinalIgnoreCase);
@@ -33,6 +36,12 @@ public sealed class BlockBot : IBotStrategy
     private readonly Dictionary<(int Rule, int Action), int> _mixCursor = [];
     private readonly Dictionary<int, (string Kind, int X, int Y, int Tick)> _lastOrder = [];
     private int _scoutCursor;
+
+    // What the bot has seen: every grub pile (they never move, so the fog doesn't hide them from memory)
+    // and every tile, for exploring.
+    private readonly SortedDictionary<int, (int X, int Y, int Remaining)> _deposits = [];
+    private bool[]? _seen;
+    private (int X, int Y)? _exploreGoal;
 
     public BlockBot(string name, BlockProgramDto program)
     {
@@ -135,6 +144,7 @@ public sealed class BlockBot : IBotStrategy
             return [];
         }
 
+        Remember(view);
         var turn = new Turn(this, view, switches);
         var statuses = new List<BlockRuleStatusDto>(program.Rules.Count);
         string? error = null;
@@ -171,6 +181,45 @@ public sealed class BlockBot : IBotStrategy
         }
 
         return turn.Commands;
+    }
+
+    /// <summary>Updates what the bot knows: the tiles it has seen and the grub piles it has seen (and which are gone).</summary>
+    private void Remember(BotView view)
+    {
+        var state = view.State;
+        var width = view.Map.Width;
+        var rows = state.Visibility;
+        _seen ??= new bool[width * view.Map.Height];
+        bool Visible(int x, int y) => y < rows.Count && x < rows[y].Length && rows[y][x] == '1';
+        for (var y = 0; y < rows.Count && y < view.Map.Height; y++)
+        {
+            var row = rows[y];
+            for (var x = 0; x < row.Length && x < width; x++)
+            {
+                if (row[x] == '1')
+                {
+                    _seen[(y * width) + x] = true;
+                }
+            }
+        }
+
+        var listed = new HashSet<int>();
+        foreach (var d in state.Resources)
+        {
+            _deposits[d.Id] = (d.X, d.Y, d.Remaining);
+            listed.Add(d.Id);
+        }
+
+        // A pile we can see the tile of, but that isn't listed, has been dug out.
+        foreach (var (id, d) in _deposits.Where(kv => !listed.Contains(kv.Key) && Visible(kv.Value.X, kv.Value.Y)).ToList())
+        {
+            _deposits.Remove(id);
+        }
+
+        if (_exploreGoal is { } goal && _seen[(goal.Y * width) + goal.X])
+        {
+            _exploreGoal = null;
+        }
     }
 
     private void ExpirePendingSites(BotView view)
@@ -259,6 +308,8 @@ public sealed class BlockBot : IBotStrategy
                     return Compare(W.What(c.What!), Count(c.What!), c.Op!, c.Value ?? 0);
                 case "minute":
                     return Compare("minute", Tick / TicksPerMinute, c.Op!, c.Value ?? 0);
+                case "grubsLeft":
+                    return Compare(W.OreLeft, KnownDeposits().Where(d => NearBase(d.X, d.Y)).Sum(d => d.Remaining), c.Op!, c.Value ?? 0);
                 case "switch":
                     var on = switches.GetValueOrDefault(c.Name!);
                     return new Check(on, $"{c.Name} is {(on ? "on" : "off")}");
@@ -347,7 +398,8 @@ public sealed class BlockBot : IBotStrategy
             "attack" => Attack(a.Who, a.Target ?? "enemyBase"),
             "defend" => Defend(a.Who),
             "retreat" => Retreat(a.Who),
-            "scout" => Scout(),
+            "scout" => a.Target == "explore" ? Explore() : Scout(),
+            "expand" => Expand(a.Building ?? BuildingType.ResourceDepot),
             _ => throw new InvalidOperationException($"Unknown action '{a.Kind}'."),
         };
 
@@ -580,6 +632,154 @@ public sealed class BlockBot : IBotStrategy
             return new Outcome(true, $"{away.Count} {W.Who(who, away.Count)} heading home", away.Select(u => u.Id).ToList());
         }
 
+        // ------------------------------------------------------------ grubs further away
+
+        private IEnumerable<(int Id, int X, int Y, int Remaining)> KnownDeposits() =>
+            bot._deposits.Select(kv => (kv.Key, kv.Value.X, kv.Value.Y, kv.Value.Remaining));
+
+        private static bool IsDropOff(BuildingType type) => type is BuildingType.CommandCenter or BuildingType.ResourceDepot;
+
+        /// <summary>Near one of our HQs or Co-op Stores (built, going up, or just ordered).</summary>
+        private bool NearBase(int x, int y) =>
+            view.MyBuildings.Any(b => IsDropOff(b.Type) && PlanBot.Dist(b.X, b.Y, x, y) <= NearBaseRange)
+            || bot._pendingSites.Any(kv => IsDropOff(kv.Value.Type) && PlanBot.Dist(kv.Key.X, kv.Key.Y, x, y) <= NearBaseRange);
+
+        /// <summary>
+        /// Opens a new grub field: builds a Co-op Store (or an HQ) beside the nearest pile we know of that isn't
+        /// near a drop-off yet. Workers then haul to it, the nearer drop-off. Knowing of no such pile, it
+        /// sends a scout to explore instead.
+        /// </summary>
+        private Outcome Expand(BuildingType type)
+        {
+            var name = W.Building(type);
+            if (bot._pendingSites.Any(kv => IsDropOff(kv.Value.Type)) || view.MyBuildings.Any(b => IsDropOff(b.Type) && !b.Completed))
+            {
+                return Outcome.Fail($"a {W.Building(BuildingType.ResourceDepot)} or {W.Building(BuildingType.CommandCenter)} is already going up.");
+            }
+
+            var cc = view.CommandCenter!;
+            var target = KnownDeposits()
+                .Where(d => d.Remaining > 0 && !NearBase(d.X, d.Y))
+                .OrderBy(d => PlanBot.Dist(d.X, d.Y, cc.X, cc.Y)).ThenBy(d => d.Id)
+                .Select(d => ((int X, int Y)?)(d.X, d.Y))
+                .FirstOrDefault();
+            if (target is null)
+            {
+                var look = Explore();
+                return look.Did
+                    ? new Outcome(true, $"looking for more {W.Ore}: {look.Text}", look.UnitIds)
+                    : Outcome.Fail($"you don't know where more {W.Ore} is yet, and {look.Text}");
+            }
+
+            var cost = view.Rules.Buildings.First(b => b.Type == type).Cost;
+            if (_budget < cost)
+            {
+                return Outcome.Fail($"a {name} costs {cost} {W.Ore} and you have {_budget}.");
+            }
+
+            var site = SiteNear(target.Value);
+            if (site is null)
+            {
+                return Outcome.Fail($"there's no room for a {name} next to those {W.Ore}.");
+            }
+
+            var builder = Builder(site.Value);
+            if (builder is null)
+            {
+                return Outcome.Fail($"there's no free worker to build a {name}.");
+            }
+
+            Commands.Add(new CommandRequest { Type = CommandType.Build, UnitIds = [builder.Id], BuildingType = type, X = site.Value.X, Y = site.Value.Y });
+            _claimed.Add(builder.Id);
+            bot._pendingSites[site.Value] = (type, Tick);
+            _budget -= cost;
+            return new Outcome(true, $"building a {name} by new {W.Ore}", [builder.Id]);
+        }
+
+        /// <summary>
+        /// An open tile two or three steps from a pile, not right beside any pile (those are where workers
+        /// dig), in the middle of the most piles, then nearest home.
+        /// </summary>
+        private (int X, int Y)? SiteNear((int X, int Y) pile)
+        {
+            var cc = view.CommandCenter!;
+            var piles = KnownDeposits().Select(d => (d.X, d.Y)).ToList();
+            (int X, int Y)? best = null;
+            var bestScore = int.MaxValue;
+            for (var y = pile.Y - 3; y <= pile.Y + 3; y++)
+            {
+                for (var x = pile.X - 3; x <= pile.X + 3; x++)
+                {
+                    if (PlanBot.Dist(x, y, pile.X, pile.Y) < 2 || !view.IsOpen(x, y) || bot._pendingSites.ContainsKey((x, y))
+                        || piles.Any(p => PlanBot.Dist(p.X, p.Y, x, y) <= 1))
+                    {
+                        continue;
+                    }
+
+                    var score = (-10 * piles.Count(p => PlanBot.Dist(p.X, p.Y, x, y) <= 3)) + PlanBot.Dist(x, y, cc.X, cc.Y);
+                    if (score < bestScore)
+                    {
+                        bestScore = score;
+                        best = (x, y);
+                    }
+                }
+            }
+
+            return best;
+        }
+
+        /// <summary>Sends a scout (or any fighter) to the nearest part of the map the bot hasn't seen yet.</summary>
+        private Outcome Explore()
+        {
+            var scout = view.Army.Where(u => u.Type == UnitType.Scout && !_claimed.Contains(u.Id)).OrderBy(u => u.Id).FirstOrDefault()
+                        ?? view.Army.Where(u => !_claimed.Contains(u.Id)).OrderBy(u => u.Id).FirstOrDefault();
+            if (scout is null)
+            {
+                return Outcome.Fail($"you have no scouts (or any fighters) to send exploring.");
+            }
+
+            var width = view.Map.Width;
+
+            // The scout stopped short of its spot without seeing it (walled in by rock): give up on that spot.
+            if (bot._exploreGoal is { } stuck && scout.Activity == UnitActivity.Idle
+                && bot._lastOrder.TryGetValue(scout.Id, out var last) && last.X == stuck.X && last.Y == stuck.Y && Tick - last.Tick > 5)
+            {
+                bot._seen![(stuck.Y * width) + stuck.X] = true;
+                bot._exploreGoal = null;
+            }
+
+            if (bot._exploreGoal is null)
+            {
+                var bestDist = int.MaxValue;
+                for (var y = 0; y < view.Map.Height; y++)
+                {
+                    for (var x = 0; x < width; x++)
+                    {
+                        if (bot._seen![(y * width) + x] || view.Map.Terrain[y][x] != '.')
+                        {
+                            continue;
+                        }
+
+                        var d = PlanBot.Dist(x, y, scout.X, scout.Y);
+                        if (d < bestDist)
+                        {
+                            bestDist = d;
+                            bot._exploreGoal = (x, y);
+                        }
+                    }
+                }
+            }
+
+            if (bot._exploreGoal is not { } goal)
+            {
+                return Outcome.Fail("you've already seen the whole map.");
+            }
+
+            _claimed.Add(scout.Id);
+            Order([scout], CommandType.Move, goal, retarget: false);
+            return new Outcome(true, $"a {W.Unit(scout.Type)} is exploring", [scout.Id]);
+        }
+
         private Outcome Scout()
         {
             var scout = view.Army.Where(u => u.Type == UnitType.Scout && !_claimed.Contains(u.Id)).OrderBy(u => u.Id).FirstOrDefault()
@@ -669,17 +869,26 @@ public sealed class BlockBot : IBotStrategy
                 .GroupBy(w => w.TargetId!.Value)
                 .ToDictionary(g => g.Key, g => g.Count());
 
+            // Piles we remember count too: the engine takes orders for piles in the fog.
+            var dropOffs = view.MyBuildings.Where(b => IsDropOff(b.Type) && b.Completed).ToList();
+            if (dropOffs.Count == 0)
+            {
+                return;
+            }
+
+            int Haul((int Id, int X, int Y, int Remaining) d) => dropOffs.Min(b => PlanBot.Dist(b.X, b.Y, d.X, d.Y));
+            var piles = KnownDeposits().Where(d => d.Remaining > 0).ToList();
             foreach (var worker in view.Workers.Where(w => w.Activity == UnitActivity.Idle && !_claimed.Contains(w.Id)))
             {
-                var deposit = view.State.Resources
-                    .OrderBy(d => PlanBot.Dist(d.X, d.Y, view.CommandCenter!.X, view.CommandCenter.Y) + 3 * assigned.GetValueOrDefault(d.Id))
-                    .ThenBy(d => d.Id)
-                    .FirstOrDefault();
-                if (deposit is null)
+                if (piles.Count == 0)
                 {
                     return;
                 }
 
+                var deposit = piles
+                    .OrderBy(d => Haul(d) + (3 * assigned.GetValueOrDefault(d.Id)))
+                    .ThenBy(d => d.Id)
+                    .First();
                 Commands.Add(new CommandRequest { Type = CommandType.Gather, UnitIds = [worker.Id], TargetId = deposit.Id });
                 assigned[deposit.Id] = assigned.GetValueOrDefault(deposit.Id) + 1;
             }

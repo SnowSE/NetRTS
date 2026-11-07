@@ -7,6 +7,8 @@ namespace NetRts.Engine.Tests;
 /// <summary>Block Bot programs played the way the server plays them, against the house bots.</summary>
 public class BlockBotTests
 {
+    private static int Dist(int x1, int y1, int x2, int y2) => Math.Max(Math.Abs(x1 - x2), Math.Abs(y1 - y2));
+
     private static BlockConditionDto Count(string what, string op, int value) => new() { Kind = "count", What = what, Op = op, Value = value };
 
     private static BlockRuleDto Rule(BlockConditionDto when, params BlockActionDto[] actions) => new() { When = when, Do = actions };
@@ -164,6 +166,58 @@ public class BlockBotTests
         Assert.Equal("firing", status.Rules[0].State);
         Assert.Equal("waiting", status.Rules[1].State);
         Assert.Contains("no fighters to send", status.Rules[1].Why);
+    }
+
+    [Fact]
+    public void Expand_finds_grubs_past_the_base_and_builds_a_coop_beside_them()
+    {
+        var sim = NewSim(7, maxTicks: 1500);
+        var cc = sim.Find(sim.CommandCenterId(0))!.Value;
+        sim.SpawnUnit(0, UnitType.Scout, cc.X + 1, cc.Y + 1);
+        sim.SetResources(0, 1500);
+        var program = new BlockProgramDto
+        {
+            Name = "Expander",
+            Rules =
+            [
+                Rule(Count("workers", "<", 10), new BlockActionDto { Kind = "train", Unit = UnitType.Worker }),
+                Rule(new() { Kind = "grubsLeft", Op = "<=", Value = 100_000 }, new BlockActionDto { Kind = "expand", Building = BuildingType.ResourceDepot }),
+            ],
+        };
+        var bot = new BlockBot("blocks", program);
+        var explored = false;
+        BuildingDto? Outpost() => sim.GetPlayerView(0).Buildings.FirstOrDefault(b =>
+            b.Owner == 0 && b.Type == BuildingType.ResourceDepot && Dist(b.X, b.Y, cc.X, cc.Y) > 8);
+        Play(sim, [bot, HouseBots.Create("sitter")], until: _ => Outpost() is { Completed: true }, everyTick: _ =>
+            explored |= bot.Status(Guid.Empty, sim.Status, 0).Rules.ElementAtOrDefault(1)?.Why.Contains("exploring") == true);
+
+        Assert.True(explored, "with no grubs known past the base, expand sends the scout exploring first");
+        var outpost = Outpost();
+        Assert.NotNull(outpost);
+        Assert.Contains(sim.Map.Deposits, d => Dist(d.Position.X, d.Position.Y, outpost.X, outpost.Y) <= 3);
+    }
+
+    [Fact]
+    public void Grubs_left_counts_the_piles_near_the_base()
+    {
+        var sim = NewSim(8);
+        var bot = new BlockBot("blocks", new BlockProgramDto
+        {
+            Rules = [Rule(new() { Kind = "grubsLeft", Op = "<=", Value = 0 }, new BlockActionDto { Kind = "expand" })],
+        });
+        Play(sim, [bot, HouseBots.Create("sitter")], until: t => t >= 2);
+
+        var why = bot.Status(Guid.Empty, sim.Status, 0).Rules[0].Why;
+        Assert.Matches(@"grubs left near your base is [1-9]\d* \(needs at most 0\)", why);
+    }
+
+    [Theory]
+    [InlineData("{\"kind\":\"expand\",\"building\":\"Barracks\"}", "expand builds a ResourceDepot or a CommandCenter")]
+    [InlineData("{\"kind\":\"scout\",\"target\":\"moon\"}", "unknown place to scout")]
+    public void Bad_actions_are_rejected_with_a_reason(string action, string reason)
+    {
+        var a = System.Text.Json.JsonSerializer.Deserialize<BlockActionDto>(action, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web))!;
+        Assert.Contains(reason, BlockProgramValidator.Validate(new BlockProgramDto { Rules = [Rule(new() { Kind = "always" }, a)] }));
     }
 
     [Theory]

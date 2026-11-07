@@ -504,10 +504,13 @@ Discord first), `409 JOIN_NEXT_ROUND` (your league heat is over; join again for 
 
 Younger or newer players can build a bot from rule cards on the website (`#/blocks`, "Block Bot" in
 the menu) instead of writing code. A Block Bot program is data: rules checked top to bottom every
-tick, each a condition (`always`, `enemyNearBase`, `seeEnemy`, `count`, `minute`, `switch`, `and`,
-`or`, `not`) and actions (`train`, `trainMix`, `build`, `research`, `attack`, `defend`, `retreat`,
-`scout`). Rules higher up get first pick of ore and fighters; idle workers mine and half-built
-buildings get finished on their own. The server plays the program, so the match keeps going when
+tick, each a condition (`always`, `enemyNearBase`, `seeEnemy`, `count`, `grubsLeft`, `minute`,
+`switch`, `and`, `or`, `not`) and actions (`train`, `trainMix`, `build`, `research`, `attack`,
+`defend`, `retreat`, `scout`, `expand`). Rules higher up get first pick of ore and fighters; idle
+workers mine (any deposit the bot has seen, even in the fog) and half-built buildings get finished on
+their own. `grubsLeft` adds up the ore left in deposits within 8 tiles of your Command Centers and
+Resource Depots; `expand` builds a Resource Depot (or Command Center) beside the nearest deposit the
+bot has seen that isn't near one yet, and sends a scout exploring when it knows of none. The server plays the program, so the match keeps going when
 the page closes, and the player can swap in a new version or flip a switch while it runs. The shapes
 are in `src/NetRts.Protocol/Blocks.cs` (`BlockProgramDto`); the editor saves strategies in the browser
 and downloads them as `.json`.

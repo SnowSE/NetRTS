@@ -100,6 +100,7 @@ const C = {
   seeEnemy: () => ({ kind: 'seeEnemy' }),
   count: (what = 'fighters', op = '>=', value = 8) => ({ kind: 'count', what, op, value }),
   minute: (op = '>=', value = 3) => ({ kind: 'minute', op, value }),
+  grubsLeft: (op = '<=', value = 300) => ({ kind: 'grubsLeft', op, value }),
   switch: (name) => ({ kind: 'switch', name }),
   and: (a, b) => ({ kind: 'and', a, b }),
   or: (a, b) => ({ kind: 'or', a, b }),
@@ -113,7 +114,8 @@ const A = {
   attack: (who = 'fighters', target = 'enemyBase') => ({ kind: 'attack', who, target }),
   defend: (who = 'fighters') => ({ kind: 'defend', who }),
   retreat: (who = 'fighters') => ({ kind: 'retreat', who }),
-  scout: () => ({ kind: 'scout' }),
+  scout: (target = 'enemyBase') => ({ kind: 'scout', target }),
+  expand: (building = 'ResourceDepot') => ({ kind: 'expand', building }),
 };
 const R = (when, ...actions) => ({ enabled: true, when, do: actions });
 
@@ -156,6 +158,7 @@ const STARTERS = {
         R(C.switch('Turtle up'), A.retreat()),
         R(C.count('workers', '<', 16), A.train('Worker')),
         R(C.count('ResourceDepot', '<', 1), A.build('ResourceDepot', 'NearOre')),
+        R(C.grubsLeft('<=', 300), A.expand('ResourceDepot')),
         R(C.count('Barracks', '<', 1), A.build('Barracks')),
         R(C.count('TechLab', '<', 1), A.build('TechLab')),
         R(C.count('GuardTower', '<', 2), A.build('GuardTower', 'TowardEnemy')),
@@ -207,6 +210,7 @@ function pyCond(c) {
       return `${left} ${op} ${c.value}`;
     }
     case 'minute': return `bot.minute() ${c.op === '=' ? '==' : c.op} ${c.value}`;
+    case 'grubsLeft': return `bot.ore_left_near_base() ${c.op === '=' ? '==' : c.op} ${c.value}`;
     case 'switch': return `bot.switch(${pyStr(c.name)})`;
     case 'and': return `(${pyCond(c.a)} and ${pyCond(c.b)})`;
     case 'or': return `(${pyCond(c.a)} or ${pyCond(c.b)})`;
@@ -223,7 +227,8 @@ function pyAction(a) {
     case 'attack': return `bot.attack(${a.target === 'nearestEnemy' ? 'bot.nearest_enemy()' : 'bot.enemy_base()'}, ${pyWho(a.who)})`;
     case 'defend': return `bot.defend(${pyWho(a.who)})`;
     case 'retreat': return `bot.go_home(${pyWho(a.who)})`;
-    case 'scout': return 'bot.scout()';
+    case 'scout': return a.target === 'explore' ? 'bot.explore()' : 'bot.scout()';
+    case 'expand': return `bot.expand(${pyStr(a.building ?? 'ResourceDepot')})`;
     default: return '?';
   }
 }
@@ -362,6 +367,7 @@ class RuleEditor {
         setAt(p, pk.path, node);
       } else {
         const node = d.kind === 'train' ? A.train(d.unit)
+          : d.kind === 'scout' ? A.scout(d.target)
           : d.kind === 'build' ? A.build(d.building, d.building === 'ResourceDepot' ? 'NearOre' : d.building === 'GuardTower' ? 'TowardEnemy' : 'TowardCenter')
             : A[d.kind]();
         if (pk.mode === 'add') at(p, pk.path).do.push(node);
@@ -478,6 +484,11 @@ class RuleEditor {
           ${this.select(path, 'op', c.op, OPS, 'Comparison')}
           <input class="bb-num-in" type="number" min="0" max="100000" inputmode="numeric" value="${c.value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="Number">
         </span>`;
+      case 'grubsLeft':
+        return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn(`${ORE} left near my base`)}
+          ${this.select(path, 'op', c.op, OPS, 'Comparison')}
+          <input class="bb-num-in" type="number" min="0" max="100000" inputmode="numeric" value="${c.value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="Number">
+        </span>`;
       case 'minute':
         return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn('minute')}
           ${this.select(path, 'op', c.op, OPS, 'Comparison')}
@@ -515,7 +526,9 @@ class RuleEditor {
       case 'retreat':
         return html`<span class="${cls}">${kindBtn('bring home')}${this.select(path, 'who', a.who ?? 'fighters', WHO(), 'Who comes home')}${del}</span>`;
       case 'scout':
-        return html`<span class="${cls}">${kindBtn('send a scout to find the enemy')}${del}</span>`;
+        return html`<span class="${cls}">${kindBtn('send a scout to')}${this.select(path, 'target', a.target ?? 'enemyBase', [['enemyBase', 'find the enemy base'], ['explore', `explore (find more ${ORE})`]], 'Where the scout goes')}${del}</span>`;
+      case 'expand':
+        return html`<span class="${cls} build">${kindBtn(`expand to new ${ORE} with a`)}${this.select(path, 'building', a.building ?? 'ResourceDepot', [['ResourceDepot', bWord('ResourceDepot')], ['CommandCenter', bWord('CommandCenter')]], 'What to build there')}${del}</span>`;
       default:
         return html`<span class="${cls}">${kindBtn(a.kind)}${del}</span>`;
     }
@@ -542,6 +555,7 @@ class RuleEditor {
           opt('workers < 12', { kind: 'count', what: 'workers', op: '<', value: 12 }),
           opt(`${ORE} ≥ 150`, { kind: 'count', what: 'grubs', op: '>=', value: 150 }),
           opt(`fewer than 2 ${bWord('Barracks')}`, { kind: 'count', what: 'Barracks', op: '<', value: 2 }),
+          opt(`${ORE} left near my base ≤ 300`, { kind: 'grubsLeft' }),
         ])}
         ${group('The enemy', [opt('an enemy is near my base', { kind: 'enemyNearBase' }), opt('I can see an enemy', { kind: 'seeEnemy' })])}
         ${group('Time', [opt('minute ≥ 3', { kind: 'minute' }), opt('every tick', { kind: 'always' })])}
@@ -552,8 +566,8 @@ class RuleEditor {
     }
     return html`${head(pk.mode === 'add' ? 'Add something to do' : 'Pick an action')}
       ${group('Train', UNITS.map((t) => opt(unitWord(t), { kind: 'train', unit: t })).concat([opt('a mix, in turn', { kind: 'trainMix' })]))}
-      ${group('Build', BUILDINGS.slice(0, 5).map((b) => opt(bWord(b), { kind: 'build', building: b })).concat([opt(say('research an upgrade', 'take a class'), { kind: 'research' })]))}
-      ${group('Army', [opt('attack', { kind: 'attack' }), opt('defend', { kind: 'defend' }), opt('bring home', { kind: 'retreat' }), opt('send a scout', { kind: 'scout' })])}`;
+      ${group('Build', BUILDINGS.slice(0, 5).map((b) => opt(bWord(b), { kind: 'build', building: b })).concat([opt(say('research an upgrade', 'take a class'), { kind: 'research' }), opt(`expand to new ${ORE}`, { kind: 'expand' })]))}
+      ${group('Army', [opt('attack', { kind: 'attack' }), opt('defend', { kind: 'defend' }), opt('bring home', { kind: 'retreat' }), opt('send a scout to the enemy', { kind: 'scout', target: 'enemyBase' }), opt(`explore for more ${ORE}`, { kind: 'scout', target: 'explore' })])}`;
   }
 }
 
@@ -1174,7 +1188,9 @@ function mountCockpit(main, matchId) {
   // ---- data
   async function pollSummary() {
     try { summary = await api(`/api/v1/matches/${matchId}`); } catch (e) {
-      if (e.status === 404) { setMsg('This match is over and gone from the server.'); return; }
+      if (e.status === 404) { gone(); return; }
+      later(pollSummary, 10000);
+      return;
     }
     renderSummary();
     if (summary?.status === 'Active' && !es) startStream();
@@ -1192,7 +1208,9 @@ function mountCockpit(main, matchId) {
       highlight();
     } catch (e) {
       if (e.code === 'NO_BLOCK_BOT') { setMsg('You don’t have a Block Bot in this match.'); return; }
-      if (e.status === 404) return;
+      if (e.status === 404) { gone(); return; }
+      later(pollStatus, 10000);
+      return;
     }
     if (status?.matchStatus !== 'Completed') later(pollStatus, Math.max(400, Math.min(1000, summary?.tickIntervalMs ?? 1000)));
   }
@@ -1230,14 +1248,25 @@ function mountCockpit(main, matchId) {
     } catch { /* archived: only the result is left */ }
   }
 
+  let retryMs = 2000;
+  const gone = () => setMsg('This match is over and gone from the server. Your strategy is still saved here.');
   async function startStream() {
-    if (!view3d) return;
-    try {
-      const map = await api(`/api/v1/matches/${matchId}/map`);
-      if (!alive) return;
-      view3d.setMap(map);
-      if (status?.slot >= 0) view3d.setVision(status.slot);
-    } catch { later(startStream, 2000); return; }
+    if (!view3d || !alive) return;
+    if (!lastState) {
+      try {
+        const map = await api(`/api/v1/matches/${matchId}/map`);
+        if (!alive) return;
+        view3d.setMap(map);
+        if (status?.slot >= 0) view3d.setVision(status.slot);
+      } catch (e) {
+        // Gone (the server restarted, say): stop. Unreachable: try again, less and less often.
+        if (e.status === 404) { gone(); return; }
+        later(startStream, retryMs);
+        retryMs = Math.min(retryMs * 2, 30000);
+        return;
+      }
+    }
+    retryMs = 2000;
     es = new EventSource(`/api/v1/matches/${matchId}/spectate/stream?fog=true`);
     es.onmessage = (msg) => {
       let s;
@@ -1249,7 +1278,7 @@ function mountCockpit(main, matchId) {
     es.onerror = () => {
       es?.close();
       es = null;
-      if (alive && summary?.status !== 'Completed') later(startStream, 2000);
+      if (alive && summary?.status !== 'Completed') { later(startStream, retryMs); retryMs = Math.min(retryMs * 2, 30000); }
     };
   }
 
