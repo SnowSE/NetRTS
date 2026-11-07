@@ -242,8 +242,9 @@ function pyRule(rule, i) {
  * another kind. Every change calls onChange with a fresh copy of the program.
  */
 class RuleEditor {
-  constructor(root, { program, onChange, onHover }) {
+  constructor(root, { program, onChange, onHover, compact = false }) {
     this.root = root;
+    this.compact = compact;   // a narrow column: no side panel; the picker opens under its rule
     this.program = clone(program);
     this.onChange = onChange;
     this.onHover = onHover;
@@ -388,16 +389,19 @@ class RuleEditor {
   render() {
     const focused = document.activeElement?.dataset?.k;
     const p = this.program;
+    const pickerUnder = (i) => this.compact && this.picker
+      && (this.picker.path === `rules.${i}` || this.picker.path.startsWith(`rules.${i}.`))
+      ? html`<aside class="bb-picker inline" aria-label="Pick a block">${this.pickerHtml()}</aside>` : '';
     setHtml(this.root, html`
-      <div class="bb-editor${this.code ? ' with-code' : ''}">
+      <div class="bb-editor${this.code ? ' with-code' : ''}${this.compact ? ' compact' : ''}">
         <div class="bb-rules">
           ${p.rules.length ? '' : html`<p class="bb-empty">No rules yet. Add one, or start from one of the starter strategies in the locker.</p>`}
-          ${p.rules.map((r, i) => this.ruleHtml(r, i))}
+          ${p.rules.map((r, i) => html`${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
           <button type="button" class="bb-add-rule" data-act="add-rule" data-k="add-rule">+ Add a rule</button>
           <p class="small muted">Rules are checked top to bottom, every tick. Higher rules get first pick of ${ORE} and fighters.
             Two things happen on their own: idle workers dig ${ORE}, and half-built buildings get finished.</p>
         </div>
-        <aside class="bb-picker" aria-label="${this.picker ? 'Pick a block' : 'How rules work'}">${this.pickerHtml()}</aside>
+        ${this.compact ? '' : html`<aside class="bb-picker" aria-label="${this.picker ? 'Pick a block' : 'How rules work'}">${this.pickerHtml()}</aside>`}
       </div>`);
     if (focused) this.root.querySelector(`[data-k="${CSS.escape(focused)}"]`)?.focus();
     this.renderStatus();
@@ -1003,6 +1007,16 @@ function mountCockpit(main, matchId) {
   let hovered = null;
   let applying = false;
   let camMode = 'director';
+  let audio = null;
+  const QUALITY_NAMES = { low: 'Low', medium: 'Medium', high: 'High' };
+  function renderViewTools() {
+    const q = $('bb-quality'), snd = $('bb-sound');
+    if (q) q.textContent = `Quality: ${QUALITY_NAMES[view3d?.quality] ?? 'Medium'}`;
+    if (snd && audio) {
+      snd.textContent = audio.settings.muted ? 'Sound: off' : 'Sound: on';
+      snd.setAttribute('aria-pressed', String(!audio.settings.muted));
+    }
+  }
   const timers = [];
   const later = (fn, ms) => timers.push(setTimeout(() => { if (alive) fn(); }, ms));
 
@@ -1011,53 +1025,66 @@ function mountCockpit(main, matchId) {
     return () => {};
   }
 
-  main.classList.add('wide');
+  main.classList.add('wide', 'bb-full');
   setHtml(main, html`
-    <section class="bb-cockpit">
-      <div class="bb-bar">
-        <a href="#/blocks" class="bb-back">← My strategies</a>
-        <span class="bb-live-pill" id="bb-pill">LIVE</span>
-        <h1 class="bb-match-title" id="bb-title">Loading the match…</h1>
-        <span class="bb-spacer"></span>
-        <span class="small muted" id="bb-running"></span>
-        <a class="btn ghost small-btn" href="#/match/${matchId}">Full spectator view</a>
-        <button type="button" class="btn ghost small-btn" id="bb-surrender">Give up</button>
-      </div>
-      <div class="bb-cockpit-grid">
-        <div class="bb-stage">
-          <div class="bb-stats" id="bb-stats"></div>
-          <div class="bb-3d-wrap">
-            <div class="map3d bb-3d" id="bb-3d"></div>
-            <div class="bb-cams" role="group" aria-label="Camera">
-              <button type="button" data-cam="director" aria-pressed="true">Auto camera</button>
-              <button type="button" data-cam="army" aria-pressed="false">Follow my army</button>
-              <button type="button" data-cam="overview" aria-pressed="false">Whole map</button>
-            </div>
-            <span class="bb-3d-note">Simple 3D · sound off</span>
-            <p class="bb-3d-msg" id="bb-3d-msg">Building the 3D valley…</p>
-            <div class="bb-result" id="bb-result" hidden></div>
+    <section class="bb-cockpit" id="bb-cockpit">
+      <aside class="bb-left" aria-label="Your rules">
+        <div class="bb-left-head">
+          <div class="bb-bar">
+            <a href="#/blocks" class="bb-back">← My strategies</a>
+            <span class="bb-live-pill" id="bb-pill">LIVE</span>
+            <span class="bb-spacer"></span>
+            <button type="button" class="btn ghost small-btn" id="bb-surrender">Give up</button>
           </div>
-          <p class="small muted">Point at a rule to make the ${say('units', 'badgers')} it's moving pulse. Click a ${say('unit', 'badger')} to ride along with it.</p>
+          <h1 class="bb-match-title" id="bb-title">Loading the match…</h1>
+          <p class="small muted bb-running" id="bb-running"></p>
         </div>
-        <aside class="bb-side">
-          <section aria-labelledby="bb-sw-h">
+        <div class="bb-controls">
+          <section class="bb-switches-row" aria-labelledby="bb-sw-h">
             <h2 id="bb-sw-h" class="bb-label">Switches · instant</h2>
             <div class="bb-switches" id="bb-switches"></div>
           </section>
           <section class="bb-apply" id="bb-apply" aria-live="polite"></section>
-          <section aria-labelledby="bb-ver-h">
-            <h2 id="bb-ver-h" class="bb-label">Your versions this match</h2>
-            <ol class="bb-versions" id="bb-versions"></ol>
-          </section>
-        </aside>
+        </div>
+        <div class="bb-bar bb-edit-bar">
+          <h2 class="bb-label">Your rules</h2>
+          <span class="bb-spacer"></span>
+          <button type="button" class="btn ghost small-btn" id="bb-code" aria-pressed="${!!prefs().code}">${raw(ICON.code)} Python</button>
+        </div>
+        <p class="small muted bb-hint">Point at a rule to make the ${say('units', 'badgers')} it’s moving pulse.</p>
+        <div id="bb-editor"></div>
+        <section aria-labelledby="bb-ver-h" class="bb-ver">
+          <h2 id="bb-ver-h" class="bb-label">Your versions this match</h2>
+          <ol class="bb-versions" id="bb-versions"></ol>
+        </section>
+      </aside>
+      <div class="bb-right">
+        <div class="bb-3d-wrap">
+          <div class="map3d bb-3d" id="bb-3d"></div>
+          <div class="bb-cams" role="group" aria-label="Camera">
+            <button type="button" data-cam="director" aria-pressed="true">Auto camera</button>
+            <button type="button" data-cam="army" aria-pressed="false">Follow my army</button>
+            <button type="button" data-cam="overview" aria-pressed="false">Whole map</button>
+          </div>
+          <div class="bb-view-tools">
+            <button type="button" id="bb-quality" title="Picture quality: low, medium or high">Quality: …</button>
+            <button type="button" id="bb-sound" aria-pressed="false">Sound: off</button>
+            <a href="#/match/${matchId}">Full spectator view</a>
+          </div>
+          <div class="bb-stats" id="bb-stats"></div>
+          <p class="bb-3d-msg" id="bb-3d-msg">Building the 3D valley…</p>
+          <div class="bb-result" id="bb-result" hidden></div>
+        </div>
       </div>
-      <div class="bb-bar bb-edit-bar">
-        <h2 class="bb-label">Your rules · edit them, then Apply</h2>
-        <span class="bb-spacer"></span>
-        <button type="button" class="btn ghost small-btn" id="bb-code" aria-pressed="${!!prefs().code}">${raw(ICON.code)} Python</button>
-      </div>
-      <div id="bb-editor"></div>
     </section>`);
+
+  // The cockpit fills the window under the site's top bar: the rules scroll on the left, the view stays put.
+  const fitHeight = () => {
+    const el = main.querySelector('#bb-cockpit');
+    if (el) el.style.setProperty('--bb-top', `${Math.max(0, el.getBoundingClientRect().top + window.scrollY)}px`);
+  };
+  fitHeight();
+  window.addEventListener('resize', fitHeight);
 
   const $ = (id) => main.querySelector(`#${id}`);
   let editor = null;
@@ -1071,6 +1098,7 @@ function mountCockpit(main, matchId) {
       recordMatch(matchId, strategy.id);
     }
     editor = new RuleEditor($('bb-editor'), {
+      compact: true,
       program: strategy.program,
       onChange: (p) => {
         strategy = { ...strategy, program: { ...p, name: strategy.program.name } };
@@ -1088,11 +1116,11 @@ function mountCockpit(main, matchId) {
     if (!box || !status) return;
     if (status.matchStatus === 'Completed') { setHtml(box, ''); return; }
     if (pending()) {
-      setHtml(box, html`<div class="bb-pending"><p><b>You have changes that aren’t playing yet.</b> They go live on the next tick after you apply them.</p>
+      setHtml(box, html`<div class="bb-pending"><p><b>Your changes aren’t playing yet.</b></p>
         <div class="bb-row-btns"><button type="button" class="btn start" id="bb-apply-btn" ${applying ? 'disabled' : ''}>Apply now</button>
-        <button type="button" class="btn ghost" id="bb-undo">Undo my changes</button></div><p class="bb-error" id="bb-apply-err" role="alert"></p></div>`);
+        <button type="button" class="btn ghost" id="bb-undo">Undo</button></div><p class="bb-error" id="bb-apply-err" role="alert"></p></div>`);
     } else {
-      setHtml(box, html`<div class="bb-good">${raw(ICON.check)} <span><b>Version ${status.version} is playing.</b> Change a rule below and Apply to send in a new version.</span></div>`);
+      setHtml(box, html`<div class="bb-good">${raw(ICON.check)} <span><b>Version ${status.version} is playing.</b> Change a rule and Apply to send in a new one.</span></div>`);
     }
     editor?.setStatus(status.rules, pending() ? '(running version)' : '');
   }
@@ -1102,7 +1130,7 @@ function mountCockpit(main, matchId) {
     const sw = Object.entries(status.switches || {});
     setHtml($('bb-switches'), sw.length
       ? html`${sw.map(([name, on]) => html`<button type="button" class="bb-switch" data-switch="${name}" aria-pressed="${on}">${name}<span>${on ? 'ON' : 'off'}</span></button>`)}`
-      : html`<p class="small muted">No switches yet. In a rule, pick a check and add a switch, like “Attack!”, then Apply.</p>`);
+      : html`<p class="small muted">No switches yet. Click a check’s ▾ in a rule and add one, like “Attack!”, then Apply.</p>`);
     setHtml($('bb-versions'), html`${(status.versions || []).map((v) => html`<li${v.version === status.version ? ' aria-current="true"' : ''}><b>v${v.version}</b> <span class="muted">from tick ${v.tick}</span></li>`)}`);
     const s = status.stats || {};
     setHtml($('bb-stats'), html`
@@ -1172,10 +1200,15 @@ function mountCockpit(main, matchId) {
   async function start3d() {
     const box = $('bb-3d');
     try {
-      const { View3D } = await import('./3d/view.js');
+      const [{ View3D }, { GameAudio }] = await Promise.all([import('./3d/view.js'), import('./3d/audio.js')]);
       if (!alive) return;
       const names = () => new Map((lastState?.players || summary?.players || []).map((p) => [p.slot, displayName(p.name)]));
-      view3d = new View3D(box, { badger: SNOW, names, quality: 'low', audio: null });
+      audio = new GameAudio();
+      audio.setActive(true);
+      // The same viewer as the spectator page: its quality adapts to the computer (and remembers a choice).
+      view3d = new View3D(box, { badger: SNOW, names, audio });
+      view3d.onQualityChange = renderViewTools;
+      renderViewTools();
       view3d.onReady = () => {
         if (!alive) return;
         if (summary?.status !== 'Waiting') setMsg('');
@@ -1228,7 +1261,7 @@ function mountCockpit(main, matchId) {
     if (!view3d) return;
     if (!force && view3d.followed != null && myFighters().some((u) => u.id === view3d.followed)) return;
     const f = myFighters()[0] ?? (lastState?.units || []).find((u) => u.owner === status?.slot);
-    if (f) view3d.follow(f.id);
+    if (f) view3d.follow(f.id, { dist: 9 });
   }
   function setCam(mode, apply = true) {
     camMode = mode;
@@ -1282,6 +1315,15 @@ function mountCockpit(main, matchId) {
       renderApply();
     } else if (b.dataset.switch) flip(b.dataset.switch);
     else if (b.dataset.cam) setCam(b.dataset.cam);
+    else if (b.id === 'bb-quality' && view3d) {
+      const order = ['low', 'medium', 'high'];
+      view3d.setQuality(order[(order.indexOf(view3d.quality) + 1) % order.length]);
+      renderViewTools();
+    } else if (b.id === 'bb-sound' && audio) {
+      audio.unlock();
+      audio.set('muted', !audio.settings.muted);
+      renderViewTools();
+    }
     else if (b.id === 'bb-code') {
       const on = b.getAttribute('aria-pressed') !== 'true';
       b.setAttribute('aria-pressed', String(on));
@@ -1304,7 +1346,10 @@ function mountCockpit(main, matchId) {
     timers.forEach(clearTimeout);
     es?.close();
     view3d?.destroy();
+    audio?.setActive(false);
+    audio?.dispose?.();
+    window.removeEventListener('resize', fitHeight);
     main.removeEventListener('click', onClick);
-    main.classList.remove('wide');
+    main.classList.remove('wide', 'bb-full');
   };
 }

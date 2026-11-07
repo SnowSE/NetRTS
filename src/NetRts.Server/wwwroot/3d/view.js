@@ -1408,8 +1408,8 @@ export class View3D {
     }
   }
 
-  /** Ride along with a unit (by id), as clicking it does. */
-  follow(id) {
+  /** Ride along with a unit (by id), as clicking it does; dist sets how far back the camera rides. */
+  follow(id, { dist } = {}) {
     if (!this.rig) return;
     this.setFollowed(id);
     this.rig.follow(() => {
@@ -1420,6 +1420,7 @@ export class View3D {
       if (lost && this.now() - lost.t < 2500) return new THREE.Vector3(lost.x, this.terrain.heightAt(lost.x, lost.z), lost.z);
       return null;
     });
+    if (dist) this.rig.goal.dist = Math.min(dist, this.rig.maxDist);
   }
 
   hover(clientX, clientY) {

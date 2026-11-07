@@ -100,7 +100,7 @@
 /* ---------- rule cards ---------- */
 
 .bb-editor { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.bb-rules { flex: 999 1 560px; min-width: 0; display: grid; gap: 10px; }
+.bb-rules { flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .bb-empty { margin: 0; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius-m); color: var(--muted); }
 .bb-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
 .bb-rule { flex: 1 1 480px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 8px 10px; display: grid; gap: 4px; }
@@ -162,45 +162,77 @@
 .bb-new-switch input { min-height: 40px; padding: 0 10px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); min-width: 0; flex: 1 1 160px; }
 .bb-switch-list { margin: 0; padding-left: 18px; }
 
-/* ---------- cockpit ---------- */
+/* ---------- cockpit: rules on the left third, the match on the right two thirds ---------- */
 
-.bb-cockpit { display: grid; gap: 14px; }
+main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
+.bb-cockpit {
+  --bb-top: 80px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
+  gap: 12px;
+  height: calc(100dvh - var(--bb-top) - 8px);
+  min-height: 480px;
+}
+.bb-left { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+.bb-left-head { display: grid; gap: 4px; }
+.bb-left-head .bb-bar { gap: 8px; }
+.bb-running { margin: 0; }
 .bb-live-pill { background: var(--signal-bg); color: #15222a; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em; padding: 3px 8px; border-radius: var(--radius-s); }
 .bb-live-pill[data-state="Completed"] { background: var(--line); }
-.bb-match-title { font-size: clamp(1.2rem, 2.4vw, 1.6rem); font-stretch: 87.5%; }
-.bb-cockpit-grid { display: flex; flex-wrap: wrap; gap: 16px; align-items: stretch; }
-.bb-stage { flex: 999 1 560px; min-width: 0; display: grid; gap: 8px; align-content: start; }
-.bb-stats { display: flex; flex-wrap: wrap; gap: 8px; }
-.bb-stats > span { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 6px 12px; }
-.bb-3d-wrap { position: relative; }
-.bb-3d { width: 100%; height: clamp(320px, 52vh, 620px); display: block; }
-.bb-cams { position: absolute; top: 10px; left: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
-.bb-cams button { min-height: 40px; padding: 0 12px; border-radius: var(--radius-m); border: 1px solid rgba(226, 233, 232, 0.4); background: rgba(12, 17, 20, 0.8); color: #e2e9e8; font-weight: 600; cursor: pointer; }
+.bb-match-title { font-size: clamp(1.15rem, 1.8vw, 1.5rem); font-stretch: 87.5%; }
+/* Switches and Apply stay in reach while the rules scroll under them. */
+.bb-controls { position: sticky; top: 0; z-index: 2; background: var(--bg); display: grid; gap: 8px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); }
+.bb-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.bb-switches { display: flex; flex-wrap: wrap; gap: 6px; }
+.bb-switches p { margin: 0; }
+.bb-switch { flex: 1 1 110px; min-height: 48px; border-radius: var(--radius-m); border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-size: 1.05rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; }
+.bb-switch span { font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: var(--radius-s); background: var(--line); color: var(--ink); }
+.bb-switch[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; }
+.bb-switch[aria-pressed="true"] span { background: #15222a; color: var(--signal-bg); }
+.bb-pending { border: 1px solid var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 16%, var(--panel)); border-radius: var(--radius-m); padding: 8px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.bb-pending p { margin: 0; flex: 1 1 140px; }
+.bb-pending .bb-error { flex-basis: 100%; }
+.bb-good { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--ok); border-radius: var(--radius-m); padding: 8px 10px; font-size: 0.9rem; }
+.bb-good svg { color: var(--ok); flex: none; margin-top: 3px; }
+.bb-row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
+.bb-edit-bar .bb-label { margin: 0; }
+.bb-hint { margin: -6px 0 0; }
+.bb-versions { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
+.bb-versions li { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 0.85rem; }
+.bb-versions li[aria-current="true"] { border-color: var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 22%, transparent); }
+.bb-ver { padding-bottom: 8px; }
+
+/* The rule cards in a narrow column: one per row, code and picker underneath. */
+.bb-editor.compact .bb-rules { flex-basis: 100%; }
+.bb-editor.compact .bb-rule, .bb-editor.compact .bb-py { flex-basis: 100%; }
+.bb-editor.compact .bb-sentence { font-size: 0.98rem; }
+.bb-editor.compact .bb-live { padding-left: 0; }
+.bb-picker.inline { position: static; border: 2px solid var(--signal-bg); margin-top: -4px; }
+
+.bb-right { min-height: 0; }
+.bb-3d-wrap { position: relative; height: 100%; }
+.bb-3d { width: 100%; height: 100%; display: block; }
+.bb-cams, .bb-view-tools { position: absolute; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
+.bb-cams { left: 10px; }
+.bb-view-tools { right: 10px; justify-content: flex-end; }
+.bb-cams button, .bb-view-tools button, .bb-view-tools a { min-height: 40px; padding: 0 12px; border-radius: var(--radius-m); border: 1px solid rgba(226, 233, 232, 0.4); background: rgba(12, 17, 20, 0.8); color: #e2e9e8; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none; font-size: 0.9rem; }
 .bb-cams button[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; }
-.bb-3d-note { position: absolute; top: 10px; right: 10px; background: rgba(12, 17, 20, 0.8); color: #e2e9e8; font-size: 0.8rem; padding: 6px 10px; border-radius: var(--radius-m); }
+.bb-stats { position: absolute; left: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 20px); }
+.bb-stats > span { background: rgba(12, 17, 20, 0.8); color: #e2e9e8; border-radius: var(--radius-m); padding: 5px 10px; font-size: 0.9rem; }
+.bb-stats .muted { color: #b8c4c3; }
 .bb-3d-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; background: rgba(12, 17, 20, 0.85); color: #e2e9e8; padding: 12px 16px; border-radius: var(--radius-m); max-width: 80%; text-align: center; }
 .bb-3d-msg[hidden] { display: none; }
-.bb-result { position: absolute; inset: auto 16px 16px 16px; background: var(--panel); border: 2px solid var(--signal-bg); border-radius: var(--radius-m); padding: 16px; display: grid; gap: 8px; }
+.bb-result { position: absolute; inset: auto 16px 56px 16px; background: var(--panel); border: 2px solid var(--signal-bg); border-radius: var(--radius-m); padding: 16px; display: grid; gap: 8px; }
 .bb-result[hidden] { display: none; }
 .bb-result h2 { margin: 0; font-size: 1.8rem; }
 .bb-result p { margin: 0; }
-.bb-row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
-.bb-side { flex: 1 1 320px; min-width: 0; display: grid; gap: 16px; align-content: start; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 16px; }
-.bb-label { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 8px; }
-.bb-switches { display: flex; flex-wrap: wrap; gap: 8px; }
-.bb-switches p { margin: 0; }
-.bb-switch { flex: 1 1 130px; min-height: 64px; border-radius: var(--radius-m); border: 2px solid var(--line); background: var(--bg); color: var(--ink); font-size: 1.2rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.bb-switch span { font-size: 0.8rem; font-weight: 600; }
-.bb-switch[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; }
-.bb-pending { border: 1px solid var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 16%, var(--panel)); border-radius: var(--radius-m); padding: 12px; display: grid; gap: 10px; }
-.bb-pending p { margin: 0; }
-.bb-good { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--ok); border-radius: var(--radius-m); padding: 12px; }
-.bb-good svg { color: var(--ok); flex: none; margin-top: 3px; }
-.bb-versions { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-.bb-versions li { border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 0.9rem; }
-.bb-versions li[aria-current="true"] { border-color: var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 22%, transparent); }
-.bb-edit-bar { margin-top: 6px; }
-.bb-edit-bar .bb-label { margin: 0; }
+
+/* Narrow screens: the match on top, the rules under it, one scrolling page. */
+@media (max-width: 900px) {
+  .bb-cockpit { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .bb-right { order: -1; height: 56vh; min-height: 300px; }
+  .bb-left { overflow: visible; }
+}
 
 @media (max-width: 640px) {
   .bb-live { padding-left: 0; }
