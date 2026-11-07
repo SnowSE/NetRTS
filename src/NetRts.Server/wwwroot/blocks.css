@@ -130,6 +130,7 @@
 .bb-tools { display: flex; gap: 4px; align-items: center; margin-left: auto; }
 .bb-toggle { min-width: 60px; min-height: 40px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 2px solid var(--ok); background: var(--ok); color: #fff; }
 .bb-toggle[aria-pressed="false"] { background: transparent; color: var(--muted); border-color: var(--line); }
+.bb-toggle:disabled { opacity: 0.4; cursor: default; }
 .bb-icon { min-width: 40px; min-height: 40px; background: none; border: 1px solid transparent; border-radius: var(--radius-s); cursor: pointer; font-size: 1.1rem; color: var(--muted); }
 .bb-icon:hover:not(:disabled) { border-color: var(--line); color: var(--ink); }
 .bb-icon:disabled { opacity: 0.3; cursor: default; }
@@ -146,6 +147,14 @@
 .bb-live .bb-bar { display: block; flex: 0 0 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
 .bb-live .bb-bar span { display: block; height: 100%; background: var(--signal-bg); }
 .bb-py { flex: 1 1 340px; min-width: 0; margin: 0; padding: 10px 14px; background: var(--bb-code-bg); color: var(--bb-code-ink); border-radius: var(--radius-m); line-height: 1.55; overflow-x: auto; white-space: pre; display: flex; align-items: center; }
+/* The rule being edited (cockpit): a yellow border and its Save / Cancel; the other rules wait. */
+.bb-rule.editing-rule { border: 2px solid var(--signal-bg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal-bg) 25%, transparent); }
+.bb-save-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 6px; margin-top: 2px; border-top: 1px dashed var(--line); }
+.bb-save-row .bb-error { flex-basis: 100%; }
+.bb-editor.locked .bb-rule:not(.editing-rule) { opacity: 0.45; pointer-events: none; }
+.bb-editor.locked .bb-py { opacity: 0.45; }
+.bb-editor.locked .bb-insert, .bb-editor.locked .bb-add-rule { visibility: hidden; pointer-events: none; }
+
 /* Between two rules: a faint line with "+ rule" that lights up on hover or focus. */
 .bb-insert { position: relative; display: block; width: 100%; height: 22px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; color: var(--muted); opacity: 0.35; }
 .bb-insert::before { content: ""; position: absolute; left: 8px; right: 8px; top: 50%; border-top: 2px dashed var(--line); }

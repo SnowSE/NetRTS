@@ -247,9 +247,17 @@ function pyRule(rule, i) {
  * another kind. Every change calls onChange with a fresh copy of the program.
  */
 class RuleEditor {
-  constructor(root, { program, onChange, onHover, compact = false }) {
+  constructor(root, { program, onChange, onHover, onSave, compact = false }) {
     this.root = root;
     this.compact = compact;   // a narrow column: no side panel; the picker opens under its rule
+    // With onSave (the cockpit), edits go into the running match one rule at a time: changing a rule
+    // starts a session on it (a yellow border, Save and Cancel) and locks the others until it ends.
+    // One-click changes (on/off, moving, deleting) are saved straight away. Without it, every change
+    // goes to onChange as it happens.
+    this.onSave = onSave;
+    this.session = null;   // { index, snapshot (the program before the edit), inserted }
+    this.saving = false;
+    this.saveError = '';
     this.program = clone(program);
     this.onChange = onChange;
     this.onHover = onHover;
@@ -260,9 +268,10 @@ class RuleEditor {
     this.dragFrom = null;
     root.addEventListener('click', (e) => this.click(e));
     root.addEventListener('change', (e) => this.change(e));
+    root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.session && !this.saving) { e.preventDefault(); this.cancel(); } });
     root.addEventListener('dragstart', (e) => {
       const grip = e.target.closest('[data-drag]');
-      if (!grip) return;
+      if (!grip || this.session) { if (grip) e.preventDefault(); return; }
       this.dragFrom = Number(grip.dataset.drag);
       e.dataTransfer.effectAllowed = 'move';
       e.dataTransfer.setData('text/plain', grip.dataset.drag);
@@ -286,7 +295,8 @@ class RuleEditor {
     this.render();
   }
 
-  setProgram(program) { this.program = clone(program); this.render(); }
+  setProgram(program) { this.program = clone(program); this.session = null; this.picker = null; this.render(); }
+  get busy() { return !!this.session; }
   setStatus(rules, note = '') {
     const changed = JSON.stringify(rules) !== JSON.stringify(this.status) || note !== this.statusNote;
     this.status = rules;
@@ -301,12 +311,61 @@ class RuleEditor {
     this.program = p;
     if (!keepPicker) this.picker = null;
     this.render();
-    this.onChange(clone(p));
+    if (!this.onSave) this.onChange?.(clone(p));
+  }
+
+  /** A change inside one rule. In save mode it opens (or continues) that rule's editing session. */
+  edit(index, mutate, opts) {
+    if (this.onSave) {
+      if (this.session && this.session.index !== index) return;   // another rule is being edited
+      this.session ??= { index, snapshot: clone(this.program), inserted: false };
+      this.saveError = '';
+    }
+    this.commit(mutate, opts);
+  }
+
+  /** A one-click change to the list (on/off, move, delete). In save mode it's saved straight away. */
+  async structural(mutate) {
+    if (this.session || this.saving) return;
+    const before = clone(this.program);
+    this.commit(mutate);
+    if (!this.onSave) return;
+    this.saving = true;
+    this.saveError = '';
+    try { await this.onSave(clone(this.program)); } catch (e) {
+      this.program = before;
+      this.saveError = e.message;
+    }
+    this.saving = false;
+    this.render();
+  }
+
+  async save() {
+    if (!this.session || this.saving) return;
+    this.saving = true;
+    this.saveError = '';
+    this.render();
+    try {
+      await this.onSave(clone(this.program));
+      this.session = null;
+      this.picker = null;
+    } catch (e) { this.saveError = e.message; }
+    this.saving = false;
+    this.render();
+  }
+
+  cancel() {
+    if (!this.session) return;
+    this.program = this.session.snapshot;
+    this.session = null;
+    this.picker = null;
+    this.saveError = '';
+    this.render();
   }
 
   move(from, to) {
     if (from === to || from < 0 || to < 0) return;
-    this.commit((p) => {
+    this.structural((p) => {
       const [r] = p.rules.splice(from, 1);
       p.rules.splice(to, 0, r);
     });
@@ -317,7 +376,10 @@ class RuleEditor {
     if (!b || !this.root.contains(b)) return;
     const { act, path } = b.dataset;
     const i = Number(b.dataset.i);
+    const ruleOf = (p) => Number(String(p).split('.')[1]);
     switch (act) {
+      case 'save-rule': return this.save();
+      case 'cancel-rule': return this.cancel();
       case 'pick-cond': this.picker = { type: 'cond', path }; this.render(); this.focusPicker(); return;
       case 'pick-action': this.picker = { type: 'action', path, mode: 'replace' }; this.render(); this.focusPicker(); return;
       case 'add-action': this.picker = { type: 'action', path, mode: 'add' }; this.render(); this.focusPicker(); return;
@@ -328,27 +390,31 @@ class RuleEditor {
         const name = (input?.value || '').trim().slice(0, 24);
         if (!name) { input?.focus(); return; }
         const path0 = this.picker?.path;
-        this.commit((p) => {
+        const change = (p) => {
           if (!p.switches.some((s) => s.toLowerCase() === name.toLowerCase())) p.switches.push(name);
           if (path0) setAt(p, path0, C.switch(name));
-        });
+        };
+        if (path0) this.edit(ruleOf(path0), change); else this.commit(change);
         return;
       }
       case 'del-switch': return this.commit((p) => {
         p.switches = p.switches.filter((s) => s !== b.dataset.name);
       }, { keepPicker: true });
-      case 'del-action': return this.commit((p) => { at(p, path.replace(/\.\d+$/, '')).splice(Number(path.split('.').pop()), 1); });
-      case 'unwrap': return this.commit((p) => setAt(p, path, at(p, path).a));
-      case 'mix-add': return this.commit((p) => at(p, path).units.push('Soldier'));
-      case 'mix-del': return this.commit((p) => { const u = at(p, path).units; if (u.length > 1) u.splice(i, 1); });
+      case 'del-action': return this.edit(ruleOf(path), (p) => { at(p, path.replace(/\.\d+$/, '')).splice(Number(path.split('.').pop()), 1); });
+      case 'unwrap': return this.edit(ruleOf(path), (p) => setAt(p, path, at(p, path).a));
+      case 'mix-add': return this.edit(ruleOf(path), (p) => at(p, path).units.push('Soldier'));
+      case 'mix-del': return this.edit(ruleOf(path), (p) => { const u = at(p, path).units; if (u.length > 1) u.splice(i, 1); });
       case 'rule-up': return this.move(i, i - 1);
       case 'rule-down': return this.move(i, Math.min(i + 1, this.program.rules.length - 1));
-      case 'rule-toggle': return this.commit((p) => { p.rules[i].enabled = p.rules[i].enabled === false; });
-      case 'rule-del': return this.commit((p) => { p.rules.splice(i, 1); });
+      case 'rule-toggle': return this.structural((p) => { p.rules[i].enabled = p.rules[i].enabled === false; });
+      case 'rule-del': return this.structural((p) => { p.rules.splice(i, 1); });
       case 'add-rule':
       case 'insert-rule': {
         // The new rule goes where it was asked for, and its check's picker opens so it's ready to fill in.
+        // In save mode it starts out being edited: Save sends it in, Cancel takes it away again.
+        if (this.session) return;
         const at = act === 'insert-rule' ? i : this.program.rules.length;
+        if (this.onSave) this.session = { index: at, snapshot: clone(this.program), inserted: true };
         this.commit((p) => { p.rules.splice(at, 0, R(C.count('fighters', '>=', 8), A.attack())); });
         this.picker = { type: 'cond', path: `rules.${at}.when` };
         this.render();
@@ -363,7 +429,7 @@ class RuleEditor {
   choose(d) {
     const pk = this.picker;
     if (!pk) return;
-    this.commit((p) => {
+    this.edit(Number(pk.path.split('.')[1]), (p) => {
       if (pk.type === 'cond') {
         const current = at(p, pk.path);
         let node;
@@ -390,7 +456,7 @@ class RuleEditor {
     const el = e.target;
     const { path, field } = el.dataset;
     if (!path || !field) return;
-    this.commit((p) => {
+    this.edit(Number(path.split('.')[1]), (p) => {
       const node = at(p, path);
       if (field === 'units') node.units[Number(el.dataset.i)] = el.value;
       else if (field === 'value') node.value = Math.max(0, Math.min(100000, Math.round(Number(el.value) || 0)));
@@ -409,8 +475,9 @@ class RuleEditor {
       && (this.picker.path === `rules.${i}` || this.picker.path.startsWith(`rules.${i}.`))
       ? html`<aside class="bb-picker inline" aria-label="Pick a block">${this.pickerHtml()}</aside>` : '';
     setHtml(this.root, html`
-      <div class="bb-editor${this.code ? ' with-code' : ''}${this.compact ? ' compact' : ''}">
+      <div class="bb-editor${this.code ? ' with-code' : ''}${this.compact ? ' compact' : ''}${this.session ? ' locked' : ''}">
         <div class="bb-rules">
+          ${this.saveError && !this.session ? html`<p class="bb-error" role="alert">${this.saveError}</p>` : ''}
           ${p.rules.length ? '' : html`<p class="bb-empty">No rules yet. Add one, or start from one of the starter strategies in the locker.</p>`}
           ${p.rules.map((r, i) => html`<button type="button" class="bb-insert" data-act="insert-rule" data-i="${i}" data-k="insert|${i}" aria-label="Add a rule before rule ${i + 1}"><span>+ rule</span></button>${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
           <button type="button" class="bb-add-rule" data-act="add-rule" data-k="add-rule">+ Add a rule</button>
@@ -426,7 +493,9 @@ class RuleEditor {
   renderStatus() {
     this.root.querySelectorAll('.bb-rule').forEach((card) => {
       const i = Number(card.dataset.rule);
-      const s = this.status?.[i];
+      // The statuses are for the running program: around a rule being added, they're one off.
+      const ins = this.session?.inserted ? this.session.index : null;
+      const s = ins == null ? this.status?.[i] : i === ins ? null : this.status?.[i > ins ? i - 1 : i];
       const box = card.querySelector('.bb-live');
       if (!box) return;
       card.dataset.state = s?.state ?? '';
@@ -440,9 +509,11 @@ class RuleEditor {
   ruleHtml(r, i) {
     const n = this.program.rules.length;
     const off = r.enabled === false;
+    // While a rule is being edited, the one-click buttons wait for its Save or Cancel.
+    const wait = this.session || this.saving ? 'disabled title="Save or cancel your change first"' : '';
     return html`
       <div class="bb-row">
-        <article class="bb-rule${off ? ' off' : ''}" data-rule="${i}">
+        <article class="bb-rule${off ? ' off' : ''}${this.session?.index === i ? ' editing-rule' : ''}" data-rule="${i}">
           <div class="bb-rule-main">
             <button type="button" class="bb-grip" draggable="true" data-drag="${i}" aria-label="Drag to move rule ${i + 1}" title="Drag to move">${raw('<svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor" aria-hidden="true"><circle cx="3" cy="4" r="1.8"/><circle cx="9" cy="4" r="1.8"/><circle cx="3" cy="10" r="1.8"/><circle cx="9" cy="10" r="1.8"/><circle cx="3" cy="16" r="1.8"/><circle cx="9" cy="16" r="1.8"/></svg>')}</button>
             <span class="bb-num" aria-hidden="true">${i + 1}</span>
@@ -454,13 +525,20 @@ class RuleEditor {
               <button type="button" class="bb-plus" data-act="add-action" data-path="rules.${i}" data-k="add-action|${i}" aria-label="Add something for rule ${i + 1} to do">+ do</button>
             </div>
             <div class="bb-tools">
-              <button type="button" class="bb-toggle" data-act="rule-toggle" data-i="${i}" data-k="toggle|${i}" aria-pressed="${!off}" aria-label="Rule ${i + 1} on or off">${off ? 'Off' : 'On'}</button>
-              <button type="button" class="bb-icon" data-act="rule-up" data-i="${i}" data-k="up|${i}" aria-label="Move rule ${i + 1} up" ${i === 0 ? 'disabled' : ''}>↑</button>
-              <button type="button" class="bb-icon" data-act="rule-down" data-i="${i}" data-k="down|${i}" aria-label="Move rule ${i + 1} down" ${i === n - 1 ? 'disabled' : ''}>↓</button>
-              <button type="button" class="bb-icon" data-act="rule-del" data-i="${i}" data-k="del|${i}" aria-label="Delete rule ${i + 1}">×</button>
+              <button type="button" class="bb-toggle" data-act="rule-toggle" data-i="${i}" data-k="toggle|${i}" aria-pressed="${!off}" aria-label="Rule ${i + 1} on or off" ${raw(wait)}>${off ? 'Off' : 'On'}</button>
+              <button type="button" class="bb-icon" data-act="rule-up" data-i="${i}" data-k="up|${i}" aria-label="Move rule ${i + 1} up" ${i === 0 ? 'disabled' : raw(wait)}>↑</button>
+              <button type="button" class="bb-icon" data-act="rule-down" data-i="${i}" data-k="down|${i}" aria-label="Move rule ${i + 1} down" ${i === n - 1 ? 'disabled' : raw(wait)}>↓</button>
+              <button type="button" class="bb-icon" data-act="rule-del" data-i="${i}" data-k="del|${i}" aria-label="Delete rule ${i + 1}" ${raw(wait)}>×</button>
             </div>
           </div>
           <p class="bb-live" hidden></p>
+          ${this.session?.index === i ? html`
+            <div class="bb-save-row">
+              <button type="button" class="btn start small-btn" data-act="save-rule" data-k="save|${i}" ${this.saving ? 'disabled' : ''}>${this.saving ? 'Saving…' : 'Save'}</button>
+              <button type="button" class="btn ghost small-btn" data-act="cancel-rule" data-k="cancel|${i}" ${this.saving ? 'disabled' : ''}>Cancel</button>
+              <span class="small muted">${this.session.inserted ? 'New rule: it plays once you save it.' : 'Your change plays once you save it.'}</span>
+              ${this.saveError ? html`<span class="bb-error" role="alert">${this.saveError}</span>` : ''}
+            </div>` : ''}
         </article>
         ${this.code ? html`<pre class="bb-py" aria-label="Rule ${i + 1} in Python">${pyRule(r, i)}</pre>` : ''}
       </div>`;
@@ -1206,27 +1284,35 @@ function mountCockpit(main, matchId) {
     editor = new RuleEditor($('bb-editor'), {
       compact: true,
       program: strategy.program,
-      onChange: (p) => {
+      // Each rule's Save (and each on/off, move or delete) sends the whole program in as a new version.
+      onSave: async (p) => {
+        if (status?.matchStatus === 'Completed') throw new Error('The match is over, so there’s nothing to send it to.');
+        try {
+          status = await authed(`/api/v1/blocks/matches/${matchId}/program`, { method: 'PUT', body: p });
+        } catch (e) {
+          throw new Error(e.code === 'INVALID_PROGRAM' ? `That doesn’t work yet: ${e.message}` : e.message);
+        }
         strategy = { ...strategy, program: { ...p, name: strategy.program.name } };
         putStrategy(strategy);
+        renderSide();
         renderApply();
       },
       onHover: (i) => { hovered = i; highlight(); },
     });
   }
 
-  const pending = () => strategy && status?.program && !sameProgram(strategy.program, status.program);
+  // The saved strategy can differ from what's playing when it was changed in the full editor meanwhile.
+  const pending = () => strategy && status?.program && !editor?.busy && !sameProgram(strategy.program, status.program);
 
   function renderApply() {
     const box = $('bb-apply');
     if (!box || !status) return;
-    if (status.matchStatus === 'Completed') { setHtml(box, ''); return; }
-    if (pending()) {
-      setHtml(box, html`<div class="bb-pending"><p><b>Your changes aren’t playing yet.</b></p>
-        <div class="bb-row-btns"><button type="button" class="btn start" id="bb-apply-btn" ${applying ? 'disabled' : ''}>Apply now</button>
-        <button type="button" class="btn ghost" id="bb-undo">Undo</button></div><p class="bb-error" id="bb-apply-err" role="alert"></p></div>`);
+    if (status.matchStatus !== 'Completed' && pending()) {
+      setHtml(box, html`<div class="bb-pending"><p><b>This strategy changed in the editor</b> since this version started playing.</p>
+        <div class="bb-row-btns"><button type="button" class="btn start small-btn" id="bb-apply-btn" ${applying ? 'disabled' : ''}>Send the changes in</button>
+        <button type="button" class="btn ghost small-btn" id="bb-undo">Keep what’s playing</button></div><p class="bb-error" id="bb-apply-err" role="alert"></p></div>`);
     } else {
-      setHtml(box, html`<div class="bb-good">${raw(ICON.check)} <span><b>Version ${status.version} is playing.</b> Edit a rule, then Apply.</span></div>`);
+      setHtml(box, '');
     }
     editor?.setStatus(status.rules, pending() ? '(running version)' : '');
   }
