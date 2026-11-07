@@ -6,7 +6,7 @@
 //   #/blocks                 the locker: your strategies, and where to play
 //   #/blocks/edit/<id>       the rule-card editor
 //   #/blocks/match/<id>      the cockpit: the match in a simple 3D view, the rules live, switches, Apply
-import { api, html, raw, setHtml, displayName, timeAgo, outcomeText } from './util.js';
+import { api, html, raw, setHtml, displayName, timeAgo, outcomeText, slotVar } from './util.js';
 import { GAME, SNOW, say, unitName, upgradeName, buildingName, nickname, ORE } from './lore.js';
 
 // ------------------------------------------------------------------ storage
@@ -1030,20 +1030,99 @@ function mountCockpit(main, matchId) {
   let lastState = null;
   let hovered = null;
   let applying = false;
-  // 'army' rides with your fighters (your HQ until you have some), 'overview' shows the whole map,
-  // 'free' is wherever you moved the camera yourself.
-  let camMode = 'army';
-  let framedBase = false;
-  const ARMY_VIEW = { dist: 13, pitch: 1.05 };
+  // Home: your base from above, a little zoomed out. The view starts there; the ⌂ button comes back.
+  const HOME_VIEW = { dist: 16, pitch: 1.05 };
+  let homed = false;
+  let mapData = null;
   let audio = null;
   const QUALITY_NAMES = { low: 'Low', medium: 'Medium', high: 'High' };
+  const QUALITY_BARS = { low: 1, medium: 2, high: 3 };
+  /** The speaker (sound on or muted) and the signal bars (picture quality: one, two or three filled). */
   function renderViewTools() {
     const q = $('bb-quality'), snd = $('bb-sound');
-    if (q) q.textContent = `Quality: ${QUALITY_NAMES[view3d?.quality] ?? 'Medium'}`;
-    if (snd && audio) {
-      snd.textContent = audio.settings.muted ? 'Sound: off' : 'Sound: on';
-      snd.setAttribute('aria-pressed', String(!audio.settings.muted));
+    if (q && view3d) {
+      const n = QUALITY_BARS[view3d.quality] ?? 2;
+      const label = `Picture quality: ${QUALITY_NAMES[view3d.quality] ?? 'Medium'}. Click to change.`;
+      q.setAttribute('aria-label', label);
+      q.title = label;
+      setHtml(q, html`<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">${[0, 1, 2].map((i) =>
+        html`<rect x="${2 + i * 7.5}" y="${16 - i * 6}" width="5" height="${6 + i * 6}" rx="1" fill="${i < n ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5"/>`)}</svg>`);
     }
+    if (snd && audio) {
+      const muted = audio.settings.muted;
+      const label = muted ? 'Sound is off: turn it on' : 'Sound is on: mute';
+      snd.setAttribute('aria-pressed', String(!muted));
+      snd.setAttribute('aria-label', label);
+      snd.title = label;
+      setHtml(snd, html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="${muted ? 'M16 9l5 6M21 9l-5 6' : 'M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10'}"/></svg>`);
+    }
+  }
+
+  // ---- the stats rail: a trend line per stat over the last minute, and the scoreboard
+  const HISTORY_TICKS = 60;
+  const history = [];   // { tick, grubs, workers, fighters, buildings }, oldest first
+  function remember() {
+    const s = status?.stats;
+    if (!s || (history.length && history[history.length - 1].tick >= status.tick)) return;
+    history.push({ tick: status.tick, grubs: s.grubs, workers: s.workers, fighters: s.fighters, buildings: s.buildings });
+    while (history.length > 2 && history[0].tick < status.tick - HISTORY_TICKS) history.shift();
+  }
+  const fmtN = (n) => Number(n ?? 0).toLocaleString();
+  function trendTile(key, label, color) {
+    const now = history[history.length - 1]?.[key] ?? status?.stats?.[key] ?? 0;
+    const first = history[0], last = history[history.length - 1];
+    const span = first && last ? last.tick - first.tick : 0;
+    const perMin = span >= 5 ? Math.round(((last[key] - first[key]) * 60) / span) : null;
+    const W = 112, H = 20;
+    let line = '', area = '', mark = null;
+    if (history.length >= 2) {
+      const vals = history.map((h) => h[key]);
+      const lo = Math.min(...vals), hi = Math.max(...vals), range = Math.max(1, hi - lo);
+      const x = (t) => ((t - first.tick) / Math.max(1, span)) * W;
+      line = history.map((h) => `${x(h.tick).toFixed(1)},${(H - 2 - ((h[key] - lo) / range) * (H - 4)).toFixed(1)}`).join(' ');
+      area = `0,${H} ${line} ${W},${H}`;
+      // Where the newest version went live, when that was within the last minute.
+      const v = status?.versions?.[status.versions.length - 1];
+      if (v && v.version > 1 && v.tick > first.tick) mark = x(v.tick).toFixed(1);
+    }
+    const rate = perMin == null ? '' : perMin === 0 ? 'steady' : `${perMin > 0 ? '▲ +' : '▼ −'}${fmtN(Math.abs(perMin))}/min`;
+    const rateClass = perMin == null || perMin === 0 ? '' : perMin > 0 ? ' up' : ' down';
+    return html`<div class="bb-tile">
+      <span class="bb-tile-label">${label}</span>
+      <span class="bb-tile-row"><span class="bb-tile-value" style="color:${color}">${fmtN(now)}</span><span class="bb-tile-rate${rateClass}">${rate}</span></span>
+      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label} over the last minute, now ${fmtN(now)}">
+        ${line ? html`<polyline points="${area}" fill="${color}" fill-opacity="0.14" stroke="none"/><polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+        ${mark ? html`<line x1="${mark}" y1="0" x2="${mark}" y2="${H}" stroke="#f2c14e" stroke-width="1" stroke-dasharray="2 2"><title>v${status.versions[status.versions.length - 1].version} went live</title></line>` : ''}
+      </svg>
+    </div>`;
+  }
+  /** Everyone when it fits; with lots of players, the top four, then you. */
+  function scoreboard() {
+    const players = [...(lastState?.players || [])]
+      .sort((a, b) => (a.eliminated - b.eliminated) || ((b.score?.total ?? 0) - (a.score?.total ?? 0)))
+      .map((p, i) => ({ ...p, rank: i + 1, me: p.slot === status?.slot }));
+    if (!players.length) return '';
+    let rows = players;
+    if (players.length > 5) {
+      const top = players.slice(0, 4);
+      rows = top.some((p) => p.me) ? players.slice(0, 5) : [...top, null, players.find((p) => p.me)].filter((p) => p !== undefined);
+    }
+    return html`<div class="bb-tile bb-board">
+      <span class="bb-tile-label">Scoreboard <span class="bb-board-count">${players.length} players</span></span>
+      <ol>${rows.map((p) => p == null
+        ? html`<li class="bb-board-gap" aria-hidden="true">⋯</li>`
+        : html`<li class="${p.me ? 'me' : ''}${p.eliminated ? ' out' : ''}" style="--pc:${slotVar(p.slot)}"><span class="bb-board-rank">${p.rank}</span><span class="bb-board-swatch"></span><span class="bb-board-name">${p.me ? 'You' : displayName(p.name)}</span><span class="bb-board-score">${fmtN(p.score?.total)}</span></li>`)}</ol>
+    </div>`;
+  }
+  function renderHud() {
+    const box = $('bb-hud');
+    if (!box || !status) return;
+    setHtml(box, html`
+      ${trendTile('grubs', ORE[0].toUpperCase() + ORE.slice(1), '#f2c14e')}
+      ${trendTile('workers', 'Workers', '#7cc7f0')}
+      ${trendTile('fighters', 'Fighters', '#ff8a7a')}
+      ${trendTile('buildings', 'Buildings', '#c7b2f0')}
+      ${scoreboard()}`);
   }
   const timers = [];
   const later = (fn, ms) => timers.push(setTimeout(() => { if (alive) fn(); }, ms));
@@ -1062,6 +1141,7 @@ function mountCockpit(main, matchId) {
             <a href="#/blocks" class="bb-back">← My strategies</a>
             <span class="bb-live-pill" id="bb-pill">LIVE</span>
             <span class="bb-spacer"></span>
+            <a class="btn ghost small-btn" href="#/match/${matchId}">Spectator view</a>
             <button type="button" class="btn ghost small-btn" id="bb-surrender">Give up</button>
           </div>
           <h1 class="bb-match-title" id="bb-title">Loading the match…</h1>
@@ -1088,18 +1168,16 @@ function mountCockpit(main, matchId) {
       <div class="bb-right">
         <div class="bb-3d-wrap">
           <div class="map3d bb-3d" id="bb-3d"></div>
-          <div class="bb-cams" role="group" aria-label="Camera">
-            <button type="button" data-cam="army" aria-pressed="true">My army</button>
-            <button type="button" data-cam="overview" aria-pressed="false">Whole map</button>
-            <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)">+</button>
-            <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (−)">−</button>
+          <div class="bb-view-left" role="group" aria-label="Camera">
+            <button type="button" class="bb-sq" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+            <button type="button" class="bb-sq" data-zoom="out" aria-label="Zoom out" title="Zoom out (−)">−</button>
+            <button type="button" class="bb-sq" data-home aria-label="Home: center on my base" title="Home: center on my base (H)">${raw('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>')}</button>
           </div>
-          <div class="bb-view-tools">
-            <button type="button" id="bb-quality" title="Picture quality: low, medium or high">Quality: …</button>
-            <button type="button" id="bb-sound" aria-pressed="false">Sound: off</button>
-            <a href="#/match/${matchId}">Full spectator view</a>
+          <div class="bb-view-right">
+            <button type="button" class="bb-sq" id="bb-sound" aria-pressed="true" aria-label="Sound"></button>
+            <button type="button" class="bb-sq" id="bb-quality" aria-label="Picture quality"></button>
           </div>
-          <div class="bb-stats" id="bb-stats"></div>
+          <aside class="bb-hud" id="bb-hud" aria-label="Your stats over the last minute, and the scoreboard"></aside>
           <p class="bb-3d-msg" id="bb-3d-msg">Building the 3D valley…</p>
           <div class="bb-result" id="bb-result" hidden></div>
         </div>
@@ -1160,14 +1238,8 @@ function mountCockpit(main, matchId) {
       ? html`${sw.map(([name, on]) => html`<button type="button" class="bb-switch" data-switch="${name}" aria-pressed="${on}">${name}<span>${on ? 'ON' : 'off'}</span></button>`)}`
       : html`<p class="small muted">None yet: add one from a check’s ▾, like “Attack!”.</p>`);
     setHtml($('bb-versions'), html`${(status.versions || []).map((v) => html`<li${v.version === status.version ? ' aria-current="true"' : ''}><b>v${v.version}</b> <span class="muted">from tick ${v.tick}</span></li>`)}`);
-    const s = status.stats || {};
-    setHtml($('bb-stats'), html`
-      <span><span class="muted">${ORE[0].toUpperCase() + ORE.slice(1)}</span> <b>${s.grubs ?? 0}</b></span>
-      <span><span class="muted">Workers</span> <b>${s.workers ?? 0}</b></span>
-      <span><span class="muted">Fighters</span> <b>${s.fighters ?? 0}</b></span>
-      <span><span class="muted">Buildings</span> <b>${s.buildings ?? 0}</b></span>
-      <span><span class="muted">Score</span> <b>${s.score ?? 0}</b></span>
-      <span><span class="muted">Tick</span> <b>${status.tick}</b></span>`);
+    remember();
+    renderHud();
     $('bb-running').textContent = `${status.programName || 'Strategy'} · running v${status.version}`;
     if (status.error) $('bb-running').textContent += ` · problem: ${status.error}`;
   }
@@ -1245,18 +1317,8 @@ function mountCockpit(main, matchId) {
       view3d.onReady = () => {
         if (!alive) return;
         if (summary?.status !== 'Waiting') setMsg('');
-        setCam(camMode);
+        goHome();
       };
-      // The player takes the camera (pans with the keys, or clicks a unit or building to look at it):
-      // stop steering it until they press a camera button again. Dragging to turn and zooming don't count.
-      const takeOver = () => { if (camMode !== 'free') setCam('free', false); };
-      box.addEventListener('keydown', (e) => { if (/^([wasd]|arrow)/i.test(e.key)) takeOver(); });
-      let downAt = null;
-      box.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
-      box.addEventListener('pointerup', (e) => {
-        if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) takeOver();
-        downAt = null;
-      });
     } catch (e) {
       setMsg(`The 3D view couldn’t start here (${e?.message || 'no WebGL'}). Your bot is still playing.`);
     }
@@ -1266,10 +1328,12 @@ function mountCockpit(main, matchId) {
   async function showFinalBoard() {
     if (!view3d) return;
     try {
-      view3d.setMap(await api(`/api/v1/matches/${matchId}/map`));
+      mapData = await api(`/api/v1/matches/${matchId}/map`);
+      view3d.setMap(mapData);
       lastState = await api(`/api/v1/matches/${matchId}/spectate?fog=true`);
       view3d.setState(lastState);
-      if (camMode === 'army') followArmy(true);
+      goHome();
+      renderHud();
     } catch { /* archived: only the result is left */ }
   }
 
@@ -1281,6 +1345,7 @@ function mountCockpit(main, matchId) {
       try {
         const map = await api(`/api/v1/matches/${matchId}/map`);
         if (!alive) return;
+        mapData = map;
         view3d.setMap(map);
         if (status?.slot >= 0) view3d.setVision(status.slot);
       } catch (e) {
@@ -1298,7 +1363,7 @@ function mountCockpit(main, matchId) {
       retryMs = 2000;   // connected again: the next drop starts the backoff over
       lastState = s;
       view3d?.setState(s);
-      if (camMode === 'army') followArmy(false);
+      if (!homed) goHome();
     };
     es.onerror = () => {
       es?.close();
@@ -1307,32 +1372,15 @@ function mountCockpit(main, matchId) {
     };
   }
 
-  function myFighters() {
+  /** Your base from above: your HQ (any of them), else where you started. */
+  function goHome() {
+    if (!view3d?.ready) return;
     const slot = status?.slot;
-    return (lastState?.units || []).filter((u) => u.owner === slot && u.type !== 'Worker');
-  }
-  /** Ride with a fighter (the next one when it falls); with no fighters yet, look at the HQ. */
-  function followArmy(force) {
-    if (!view3d) return;
-    const fighters = myFighters();
-    if (!force && view3d.mode === 'follow' && fighters.some((u) => u.id === view3d.followed)) return;
-    if (fighters.length) {
-      framedBase = false;
-      view3d.follow(fighters[0].id, ARMY_VIEW);
-      return;
-    }
-    if (framedBase && !force) return;
-    const hq = (lastState?.buildings || []).find((b) => b.owner === status?.slot && b.type === 'CommandCenter');
+    const hq = (lastState?.buildings || []).find((b) => b.owner === slot && b.type === 'CommandCenter')
+      ?? mapData?.startPositions?.[slot];
     if (!hq) return;
-    framedBase = true;
-    view3d.lookAtTile(hq.x, hq.y, { dist: ARMY_VIEW.dist + 3, pitch: ARMY_VIEW.pitch });
-  }
-  function setCam(mode, apply = true) {
-    camMode = mode;
-    main.querySelectorAll('[data-cam]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cam === mode)));
-    if (!apply || !view3d) return;
-    if (mode === 'overview') { view3d.setMode('orbit'); view3d.overview(); }
-    else if (mode === 'army') followArmy(true);
+    homed = true;
+    view3d.lookAtTile(hq.x, hq.y, HOME_VIEW);
   }
   function highlight() {
     if (!view3d) return;
@@ -1377,7 +1425,7 @@ function mountCockpit(main, matchId) {
       editor.setProgram(strategy.program);
       renderApply();
     } else if (b.dataset.switch) flip(b.dataset.switch);
-    else if (b.dataset.cam) setCam(b.dataset.cam);
+    else if ('home' in b.dataset) goHome();
     else if (b.dataset.zoom) view3d?.zoom(b.dataset.zoom === 'in' ? 0.8 : 1.25);
     else if (b.id === 'bb-quality' && view3d) {
       const order = ['low', 'medium', 'high'];
@@ -1403,8 +1451,10 @@ function mountCockpit(main, matchId) {
   // the 3D view focused, the view's own keys do it, smoothly while held.)
   function onKey(e) {
     if (e.ctrlKey || e.metaKey || e.altKey || !view3d) return;
+    if (e.target.closest?.('input, select, textarea, [contenteditable]')) return;
+    if ((e.key === 'h' || e.key === 'H' || e.key === 'Home') && !e.target.closest?.('.map3d')) { e.preventDefault(); goHome(); return; }
     const zoom = { '+': 0.8, '=': 0.8, '-': 1.25, '_': 1.25 }[e.key];
-    if (!zoom || e.target.closest?.('input, select, textarea, [contenteditable], .map3d')) return;
+    if (!zoom || e.target.closest?.('.map3d')) return;
     e.preventDefault();
     view3d.zoom(zoom);
   }

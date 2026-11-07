@@ -244,14 +244,35 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-right { min-height: 0; }
 .bb-3d-wrap { position: relative; height: 100%; }
 .bb-3d { width: 100%; height: 100%; display: block; }
-.bb-cams, .bb-view-tools { position: absolute; top: 10px; display: flex; flex-wrap: wrap; gap: 6px; }
-.bb-cams { left: 10px; }
-.bb-view-tools { right: 10px; justify-content: flex-end; }
-.bb-cams button, .bb-view-tools button, .bb-view-tools a { min-height: 40px; padding: 0 12px; border-radius: var(--radius-m); border: 1px solid rgba(226, 233, 232, 0.4); background: rgba(12, 17, 20, 0.8); color: #e2e9e8; font-weight: 600; cursor: pointer; display: inline-flex; align-items: center; text-decoration: none; font-size: 0.9rem; }
-.bb-cams button[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; }
-.bb-stats { position: absolute; left: 10px; bottom: 10px; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100% - 20px); }
-.bb-stats > span { background: rgba(12, 17, 20, 0.8); color: #e2e9e8; border-radius: var(--radius-m); padding: 5px 10px; font-size: 0.9rem; }
-.bb-stats .muted { color: #b8c4c3; }
+.bb-view-left, .bb-view-right { position: absolute; top: 10px; display: flex; gap: 4px; }
+.bb-view-left { left: 10px; }
+.bb-view-right { right: 10px; }
+.bb-sq { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid rgba(226, 233, 232, 0.3); background: rgba(12, 17, 20, 0.84); color: #e2e9e8; font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer; }
+.bb-sq:hover { border-color: rgba(226, 233, 232, 0.7); }
+.bb-sq:focus-visible { outline: 2px solid #f2c14e; outline-offset: 1px; }
+
+/* The stats rail down the left of the view: a trend line per stat, then the scoreboard. */
+.bb-hud { position: absolute; top: 54px; left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; color: #e2e9e8; }
+.bb-tile { width: 128px; box-sizing: border-box; padding: 6px 8px 4px; border-radius: 8px; background: rgba(12, 17, 20, 0.84); border: 1px solid rgba(226, 233, 232, 0.12); display: flex; flex-direction: column; gap: 1px; }
+.bb-tile svg { display: block; }
+.bb-tile-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #93a3a8; display: flex; justify-content: space-between; gap: 6px; }
+.bb-tile-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
+.bb-tile-value { font-size: 1.3rem; font-weight: 700; font-stretch: 87.5%; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.bb-tile-rate { font-size: 10px; font-weight: 700; color: #93a3a8; white-space: nowrap; }
+.bb-tile-rate.up { color: #5fd3a8; }
+.bb-tile-rate.down { color: #ff8a7a; }
+.bb-board { width: 176px; gap: 3px; }
+.bb-board-count { font-weight: 400; letter-spacing: 0; text-transform: none; }
+.bb-board ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.bb-board li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 0.8rem; color: #c9d3d6; }
+.bb-board li.me { background: color-mix(in srgb, var(--pc) 28%, transparent); box-shadow: inset 2px 0 0 var(--pc); color: #fff; font-weight: 700; }
+.bb-board li.out { opacity: 0.5; text-decoration: line-through; }
+.bb-board-gap { justify-content: center; line-height: 0.6; color: #93a3a8; }
+.bb-board-rank { width: 14px; text-align: right; font-weight: 700; color: #93a3a8; font-size: 0.75rem; }
+.bb-board-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; background: var(--pc); }
+.bb-board-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bb-board-score { font-weight: 700; font-variant-numeric: tabular-nums; }
+@media (max-width: 900px) { .bb-hud { transform: scale(0.85); transform-origin: top left; } }
 .bb-3d-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; background: rgba(12, 17, 20, 0.85); color: #e2e9e8; padding: 12px 16px; border-radius: var(--radius-m); max-width: 80%; text-align: center; }
 .bb-3d-msg[hidden] { display: none; }
 .bb-result { position: absolute; inset: auto 16px 56px 16px; background: var(--panel); border: 2px solid var(--signal-bg); border-radius: var(--radius-m); padding: 16px; display: grid; gap: 8px; }
