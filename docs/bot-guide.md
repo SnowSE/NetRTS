@@ -500,6 +500,30 @@ Discord first), `409 JOIN_NEXT_ROUND` (your league heat is over; join again for 
 `400 INVALID_JSON`, `413 REQUEST_TOO_LARGE` (bodies are capped at 256 KB), `429 RATE_LIMITED` (by default 30 requests/second per bot in each match, and
 120/second across all of a bot's matches).
 
+## Block Bot (no code)
+
+Younger or newer players can build a bot from rule cards on the website (`#/blocks`, "Block Bot" in
+the menu) instead of writing code. A Block Bot program is data: rules checked top to bottom every
+tick, each a condition (`always`, `enemyNearBase`, `seeEnemy`, `count`, `minute`, `switch`, `and`,
+`or`, `not`) and actions (`train`, `trainMix`, `build`, `research`, `attack`, `defend`, `retreat`,
+`scout`). Rules higher up get first pick of ore and fighters; idle workers mine and half-built
+buildings get finished on their own. The server plays the program, so the match keeps going when
+the page closes, and the player can swap in a new version or flip a switch while it runs. The shapes
+are in `src/NetRts.Protocol/Blocks.cs` (`BlockProgramDto`); the editor saves strategies in the browser
+and downloads them as `.json`.
+
+| Call | What it does |
+|---|---|
+| `POST /api/v1/blocks/validate` | Checks a program (204, or `400 INVALID_PROGRAM` with the reason). |
+| `POST /api/v1/blocks/matches` | Starts a practice match the server plays with your program: `mode` `Sandbox` (vs the sitter), `HouseBot` (one opponent) or `FreeForAll` (two or three). |
+| `POST /api/v1/blocks/matches/{id}/join` | Takes a seat in a waiting practice or hosted match with a program. League matches don't take Block Bots (`409 LEAGUE_MATCH`). |
+| `PUT /api/v1/blocks/matches/{id}/program` | Swaps in a new version; it plays from the next tick. |
+| `PUT /api/v1/blocks/matches/{id}/switches` | Flips a switch (`{ "name": "Attack!", "on": true }`). |
+| `GET /api/v1/blocks/matches/{id}/status` | Each rule's state (`firing`, `waiting`, `idle`, `off`) and why, the versions so far, the switches. `?theme=classic` words it with the original names. |
+| `GET /api/v1/blocks/matches` | Your Block Bots in matches still in memory. |
+
+All but `validate` take your API key like any other bot call.
+
 ## Reference bots
 
 - **C# starter, one file:** [`samples/csharp/StarterBot.cs`](../samples/csharp/StarterBot.cs). Save it and

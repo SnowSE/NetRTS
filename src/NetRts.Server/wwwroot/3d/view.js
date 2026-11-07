@@ -1398,15 +1398,7 @@ export class View3D {
       if (d < bd && (this.vision == null || a.u.owner === this.vision || this.visibleTo(a.u.x, a.u.y))) { bd = d; best = id; }
     }
     if (best != null) {
-      this.setFollowed(best);
-      this.rig.follow(() => {
-        const p = this.positions?.get(this.followed);
-        if (p) return new THREE.Vector3(p.x, this.terrain.heightAt(p.x, p.z) + 0.2, p.z);
-        // The unit fell: linger where it went down, then let go.
-        const lost = this.followedLost;
-        if (lost && this.now() - lost.t < 2500) return new THREE.Vector3(lost.x, this.terrain.heightAt(lost.x, lost.z), lost.z);
-        return null;
-      });
+      this.follow(best);
       return;
     }
     const hit = this.rig.groundAt(clientX, clientY);
@@ -1414,6 +1406,20 @@ export class View3D {
       const b = this.state?.buildings.find((x) => x.x === Math.floor(hit.x) && x.y === Math.floor(hit.z));
       if (b) this.rig.focus(b.x + 0.5, b.y + 0.5, 5);
     }
+  }
+
+  /** Ride along with a unit (by id), as clicking it does. */
+  follow(id) {
+    if (!this.rig) return;
+    this.setFollowed(id);
+    this.rig.follow(() => {
+      const p = this.positions?.get(this.followed);
+      if (p) return new THREE.Vector3(p.x, this.terrain.heightAt(p.x, p.z) + 0.2, p.z);
+      // The unit fell: linger where it went down, then let go.
+      const lost = this.followedLost;
+      if (lost && this.now() - lost.t < 2500) return new THREE.Vector3(lost.x, this.terrain.heightAt(lost.x, lost.z), lost.z);
+      return null;
+    });
   }
 
   hover(clientX, clientY) {

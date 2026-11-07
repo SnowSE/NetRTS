@@ -10,6 +10,7 @@ import { mountTrophyRoom, mountPerson } from './people.js';
 import { mountHistory } from './history.js';
 import { mountColab } from './colab.js';
 import { mountApiDocs } from './apidocs.js';
+import { mountBlocks } from './blocks.js';
 
 const main = document.getElementById('main');
 const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
@@ -30,7 +31,8 @@ function route() {
   const history = hash.match(/^#\/history\/?(?:\?(.*))?$/);
   const colab = /^#\/colab\/?$/.test(hash);
   const apiDocs = /^#\/api\/?$/.test(hash);
-  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : 'home';
+  const blocks = hash.match(/^#\/blocks(?:\/(edit|match)\/([A-Za-z0-9-]{1,64}))?\/?$/);
+  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : blocks ? 'blocks' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -56,6 +58,8 @@ function route() {
     teardown = mountColab(main);
   } else if (apiDocs) {
     teardown = mountApiDocs(main);
+  } else if (blocks) {
+    teardown = mountBlocks(main, blocks[1] ? { page: blocks[1], id: blocks[2] } : null);
   } else {
     teardown = mountHome(main);
   }

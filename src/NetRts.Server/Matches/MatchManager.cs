@@ -79,8 +79,11 @@ public sealed partial class MatchManager(
 
     public IReadOnlyList<MatchHost> All => _matches.Values.OrderByDescending(m => m.CreatedAt).ToList();
 
-    /// <summary>A practice match; the creator takes slot 0.</summary>
-    public MatchHost Create(Seat creator, CreateMatchRequest request)
+    /// <summary>
+    /// A practice match; the creator takes slot 0. <paramref name="creatorBot"/> plays the creator's seat on the
+    /// server (a Block Bot) instead of the creator's own program calling in.
+    /// </summary>
+    public MatchHost Create(Seat creator, CreateMatchRequest request, IBotStrategy? creatorBot = null)
     {
         var creatorId = creator.PlayerId;
         var (maxPlayers, bots, settings, name) = Validate(request);
@@ -98,7 +101,7 @@ public sealed partial class MatchManager(
 
             EnsureNameFree(name);
             var host = NewHost(name, creatorId, maxPlayers, settings, isExhibition: false);
-            host.TryJoin(creator);
+            host.TryJoin(creator, creatorBot);
             foreach (var (seat, strategy) in houseBots.SeatsFor(bots))
             {
                 host.TryJoin(seat, strategy);
@@ -297,7 +300,8 @@ public sealed partial class MatchManager(
         }
     }
 
-    public MatchHost Join(Guid matchId, Seat seat)
+    /// <summary>Takes a seat in a waiting match. <paramref name="bot"/>, when given, plays the seat on the server (a Block Bot).</summary>
+    public MatchHost Join(Guid matchId, Seat seat, IBotStrategy? bot = null)
     {
         var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
         if (host.ParentMatchId is { } parent)
@@ -305,7 +309,7 @@ public sealed partial class MatchManager(
             throw new MatchException(409, "HEAT_MATCH", $"This is a heat of a {host.Category.ToString().ToLowerInvariant()} match; join that match ({parent}) instead.");
         }
 
-        var error = host.TryJoin(seat);
+        var error = host.TryJoin(seat, bot);
         if (error is not null)
         {
             throw new MatchException(409, error, error switch

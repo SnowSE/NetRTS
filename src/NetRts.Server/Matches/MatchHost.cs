@@ -37,7 +37,7 @@ public sealed class MatchHost
 
     private readonly object _gate = new();
     private readonly List<Seat> _seats = [];
-    private readonly List<IBotStrategy?> _seatBots = []; // parallel to _seats; non-null for house bots
+    private readonly List<IBotStrategy?> _seatBots = []; // parallel to _seats; non-null for bots the server plays (house bots, Block Bots)
     private readonly Dictionary<Guid, string> _serums = [];
     private readonly HashSet<Guid> _serumsTaken = [];
     private readonly ILogger _logger;
@@ -502,6 +502,25 @@ public sealed class MatchHost
             SeenPlayer(playerId);
             var slot = _sim?.SlotOf(playerId) ?? -1;
             return slot < 0 ? null : _sim!.GetPlayerView(slot, sinceTick) with { TickIntervalMs = _tickIntervalMs, Paused = _pausedAt is not null };
+        }
+    }
+
+    /// <summary>A player's slot once the match has started, else null.</summary>
+    public int? SlotOf(Guid playerId)
+    {
+        lock (_gate)
+        {
+            var slot = _sim?.SlotOf(playerId) ?? -1;
+            return slot < 0 ? null : slot;
+        }
+    }
+
+    /// <summary>Notes that the player is watching (a Block Bot's page polling its status), as reading state does.</summary>
+    public void Touch(Guid playerId)
+    {
+        lock (_gate)
+        {
+            SeenPlayer(playerId);
         }
     }
 
