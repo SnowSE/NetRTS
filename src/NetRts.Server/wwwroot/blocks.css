@@ -269,7 +269,6 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-board li.out { opacity: 0.5; text-decoration: line-through; }
 .bb-board-gap { justify-content: center; line-height: 0.6; color: #93a3a8; }
 .bb-board-rank { width: 14px; text-align: right; font-weight: 700; color: #93a3a8; font-size: 0.75rem; }
-.bb-board-swatch { width: 8px; height: 8px; border-radius: 2px; flex: none; background: var(--pc); }
 .bb-board-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bb-board-score { font-weight: 700; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { .bb-hud { transform: scale(0.85); transform-origin: top left; } }

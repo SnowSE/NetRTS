@@ -1111,7 +1111,7 @@ function mountCockpit(main, matchId) {
       <span class="bb-tile-label">Scoreboard <span class="bb-board-count">${players.length} players</span></span>
       <ol>${rows.map((p) => p == null
         ? html`<li class="bb-board-gap" aria-hidden="true">⋯</li>`
-        : html`<li class="${p.me ? 'me' : ''}${p.eliminated ? ' out' : ''}" style="--pc:${slotVar(p.slot)}"><span class="bb-board-rank">${p.rank}</span><span class="bb-board-swatch"></span><span class="bb-board-name">${p.me ? 'You' : displayName(p.name)}</span><span class="bb-board-score">${fmtN(p.score?.total)}</span></li>`)}</ol>
+        : html`<li class="${p.me ? 'me' : ''}${p.eliminated ? ' out' : ''}" style="--pc:${slotVar(p.slot)}"><span class="bb-board-rank">${p.rank}</span><span class="bb-board-name">${p.me ? 'You' : displayName(p.name)}</span><span class="bb-board-score">${fmtN(p.score?.total)}</span></li>`)}</ol>
     </div>`;
   }
   function renderHud() {
