@@ -1408,8 +1408,11 @@ export class View3D {
     }
   }
 
-  /** Ride along with a unit (by id), as clicking it does; dist sets how far back the camera rides. */
-  follow(id, { dist } = {}) {
+  /**
+   * Ride along with a unit (by id), as clicking it does. dist: how far back the camera rides; pitch: how
+   * steeply it looks down (radians above the horizon, about 0.35 to 1.4).
+   */
+  follow(id, { dist, pitch } = {}) {
     if (!this.rig) return;
     this.setFollowed(id);
     this.rig.follow(() => {
@@ -1421,6 +1424,15 @@ export class View3D {
       return null;
     });
     if (dist) this.rig.goal.dist = Math.min(dist, this.rig.maxDist);
+    if (pitch) this.rig.goal.pitch = pitch;
+  }
+
+  /** Look at a tile from a given distance and angle (see follow), leaving the camera free to move. */
+  lookAtTile(x, y, { dist = 7, pitch } = {}) {
+    if (!this.rig) return;
+    this.rig.setMode('orbit');
+    this.rig.focus(x + 0.5, y + 0.5, Math.min(dist, this.rig.maxDist));
+    if (pitch) this.rig.goal.pitch = pitch;
   }
 
   hover(clientX, clientY) {

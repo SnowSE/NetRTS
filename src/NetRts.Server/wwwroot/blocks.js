@@ -345,7 +345,17 @@ class RuleEditor {
       case 'rule-down': return this.move(i, Math.min(i + 1, this.program.rules.length - 1));
       case 'rule-toggle': return this.commit((p) => { p.rules[i].enabled = p.rules[i].enabled === false; });
       case 'rule-del': return this.commit((p) => { p.rules.splice(i, 1); });
-      case 'add-rule': return this.commit((p) => { p.rules.push(R(C.count('fighters', '>=', 8), A.attack())); });
+      case 'add-rule':
+      case 'insert-rule': {
+        // The new rule goes where it was asked for, and its check's picker opens so it's ready to fill in.
+        const at = act === 'insert-rule' ? i : this.program.rules.length;
+        this.commit((p) => { p.rules.splice(at, 0, R(C.count('fighters', '>=', 8), A.attack())); });
+        this.picker = { type: 'cond', path: `rules.${at}.when` };
+        this.render();
+        this.root.querySelector(`.bb-rule[data-rule="${at}"]`)?.scrollIntoView({ block: 'nearest' });
+        this.focusPicker();
+        return;
+      }
       default:
     }
   }
@@ -402,7 +412,7 @@ class RuleEditor {
       <div class="bb-editor${this.code ? ' with-code' : ''}${this.compact ? ' compact' : ''}">
         <div class="bb-rules">
           ${p.rules.length ? '' : html`<p class="bb-empty">No rules yet. Add one, or start from one of the starter strategies in the locker.</p>`}
-          ${p.rules.map((r, i) => html`${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
+          ${p.rules.map((r, i) => html`<button type="button" class="bb-insert" data-act="insert-rule" data-i="${i}" data-k="insert|${i}" aria-label="Add a rule before rule ${i + 1}"><span>+ rule</span></button>${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
           <button type="button" class="bb-add-rule" data-act="add-rule" data-k="add-rule">+ Add a rule</button>
           <p class="small muted">Rules are checked top to bottom, every tick. Higher rules get first pick of ${ORE} and fighters.
             Two things happen on their own: idle workers dig ${ORE}, and half-built buildings get finished.</p>
@@ -1020,7 +1030,11 @@ function mountCockpit(main, matchId) {
   let lastState = null;
   let hovered = null;
   let applying = false;
-  let camMode = 'director';
+  // 'army' rides with your fighters (your HQ until you have some), 'overview' shows the whole map,
+  // 'free' is wherever you moved the camera yourself.
+  let camMode = 'army';
+  let framedBase = false;
+  const ARMY_VIEW = { dist: 13, pitch: 1.05 };
   let audio = null;
   const QUALITY_NAMES = { low: 'Low', medium: 'Medium', high: 'High' };
   function renderViewTools() {
@@ -1061,11 +1075,10 @@ function mountCockpit(main, matchId) {
           <section class="bb-apply" id="bb-apply" aria-live="polite"></section>
         </div>
         <div class="bb-bar bb-edit-bar">
-          <h2 class="bb-label">Your rules</h2>
+          <h2 class="bb-label" title="Point at a rule to make the ${say('units', 'badgers')} it’s moving pulse.">Your rules</h2>
           <span class="bb-spacer"></span>
           <button type="button" class="btn ghost small-btn" id="bb-code" aria-pressed="${!!prefs().code}">${raw(ICON.code)} Python</button>
         </div>
-        <p class="small muted bb-hint">Point at a rule to make the ${say('units', 'badgers')} it’s moving pulse.</p>
         <div id="bb-editor"></div>
         <section aria-labelledby="bb-ver-h" class="bb-ver">
           <h2 id="bb-ver-h" class="bb-label">Your versions this match</h2>
@@ -1076,8 +1089,7 @@ function mountCockpit(main, matchId) {
         <div class="bb-3d-wrap">
           <div class="map3d bb-3d" id="bb-3d"></div>
           <div class="bb-cams" role="group" aria-label="Camera">
-            <button type="button" data-cam="director" aria-pressed="true">Auto camera</button>
-            <button type="button" data-cam="army" aria-pressed="false">Follow my army</button>
+            <button type="button" data-cam="army" aria-pressed="true">My army</button>
             <button type="button" data-cam="overview" aria-pressed="false">Whole map</button>
           </div>
           <div class="bb-view-tools">
@@ -1134,7 +1146,7 @@ function mountCockpit(main, matchId) {
         <div class="bb-row-btns"><button type="button" class="btn start" id="bb-apply-btn" ${applying ? 'disabled' : ''}>Apply now</button>
         <button type="button" class="btn ghost" id="bb-undo">Undo</button></div><p class="bb-error" id="bb-apply-err" role="alert"></p></div>`);
     } else {
-      setHtml(box, html`<div class="bb-good">${raw(ICON.check)} <span><b>Version ${status.version} is playing.</b> Change a rule and Apply to send in a new one.</span></div>`);
+      setHtml(box, html`<div class="bb-good">${raw(ICON.check)} <span><b>Version ${status.version} is playing.</b> Edit a rule, then Apply.</span></div>`);
     }
     editor?.setStatus(status.rules, pending() ? '(running version)' : '');
   }
@@ -1144,7 +1156,7 @@ function mountCockpit(main, matchId) {
     const sw = Object.entries(status.switches || {});
     setHtml($('bb-switches'), sw.length
       ? html`${sw.map(([name, on]) => html`<button type="button" class="bb-switch" data-switch="${name}" aria-pressed="${on}">${name}<span>${on ? 'ON' : 'off'}</span></button>`)}`
-      : html`<p class="small muted">No switches yet. Click a check’s ▾ in a rule and add one, like “Attack!”, then Apply.</p>`);
+      : html`<p class="small muted">None yet: add one from a check’s ▾, like “Attack!”.</p>`);
     setHtml($('bb-versions'), html`${(status.versions || []).map((v) => html`<li${v.version === status.version ? ' aria-current="true"' : ''}><b>v${v.version}</b> <span class="muted">from tick ${v.tick}</span></li>`)}`);
     const s = status.stats || {};
     setHtml($('bb-stats'), html`
@@ -1225,14 +1237,24 @@ function mountCockpit(main, matchId) {
       audio.setActive(true);
       // The same viewer as the spectator page: its quality adapts to the computer (and remembers a choice).
       view3d = new View3D(box, { badger: SNOW, names, audio });
+      box.view3d = view3d;   // handy from the dev tools console, as on the spectator page
       view3d.onQualityChange = renderViewTools;
       renderViewTools();
       view3d.onReady = () => {
         if (!alive) return;
         if (summary?.status !== 'Waiting') setMsg('');
-        if (camMode === 'director') view3d.setMode('director');
+        setCam(camMode);
       };
-      view3d.onModeChange = (m) => { if (m !== 'director' && camMode === 'director') setCam(m === 'follow' ? 'army' : 'overview', false); };
+      // The player takes the camera (pans with the keys, or clicks a unit or building to look at it):
+      // stop steering it until they press a camera button again. Dragging to turn and zooming don't count.
+      const takeOver = () => { if (camMode !== 'free') setCam('free', false); };
+      box.addEventListener('keydown', (e) => { if (/^(w|a|s|d|q|e|z|x|arrow)/i.test(e.key)) takeOver(); });
+      let downAt = null;
+      box.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
+      box.addEventListener('pointerup', (e) => {
+        if (downAt && Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) < 5) takeOver();
+        downAt = null;
+      });
     } catch (e) {
       setMsg(`The 3D view couldn’t start here (${e?.message || 'no WebGL'}). Your bot is still playing.`);
     }
@@ -1245,6 +1267,7 @@ function mountCockpit(main, matchId) {
       view3d.setMap(await api(`/api/v1/matches/${matchId}/map`));
       lastState = await api(`/api/v1/matches/${matchId}/spectate?fog=true`);
       view3d.setState(lastState);
+      if (camMode === 'army') followArmy(true);
     } catch { /* archived: only the result is left */ }
   }
 
@@ -1286,19 +1309,28 @@ function mountCockpit(main, matchId) {
     const slot = status?.slot;
     return (lastState?.units || []).filter((u) => u.owner === slot && u.type !== 'Worker');
   }
+  /** Ride with a fighter (the next one when it falls); with no fighters yet, look at the HQ. */
   function followArmy(force) {
     if (!view3d) return;
-    if (!force && view3d.followed != null && myFighters().some((u) => u.id === view3d.followed)) return;
-    const f = myFighters()[0] ?? (lastState?.units || []).find((u) => u.owner === status?.slot);
-    if (f) view3d.follow(f.id, { dist: 9 });
+    const fighters = myFighters();
+    if (!force && view3d.mode === 'follow' && fighters.some((u) => u.id === view3d.followed)) return;
+    if (fighters.length) {
+      framedBase = false;
+      view3d.follow(fighters[0].id, ARMY_VIEW);
+      return;
+    }
+    if (framedBase && !force) return;
+    const hq = (lastState?.buildings || []).find((b) => b.owner === status?.slot && b.type === 'CommandCenter');
+    if (!hq) return;
+    framedBase = true;
+    view3d.lookAtTile(hq.x, hq.y, { dist: ARMY_VIEW.dist + 3, pitch: ARMY_VIEW.pitch });
   }
   function setCam(mode, apply = true) {
     camMode = mode;
     main.querySelectorAll('[data-cam]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.cam === mode)));
     if (!apply || !view3d) return;
-    if (mode === 'director') view3d.setMode('director');
-    else if (mode === 'overview') { view3d.setMode('orbit'); view3d.overview(); }
-    else followArmy(true);
+    if (mode === 'overview') { view3d.setMode('orbit'); view3d.overview(); }
+    else if (mode === 'army') followArmy(true);
   }
   function highlight() {
     if (!view3d) return;

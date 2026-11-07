@@ -146,6 +146,15 @@
 .bb-live .bb-bar { display: block; flex: 0 0 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
 .bb-live .bb-bar span { display: block; height: 100%; background: var(--signal-bg); }
 .bb-py { flex: 1 1 340px; min-width: 0; margin: 0; padding: 10px 14px; background: var(--bb-code-bg); color: var(--bb-code-ink); border-radius: var(--radius-m); line-height: 1.55; overflow-x: auto; white-space: pre; display: flex; align-items: center; }
+/* Between two rules: a faint line with "+ rule" that lights up on hover or focus. */
+.bb-insert { position: relative; display: block; width: 100%; height: 14px; margin: -5px 0; padding: 0; border: 0; background: none; cursor: pointer; color: var(--muted); opacity: 0.35; }
+.bb-insert::before { content: ""; position: absolute; left: 8px; right: 8px; top: 50%; border-top: 2px dashed var(--line); }
+.bb-insert span { position: relative; display: inline-block; padding: 0 8px; font-size: 0.75rem; font-weight: 700; line-height: 14px; border-radius: 999px; background: var(--bg); }
+.bb-insert:hover, .bb-insert:focus-visible { opacity: 1; color: var(--ink); }
+.bb-insert:hover::before, .bb-insert:focus-visible::before { border-color: var(--signal-bg); }
+.bb-insert:focus-visible { outline: none; }
+.bb-insert:focus-visible span { outline: 2px solid var(--focus); }
+@media (hover: none) { .bb-insert { opacity: 0.6; height: 22px; margin: -2px 0; } }
 .bb-add-rule { min-height: 52px; background: none; border: 2px dashed var(--line); border-radius: var(--radius-m); font-weight: 600; color: var(--muted); cursor: pointer; }
 .bb-add-rule:hover { border-color: var(--ink); color: var(--ink); }
 
@@ -173,7 +182,7 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
   height: calc(100dvh - var(--bb-top) - 8px);
   min-height: 480px;
 }
-.bb-left { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; padding-right: 4px; }
+.bb-left { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
 .bb-left-head { display: grid; gap: 4px; }
 .bb-left-head .bb-bar { gap: 8px; }
 .bb-running { margin: 0; }
@@ -181,18 +190,18 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-live-pill[data-state="Completed"] { background: var(--line); }
 .bb-match-title { font-size: clamp(1.15rem, 1.8vw, 1.5rem); font-stretch: 87.5%; }
 /* Switches and Apply stay in reach while the rules scroll under them. */
-.bb-controls { position: sticky; top: 0; z-index: 2; background: var(--bg); display: grid; gap: 8px; padding: 6px 0 8px; border-bottom: 1px solid var(--line); }
-.bb-label { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 6px; }
+.bb-controls { position: sticky; top: 0; z-index: 2; background: var(--bg); display: grid; gap: 6px; padding: 4px 0 6px; border-bottom: 1px solid var(--line); }
+.bb-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px; }
 .bb-switches { display: flex; flex-wrap: wrap; gap: 6px; }
 .bb-switches p { margin: 0; }
-.bb-switch { flex: 1 1 110px; min-height: 48px; border-radius: var(--radius-m); border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-size: 1.05rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; }
+.bb-switch { flex: 1 1 110px; min-height: 40px; border-radius: var(--radius-m); border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-size: 1.05rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; }
 .bb-switch span { font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: var(--radius-s); background: var(--line); color: var(--ink); }
 .bb-switch[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; }
 .bb-switch[aria-pressed="true"] span { background: #15222a; color: var(--signal-bg); }
 .bb-pending { border: 1px solid var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 16%, var(--panel)); border-radius: var(--radius-m); padding: 8px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .bb-pending p { margin: 0; flex: 1 1 140px; }
 .bb-pending .bb-error { flex-basis: 100%; }
-.bb-good { display: flex; gap: 8px; align-items: flex-start; border: 1px solid var(--ok); border-radius: var(--radius-m); padding: 8px 10px; font-size: 0.9rem; }
+.bb-good { display: flex; gap: 6px; align-items: flex-start; border: 1px solid var(--ok); border-radius: var(--radius-m); padding: 5px 8px; font-size: 0.85rem; }
 .bb-good svg { color: var(--ok); flex: none; margin-top: 3px; }
 .bb-row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .bb-edit-bar .bb-label { margin: 0; }
@@ -202,11 +211,34 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-versions li[aria-current="true"] { border-color: var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 22%, transparent); }
 .bb-ver { padding-bottom: 8px; }
 
-/* The rule cards in a narrow column: one per row, code and picker underneath. */
-.bb-editor.compact .bb-rules { flex-basis: 100%; }
+/* The rule cards in a narrow column: dense, one per row, code and picker underneath. */
+.bb-editor.compact .bb-rules { flex-basis: 100%; gap: 6px; }
+.bb-editor.compact .bb-row { gap: 4px; }
 .bb-editor.compact .bb-rule, .bb-editor.compact .bb-py { flex-basis: 100%; }
-.bb-editor.compact .bb-sentence { font-size: 0.98rem; }
-.bb-editor.compact .bb-live { padding-left: 0; }
+.bb-editor.compact .bb-rule { padding: 6px 6px 6px 4px; gap: 2px; }
+.bb-editor.compact .bb-rule-main { flex-wrap: nowrap; align-items: flex-start; gap: 4px; }
+.bb-editor.compact .bb-grip { width: 16px; min-height: 28px; }
+.bb-editor.compact .bb-num { width: 22px; height: 22px; font-size: 0.8rem; margin-top: 3px; }
+.bb-editor.compact .bb-sentence { flex: 1 1 0; min-width: 0; gap: 4px; font-size: 0.92rem; }
+.bb-editor.compact .bb-word:not(:empty) { font-size: 0.85rem; }
+.bb-editor.compact .bb-chip, .bb-editor.compact .bb-group { padding: 2px 4px; gap: 3px; border-width: 1.5px; border-radius: 8px; }
+.bb-editor.compact .bb-kind { min-height: 28px; padding: 2px 4px; }
+.bb-editor.compact .bb-select, .bb-editor.compact .bb-num-in { min-height: 28px; padding: 2px 4px; }
+.bb-editor.compact .bb-num-in { width: 4em; }
+.bb-editor.compact .bb-plus { min-height: 28px; padding: 0 8px; }
+.bb-editor.compact .bb-icon.small { min-width: 24px; min-height: 24px; }
+/* On, delete, up and down as a small 2×2 block instead of a wide column. */
+.bb-editor.compact .bb-tools { display: grid; grid-template-columns: auto auto; gap: 2px; margin-left: 0; flex: none; }
+.bb-editor.compact .bb-toggle { min-width: 38px; min-height: 26px; font-size: 0.75rem; padding: 0 6px; border-width: 1.5px; }
+.bb-editor.compact .bb-tools .bb-icon { min-width: 26px; min-height: 26px; font-size: 0.9rem; padding: 0; }
+.bb-editor.compact .bb-tools [data-act="rule-toggle"] { order: 1; }
+.bb-editor.compact .bb-tools [data-act="rule-del"] { order: 2; }
+.bb-editor.compact .bb-tools [data-act="rule-up"] { order: 3; }
+.bb-editor.compact .bb-tools [data-act="rule-down"] { order: 4; }
+.bb-editor.compact .bb-live { padding-left: 0; font-size: 0.82rem; gap: 6px; }
+.bb-editor.compact .bb-py { padding: 6px 10px; font-size: 0.78rem; }
+.bb-editor.compact .bb-add-rule { min-height: 40px; }
+.bb-editor.compact > .bb-rules > p { font-size: 0.8rem; margin: 0; }
 .bb-picker.inline { position: static; border: 2px solid var(--signal-bg); margin-top: -4px; }
 
 .bb-right { min-height: 0; }
