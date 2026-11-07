@@ -1091,6 +1091,8 @@ function mountCockpit(main, matchId) {
           <div class="bb-cams" role="group" aria-label="Camera">
             <button type="button" data-cam="army" aria-pressed="true">My army</button>
             <button type="button" data-cam="overview" aria-pressed="false">Whole map</button>
+            <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+            <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (−)">−</button>
           </div>
           <div class="bb-view-tools">
             <button type="button" id="bb-quality" title="Picture quality: low, medium or high">Quality: …</button>
@@ -1248,7 +1250,7 @@ function mountCockpit(main, matchId) {
       // The player takes the camera (pans with the keys, or clicks a unit or building to look at it):
       // stop steering it until they press a camera button again. Dragging to turn and zooming don't count.
       const takeOver = () => { if (camMode !== 'free') setCam('free', false); };
-      box.addEventListener('keydown', (e) => { if (/^(w|a|s|d|q|e|z|x|arrow)/i.test(e.key)) takeOver(); });
+      box.addEventListener('keydown', (e) => { if (/^([wasd]|arrow)/i.test(e.key)) takeOver(); });
       let downAt = null;
       box.addEventListener('pointerdown', (e) => { downAt = [e.clientX, e.clientY]; });
       box.addEventListener('pointerup', (e) => {
@@ -1289,11 +1291,11 @@ function mountCockpit(main, matchId) {
         return;
       }
     }
-    retryMs = 2000;
     es = new EventSource(`/api/v1/matches/${matchId}/spectate/stream?fog=true`);
     es.onmessage = (msg) => {
       let s;
       try { s = JSON.parse(msg.data); } catch { return; }
+      retryMs = 2000;   // connected again: the next drop starts the backoff over
       lastState = s;
       view3d?.setState(s);
       if (camMode === 'army') followArmy(false);
@@ -1376,6 +1378,7 @@ function mountCockpit(main, matchId) {
       renderApply();
     } else if (b.dataset.switch) flip(b.dataset.switch);
     else if (b.dataset.cam) setCam(b.dataset.cam);
+    else if (b.dataset.zoom) view3d?.zoom(b.dataset.zoom === 'in' ? 0.8 : 1.25);
     else if (b.id === 'bb-quality' && view3d) {
       const order = ['low', 'medium', 'high'];
       view3d.setQuality(order[(order.indexOf(view3d.quality) + 1) % order.length]);
@@ -1396,6 +1399,17 @@ function mountCockpit(main, matchId) {
   }
   main.addEventListener('click', onClick);
 
+  // + and - zoom from anywhere on the page, except while typing a number or picking from a list. (With
+  // the 3D view focused, the view's own keys do it, smoothly while held.)
+  function onKey(e) {
+    if (e.ctrlKey || e.metaKey || e.altKey || !view3d) return;
+    const zoom = { '+': 0.8, '=': 0.8, '-': 1.25, '_': 1.25 }[e.key];
+    if (!zoom || e.target.closest?.('input, select, textarea, [contenteditable], .map3d')) return;
+    e.preventDefault();
+    view3d.zoom(zoom);
+  }
+  document.addEventListener('keydown', onKey);
+
   (async () => {
     await start3d();
     await pollSummary();
@@ -1411,6 +1425,7 @@ function mountCockpit(main, matchId) {
     audio?.dispose?.();
     window.removeEventListener('resize', fitHeight);
     main.removeEventListener('click', onClick);
+    document.removeEventListener('keydown', onKey);
     main.classList.remove('wide', 'bb-full');
   };
 }

@@ -192,16 +192,19 @@ export class CameraRig {
       if (this.mode === 'director') this.setMode('orbit');
       this.zoom(f);
     }, { passive: false });
+    // + and - zoom like Z and X (= and _ are the same keys without Shift).
+    const ZOOM_KEYS = { '+': 'z', '=': 'z', '-': 'x', '_': 'x' };
+    const keyOf = (e) => ZOOM_KEYS[e.key] ?? e.key.toLowerCase();
     on(dom, 'keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const k = e.key.toLowerCase();
+      const k = keyOf(e);
       if (['w', 'a', 's', 'd', 'q', 'e', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright', 'shift', 'z', 'x'].includes(k)) {
         this.keys.add(k);
         if (k.startsWith('arrow')) e.preventDefault();
         if (this.mode === 'director' && k !== 'shift') this.setMode('orbit');
       }
     });
-    on(dom, 'keyup', (e) => this.keys.delete(e.key.toLowerCase()));
+    on(dom, 'keyup', (e) => this.keys.delete(keyOf(e)));
     on(dom, 'blur', () => this.keys.clear());
     on(document, 'pointerlockchange', () => {
       if (document.pointerLockElement !== dom && this.mode === 'fly') this.setMode('orbit');

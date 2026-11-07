@@ -101,7 +101,7 @@ export function mountSpectate(root, matchKey) {
           <div class="gameover" id="gameover" role="dialog" aria-labelledby="go-title" hidden></div>
         </div>
         <p class="small muted" style="margin:0" id="map-help">${say('Scroll or pinch to zoom in on a battle,', 'Scroll or pinch to zoom in on a brawl,')} drag to look around, double-click to zoom. Hover a tile to inspect it, or focus the map and use the arrow keys.</p>
-        <p class="small muted" style="margin:0" id="map-help-3d" hidden>Drag to pan, right-drag or Shift-drag to turn, scroll to zoom. WASD moves, Q and E turn. Click a ${say('unit', 'badger')} to ride along with it, or press Fly for free flight (Esc to land). On a touch screen, drag to pan, pinch to zoom and twist to turn.</p>
+        <p class="small muted" style="margin:0" id="map-help-3d" hidden>Drag to pan, right-drag or Shift-drag to turn, scroll (or + and −) to zoom. WASD moves, Q and E turn. Click a ${say('unit', 'badger')} to ride along with it, or press Fly for free flight (Esc to land). On a touch screen, drag to pan, pinch to zoom and twist to turn.</p>
       </div>
       <aside class="side" aria-label="Players and events">
         <section aria-labelledby="players-h">

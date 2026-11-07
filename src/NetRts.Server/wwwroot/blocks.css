@@ -100,8 +100,8 @@
 /* ---------- rule cards ---------- */
 
 .bb-editor { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.bb-rules { flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
-.bb-empty { margin: 0; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius-m); color: var(--muted); }
+.bb-rules { flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.bb-empty { margin: 0 0 6px; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius-m); color: var(--muted); }
 .bb-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
 .bb-rule { flex: 1 1 480px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 8px 10px; display: grid; gap: 4px; }
 .bb-rule.off { opacity: 0.6; }
@@ -147,15 +147,15 @@
 .bb-live .bb-bar span { display: block; height: 100%; background: var(--signal-bg); }
 .bb-py { flex: 1 1 340px; min-width: 0; margin: 0; padding: 10px 14px; background: var(--bb-code-bg); color: var(--bb-code-ink); border-radius: var(--radius-m); line-height: 1.55; overflow-x: auto; white-space: pre; display: flex; align-items: center; }
 /* Between two rules: a faint line with "+ rule" that lights up on hover or focus. */
-.bb-insert { position: relative; display: block; width: 100%; height: 14px; margin: -5px 0; padding: 0; border: 0; background: none; cursor: pointer; color: var(--muted); opacity: 0.35; }
+.bb-insert { position: relative; display: block; width: 100%; height: 22px; margin: 0; padding: 0; border: 0; background: none; cursor: pointer; color: var(--muted); opacity: 0.35; }
 .bb-insert::before { content: ""; position: absolute; left: 8px; right: 8px; top: 50%; border-top: 2px dashed var(--line); }
-.bb-insert span { position: relative; display: inline-block; padding: 0 8px; font-size: 0.75rem; font-weight: 700; line-height: 14px; border-radius: 999px; background: var(--bg); }
+.bb-insert span { position: relative; display: inline-block; padding: 0 8px; font-size: 0.75rem; font-weight: 700; line-height: 16px; border-radius: 999px; background: var(--bg); }
 .bb-insert:hover, .bb-insert:focus-visible { opacity: 1; color: var(--ink); }
 .bb-insert:hover::before, .bb-insert:focus-visible::before { border-color: var(--signal-bg); }
 .bb-insert:focus-visible { outline: none; }
 .bb-insert:focus-visible span { outline: 2px solid var(--focus); }
-@media (hover: none) { .bb-insert { opacity: 0.6; height: 22px; margin: -2px 0; } }
-.bb-add-rule { min-height: 52px; background: none; border: 2px dashed var(--line); border-radius: var(--radius-m); font-weight: 600; color: var(--muted); cursor: pointer; }
+@media (hover: none) { .bb-insert { opacity: 0.6; height: 28px; } }
+.bb-add-rule { margin-top: 10px; min-height: 52px; background: none; border: 2px dashed var(--line); border-radius: var(--radius-m); font-weight: 600; color: var(--muted); cursor: pointer; }
 .bb-add-rule:hover { border-color: var(--ink); color: var(--ink); }
 
 .bb-picker { flex: 1 1 300px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 16px; display: grid; gap: 12px; position: sticky; top: 12px; }
@@ -212,7 +212,7 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-ver { padding-bottom: 8px; }
 
 /* The rule cards in a narrow column: dense, one per row, code and picker underneath. */
-.bb-editor.compact .bb-rules { flex-basis: 100%; gap: 6px; }
+.bb-editor.compact .bb-rules { flex-basis: 100%; }
 .bb-editor.compact .bb-row { gap: 4px; }
 .bb-editor.compact .bb-rule, .bb-editor.compact .bb-py { flex-basis: 100%; }
 .bb-editor.compact .bb-rule { padding: 6px 6px 6px 4px; gap: 2px; }
@@ -238,8 +238,8 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-editor.compact .bb-live { padding-left: 0; font-size: 0.82rem; gap: 6px; }
 .bb-editor.compact .bb-py { padding: 6px 10px; font-size: 0.78rem; }
 .bb-editor.compact .bb-add-rule { min-height: 40px; }
-.bb-editor.compact > .bb-rules > p { font-size: 0.8rem; margin: 0; }
-.bb-picker.inline { position: static; border: 2px solid var(--signal-bg); margin-top: -4px; }
+.bb-editor.compact > .bb-rules > p { font-size: 0.8rem; margin: 8px 0 0; }
+.bb-picker.inline { position: static; border: 2px solid var(--signal-bg); margin-top: 4px; }
 
 .bb-right { min-height: 0; }
 .bb-3d-wrap { position: relative; height: 100%; }
