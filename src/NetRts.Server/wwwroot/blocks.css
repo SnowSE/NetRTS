@@ -1,6 +1,7 @@
-/* Block Bot (#/blocks): the locker, the rule-card editor and the cockpit. Built on styles.css's tokens. */
+/* Block Bot (#/blocks): the locker, the rule-card editor and the cockpit. Built on styles.css's tokens.
+   Every rule here is scoped to a .bb- class: the sheet loads on every page. */
 
-:root {
+.bb-page, .bb-cockpit {
   --bb-cond: #0b6fa4;
   --bb-cond-bg: #e1eef6;
   --bb-act: #9a4a08;
@@ -12,7 +13,7 @@
   --bb-code-ink: #e2e9e8;
 }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
+  :root:not([data-theme="light"]) :is(.bb-page, .bb-cockpit) {
     --bb-cond: #7cc7f0;
     --bb-cond-bg: #15303f;
     --bb-act: #f3a865;
@@ -22,7 +23,7 @@
     --bb-code-bg: #0c1114;
   }
 }
-:root[data-theme="dark"] {
+:root[data-theme="dark"] :is(.bb-page, .bb-cockpit) {
   --bb-cond: #7cc7f0;
   --bb-cond-bg: #15303f;
   --bb-act: #f3a865;
@@ -43,7 +44,6 @@
 .bb-inline-form input { min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); flex: 1 1 200px; min-width: 0; }
 .bb-inline-form label { flex-basis: 100%; }
 .bb-inline-form label.bb-file { flex-basis: auto; }
-.btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .bb-spacer { flex: 1; }
 
 /* ---------- locker ---------- */
@@ -55,12 +55,14 @@
 .bb-stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
 .bb-stage-head h2 { margin: 0; font-size: 1.6rem; }
 .bb-stage-num { width: 36px; height: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 700; font-size: 1.1rem; }
-.bb-stage-num.hot { background: var(--signal-bg); color: #15222a; }
+.bb-stage-num.hot { background: var(--signal-bg); color: var(--on-signal); }
 .bb-stage-num.done { background: var(--ok); color: var(--bg); }
 .bb-stage.locked { opacity: 0.5; }
 .bb-lock { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 600; color: var(--muted); }
 .bb-signup { border: 3px solid var(--signal-bg); padding: 20px; }
 .bb-signup-form { max-width: 560px; margin-top: 0; }
+.bb-keep { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; justify-self: start; cursor: pointer; }
+.bb-keep input { width: 20px; height: 20px; margin: 0; }
 .bb-switching { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--bg); }
 .bb-switching p { margin: 0; }
 .bb-switching .bb-actions { border-top: 0; padding-top: 0; }
@@ -80,7 +82,7 @@
 .bb-actions { display: flex; flex-wrap: wrap; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
 .bb-new { border-style: dashed; display: flex; flex-direction: column; gap: 6px; background: transparent; }
 .bb-new h3 { font-size: 1.2rem; }
-.bb-step { font-weight: 700; margin: 0 0 8px; padding: 0; }
+.bb-legend { font-weight: 700; margin: 0 0 8px; padding: 0; }
 .bb-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .bb-mode, .bb-bot { display: flex; gap: 10px; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 10px 12px; cursor: pointer; min-height: 56px; }
 .bb-mode { flex-direction: column; gap: 2px; }
@@ -148,7 +150,7 @@
 .bb-chip.cond { border-color: var(--bb-cond); background: var(--bb-cond-bg); }
 .bb-chip.act { border-color: var(--bb-act); background: var(--bb-act-bg); }
 .bb-chip.act.build { border-color: var(--bb-build); background: var(--bb-build-bg); }
-.bb-chip.switch { border-color: var(--signal); background: var(--bb-switch-bg); color: #15222a; border-radius: var(--radius-m); }
+.bb-chip.switch { border-color: var(--signal); background: var(--bb-switch-bg); color: var(--on-signal); border-radius: var(--radius-m); }
 .bb-group { border-style: dashed; border-color: var(--line); border-radius: var(--radius-m); }
 /* A step (action) in a rule: a handle to drag it when there are two or more, and a + between steps. */
 .bb-step { display: inline-flex; align-items: center; gap: 1px; max-width: 100%; border-radius: 12px; }
@@ -175,7 +177,7 @@
 .bb-kind { background: none; border: 0; padding: 4px 6px; min-height: 36px; font-weight: 600; cursor: pointer; border-radius: 6px; color: inherit; text-align: left; }
 .bb-kind:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
 .bb-select { width: auto; field-sizing: content; min-width: 3.5em; min-height: 36px; padding: 4px 6px; border-radius: 6px; background: var(--bg); font-weight: 600; border: 1px solid var(--line); max-width: 100%; }
-.bb-chip.switch .bb-select { background: #fff; color: #15222a; }
+.bb-chip.switch .bb-select { background: #fff; color: var(--on-signal); }
 .bb-num-in { width: 5.5em; field-sizing: content; min-width: 3.5em; min-height: 36px; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); font-weight: 700; }
 .bb-plus { min-height: 36px; padding: 0 10px; border: 1px dashed var(--line); border-radius: 999px; background: none; cursor: pointer; color: var(--muted); font-weight: 600; }
 .bb-plus:hover { border-color: var(--ink); color: var(--ink); }
@@ -210,9 +212,9 @@
 .bb-rule[data-state="firing"] .bb-why { color: var(--ok); font-weight: 600; }
 .bb-rule[data-state="waiting"] .bb-why { color: var(--signal); }
 .bb-why { color: var(--muted); }
-.bb-bar[role="img"], .bb-bar:not(.bb-edit-bar):not(:has(*)) { display: block; }
-.bb-live .bb-bar { display: block; flex: 0 0 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
-.bb-live .bb-bar span { display: block; height: 100%; background: var(--signal-bg); }
+/* How close a waiting rule is (fighters 5 of 8, say). */
+.bb-progress { display: block; flex: 0 0 120px; height: 6px; background: var(--line); border-radius: 3px; overflow: hidden; }
+.bb-progress span { display: block; height: 100%; background: var(--signal-bg); }
 .bb-py { flex: 1 1 340px; min-width: 0; margin: 0; padding: 10px 14px; background: var(--bb-code-bg); color: var(--bb-code-ink); border-radius: var(--radius-m); line-height: 1.55; overflow-x: auto; white-space: pre; display: flex; align-items: center; }
 /* The rule being edited (cockpit): a yellow border and its Save / Cancel; the other rules wait. */
 .bb-rule.editing-rule { border: 2px solid var(--signal-bg); box-shadow: 0 0 0 3px color-mix(in srgb, var(--signal-bg) 25%, transparent); }
@@ -268,7 +270,7 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-waiting-name { display: inline-block; margin: 2px 4px 0 0; padding: 0 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 0.85rem; }
 .bb-waiting .btn { justify-self: start; }
 .bb-real-seg { justify-self: start; }
-.bb-live-pill { background: var(--signal-bg); color: #15222a; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em; padding: 3px 8px; border-radius: var(--radius-s); }
+.bb-live-pill { background: var(--signal-bg); color: var(--on-signal); font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em; padding: 3px 8px; border-radius: var(--radius-s); }
 .bb-live-pill[data-state="Completed"] { background: var(--line); }
 .bb-match-title { font-size: clamp(1.15rem, 1.8vw, 1.5rem); font-stretch: 87.5%; }
 /* Switches and Apply stay in reach while the rules scroll under them. */
@@ -278,8 +280,8 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-switches p { margin: 0; }
 .bb-switch { flex: 1 1 110px; min-height: 40px; border-radius: var(--radius-m); border: 2px solid var(--line); background: var(--panel); color: var(--ink); font-size: 1.05rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 12px; }
 .bb-switch span { font-size: 0.75rem; font-weight: 700; padding: 2px 6px; border-radius: var(--radius-s); background: var(--line); color: var(--ink); }
-.bb-switch[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; }
-.bb-switch[aria-pressed="true"] span { background: #15222a; color: var(--signal-bg); }
+.bb-switch[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: var(--on-signal); }
+.bb-switch[aria-pressed="true"] span { background: var(--on-signal); color: var(--signal-bg); }
 .bb-pending { border: 1px solid var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 16%, var(--panel)); border-radius: var(--radius-m); padding: 8px 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .bb-pending p { margin: 0; flex: 1 1 140px; }
 .bb-pending .bb-error { flex-basis: 100%; }
@@ -330,63 +332,62 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-right { min-height: 0; }
 .bb-3d-wrap { position: relative; height: 100%; }
 .bb-3d { width: 100%; height: 100%; display: block; }
-.bb-view-left, .bb-view-right { position: absolute; top: 10px; display: flex; gap: 4px; }
+/* On the view (dark whatever the theme: .hud-dark in styles.css): the camera buttons top left, sound and
+   picture quality top right (.map-controls.float), the stats rail, the building card and messages. */
+.bb-view-left, .bb-view-right { top: 10px; gap: 4px; }
 .bb-view-left { left: 10px; }
 .bb-view-right { right: 10px; }
-.bb-sq { width: 36px; height: 36px; padding: 0; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; border: 1px solid rgba(226, 233, 232, 0.3); background: rgba(12, 17, 20, 0.84); color: #e2e9e8; font-size: 18px; font-weight: 700; line-height: 1; cursor: pointer; }
-.bb-sq:hover { border-color: rgba(226, 233, 232, 0.7); }
-.bb-sq:focus-visible { outline: 2px solid #f2c14e; outline-offset: 1px; }
+/* The sound button says on or muted with its icon, not with the toolbar's pressed colour. */
+.bb-view-right button[aria-pressed="true"] { background: var(--panel-2); border-color: var(--line); color: var(--ink); font-weight: 700; }
 
-/* The stats rail down the left of the view: a trend line per stat, then the scoreboard. */
-.bb-hud { position: absolute; top: 54px; left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; color: #e2e9e8; }
-.bb-tile { width: 128px; box-sizing: border-box; padding: 6px 8px 4px; border-radius: 8px; background: rgba(12, 17, 20, 0.84); border: 1px solid rgba(226, 233, 232, 0.12); display: flex; flex-direction: column; gap: 1px; }
-.bb-tile svg { display: block; }
-.bb-tile-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #93a3a8; display: flex; justify-content: space-between; gap: 6px; }
+/* The stats rail down the left of the view: the clock, a trend line per stat, then the scoreboard. */
+.bb-hud { position: absolute; top: 54px; left: 10px; display: flex; flex-direction: column; align-items: flex-start; gap: 5px; pointer-events: none; }
+.bb-tile { width: 128px; box-sizing: border-box; padding: 6px 8px 4px; border-radius: 8px; background: var(--hud-bg); border: 1px solid var(--hud-edge); display: flex; flex-direction: column; gap: 1px; }
+.bb-tile svg { display: block; color: var(--tile, var(--hud-ink)); }
+.bb-tile-mark { stroke: var(--hud-accent); }
+.bb-tile-label { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--hud-muted); display: flex; justify-content: space-between; gap: 6px; }
 .bb-tile-row { display: flex; justify-content: space-between; align-items: baseline; gap: 4px; }
-.bb-tile-value { font-size: 1.3rem; font-weight: 700; font-stretch: 87.5%; line-height: 1.05; font-variant-numeric: tabular-nums; }
-.bb-tile-rate { font-size: 10px; font-weight: 700; color: #93a3a8; white-space: nowrap; }
-.bb-tile-rate.up { color: #5fd3a8; }
-.bb-tile-rate.down { color: #ff8a7a; }
+.bb-tile-value { font-size: 1.3rem; font-weight: 700; font-stretch: 87.5%; line-height: 1.05; font-variant-numeric: tabular-nums; color: var(--tile, inherit); }
+.bb-tile-rate { font-size: 10px; font-weight: 700; color: var(--hud-muted); white-space: nowrap; }
+.bb-tile-rate.up { color: var(--hud-good); }
+.bb-tile-rate.down { color: var(--hud-bad); }
 .bb-clock { pointer-events: auto; }
-.bb-clock .bb-tile-label span { letter-spacing: 0; text-transform: none; font-weight: 600; color: #c9d3d6; }
-.bb-clock .bb-tile-value small { font-size: 0.75rem; font-weight: 600; color: #93a3a8; }
-.bb-clock-bar { display: block; height: 4px; margin: 3px 0 2px; border-radius: 2px; background: rgba(226, 233, 232, 0.16); overflow: hidden; }
-.bb-clock-bar > span { display: block; height: 100%; background: #f2c14e; }
-/* The building you clicked: top right, under the sound and quality buttons. */
-.bb-bcard { position: absolute; top: 54px; right: 10px; width: 236px; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; background: rgba(12, 17, 20, 0.9); border: 1px solid rgba(226, 233, 232, 0.18); color: #e2e9e8; display: grid; gap: 6px; font-size: 0.85rem; }
-.bb-bcard[hidden] { display: none; }
+.bb-clock .bb-tile-label span { letter-spacing: 0; text-transform: none; font-weight: 600; color: var(--hud-soft); }
+.bb-clock .bb-tile-value small { font-size: 0.75rem; font-weight: 600; color: var(--hud-muted); }
+.bb-clock-bar { display: block; height: 4px; margin: 3px 0 2px; border-radius: 2px; background: var(--hud-track); overflow: hidden; }
+.bb-clock-bar > span { display: block; height: 100%; background: var(--hud-accent); }
+/* The building you clicked: a .map3d-card, top right, under the sound and quality buttons. */
+.map3d-card.bb-bcard { top: 54px; right: 10px; bottom: auto; left: auto; width: 236px; min-width: 0; max-width: none; box-sizing: border-box; gap: 6px; border-radius: 8px; border-color: var(--hud-edge-mid); background: var(--hud-bg-strong); font-size: 0.85rem; }
 .bb-bcard p { margin: 0; }
 .bb-bcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-.bb-bcard-head h2 { margin: 0; font-size: 1.1rem; font-stretch: 87.5%; line-height: 1.15; color: #fff; }
-.bb-sq.small { width: 28px; height: 28px; font-size: 16px; flex: none; }
+.bb-bcard-head h2 { margin: 0; font-size: 1.1rem; font-stretch: 87.5%; line-height: 1.15; color: var(--hud-ink-hi); }
+.bb-bcard-x, .bb-bcard-zoom { border: 1px solid var(--hud-line); border-radius: 6px; background: transparent; color: var(--hud-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.bb-bcard-x:hover, .bb-bcard-zoom:hover { border-color: var(--hud-line-hi); }
+.bb-bcard-x { width: 28px; height: 28px; flex: none; padding: 0; background: var(--hud-bg); font-size: 16px; font-weight: 700; line-height: 1; }
+.bb-bcard-zoom { justify-self: start; min-height: 32px; padding: 0 10px; }
 .bb-bcard-owner { display: flex; align-items: center; gap: 6px; font-weight: 700; }
 .bb-bcard-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--pc); flex: none; }
 .bb-bcard-hp { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
-.bb-bcard-hp span { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #93a3a8; }
-.bb-hpbar > span { background: #5fd3a8; }
-.bb-hpbar.low > span { background: #ff8a7a; }
-.bb-bcard-role { color: #c9d3d6; }
-.bb-bcard-q { color: #93a3a8; }
-.bb-bcard-gone { color: #ff8a7a; font-weight: 700; }
+.bb-bcard-hp span { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: var(--hud-muted); }
+.bb-hpbar > span { background: var(--hud-good); }
+.bb-hpbar.low > span { background: var(--hud-bad); }
+.bb-bcard-role { color: var(--hud-soft); }
+.bb-bcard-gone { color: var(--hud-bad); font-weight: 700; }
 .bb-bcard-stats { margin: 0; display: grid; gap: 2px; }
 .bb-bcard-stats div { display: flex; justify-content: space-between; gap: 8px; }
-.bb-bcard-stats dt { color: #93a3a8; }
+.bb-bcard-stats dt { color: var(--hud-muted); }
 .bb-bcard-stats dd { margin: 0; text-align: right; font-weight: 600; }
-.bb-bcard-zoom { justify-self: start; min-height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid rgba(226, 233, 232, 0.3); background: transparent; color: #e2e9e8; font: inherit; font-weight: 600; cursor: pointer; }
-.bb-bcard-zoom:hover { border-color: rgba(226, 233, 232, 0.7); }
 .bb-board { width: 176px; gap: 3px; }
 .bb-board-count { font-weight: 400; letter-spacing: 0; text-transform: none; }
 .bb-board ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
-.bb-board li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 0.8rem; color: #c9d3d6; }
-.bb-board li.me { background: color-mix(in srgb, var(--pc) 28%, transparent); box-shadow: inset 2px 0 0 var(--pc); color: #fff; font-weight: 700; }
+.bb-board li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 0.8rem; color: var(--hud-soft); }
+.bb-board li.me { background: color-mix(in srgb, var(--pc) 28%, transparent); box-shadow: inset 2px 0 0 var(--pc); color: var(--hud-ink-hi); font-weight: 700; }
 .bb-board li.out { opacity: 0.5; text-decoration: line-through; }
-.bb-board-gap { justify-content: center; line-height: 0.6; color: #93a3a8; }
-.bb-board-rank { width: 14px; text-align: right; font-weight: 700; color: #93a3a8; font-size: 0.75rem; }
+.bb-board-gap { justify-content: center; line-height: 0.6; color: var(--hud-muted); }
+.bb-board-rank { width: 14px; text-align: right; font-weight: 700; color: var(--hud-muted); font-size: 0.75rem; }
 .bb-board-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .bb-board-score { font-weight: 700; font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { .bb-hud { transform: scale(0.85); transform-origin: top left; } }
-.bb-3d-msg { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); margin: 0; background: rgba(12, 17, 20, 0.85); color: #e2e9e8; padding: 12px 16px; border-radius: var(--radius-m); max-width: 80%; text-align: center; }
-.bb-3d-msg[hidden] { display: none; }
 .bb-result { position: absolute; inset: auto 16px 56px 16px; background: var(--panel); border: 2px solid var(--signal-bg); border-radius: var(--radius-m); padding: 16px; display: grid; gap: 8px; }
 .bb-result[hidden] { display: none; }
 .bb-result h2 { margin: 0; font-size: 1.8rem; }
@@ -404,6 +405,6 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
   .bb-modes { grid-template-columns: minmax(0, 1fr); }
   .bb-tools { margin-left: 0; }
 }
-@media (max-width: 560px) { .bb-bcard { width: 190px; } }
+@media (max-width: 560px) { .map3d-card.bb-bcard { width: 190px; } }
 /* While something is being dragged, the "+ rule" labels step aside for the drop line. */
 .bb-editor:has(.dragging) .bb-insert { visibility: hidden; }

@@ -3,6 +3,9 @@
 // The endpoint list comes from the server's OpenAPI document, so new endpoints show up here on their own.
 import { html, raw, setHtml } from './util.js';
 import { GAME } from './lore.js';
+// The key lives in sessionStorage, so a shared lab computer forgets it when the tab closes; the language
+// choice in localStorage. Either can be blocked; the page works without them.
+import { loadText as load, saveText as save, forget } from './storage.js';
 
 const OPENAPI = '/openapi/v1.json';
 const KEY_STORE = 'netrts-api-key';
@@ -854,10 +857,3 @@ async function copy(button) {
   }
   setTimeout(() => { button.textContent = 'Copy'; }, 2000);
 }
-
-// The key lives in sessionStorage, so a shared lab computer forgets it when the tab closes; the language
-// choice in localStorage. Either can be blocked (private windows, strict settings); the page works without them.
-// Even reading window.sessionStorage can throw, so each store is looked up by name inside the try.
-function load(store, key) { try { return window[store].getItem(key); } catch { return null; } }
-function save(store, key, value) { try { window[store].setItem(key, value); } catch { /* not kept */ } }
-function forget(store, key) { try { window[store].removeItem(key); } catch { /* nothing kept */ } }

@@ -1,5 +1,5 @@
 // Spectator UI: hash router + home view.
-import { api, html, raw, setHtml, botAndOwner, verifiedBadge, fmt, esc, matchRow, SKILL_TITLE } from './util.js';
+import { api, html, raw, setHtml, botAndOwner, verifiedBadge, fmt, esc, matchRow, botLabel, SKILL_TITLE } from './util.js';
 import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
@@ -10,7 +10,6 @@ import { mountTrophyRoom, mountPerson } from './people.js';
 import { mountHistory } from './history.js';
 import { mountColab } from './colab.js';
 import { mountApiDocs } from './apidocs.js';
-import { mountBlocks } from './blocks.js';
 
 const main = document.getElementById('main');
 const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
@@ -59,7 +58,9 @@ function route() {
   } else if (apiDocs) {
     teardown = mountApiDocs(main);
   } else if (blocks) {
-    teardown = mountBlocks(main, blocks[1] ? { page: blocks[1], id: blocks[2] } : null);
+    // Block Bot's code (and the rules it fetches) loads only when one of its pages opens.
+    const page = blocks[1] ? { page: blocks[1], id: blocks[2] } : null;
+    teardown = mountLazy(() => import('./blocks/index.js'), (m) => m.mountBlocks(main, page));
   } else {
     teardown = mountHome(main);
   }
@@ -80,6 +81,19 @@ function mountMatch(root, key) {
     .then((summary) => summary?.heats ? mountLeague(root, summary) : mountSpectate(root, key))
     .catch(() => mountSpectate(root, key))   // the battle view explains a missing match
     .then((teardown) => { if (alive) inner = teardown; else teardown?.(); });
+  return () => { alive = false; inner?.(); };
+}
+
+/**
+ * A page whose code is fetched the first time it opens (like the 3D view on the match page): it mounts
+ * once the module is in, unless the reader has moved on by then.
+ */
+function mountLazy(load, mount) {
+  let alive = true;
+  let inner = null;
+  load()
+    .then((m) => { if (alive) inner = mount(m); })
+    .catch((e) => { if (alive) setHtml(main, html`<p class="error" role="alert">This page couldn’t load: ${e.message}</p>`); });
   return () => { alive = false; inner?.(); };
 }
 
@@ -238,7 +252,6 @@ Authorization: Bearer &lt;apiKey&gt;
   const MAX_SEATS = 16;
   const counts = new Map();   // bot name -> how many copies take a seat
   const picked = () => bots.flatMap((b) => Array(counts.get(b.name) || 0).fill(b.name));
-  const label = (name) => (nickname(name) ? `${nickname(name)} (${name})` : name);
   const showCounts = () => {
     const total = picked().length;
     totalEl.textContent = `${total} ${say('bot', 'badger')}${total === 1 ? '' : 's'} · ${total > 4 ? 'ring map' : 'corner map'}`;
@@ -259,7 +272,7 @@ Authorization: Bearer &lt;apiKey&gt;
     if (counts.has('economist')) counts.set('economist', 1); else if (bots[1]) counts.set(bots[1].name, 1);
     countsEl.innerHTML = bots.map((b, i) => `
       <label class="bot-count"><input type="number" min="0" max="${MAX_SEATS}" step="1" inputmode="numeric"
-        id="count-${i}" data-bot="${esc(b.name)}" value="${counts.get(b.name)}"> ${esc(label(b.name))}</label>`).join('');
+        id="count-${i}" data-bot="${esc(b.name)}" value="${counts.get(b.name)}"> ${esc(botLabel(b.name, { withName: true }))}</label>`).join('');
     showCounts();
   }).catch((e) => {
     if (!alive) return;

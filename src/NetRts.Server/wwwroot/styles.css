@@ -12,6 +12,7 @@
   --focus: #0b6fa4;
   --signal: #8a5a00;      /* live / call-to-action text */
   --signal-bg: #f2c14e;
+  --on-signal: #15222a;   /* text on --signal-bg, in either theme */
   --danger: #a3261a;
   --ok: #0f6b4f;
   --verified: #1a73c9;    /* the blue check */
@@ -901,7 +902,7 @@ pre.snippet {
   background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius-s); cursor: pointer;
 }
 .map-controls button:hover { border-color: var(--muted); }
-.map-controls button[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: #15222a; font-weight: 600; }
+.map-controls button[aria-pressed="true"] { background: var(--signal-bg); border-color: var(--signal-bg); color: var(--on-signal); font-weight: 600; }
 .map-controls .zoom-level { min-width: 3.2em; text-align: center; font-variant-numeric: tabular-nums; color: var(--muted); font-size: 0.85rem; }
 @media (max-width: 560px) {
   .map-frame.is-full .map-controls { top: 8px; right: 8px; }
@@ -994,6 +995,52 @@ pre.snippet {
 .card3d-hp span { display: block; height: 100%; background: var(--ok); }
 .map-frame.is-full .map3d-card { bottom: 18px; left: auto; right: 18px; }
 
+/* ---------- over the 3D view ----------
+   The 3D view is dark whatever the page's theme, so what sits on it (the Block Bot cockpit's buttons, stats
+   and cards) takes these tokens from .hud-dark. The site's own tokens turn dark there too, so shared pieces
+   (.map-controls buttons, .map3d-card, .overlay-msg) read right on the view. */
+.hud-dark {
+  --hud-bg: rgba(12, 17, 20, 0.84);
+  --hud-bg-strong: rgba(12, 17, 20, 0.9);
+  --hud-edge: rgba(226, 233, 232, 0.12);
+  --hud-edge-mid: rgba(226, 233, 232, 0.18);
+  --hud-line: rgba(226, 233, 232, 0.3);
+  --hud-line-hi: rgba(226, 233, 232, 0.7);
+  --hud-track: rgba(226, 233, 232, 0.16);
+  --hud-ink: #e2e9e8;
+  --hud-ink-hi: #fff;
+  --hud-soft: #c9d3d6;
+  --hud-muted: #93a3a8;
+  --hud-accent: #f2c14e;   /* ore, the clock, focus */
+  --hud-good: #5fd3a8;
+  --hud-bad: #ff8a7a;
+  --hud-workers: #7cc7f0;
+  --hud-fighters: #ff8a7a;
+  --hud-buildings: #c7b2f0;
+  --ink: var(--hud-ink);
+  --muted: var(--hud-muted);
+  --line: var(--hud-line);
+  --panel: rgb(12, 17, 20);
+  --panel-2: var(--hud-bg);
+  --ok: var(--hud-good);
+  --danger: var(--hud-bad);
+  --focus: var(--hud-accent);
+  color: var(--ink);
+}
+/* Map buttons floating straight on the view, without the toolbar behind them: squares. */
+.map-controls.float { position: absolute; z-index: 2; margin: 0; padding: 0; border: 0; background: none; backdrop-filter: none; flex-wrap: nowrap; }
+.map-controls.float button {
+  width: 36px; height: 36px; min-width: 0; padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 6px; font-size: 18px; font-weight: 700;
+}
+.map-controls.float button:hover { border-color: var(--hud-line-hi, var(--muted)); }
+/* A message in the middle of the view that leaves the view usable around it. */
+.overlay-msg.boxed { pointer-events: none; }
+.overlay-msg.boxed > p {
+  pointer-events: auto; margin: 0; max-width: 80%; padding: 12px 16px; border-radius: var(--radius-m);
+  background: var(--hud-bg, var(--panel)); color: var(--ink);
+}
+
 /* ---------- brand toggle ---------- */
 
 [data-brand="snow"] .only-classic, :root:not([data-brand="snow"]) .only-snow { display: none !important; }
@@ -1081,6 +1128,8 @@ pre.snippet {
 [data-brand="snow"] .btn:hover { background: var(--muted); border-color: var(--muted); }
 [data-brand="snow"] .btn.ghost { background: transparent; color: var(--ink); border-color: var(--line); }
 [data-brand="snow"] .btn.ghost:hover { border-color: var(--ink); }
+/* A button that asks again before it does something that can't be undone (Delete, Give up). After the brand's .btn. */
+.btn.danger, [data-brand="snow"] .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 [data-brand="snow"] .launch { border-top-color: var(--brand-hi); }
 
 /* Founded 1888: a big faint year behind the hero. */
@@ -1393,7 +1442,7 @@ a.plain:hover { text-decoration: underline; }
 .earners summary { cursor: pointer; color: var(--muted); }
 .first-tag {
   display: inline-block; margin-right: 6px; padding: 0 5px; font-size: 0.7rem; font-weight: 700; letter-spacing: 0.06em;
-  text-transform: uppercase; color: #15222a; background: var(--signal-bg); border-radius: var(--radius-s);
+  text-transform: uppercase; color: var(--on-signal); background: var(--signal-bg); border-radius: var(--radius-s);
 }
 a.owner { text-decoration: none; }
 a.owner:hover { text-decoration: underline; }

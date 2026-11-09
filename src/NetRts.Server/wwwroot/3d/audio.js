@@ -2,13 +2,15 @@
 // placed in the scene, and the players' voices. The music and effects are synthesized with Web Audio
 // as they play; only the voices are recorded (see tools/voices). The soundtrack runs a little over
 // eleven minutes before it loops.
+import { load, save } from '../storage.js';
 
 const STORE = 'netrts.audio';
 const DEFAULTS = { music: 0.5, sfx: 0.7, voice: 0.85, muted: false, captions: true };
 const MIN_SONG_SECONDS = 600;
 
 function loadSettings() {
-  try { return { ...DEFAULTS, ...JSON.parse(localStorage.getItem(STORE) || '{}') }; } catch { return { ...DEFAULTS }; }
+  const kept = load('localStorage', STORE, {});
+  return { ...DEFAULTS, ...(kept && typeof kept === 'object' ? kept : {}) };
 }
 
 const midiHz = (m) => 440 * Math.pow(2, (m - 69) / 12);
@@ -79,7 +81,7 @@ export class GameAudio {
   /** Change a setting (music, sfx, voice: 0-1; muted, captions: true/false) and remember it. */
   set(key, value) {
     this.settings[key] = value;
-    try { localStorage.setItem(STORE, JSON.stringify(this.settings)); } catch { /* storage blocked */ }
+    save('localStorage', STORE, this.settings);
     this.apply();
     this.onChange?.(this.settings);
   }

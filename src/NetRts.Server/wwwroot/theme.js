@@ -1,5 +1,7 @@
 // Colour theme toggle: Auto (follow the system) → Light → Dark. The choice is kept in localStorage;
 // index.html applies it before first paint so the page never flashes the wrong theme.
+import { loadText, saveText } from './storage.js';
+
 const KEY = 'netrts-theme';
 const ORDER = ['auto', 'light', 'dark'];
 const LABEL = { auto: 'Auto', light: 'Light', dark: 'Dark' };
@@ -8,12 +10,8 @@ const button = document.getElementById('theme-toggle');
 const label = document.getElementById('theme-label');
 
 function read() {
-  try {
-    const value = localStorage.getItem(KEY);
-    return ORDER.includes(value) ? value : 'auto';
-  } catch {
-    return 'auto';
-  }
+  const value = loadText('localStorage', KEY);
+  return ORDER.includes(value) ? value : 'auto';
 }
 
 function apply(choice) {
@@ -28,7 +26,7 @@ let current = read();
 
 button.addEventListener('click', () => {
   current = ORDER[(ORDER.indexOf(current) + 1) % ORDER.length];
-  try { localStorage.setItem(KEY, current); } catch { /* storage blocked: still switch for this visit */ }
+  saveText('localStorage', KEY, current);   // storage blocked: still switch for this visit
   apply(current);
 });
 
@@ -42,6 +40,6 @@ brandButton.setAttribute('aria-label', snow
   ? 'Site theme: Snow College. Click for the original theme.'
   : 'Site theme: original. Click for the Snow College theme.');
 brandButton.addEventListener('click', () => {
-  try { localStorage.setItem('netrts-brand', snow ? 'classic' : 'snow'); } catch { /* storage blocked */ }
+  saveText('localStorage', 'netrts-brand', snow ? 'classic' : 'snow');
   location.reload();
 });
