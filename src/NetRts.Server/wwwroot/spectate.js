@@ -1,7 +1,11 @@
 // Spectate view: #/match/{id} or #/match/{name}
-import { api, html, setHtml, esc, slotVar, displayName, playerLabel, fmt, outcomeText } from './util.js';
-import { GAME, SNOW, say, ORE, unitName, buildingName, buildingRole, upgradeName, badgerize, hqName, housingName } from './lore.js';
+import { api, html, setHtml, esc, slotVar, displayName, playerLabel, fmt, outcomeText, mountScope, playerNames, totalOf, rankPlayers } from './util.js';
+import { GAME, SNOW, say, ORE, unitName, upgradeName, badgerize, hqName, housingName } from './lore.js';
 import { MapView, unitPath } from './mapview.js';
+import { loadText, saveText } from './storage.js';
+import { openMatchFeed } from './matchfeed.js';
+import { matchClock, clockText, progressBar, buildingFacts, buildingWork } from './matchui.js';
+import { mount3d, preload3d } from './3d/mount.js';
 
 const HOT = /Lost|Destroyed|Killed|Eliminated|Failed/;
 
@@ -127,9 +131,10 @@ export function mountSpectate(root, matchKey) {
   /** The 3D picture stands still while the match or the replay is paused. */
   const syncPause = () => view3d?.setPaused(replay ? !replay.playing : !!state?.paused);
 
-  let alive = true;
-  let es = null;
-  let timers = [];
+  // Timers, window and document listeners, awaited requests, the feed and the 3D view: all stop at teardown.
+  const scope = mountScope();
+  const later = scope.later;
+  let feed = null;         // the live match (matchfeed.js)
   let summary = null;
   let state = null;
   let result = null;
@@ -140,13 +145,7 @@ export function mountSpectate(root, matchKey) {
   const events = [];
   const eventKeys = new Set();
 
-  const later = (fn, ms) => { const t = setTimeout(() => alive && fn(), ms); timers.push(t); };
-  const names = () => {
-    const m = new Map();
-    (summary?.players || []).forEach((p) => m.set(p.slot, displayName(p.name)));
-    (state?.players || []).forEach((p) => m.set(p.slot, displayName(p.name)));
-    return m;
-  };
+  const names = () => playerNames(summary, state);
 
   // ---------- layout
   const fit = () => {
@@ -168,11 +167,11 @@ export function mountSpectate(root, matchKey) {
   };
   const ro = new ResizeObserver(fit);
   ro.observe(frame);
-  window.addEventListener('resize', fit);
-  const scheme = window.matchMedia('(prefers-color-scheme: dark)');
+  scope.cleanup(() => ro.disconnect());
+  scope.on(window, 'resize', fit);
   const onScheme = () => view.readTheme();
-  scheme.addEventListener('change', onScheme);
-  window.addEventListener('netrts-theme', onScheme);
+  scope.on(window.matchMedia('(prefers-color-scheme: dark)'), 'change', onScheme);
+  scope.on(window, 'netrts-theme', onScheme);
 
   // ---------- tooltip / inspection
   function inspect(tile, anchor, reveal = false) {
@@ -180,14 +179,13 @@ export function mountSpectate(root, matchKey) {
     if (!tile) { tooltip.hidden = true; return; }
     const info = view.entitiesAt(tile.x, tile.y);
     const who = names();
-    const owner = (slot) => html`<span class="pname" style="--pc:${slotVar(slot)}">${who.get(slot) ?? `Player ${slot + 1}`}</span>`;
+    const owner = (slot) => html`<span class="pname" style="--pc:${slotVar(slot)}">${who.get(slot)}</span>`;
     const items = [];
     for (const b of info.buildings) {
-      items.push(html`<div class="tt-item"><b>${buildingName(b.type, b.owner)}</b> #${b.id} ${owner(b.owner)}
-        <span class="tt-role">${buildingRole(b.type)}</span>
-        HP ${fmt(b.hp)} / ${fmt(b.maxHp)}${b.completed ? '' : html`<br>Under construction, ${b.constructionPercent}%`}
-        ${b.production?.length ? html`<br>${say('Producing', 'Training')} ${b.production.map((p) => `${unitName(p.unitType)} ${p.percent}%`).join(', ')}` : ''}
-        ${b.research ? html`<br>${say('Researching', 'Studying')} ${upgradeName(b.research.upgrade)} ${b.research.percent}%` : ''}</div>`);
+      const facts = buildingFacts(b);
+      items.push(html`<div class="tt-item"><b>${facts.name}</b> #${b.id} ${owner(b.owner)}
+        <span class="tt-role">${facts.role}</span>
+        HP ${fmt(b.hp)} / ${fmt(b.maxHp)}${buildingWork(b).map((line) => html`<br>${line}`)}</div>`);
     }
     for (const u of info.units) {
       items.push(html`<div class="tt-item"><b>${unitName(u.type)}</b> #${u.id} ${owner(u.owner)}<br>
@@ -224,8 +222,8 @@ export function mountSpectate(root, matchKey) {
     queueMicrotask(() => refreshTooltip()); // defined further down
   };
   view.onCameraChange(view);
-  $('zoom-in').addEventListener('click', () => (is3d ? view3d.zoom(1 / 1.4) : view.zoomCentre(1.5)));
-  $('zoom-out').addEventListener('click', () => (is3d ? view3d.zoom(1.4) : view.zoomCentre(1 / 1.5)));
+  $('zoom-in').addEventListener('click', () => (is3d ? view3d.zoomStep('in') : view.zoomCentre(1.5)));
+  $('zoom-out').addEventListener('click', () => (is3d ? view3d.zoomStep('out') : view.zoomCentre(1 / 1.5)));
   $('zoom-fit').addEventListener('click', () => (is3d ? view3d.overview() : view.resetView()));
   followBtn.addEventListener('click', () => {
     if (is3d) view3d.setMode(view3d.mode === 'director' ? 'orbit' : 'director');
@@ -261,8 +259,7 @@ export function mountSpectate(root, matchKey) {
       setFull(false);
     }
   };
-  const onFullscreenChange = () => setFull(document.fullscreenElement === frame);
-  document.addEventListener('fullscreenchange', onFullscreenChange);
+  scope.on(document, 'fullscreenchange', () => setFull(document.fullscreenElement === frame));
   fullBtn.addEventListener('click', toggleFull);
   // Each full-screen panel collapses to its title bar, and the choice is remembered on this device.
   const setPanel = (toggle, open) => {
@@ -271,11 +268,11 @@ export function mountSpectate(root, matchKey) {
   };
   for (const toggle of [boardToggle, $('info-toggle')]) {
     const key = `netrts.fs.${toggle.id}`;
-    try { if (localStorage.getItem(key) === 'closed') setPanel(toggle, false); } catch { /* storage blocked */ }
+    if (loadText('localStorage', key) === 'closed') setPanel(toggle, false);
     toggle.addEventListener('click', () => {
       const open = toggle.getAttribute('aria-expanded') !== 'true';
       setPanel(toggle, open);
-      try { localStorage.setItem(key, open ? 'open' : 'closed'); } catch { /* storage blocked */ }
+      saveText('localStorage', key, open ? 'open' : 'closed');
     });
   }
 
@@ -363,7 +360,6 @@ export function mountSpectate(root, matchKey) {
 
   // ---------- 3D view
   const btn3d = $('view3d'), flyBtn = $('fly'), gridBtn = $('grid3d'), qualityBtn = $('quality3d');
-  const QUALITY_NAMES = { low: 'Low', medium: 'Medium', high: 'High' };
   const MODE_NAMES = { orbit: 'Orbit', fly: 'Flying', follow: 'Riding along', director: 'Director' };
   let cardKey = '';
   function render3dControls() {
@@ -378,7 +374,7 @@ export function mountSpectate(root, matchKey) {
     followBtn.setAttribute('aria-pressed', String(mode === 'director'));
     flyBtn.setAttribute('aria-pressed', String(mode === 'fly'));
     gridBtn.setAttribute('aria-pressed', String(!!view3d?.grid));
-    qualityBtn.textContent = `Quality: ${QUALITY_NAMES[view3d?.quality] ?? 'Medium'}`;
+    qualityBtn.textContent = `Quality: ${view3d?.qualityName ?? 'Medium'}`;
     zoomLabel.textContent = MODE_NAMES[mode] ?? '';
   }
   function renderCard(u) {
@@ -387,7 +383,7 @@ export function mountSpectate(root, matchKey) {
     const key = `${u.id}|${u.hp}|${u.activity}|${u.carrying}|${u.owner}`;
     if (key === cardKey) return;
     cardKey = key;
-    const who = names().get(u.owner) ?? `Player ${u.owner + 1}`;
+    const who = names().get(u.owner);
     const pct = Math.max(0, Math.min(100, (u.hp / u.maxHp) * 100));
     setHtml(card, html`
       <div class="card3d-top"><b>${unitName(u.type)}</b> <span class="muted">#${u.id}</span></div>
@@ -401,21 +397,16 @@ export function mountSpectate(root, matchKey) {
     if (on && !view3d) {
       // Building the scene keeps the browser busy for a moment on a slow computer: say so first.
       setOverlay(say('Building the 3D view…', 'Building the 3D valley…'), 'This takes a few seconds the first time.', true);
-      await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
-      if (!alive) return;
+      await scope.wait(new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))));
       try {
-        const { View3D } = await import('./3d/view.js');
-        if (!alive) return;
-        const { GameAudio } = await import('./3d/audio.js');
-        audio ??= new GameAudio();
-        view3d = new View3D(box3d, { badger: SNOW, names, audio });
-        box3d.view3d = view3d;   // handy from the dev tools console
+        const v = await mount3d(box3d, { names, scope, onReady: () => setOverlay(null) });
+        scope.cleanup(v.dispose);
+        ({ view3d, audio } = v);
       } catch (e) {
         setOverlay('The 3D view could not start', e?.message || 'This browser may not support WebGL.');
         later(() => setOverlay(null), 3500);
         return;
       }
-      view3d.onReady = () => { if (alive) setOverlay(null); };
       view3d.onModeChange = () => render3dControls();
       view3d.onQualityChange = () => render3dControls();
       view3d.onFollowChange = (u) => renderCard(u);
@@ -436,7 +427,7 @@ export function mountSpectate(root, matchKey) {
     box3d.hidden = !on;
     inspect(null);
     if (!on) renderCard(null);
-    try { localStorage.setItem('netrts.view', on ? '3d' : '2d'); } catch { /* storage blocked */ }
+    saveText('localStorage', 'netrts.view', on ? '3d' : '2d');
     render3dControls();
     fit();
     if (on) view3d.renderer.domElement.focus({ preventScroll: true });
@@ -479,14 +470,13 @@ export function mountSpectate(root, matchKey) {
     audio?.unlock();   // browsers only start sound once the viewer clicks or presses a key
     if (!soundPanel.hidden && !soundPanel.contains(e.target) && e.target !== soundBtn) showSoundPanel(false);
   };
-  document.addEventListener('pointerdown', onDocDown);
-  document.addEventListener('keydown', onDocDown);
+  scope.on(document, 'pointerdown', onDocDown);
+  scope.on(document, 'keydown', onDocDown);
   flyBtn.addEventListener('click', () => view3d?.setMode(view3d.mode === 'fly' ? 'orbit' : 'fly'));
   gridBtn.addEventListener('click', () => { view3d?.setGrid(!view3d.grid); render3dControls(); });
   qualityBtn.addEventListener('click', () => {
     if (!view3d) return;
-    const order = ['low', 'medium', 'high'];
-    view3d.setQuality(order[(order.indexOf(view3d.quality) + 1) % order.length]);
+    view3d.cycleQuality();
     render3dControls();
   });
   box3d.addEventListener('keydown', (e) => {
@@ -501,8 +491,7 @@ export function mountSpectate(root, matchKey) {
     if (e.key === 'f' || e.key === 'F') { view3d?.setMode(view3d.mode === 'director' ? 'orbit' : 'director'); return; }
     if (e.key === '3') { set3d(false); return; }
     if (e.key === '0') { view3d?.overview(); return; }
-    if (e.key === '+' || e.key === '=') { view3d?.zoom(1 / 1.4); return; }
-    if (e.key === '-' || e.key === '_') { view3d?.zoom(1.4); return; }
+    // + and - are the view's own keys (camera.js): they zoom smoothly while held.
     const act = { ' ': 'play', ',': 'back', '.': 'fwd', Home: 'start', End: 'end' }[e.key];
     if (act && replay) { e.preventDefault(); replayAct(act); }
   });
@@ -534,18 +523,15 @@ export function mountSpectate(root, matchKey) {
   }
 
   function renderClock() {
-    const tick = state?.tick ?? summary?.tick ?? 0;
-    const max = state?.maxTicks ?? summary?.maxTicks ?? 0;
+    const { tick, max, pct } = matchClock({ state, summary });
     const status = replay ? 'Replay' : finished ? 'Completed' : (state?.status ?? summary?.status ?? 'Waiting');
     const paused = status === 'Active' && (state?.paused ?? summary?.paused);
-    const pct = max ? Math.min(100, (tick / max) * 100) : 0;
     setHtml($('clock'), html`
       <div class="clock-top">
         <span class="status ${paused ? 'Paused' : status}">${paused ? 'Paused' : status === 'Active' ? 'Live' : status}</span>
         <span class="tick">${fmt(tick)} <small>/ ${fmt(max)} ticks</small></span>
       </div>
-      <div class="progress" role="progressbar" aria-label="Match progress" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${tick}">
-        <span style="width:${pct.toFixed(2)}%"></span></div>`);
+      ${progressBar(pct, { label: 'Match progress', now: tick, max })}`);
   }
 
   function renderVision() {
@@ -578,10 +564,7 @@ export function mountSpectate(root, matchKey) {
 
   /** The full-screen scoreboard: everyone ranked by total score, eliminated players last. */
   function renderBoard(list, byId, winnerId) {
-    const rows = list.map((p) => {
-      const score = p.score || byId.get(p.playerId)?.score;
-      return { p, total: score ? totalOf(score) : 0 };
-    }).sort((a, b) => (a.p.eliminated - b.p.eliminated) || (b.total - a.total) || (a.p.slot - b.p.slot));
+    const rows = rankPlayers(list, (p) => p.score || byId.get(p.playerId)?.score);
     const num = (v) => (typeof v === 'number' ? fmt(v) : '–');
     setHtml($('board-list'), html`${rows.map(({ p, total }, i) => {
       const score = p.score || byId.get(p.playerId)?.score;
@@ -740,7 +723,7 @@ export function mountSpectate(root, matchKey) {
   }
   async function changeSpeed(path, body) {
     try {
-      summary = { ...summary, ...(await api(`/api/v1/matches/${matchId}/${path}`, { method: 'POST', body })) };
+      summary = { ...summary, ...(await scope.wait(api(`/api/v1/matches/${matchId}/${path}`, { method: 'POST', body }))) };
       // The stream brings the new state; until it does, show what we asked for.
       if (state) state = { ...state, paused: summary.paused, tickIntervalMs: summary.tickIntervalMs, tick: Math.max(state.tick, summary.tick) };
       renderAll();
@@ -779,7 +762,7 @@ export function mountSpectate(root, matchKey) {
   // ---------- data flow
   async function loadSummary() {
     try {
-      summary = await api(byName && !matchId ? `/api/v1/matches/named/${encodeURIComponent(matchKey)}` : `/api/v1/matches/${matchId}`);
+      summary = await scope.wait(api(byName && !matchId ? `/api/v1/matches/named/${encodeURIComponent(matchKey)}` : `/api/v1/matches/${matchId}`));
       matchId = summary.matchId;
       // Show the friendlier name in the address bar while the match is waiting or running.
       if (summary.name && summary.status !== 'Completed' && location.hash !== `#/match/${summary.name}`) {
@@ -801,24 +784,7 @@ export function mountSpectate(root, matchKey) {
     }
   }
 
-  async function loadMap() {
-    try {
-      const map = await api(`/api/v1/matches/${matchId}/map`);
-      showMap(map);
-      fit();
-      return true;
-    } catch (e) {
-      if (e.code === 'MATCH_NOT_STARTED' || e.status === 409) {
-        showWaiting();
-      } else {
-        setOverlay('Could not load the map', e.message);
-      }
-      return false;
-    }
-  }
-
   async function start() {
-    if (!alive) return;
     if (!(await loadSummary())) return;
     renderAll();
     if (summary.status === 'Waiting') {
@@ -828,78 +794,46 @@ export function mountSpectate(root, matchKey) {
       return;
     }
     if (summary.status === 'Completed' && await startReplay()) return;
-    if (!(await loadMap())) {
-      later(start, 2000);
-      return;
-    }
-    setOverlay(null);
-    if (summary.status === 'Completed') {
-      await showFinal();
-      return;
-    }
-    openStream();
+    openFeed(summary.status !== 'Completed');
   }
 
-  function openStream() {
-    if (!alive || finished) return;
-    es = new EventSource(`/api/v1/matches/${matchId}/spectate/stream?fog=true`);
-    es.onmessage = (msg) => {
-      let s;
-      try { s = JSON.parse(msg.data); } catch { return; }
-      onState(s);
-    };
-    es.onerror = async () => {
-      es?.close();
-      es = null;
-      if (!alive || finished) return;
-      // Find out why the stream dropped: match over, archived, or a network blip.
-      try {
-        summary = await api(`/api/v1/matches/${matchId}`);
-        if (summary.status === 'Completed') { await showFinal(); return; }
-      } catch (e) {
-        if (e.status === 404) { setOverlay(say('This match is gone', 'This brawl is over and gone'), 'It is no longer on the server.'); return; }
-      }
-      later(openStream, 1500);
-    };
+  /** The map, then the live frames (or, for a finished match with no replay, its final positions). */
+  function openFeed(live) {
+    feed?.close();
+    feed = openMatchFeed(matchId, {
+      live,
+      onMap: (map) => { showMap(map); fit(); setOverlay(null); },
+      onError: (e) => {
+        if (e.code === 'MATCH_NOT_STARTED' || e.status === 409) showWaiting();
+        else setOverlay('Could not load the map', e.message);
+      },
+      onState,
+      onEnd: showFinal,
+      onGone: () => setOverlay(say('This match is gone', 'This brawl is over and gone'), 'It is no longer on the server.'),
+    });
   }
+  scope.cleanup(() => feed?.close());
 
   function onState(s) {
-    if (!alive) return;
     state = s;
     showState(s);
     addEvents(s.events);
     renderAll();
     refreshTooltip();
-    if (s.status === 'Completed') {
-      es?.close();
-      es = null;
-      showFinal();
-    }
   }
 
   async function showFinal() {
     if (finished) return;
     finished = true;
-    es?.close();
-    es = null;
-    // Final positions: available while the match is still in memory.
-    if (!state) {
+    feed?.close();
+    for (let attempt = 0; attempt < 5 && !result; attempt++) {
       try {
-        const s = await api(`/api/v1/matches/${matchId}/spectate?fog=true`);
-        state = s;
-        showState(s);
-        addEvents(s.events);
-      } catch { /* archived: only the result survives */ }
-    }
-    for (let attempt = 0; attempt < 5 && alive && !result; attempt++) {
-      try {
-        result = await api(`/api/v1/matches/${matchId}/result`);
+        result = await scope.wait(api(`/api/v1/matches/${matchId}/result`));
       } catch (e) {
         if (e.status !== 409) break;
-        await new Promise((r) => setTimeout(r, 600));
+        await new Promise((r) => later(r, 600));
       }
     }
-    if (!alive) return;
     if (!state && view.map) {
       setOverlay(null);
     }
@@ -917,11 +851,11 @@ export function mountSpectate(root, matchKey) {
     const live = new Map((state?.players || []).map((p) => [p.playerId, p]));
     const seat = new Map((summary?.players || []).map((p) => [p.playerId, p]));
     const players = result?.players?.length ? result.players : state?.players || [];
-    if (!alive || !outcome || !players.length) return;
+    if (!scope.alive || !outcome || !players.length) return;
     const rows = players.map((p) => {
       const score = p.score || live.get(p.playerId)?.score;
       const won = p.playerId === outcome.winnerId;
-      return { p: { ...seat.get(p.playerId), ...p, eliminated: live.get(p.playerId)?.eliminated }, score, total: score ? totalOf(score) : 0, won };
+      return { p: { ...seat.get(p.playerId), ...p, eliminated: live.get(p.playerId)?.eliminated }, score, total: totalOf(score), won };
     }).sort((a, b) => (b.won - a.won) || (b.total - a.total) || (a.p.slot - b.p.slot));
     const top = Math.max(1, ...rows.map((r) => r.total));
     const winner = rows.find((r) => r.won)?.p;
@@ -1020,15 +954,9 @@ export function mountSpectate(root, matchKey) {
         c.el.textContent = fmt(Math.round(c.to * (1 - Math.pow(1 - t, 3))));
         if (t < 1) busy = true;
       }
-      if (busy && alive) goAnim = requestAnimationFrame(step);
+      if (busy && scope.alive) goAnim = requestAnimationFrame(step);
     };
     goAnim = requestAnimationFrame(step);
-  }
-
-  /** 1:23, or 1:02:03 */
-  function clockText(ms) {
-    const s = Math.round(ms / 1000), h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), ss = String(s % 60).padStart(2, '0');
-    return h ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
   }
 
   // ---------- replay: finished matches play back from their recorded frames, a chunk at a time
@@ -1040,31 +968,29 @@ export function mountSpectate(root, matchKey) {
   async function startReplay() {
     let manifest;
     // Older matches are re-simulated the first time anyone watches them, which can take a while.
-    const slow = setTimeout(() => alive && setOverlay('Preparing the replay…',
+    const slow = later(() => setOverlay('Preparing the replay…',
       'Matches played before replays were recorded are rebuilt the first time someone watches them. This can take a few seconds.'), 700);
     try {
-      manifest = await api(`/api/v1/matches/${matchId}/frames`);
+      manifest = await scope.wait(api(`/api/v1/matches/${matchId}/frames`));
     } catch (e) {
       replayNote = e.code === 'FRAMES_UNAVAILABLE' ? e.message : '';
       return false;
     } finally {
-      clearTimeout(slow);
+      scope.clear(slow);
     }
-    if (!alive) return true;
     replay = {
       m: manifest, last: manifest.lastTick, chunkTicks: manifest.chunkTicks,
       chunks: new Map(), pending: new Map(), tick: 0, playing: false, speed: 8,
       timer: null, seq: 0, feedTick: -1,
     };
     finished = true;
-    es?.close();
-    es = null;
+    feed?.close();
     setHtml($('banner-slot'), html``);
     showMap(manifest.map);
     fit();
     setOverlay(null);
     renderReplayControls();
-    if (!result) api(`/api/v1/matches/${matchId}/result`).then((r) => { result = r; if (alive) renderAll(); }).catch(() => {});
+    if (!result) scope.wait(api(`/api/v1/matches/${matchId}/result`)).then((r) => { result = r; renderAll(); }, () => {});
     await seekReplay(0);
     playReplay(true);
     return true;
@@ -1101,16 +1027,16 @@ export function mountSpectate(root, matchKey) {
     if (!frames) {
       updateReplayControls(true);
       try {
-        frames = await chunk(i);
+        frames = await scope.wait(chunk(i));
       } catch (e) {
-        if (seq !== replay.seq || !alive) return;
+        if (seq !== replay.seq) return;
         playReplay(false);
         setOverlay('Could not load the replay', e.message);
         later(() => { setOverlay(null); seekReplay(replay.tick); }, 3000);
         return;
       }
     }
-    if (seq !== replay.seq || !alive) return;   // a later seek has taken over
+    if (seq !== replay.seq) return;   // a later seek has taken over
     const frame = frames[t - i * replay.chunkTicks];
     state = frame;
     // Animate at the playback pace, not the pace the match was recorded at.
@@ -1124,7 +1050,7 @@ export function mountSpectate(root, matchKey) {
   }
 
   function playReplay(on) {
-    clearTimeout(replay.timer);
+    scope.clear(replay.timer);
     if (on && replay.tick >= replay.last) seekReplay(0);
     replay.playing = on;
     syncPause();
@@ -1134,13 +1060,12 @@ export function mountSpectate(root, matchKey) {
 
   function nextReplayTick() {
     const ms = replayMs();
-    replay.timer = setTimeout(async () => {
-      if (!alive || !replay.playing) return;
+    replay.timer = later(async () => {
+      if (!replay.playing) return;
       if (replay.tick >= replay.last) { playReplay(false); showGameOver(); return; }
       await seekReplay(replay.tick + 1);
-      if (alive && replay.playing) nextReplayTick();
+      if (scope.alive && replay.playing) nextReplayTick();
     }, ms);
-    timers.push(replay.timer);
   }
 
   const replayMs = () => Math.max(16, 1000 / replay.speed);
@@ -1216,7 +1141,7 @@ export function mountSpectate(root, matchKey) {
     const which = e.target.closest('[data-replay]')?.dataset.replay;
     if (!which) return;
     if (which === 'restart') { seekReplay(0); playReplay(true); return; }
-    if (!(await startReplay())) {
+    if (!(await scope.wait(startReplay()))) {
       setOverlay('No replay for this match', replayNote || 'Try again in a moment.');
       later(() => setOverlay(null), 3000);
     }
@@ -1237,39 +1162,21 @@ export function mountSpectate(root, matchKey) {
   });
 
   start();
-  let want3d = false;
-  try { want3d = localStorage.getItem('netrts.view') === '3d'; } catch { /* storage blocked */ }
-  if (want3d) set3d(true);
+  if (loadText('localStorage', 'netrts.view') === '3d') set3d(true);
   else {
     // Fetch the 3D view's code while the viewer watches in 2D, so pressing 3D doesn't wait on the network.
-    const fetch3d = () => {
-      if (!alive || view3d) return;
-      import('./3d/view.js').catch(() => {});
-      import('./3d/audio.js').catch(() => {});
-    };
+    const fetch3d = () => { if (scope.alive && !view3d) preload3d(); };
     if ('requestIdleCallback' in window) requestIdleCallback(fetch3d, { timeout: 5000 });
     else later(fetch3d, 2500);
   }
 
   return () => {
-    alive = false;
-    view3d?.destroy();
-    es?.close();
-    timers.forEach(clearTimeout);
-    ro.disconnect();
-    window.removeEventListener('resize', fit);
-    scheme.removeEventListener('change', onScheme);
-    document.removeEventListener('fullscreenchange', onFullscreenChange);
-    document.removeEventListener('pointerdown', onDocDown);
-    document.removeEventListener('keydown', onDocDown);
-    audio?.dispose();
+    scope.dispose();
     document.documentElement.classList.remove('map-full');
     if (document.fullscreenElement === frame) document.exitFullscreen().catch(() => {});
     view.destroy();
   };
 }
-
-const totalOf = (score) => score.total ?? score.destruction + score.economy + score.survival;
 
 function spaced(s) {
   return String(s ?? '').replace(/([a-z])([A-Z0-9])/g, '$1 $2');

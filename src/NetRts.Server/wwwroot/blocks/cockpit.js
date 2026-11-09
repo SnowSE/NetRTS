@@ -1,140 +1,45 @@
 // #/blocks/match/<id>: the cockpit. The match in the 3D view, your rules lighting up as they fire,
 // switches to flip, and each rule saved into the running match as you change it.
-import { api, html, raw, setHtml, displayName, outcomeText, slotVar } from '../util.js';
-import { SNOW, say, unitName, upgradeName, buildingName, buildingRole, ORE } from '../lore.js';
+import { api, html, raw, setHtml, displayName, outcomeText, mountScope, playerNames } from '../util.js';
+import { say } from '../lore.js';
+import { openMatchFeed } from '../matchfeed.js';
+import { mount3d } from '../3d/mount.js';
 import { getStrategy, putStrategy, newStrategy, prefs, matchRecords, recordMatch, player, authed, clone } from './store.js';
 import { RULES, THEME, sameProgram } from './program.js';
 import { RuleEditor } from './rule-editor.js';
 import { ICON } from './icons.js';
+import { StatHistory, hudHtml, buildingCardHtml, qualityIcon, soundIcon } from './cockpit-hud.js';
+
+// Home: your base from above, a little zoomed out. The view starts there; the ⌂ button comes back.
+const HOME_VIEW = { dist: 16, pitch: 1.05 };
+const HOME_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>';
 
 export function mountCockpit(main, matchId) {
-  let alive = true;
-  let summary = null;
-  let status = null;
-  let strategy = null;      // the strategy being edited here (saved in the locker as you go)
-  let view3d = null;
-  let es = null;
-  let lastState = null;
-  let hovered = null;
-  let applying = false;
-  // Home: your base from above, a little zoomed out. The view starts there; the ⌂ button comes back.
-  const HOME_VIEW = { dist: 16, pitch: 1.05 };
-  let homed = false;
-  let mapData = null;
-  let audio = null;
-  const QUALITY_NAMES = { low: 'Low', medium: 'Medium', high: 'High' };
-  const QUALITY_BARS = { low: 1, medium: 2, high: 3 };
-  /** The speaker (sound on or muted) and the signal bars (picture quality: one, two or three filled). */
-  function renderViewTools() {
-    const q = $('bb-quality'), snd = $('bb-sound');
-    if (q && view3d) {
-      const n = QUALITY_BARS[view3d.quality] ?? 2;
-      const label = `Picture quality: ${QUALITY_NAMES[view3d.quality] ?? 'Medium'}. Click to change.`;
-      q.setAttribute('aria-label', label);
-      q.title = label;
-      setHtml(q, html`<svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">${[0, 1, 2].map((i) =>
-        html`<rect x="${2 + i * 7.5}" y="${16 - i * 6}" width="5" height="${6 + i * 6}" rx="1" fill="${i < n ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5"/>`)}</svg>`);
-    }
-    if (snd && audio) {
-      const muted = audio.settings.muted;
-      const label = muted ? 'Sound is off: turn it on' : 'Sound is on: mute';
-      snd.setAttribute('aria-pressed', String(!muted));
-      snd.setAttribute('aria-label', label);
-      snd.title = label;
-      setHtml(snd, html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9h4l5-4v14l-5-4H4z" fill="currentColor"/><path d="${muted ? 'M16 9l5 6M21 9l-5 6' : 'M16 9.5a4 4 0 0 1 0 5M18.5 7a7.5 7.5 0 0 1 0 10'}"/></svg>`);
-    }
-  }
-
-  // ---- the stats rail: a trend line per stat over the last minute, and the scoreboard
-  const HISTORY_TICKS = 60;
-  const history = [];   // { tick, grubs, workers, fighters, buildings }, oldest first
-  function remember() {
-    const s = status?.stats;
-    if (!s || (history.length && history[history.length - 1].tick >= status.tick)) return;
-    history.push({ tick: status.tick, grubs: s.grubs, workers: s.workers, fighters: s.fighters, buildings: s.buildings });
-    while (history.length > 2 && history[0].tick < status.tick - HISTORY_TICKS) history.shift();
-  }
-  const fmtN = (n) => Number(n ?? 0).toLocaleString();
-  function trendTile(key, label, color) {
-    const now = history[history.length - 1]?.[key] ?? status?.stats?.[key] ?? 0;
-    const first = history[0], last = history[history.length - 1];
-    const span = first && last ? last.tick - first.tick : 0;
-    const perMin = span >= 5 ? Math.round(((last[key] - first[key]) * 60) / span) : null;
-    const W = 112, H = 20;
-    let line = '', area = '', mark = null;
-    if (history.length >= 2) {
-      const vals = history.map((h) => h[key]);
-      const lo = Math.min(...vals), hi = Math.max(...vals), range = Math.max(1, hi - lo);
-      const x = (t) => ((t - first.tick) / Math.max(1, span)) * W;
-      line = history.map((h) => `${x(h.tick).toFixed(1)},${(H - 2 - ((h[key] - lo) / range) * (H - 4)).toFixed(1)}`).join(' ');
-      area = `0,${H} ${line} ${W},${H}`;
-      // Where the newest version went live, when that was within the last minute.
-      const v = status?.versions?.[status.versions.length - 1];
-      if (v && v.version > 1 && v.tick > first.tick) mark = x(v.tick).toFixed(1);
-    }
-    const rate = perMin == null ? '' : perMin === 0 ? 'steady' : `${perMin > 0 ? '▲ +' : '▼ −'}${fmtN(Math.abs(perMin))}/min`;
-    const rateClass = perMin == null || perMin === 0 ? '' : perMin > 0 ? ' up' : ' down';
-    return html`<div class="bb-tile">
-      <span class="bb-tile-label">${label}</span>
-      <span class="bb-tile-row"><span class="bb-tile-value" style="color:${color}">${fmtN(now)}</span><span class="bb-tile-rate${rateClass}">${rate}</span></span>
-      <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label} over the last minute, now ${fmtN(now)}">
-        ${line ? html`<polyline points="${area}" fill="${color}" fill-opacity="0.14" stroke="none"/><polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-        ${mark ? html`<line x1="${mark}" y1="0" x2="${mark}" y2="${H}" stroke="#f2c14e" stroke-width="1" stroke-dasharray="2 2"><title>v${status.versions[status.versions.length - 1].version} went live</title></line>` : ''}
-      </svg>
-    </div>`;
-  }
-  /** Everyone when it fits; with lots of players, the top four, then you. */
-  function scoreboard() {
-    const players = [...(lastState?.players || [])]
-      .sort((a, b) => (a.eliminated - b.eliminated) || ((b.score?.total ?? 0) - (a.score?.total ?? 0)))
-      .map((p, i) => ({ ...p, rank: i + 1, me: p.slot === status?.slot }));
-    if (!players.length) return '';
-    let rows = players;
-    if (players.length > 5) {
-      const top = players.slice(0, 4);
-      rows = top.some((p) => p.me) ? players.slice(0, 5) : [...top, null, players.find((p) => p.me)].filter((p) => p !== undefined);
-    }
-    return html`<div class="bb-tile bb-board">
-      <span class="bb-tile-label">Scoreboard <span class="bb-board-count">${players.length} players</span></span>
-      <ol>${rows.map((p) => p == null
-        ? html`<li class="bb-board-gap" aria-hidden="true">⋯</li>`
-        : html`<li class="${p.me ? 'me' : ''}${p.eliminated ? ' out' : ''}" style="--pc:${slotVar(p.slot)}"><span class="bb-board-rank">${p.rank}</span><span class="bb-board-name">${p.me ? 'You' : displayName(p.name)}</span><span class="bb-board-score">${fmtN(p.score?.total)}</span></li>`)}</ol>
-    </div>`;
-  }
-  /** The tick, the tick limit and roughly how long until it (a match can also end sooner, by elimination). */
-  function clockTile() {
-    const tick = Math.max(lastState?.tick ?? 0, status?.tick ?? 0);
-    const max = lastState?.maxTicks ?? summary?.maxTicks ?? 0;
-    if (!max) return '';
-    const done = summary?.status === 'Completed' || status?.matchStatus === 'Completed';
-    const secs = Math.round((Math.max(0, max - tick) * (lastState?.tickIntervalMs ?? summary?.tickIntervalMs ?? 1000)) / 1000);
-    const left = done ? 'final' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} left`;
-    const pct = Math.min(100, (tick / max) * 100);
-    return html`<div class="bb-tile bb-clock" title="The match ends at tick ${fmtN(max)} if nobody is knocked out first. Then the highest score wins.">
-      <span class="bb-tile-label">Tick <span>${left}</span></span>
-      <span class="bb-tile-value">${fmtN(tick)}<small> / ${fmtN(max)}</small></span>
-      <span class="bb-clock-bar" role="progressbar" aria-label="Match progress" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${tick}"><span style="width:${pct.toFixed(1)}%"></span></span>
-    </div>`;
-  }
-
-  function renderHud() {
-    const box = $('bb-hud');
-    if (!box || !status) return;
-    setHtml(box, html`
-      ${clockTile()}
-      ${trendTile('grubs', ORE[0].toUpperCase() + ORE.slice(1), '#f2c14e')}
-      ${trendTile('workers', 'Workers', '#7cc7f0')}
-      ${trendTile('fighters', 'Fighters', '#ff8a7a')}
-      ${trendTile('buildings', 'Buildings', '#c7b2f0')}
-      ${scoreboard()}`);
-  }
-  const timers = [];
-  const later = (fn, ms) => timers.push(setTimeout(() => { if (alive) fn(); }, ms));
-
   if (!player()) {
     setHtml(main, html`<section class="bb-page"><h1>Block Bot</h1><p>This browser doesn’t have your ${say('bot', 'badger')}’s key. <a href="#/blocks">Go to the locker</a> to set it up, or <a href="#/match/${matchId}">just watch the match</a>.</p></section>`);
     return () => {};
   }
+
+  // Polls, the match feed, the 3D view and the page-wide listeners all stop at teardown, and no request
+  // that comes back after it (scope.wait) touches the page, or the one that replaced it.
+  const scope = mountScope();
+  const { later } = scope;
+  let summary = null;       // the match (GET /matches/{id})
+  let status = null;        // your Block Bot in it (GET /blocks/matches/{id}/status)
+  let strategy = null;      // the strategy being edited here (saved in the locker as you go)
+  let editor = null;
+  let lastState = null;     // the newest spectator frame
+  let mapData = null;
+  let view3d = null;
+  let audio = null;
+  let feed = null;
+  let hovered = null;
+  let applying = false;
+  let homed = false;
+  let waitingMsg = false;
+  let pickedId = null;      // the building clicked in the 3D view
+  let pickedLast = null;    // the last picture of it, for when it's gone
+  const history = new StatHistory();
 
   main.classList.add('wide', 'bb-full');
   setHtml(main, html`
@@ -176,7 +81,7 @@ export function mountCockpit(main, matchId) {
           <div class="bb-view-left" role="group" aria-label="Camera">
             <button type="button" class="bb-sq" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)">+</button>
             <button type="button" class="bb-sq" data-zoom="out" aria-label="Zoom out" title="Zoom out (−)">−</button>
-            <button type="button" class="bb-sq" data-home aria-label="Home: center on my base" title="Home: center on my base (H)">${raw('<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/></svg>')}</button>
+            <button type="button" class="bb-sq" data-home aria-label="Home: center on my base" title="Home: center on my base (H)">${raw(HOME_ICON)}</button>
           </div>
           <div class="bb-view-right">
             <button type="button" class="bb-sq" id="bb-sound" aria-pressed="true" aria-label="Sound"></button>
@@ -189,17 +94,16 @@ export function mountCockpit(main, matchId) {
         </div>
       </div>
     </section>`);
+  const root = main.querySelector('#bb-cockpit');
+  const $ = (id) => root.querySelector(`#${id}`);
 
   // The cockpit fills the window under the site's top bar: the rules scroll on the left, the view stays put.
-  const fitHeight = () => {
-    const el = main.querySelector('#bb-cockpit');
-    if (el) el.style.setProperty('--bb-top', `${Math.max(0, el.getBoundingClientRect().top + window.scrollY)}px`);
-  };
+  const fitHeight = () => root.style.setProperty('--bb-top', `${Math.max(0, root.getBoundingClientRect().top + window.scrollY)}px`);
   fitHeight();
-  window.addEventListener('resize', fitHeight);
+  scope.on(window, 'resize', fitHeight);
+  scope.cleanup(() => { feed?.close(); main.classList.remove('wide', 'bb-full'); });
 
-  const $ = (id) => main.querySelector(`#${id}`);
-  let editor = null;
+  // ---- the rules
 
   function ensureStrategy(program) {
     if (strategy) return;
@@ -216,7 +120,7 @@ export function mountCockpit(main, matchId) {
       onSave: async (p) => {
         if (status?.matchStatus === 'Completed') throw new Error('The match is over, so there’s nothing to send it to.');
         try {
-          status = await authed(`/api/v1/blocks/matches/${matchId}/program`, { method: 'PUT', body: p });
+          status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/program`, { method: 'PUT', body: p }));
         } catch (e) {
           throw new Error(e.code === 'INVALID_PROGRAM' ? `That doesn’t work yet: ${e.message}` : e.message);
         }
@@ -229,12 +133,13 @@ export function mountCockpit(main, matchId) {
     });
   }
 
-  // The saved strategy can differ from what's playing when it was changed in the full editor meanwhile.
+  // The saved strategy can differ from what's playing when it was changed in the full editor meanwhile:
+  // then the cockpit offers to send it in, or to go back to what's playing.
   const pending = () => strategy && status?.program && !editor?.busy && !sameProgram(strategy.program, status.program);
 
   function renderApply() {
     const box = $('bb-apply');
-    if (!box || !status) return;
+    if (!status) return;
     if (status.matchStatus !== 'Completed' && pending()) {
       setHtml(box, html`<div class="bb-pending"><p><b>This strategy changed in the editor</b> since this version started playing.</p>
         <div class="bb-row-btns"><button type="button" class="btn start small-btn" id="bb-apply-btn" ${applying ? 'disabled' : ''}>Send the changes in</button>
@@ -245,6 +150,23 @@ export function mountCockpit(main, matchId) {
     editor?.setStatus(status.rules, pending() ? '(running version)' : '');
   }
 
+  async function apply() {
+    if (!strategy || applying) return;
+    applying = true;
+    renderApply();
+    try {
+      status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/program`, { method: 'PUT', body: strategy.program }));
+      renderSide();
+    } catch (e) {
+      applying = false;
+      renderApply();
+      $('bb-apply-err').textContent = e.code === 'INVALID_PROGRAM' ? `Your strategy has a problem: ${e.message}` : e.message;
+      return;
+    }
+    applying = false;
+    renderApply();
+  }
+
   function renderSide() {
     if (!status) return;
     const sw = Object.entries(status.switches || {});
@@ -252,16 +174,24 @@ export function mountCockpit(main, matchId) {
       ? html`${sw.map(([name, on]) => html`<button type="button" class="bb-switch" data-switch="${name}" aria-pressed="${on}">${name}<span>${on ? 'ON' : 'off'}</span></button>`)}`
       : html`<p class="small muted">None yet: add one from a check’s ▾, like “Attack!”.</p>`);
     setHtml($('bb-versions'), html`${(status.versions || []).map((v) => html`<li${v.version === status.version ? ' aria-current="true"' : ''}><b>v${v.version}</b> <span class="muted">from tick ${v.tick}</span></li>`)}`);
-    remember();
+    history.add(status);
     renderHud();
-    $('bb-running').textContent = `${status.programName || 'Strategy'} · running v${status.version}`;
-    if (status.error) $('bb-running').textContent += ` · problem: ${status.error}`;
+    $('bb-running').textContent = `${status.programName || 'Strategy'} · running v${status.version}${status.error ? ` · problem: ${status.error}` : ''}`;
   }
+
+  async function flip(name) {
+    const on = !status?.switches?.[name];
+    try {
+      status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/switches`, { method: 'PUT', body: { name, on } }));
+      renderSide();
+    } catch (e) { setMsg(e.message); later(() => setMsg(''), 3000); }
+  }
+
+  // ---- the match
 
   function renderSummary() {
     if (!summary) return;
-    const names = summary.players.map((p) => displayName(p.name));
-    $('bb-title').textContent = summary.players.length ? names.join(' vs ') : 'Match';
+    $('bb-title').textContent = summary.players.length ? summary.players.map((p) => displayName(p.name)).join(' vs ') : 'Match';
     const pill = $('bb-pill');
     pill.textContent = summary.status === 'Active' ? 'LIVE' : summary.status === 'Waiting' ? 'WAITING' : 'FINISHED';
     pill.dataset.state = summary.status;
@@ -283,12 +213,10 @@ export function mountCockpit(main, matchId) {
       setMsg('');
     }
   }
-  let waitingMsg = false;
 
   /** A match waiting for people: who's in, how others find it, and (for whoever created it) Start now. */
   function renderWaiting() {
     const box = $('bb-waiting');
-    if (!box) return;
     if (summary?.status !== 'Waiting') { box.hidden = true; return; }
     const me = player()?.playerId;
     const creator = !summary.hostedBy && summary.players.find((p) => p.slot === 0)?.playerId === me;
@@ -306,165 +234,138 @@ export function mountCockpit(main, matchId) {
   async function startNow(btn) {
     btn.disabled = true;
     try {
-      summary = await authed(`/api/v1/blocks/matches/${matchId}/start`, { method: 'POST' });
-      renderSummary();
-      if (summary?.status === 'Active' && !es) startStream();
+      summary = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/start`, { method: 'POST' }));
     } catch (e) {
-      const err = $('bb-start-err');
-      if (err) err.textContent = e.message;
+      $('bb-start-err').textContent = e.message;
       btn.disabled = false;
+      return;
     }
+    renderSummary();
+    if (summary?.status === 'Active') openFeed(true);
   }
 
   function setMsg(text) {
     const m = $('bb-3d-msg');
-    if (!m) return;
     m.hidden = !text;
     m.textContent = text || '';
   }
+  const gone = () => setMsg('This match is over and gone from the server. Your strategy is still saved here.');
 
-  // ---- data
+  // ---- data: the match summary and your bot's status are polled; the picture comes from the match feed
+
   async function pollSummary() {
-    try { summary = await api(`/api/v1/matches/${matchId}`); } catch (e) {
+    try {
+      summary = await scope.wait(api(`/api/v1/matches/${matchId}`));
+    } catch (e) {
       if (e.status === 404) { gone(); return; }
       later(pollSummary, 10000);
       return;
     }
     renderSummary();
-    if (summary?.status === 'Active' && !es) startStream();
-    if (summary?.status === 'Completed' && !lastState) showFinalBoard();
-    if (summary?.status !== 'Completed') later(pollSummary, summary?.status === 'Waiting' ? 2000 : 4000);
+    if (summary.status === 'Active') openFeed(true);
+    if (summary.status === 'Completed' && !lastState) openFeed(false);
+    if (summary.status !== 'Completed') later(pollSummary, summary.status === 'Waiting' ? 2000 : 4000);
   }
 
   async function pollStatus() {
     try {
-      status = await authed(`/api/v1/blocks/matches/${matchId}/status?theme=${THEME}`);
-      ensureStrategy(status.program);
-      renderSide();
-      renderApply();
-      if (view3d && status.slot >= 0 && view3d.vision !== status.slot) view3d.setVision(status.slot);
-      highlight();
+      status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/status?theme=${THEME}`));
     } catch (e) {
       if (e.code === 'NO_BLOCK_BOT') { setMsg('You don’t have a Block Bot in this match.'); return; }
       if (e.status === 404) { gone(); return; }
       later(pollStatus, 10000);
       return;
     }
-    if (status?.matchStatus !== 'Completed') later(pollStatus, Math.max(400, Math.min(1000, summary?.tickIntervalMs ?? 1000)));
+    ensureStrategy(status.program);
+    renderSide();
+    renderApply();
+    if (view3d && status.slot >= 0 && view3d.vision !== status.slot) view3d.setVision(status.slot);
+    highlight();
+    if (status.matchStatus !== 'Completed') later(pollStatus, Math.max(400, Math.min(1000, summary?.tickIntervalMs ?? 1000)));
   }
 
-  async function start3d() {
-    const box = $('bb-3d');
-    try {
-      const [{ View3D }, { GameAudio }] = await Promise.all([import('./3d/view.js'), import('./3d/audio.js')]);
-      if (!alive) return;
-      const names = () => new Map((lastState?.players || summary?.players || []).map((p) => [p.slot, displayName(p.name)]));
-      audio = new GameAudio();
-      audio.setActive(true);
-      // The same viewer as the spectator page: its quality adapts to the computer (and remembers a choice).
-      view3d = new View3D(box, { badger: SNOW, names, audio });
-      box.view3d = view3d;   // handy from the dev tools console, as on the spectator page
-      view3d.onQualityChange = renderViewTools;
-      view3d.onPickBuilding = (b) => { pickedId = b?.id ?? null; pickedLast = b; renderBuildingCard(); };
-      renderViewTools();
-      view3d.onReady = () => {
-        if (!alive) return;
-        if (summary?.status !== 'Waiting') setMsg('');
-        goHome();
-      };
-    } catch (e) {
-      setMsg(`The 3D view couldn’t start here (${e?.message || 'no WebGL'}). Your bot is still playing.`);
-    }
-  }
-
-  /** A finished match: the last picture, while the server still has it. */
-  async function showFinalBoard() {
-    if (!view3d) return;
-    try {
-      mapData = await api(`/api/v1/matches/${matchId}/map`);
-      view3d.setMap(mapData);
-      lastState = await api(`/api/v1/matches/${matchId}/spectate?fog=true`);
-      view3d.setState(lastState);
-      goHome();
-      renderHud();
-    } catch { /* archived: only the result is left */ }
-  }
-
-  let retryMs = 2000;
-  const gone = () => setMsg('This match is over and gone from the server. Your strategy is still saved here.');
-  async function startStream() {
-    if (!view3d || !alive) return;
-    if (!lastState) {
-      try {
-        const map = await api(`/api/v1/matches/${matchId}/map`);
-        if (!alive) return;
+  /** The map and every frame while it plays; for a match already over (live: false), its final positions. */
+  function openFeed(live) {
+    if (feed || !view3d) return;
+    feed = openMatchFeed(matchId, {
+      live,
+      onMap: (map) => {
         mapData = map;
         view3d.setMap(map);
         if (status?.slot >= 0) view3d.setVision(status.slot);
-      } catch (e) {
-        // Gone (the server restarted, say): stop. Unreachable: try again, less and less often.
-        if (e.status === 404) { gone(); return; }
-        later(startStream, retryMs);
-        retryMs = Math.min(retryMs * 2, 30000);
-        return;
-      }
-    }
-    es = new EventSource(`/api/v1/matches/${matchId}/spectate/stream?fog=true`);
-    es.onmessage = (msg) => {
-      let s;
-      try { s = JSON.parse(msg.data); } catch { return; }
-      retryMs = 2000;   // connected again: the next drop starts the backoff over
-      lastState = s;
-      view3d?.setState(s);
-      if (pickedId != null) renderBuildingCard();
-      if (!homed) goHome();
-    };
-    es.onerror = () => {
-      es?.close();
-      es = null;
-      if (alive && summary?.status !== 'Completed') { later(startStream, retryMs); retryMs = Math.min(retryMs * 2, 30000); }
-    };
+      },
+      onState: (s) => {
+        lastState = s;
+        view3d.setState(s);
+        if (pickedId != null) renderBuildingCard();
+        if (!homed) goHome();
+      },
+      onEnd: renderHud,
+      onGone: gone,
+    });
   }
 
-  // ---- the building you clicked in the 3D view: what it is, whose, its health and what it's doing
-  let pickedId = null;
-  let pickedLast = null;   // the last picture of it, for when it's gone
+  // ---- the 3D view
+
+  async function start3d() {
+    try {
+      const v = await mount3d($('bb-3d'), {
+        scope,
+        names: () => playerNames(summary, lastState),
+        onReady: () => {
+          if (summary?.status !== 'Waiting') setMsg('');
+          goHome();
+        },
+      });
+      scope.cleanup(v.dispose);
+      ({ view3d, audio } = v);
+    } catch (e) {
+      setMsg(`The 3D view couldn’t start here (${e?.message || 'no WebGL'}). Your bot is still playing.`);
+      return;
+    }
+    audio.setActive(true);
+    // The same viewer as the spectator page: its quality adapts to the computer (and remembers a choice).
+    view3d.onQualityChange = renderViewTools;
+    view3d.onPickBuilding = (b) => { pickedId = b?.id ?? null; pickedLast = b; renderBuildingCard(); };
+    renderViewTools();
+  }
+
+  /** The speaker (sound on or muted) and the signal bars (picture quality: one, two or three filled). */
+  function renderViewTools() {
+    const q = $('bb-quality'), snd = $('bb-sound');
+    if (view3d) {
+      const label = `Picture quality: ${view3d.qualityName}. Click to change.`;
+      q.setAttribute('aria-label', label);
+      q.title = label;
+      setHtml(q, qualityIcon(view3d.qualityLevel));
+    }
+    if (audio) {
+      const muted = audio.settings.muted;
+      const label = muted ? 'Sound is off: turn it on' : 'Sound is on: mute';
+      snd.setAttribute('aria-pressed', String(!muted));
+      snd.setAttribute('aria-label', label);
+      snd.title = label;
+      setHtml(snd, soundIcon(muted));
+    }
+  }
+
+  function renderHud() {
+    if (status) setHtml($('bb-hud'), hudHtml({ state: lastState, summary, status, history }));
+  }
+
   function renderBuildingCard() {
     const box = $('bb-bcard');
-    if (!box) return;
-    if (pickedId == null) { box.hidden = true; return; }
-    const live = lastState?.buildings?.find((x) => x.id === pickedId);
-    const b = live ?? pickedLast;
+    const live = pickedId == null ? null : lastState?.buildings?.find((x) => x.id === pickedId);
+    const b = live ?? (pickedId == null ? null : pickedLast);
     if (!b) { box.hidden = true; return; }
     if (live) pickedLast = live;
-    const mine = b.owner === status?.slot;
-    const ownerName = displayName((lastState?.players || summary?.players || []).find((p) => p.slot === b.owner)?.name ?? `Player ${b.owner + 1}`);
-    const r = RULES?.buildings?.find((x) => x.type === b.type);
-    const pct = b.maxHp ? Math.max(0, Math.min(100, (b.hp / b.maxHp) * 100)) : 0;
-    const stats = [
-      r ? ['Armor', r.armor] : null,
-      r?.damage ? ['Attack', `${r.damage} damage, range ${r.range}`] : null,
-      r?.storageBonus ? ['Stores', `${fmtN(r.storageBonus)} ${ORE}`] : null,
-      r?.produces?.length ? ['Trains', r.produces.map((t) => unitName(t)).join(', ')] : null,
-      r?.canResearch ? ['Classes', say('researches upgrades', 'teaches the classes')] : null,
-    ].filter(Boolean);
     box.hidden = false;
-    setHtml(box, html`
-      <div class="bb-bcard-head">
-        <h2>${buildingName(b.type, b.owner)}</h2>
-        <button type="button" class="bb-sq small" data-bclose aria-label="Close">×</button>
-      </div>
-      <p class="bb-bcard-owner"><span class="bb-bcard-dot" style="--pc:${slotVar(b.owner)}" aria-hidden="true"></span>${mine ? 'Yours' : ownerName}</p>
-      ${live ? html`
-        <div class="bb-bcard-hp"><span>HP</span><b>${fmtN(b.hp)} / ${fmtN(b.maxHp)}</b></div>
-        <span class="bb-clock-bar bb-hpbar${pct < 34 ? ' low' : ''}" aria-hidden="true"><span style="width:${pct.toFixed(1)}%"></span></span>
-        ${b.completed ? '' : html`<p>Under construction: ${b.constructionPercent}%</p>`}
-        ${b.production?.length ? html`<p>${say('Producing', 'Training')}: ${unitName(b.production[0].unitType)} ${b.production[0].percent}%${b.production.length > 1 ? html` <span class="bb-bcard-q">(+${b.production.length - 1} queued)</span>` : ''}</p>` : ''}
-        ${b.research ? html`<p>${say('Researching', 'Studying')}: ${upgradeName(b.research.upgrade)} ${b.research.percent}%</p>` : ''}`
-        : html`<p class="bb-bcard-gone">Destroyed.</p>`}
-      <p class="bb-bcard-role">${buildingRole(b.type)}</p>
-      ${stats.length ? html`<dl class="bb-bcard-stats">${stats.map(([k, v]) => html`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl>` : ''}
-      ${live ? html`<button type="button" class="bb-bcard-zoom" data-bzoom>Zoom to it</button>` : ''}`);
+    setHtml(box, buildingCardHtml(b, {
+      live: !!live,
+      mine: b.owner === status?.slot,
+      ownerName: playerNames(summary, lastState).get(b.owner),
+      rules: RULES,
+    }));
   }
 
   /** Your base from above: your HQ (any of them), else where you started. */
@@ -477,40 +378,16 @@ export function mountCockpit(main, matchId) {
     homed = true;
     view3d.lookAtTile(hq.x, hq.y, HOME_VIEW);
   }
+
   function highlight() {
     if (!view3d) return;
     const ids = hovered != null ? status?.rules?.[hovered]?.unitIds : null;
     view3d.highlight = ids?.length ? new Set(ids) : null;
   }
 
-  // ---- actions
-  async function apply() {
-    if (!strategy || applying) return;
-    applying = true;
-    renderApply();
-    try {
-      status = await authed(`/api/v1/blocks/matches/${matchId}/program`, { method: 'PUT', body: strategy.program });
-      renderSide();
-    } catch (e) {
-      applying = false;
-      renderApply();
-      const err = $('bb-apply-err');
-      if (err) err.textContent = e.code === 'INVALID_PROGRAM' ? `Your strategy has a problem: ${e.message}` : e.message;
-      return;
-    }
-    applying = false;
-    renderApply();
-  }
+  // ---- input
 
-  async function flip(name) {
-    const on = !status?.switches?.[name];
-    try {
-      status = await authed(`/api/v1/blocks/matches/${matchId}/switches`, { method: 'PUT', body: { name, on } });
-      renderSide();
-    } catch (e) { setMsg(e.message); later(() => setMsg(''), 3000); }
-  }
-
-  function onClick(e) {
+  root.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
     if (b.id === 'bb-apply-btn') apply();
@@ -524,40 +401,36 @@ export function mountCockpit(main, matchId) {
     else if (b.id === 'bb-start-now') startNow(b);
     else if ('bclose' in b.dataset) { pickedId = null; renderBuildingCard(); }
     else if ('bzoom' in b.dataset && pickedLast) view3d?.lookAtTile(pickedLast.x, pickedLast.y, { dist: 5 });
-    else if (b.dataset.zoom) view3d?.zoom(b.dataset.zoom === 'in' ? 0.8 : 1.25);
+    else if (b.dataset.zoom) view3d?.zoomStep(b.dataset.zoom);
     else if (b.id === 'bb-quality' && view3d) {
-      const order = ['low', 'medium', 'high'];
-      view3d.setQuality(order[(order.indexOf(view3d.quality) + 1) % order.length]);
+      view3d.cycleQuality();
       renderViewTools();
     } else if (b.id === 'bb-sound' && audio) {
       audio.unlock();
       audio.set('muted', !audio.settings.muted);
       renderViewTools();
-    }
-    else if (b.id === 'bb-code') {
+    } else if (b.id === 'bb-code') {
       const on = b.getAttribute('aria-pressed') !== 'true';
       b.setAttribute('aria-pressed', String(on));
       editor?.setCode(on);
     } else if (b.id === 'bb-surrender') {
       if (b.dataset.confirm !== 'yes') { b.dataset.confirm = 'yes'; b.textContent = 'Really give up?'; b.classList.add('danger'); return; }
-      authed(`/api/v1/matches/${matchId}/surrender`, { method: 'POST' }).catch((ex) => setMsg(ex.message));
+      scope.wait(authed(`/api/v1/matches/${matchId}/surrender`, { method: 'POST' })).catch((ex) => setMsg(ex.message));
     }
-  }
-  main.addEventListener('click', onClick);
+  });
 
-  // + and - zoom from anywhere on the page, except while typing a number or picking from a list. (With
-  // the 3D view focused, the view's own keys do it, smoothly while held.)
-  function onKey(e) {
+  // + and - zoom from anywhere on the page, a step at a time, except while typing a number or picking from
+  // a list. (With the 3D view focused, the view's own keys do it, smoothly while held.)
+  scope.on(document, 'keydown', (e) => {
     if (e.ctrlKey || e.metaKey || e.altKey || !view3d) return;
     if (e.target.closest?.('input, select, textarea, [contenteditable]')) return;
     if (e.key === 'Escape' && pickedId != null && !e.target.closest?.('.bb-editor')) { pickedId = null; renderBuildingCard(); return; }
     if ((e.key === 'h' || e.key === 'H' || e.key === 'Home') && !e.target.closest?.('.map3d')) { e.preventDefault(); goHome(); return; }
-    const zoom = { '+': 0.8, '=': 0.8, '-': 1.25, '_': 1.25 }[e.key];
-    if (!zoom || e.target.closest?.('.map3d')) return;
+    const dir = view3d.zoomDir(e.key);
+    if (!dir || e.target.closest?.('.map3d')) return;
     e.preventDefault();
-    view3d.zoom(zoom);
-  }
-  document.addEventListener('keydown', onKey);
+    view3d.zoomStep(dir);
+  });
 
   (async () => {
     await start3d();
@@ -565,16 +438,5 @@ export function mountCockpit(main, matchId) {
     await pollStatus();
   })();
 
-  return () => {
-    alive = false;
-    timers.forEach(clearTimeout);
-    es?.close();
-    view3d?.destroy();
-    audio?.setActive(false);
-    audio?.dispose?.();
-    window.removeEventListener('resize', fitHeight);
-    main.removeEventListener('click', onClick);
-    document.removeEventListener('keydown', onKey);
-    main.classList.remove('wide', 'bb-full');
-  };
+  return () => scope.dispose();
 }

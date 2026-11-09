@@ -13,7 +13,7 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { Terrain } from './terrain.js';
 import { buildModels, entityMaterial } from './models.js';
 import { Effects } from './effects.js';
-import { CameraRig, ZOOM_STEP } from './camera.js';
+import { CameraRig, ZOOM_KEYS, ZOOM_STEP } from './camera.js';
 import { clamp } from './noise.js';
 import { hqName, unitName, upgradeName } from '../lore.js';
 import { loadText, saveText } from '../storage.js';
@@ -325,9 +325,12 @@ export class View3D {
     // Compile the scene's shaders in the background (where the browser can), so the page stays
     // responsive; nothing is drawn until they're ready, which would otherwise compile them on the spot.
     this.ready = false;
-    const done = () => { if (this.terrain) { this.ready = true; this.onReady?.(); } };
+    const done = () => { if (this.terrain && this.alive) { this.ready = true; this.onReady?.(); } };
     if (this.manual) done();
-    else this.renderer.compileAsync(this.scene, this.camera).then(done, done);
+    else {
+      const compiling = this.renderer.compileAsync(this.scene, this.camera).then(done, done);
+      this.compiling = compiling.finally(() => { if (this.compiling === compiling) this.compiling = null; });
+    }
   }
 
   buildLayers() {
@@ -1442,6 +1445,8 @@ export class View3D {
   zoom(f) { this.rig?.zoom(f); }
   /** One step in ('in') or out ('out'): what a zoom button or one press of + or - does. */
   zoomStep(dir) { this.zoom(dir === 'in' ? 1 / ZOOM_STEP : ZOOM_STEP); }
+  /** 'in' or 'out' for a zoom key (+ = - _), else undefined: for pages that zoom on keys pressed outside the view. */
+  zoomDir(key) { return ZOOM_KEYS[key]; }
 
   setGrid(on) {
     this.grid = on;
@@ -1617,16 +1622,22 @@ export class View3D {
     cancelAnimationFrame(this.raf);
     this.ro.disconnect();
     this.rig?.dispose();
-    this.effects?.dispose();
-    for (const l of Object.values(this.layers || {})) l.dispose();
-    for (const l of this.bLayers?.values() || []) l.dispose();
-    this.terrain?.dispose();
-    this.composer?.dispose();
-    this.envRT?.dispose();
-    this.renderer.dispose();
-    this.renderer.forceContextLoss?.();
     this.renderer.domElement.remove();
     this.labels.domElement.remove();
+    // The GPU side waits for a shader compile still in flight (leaving the page while the valley is being
+    // built): three.js polls the programs until they're ready and fails on ones already disposed.
+    const release = () => {
+      this.effects?.dispose();
+      for (const l of Object.values(this.layers || {})) l.dispose();
+      for (const l of this.bLayers?.values() || []) l.dispose();
+      this.terrain?.dispose();
+      this.composer?.dispose();
+      this.envRT?.dispose();
+      this.renderer.dispose();
+      this.renderer.forceContextLoss?.();
+    };
+    if (this.compiling) this.compiling.then(release, release);
+    else release();
   }
 }
 
