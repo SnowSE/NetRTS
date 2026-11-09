@@ -9,7 +9,7 @@ namespace NetRts.Server.Tests;
 /// </summary>
 public partial class SnowLoreTests
 {
-    private static readonly string LoreJs = File.ReadAllText(Path.Combine(RepoRoot(), "src", "NetRts.Server", "wwwroot", "lore.js"));
+    private static readonly string LoreJs = File.ReadAllText(Repo.Path("src", "NetRts.Server", "wwwroot", "lore.js"));
 
     [Fact]
     public void Building_names_match_lore_js() =>
@@ -46,17 +46,4 @@ public partial class SnowLoreTests
 
     [GeneratedRegex(@"(\w+):\s*'([^']*)'")]
     private static partial Regex Entry();
-
-    private static string RepoRoot()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            if (File.Exists(Path.Combine(dir.FullName, "NetRts.sln")))
-            {
-                return dir.FullName;
-            }
-        }
-
-        throw new InvalidOperationException("Can't find the repository root (NetRts.sln) above the test binaries.");
-    }
 }

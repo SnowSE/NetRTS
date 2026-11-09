@@ -905,6 +905,84 @@ function grub(g, cx, cy, size, colour, detailed) {
 }
 
 /** The badger: white wedge face, two dark stripes through the eyes, a dark nose. */
+/** The Archer icon, drawn the same in both themes. */
+function archerIcon(g, s) {
+  g.lineWidth = Math.max(1.4, s * 0.22);
+  g.beginPath();
+  g.moveTo(-s * 0.75, s * 0.75);
+  g.lineTo(s * 0.45, -s * 0.45);
+  g.stroke();
+  g.beginPath(); // head
+  g.moveTo(s * 0.9, -s * 0.9);
+  g.lineTo(s * 0.12, -s * 0.62);
+  g.lineTo(s * 0.62, -s * 0.12);
+  g.closePath();
+  g.fill();
+  g.lineWidth = Math.max(1, s * 0.14); // fletching
+  g.beginPath();
+  g.moveTo(-s * 0.55, s * 0.55);
+  g.lineTo(-s * 0.85, s * 0.35);
+  g.moveTo(-s * 0.55, s * 0.55);
+  g.lineTo(-s * 0.35, s * 0.85);
+  g.stroke();
+}
+
+/** The ResourceDepot icon, drawn the same in both themes. */
+function resourceDepotIcon(g, s) {
+  g.lineWidth = Math.max(1.2, s * 0.14);
+  g.strokeRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.4);
+  g.beginPath();
+  g.moveTo(-s * 0.75, -s * 0.65);
+  g.lineTo(s * 0.75, s * 0.75);
+  g.moveTo(s * 0.75, -s * 0.65);
+  g.lineTo(-s * 0.75, s * 0.75);
+  g.stroke();
+}
+
+/** The TechLab icon, drawn the same in both themes. */
+function techLabIcon(g, s) {
+  g.beginPath();
+  g.moveTo(-s * 0.22, -s * 0.9);
+  g.lineTo(-s * 0.22, -s * 0.25);
+  g.lineTo(-s * 0.8, s * 0.8);
+  g.lineTo(s * 0.8, s * 0.8);
+  g.lineTo(s * 0.22, -s * 0.25);
+  g.lineTo(s * 0.22, -s * 0.9);
+  g.stroke();
+  g.beginPath();
+  g.moveTo(-s * 0.52, s * 0.3);
+  g.lineTo(s * 0.52, s * 0.3);
+  g.lineTo(s * 0.8, s * 0.8);
+  g.lineTo(-s * 0.8, s * 0.8);
+  g.closePath();
+  g.fill();
+}
+
+/** The GuardTower icon, drawn the same in both themes. */
+function guardTowerIcon(g, s) {
+  g.beginPath();
+  g.moveTo(-s * 0.45, s * 0.9);
+  g.lineTo(-s * 0.35, -s * 0.5);
+  g.lineTo(-s * 0.6, -s * 0.5);
+  g.lineTo(-s * 0.6, -s * 0.9);
+  g.lineTo(-s * 0.3, -s * 0.9);
+  g.lineTo(-s * 0.3, -s * 0.72);
+  g.lineTo(-s * 0.1, -s * 0.72);
+  g.lineTo(-s * 0.1, -s * 0.9);
+  g.lineTo(s * 0.1, -s * 0.9);
+  g.lineTo(s * 0.1, -s * 0.72);
+  g.lineTo(s * 0.3, -s * 0.72);
+  g.lineTo(s * 0.3, -s * 0.9);
+  g.lineTo(s * 0.6, -s * 0.9);
+  g.lineTo(s * 0.6, -s * 0.5);
+  g.lineTo(s * 0.35, -s * 0.5);
+  g.lineTo(s * 0.45, s * 0.9);
+  g.closePath();
+  g.fill();
+  g.fillStyle = accent;
+  g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
+}
+
 function badgerFace(g, s, ink, accent) {
   g.fillStyle = ink;
   g.beginPath();
@@ -952,24 +1030,7 @@ function snowUnitIcon(g, type, cx, cy, s, ink, accent) {
       break;
     }
     case 'Archer': { // an arrow in flight
-      g.lineWidth = Math.max(1.4, s * 0.22);
-      g.beginPath();
-      g.moveTo(-s * 0.75, s * 0.75);
-      g.lineTo(s * 0.45, -s * 0.45);
-      g.stroke();
-      g.beginPath(); // head
-      g.moveTo(s * 0.9, -s * 0.9);
-      g.lineTo(s * 0.12, -s * 0.62);
-      g.lineTo(s * 0.62, -s * 0.12);
-      g.closePath();
-      g.fill();
-      g.lineWidth = Math.max(1, s * 0.14); // fletching
-      g.beginPath();
-      g.moveTo(-s * 0.55, s * 0.55);
-      g.lineTo(-s * 0.85, s * 0.35);
-      g.moveTo(-s * 0.55, s * 0.55);
-      g.lineTo(-s * 0.35, s * 0.85);
-      g.stroke();
+      archerIcon(g, s);
       break;
     }
     case 'Scout': { // a paw print: scouts sniff out the enemy
@@ -1057,56 +1118,15 @@ function snowBuildingIcon(g, type, cx, cy, s, ink, accent) {
       break;
     }
     case 'ResourceDepot': { // Co-op Store (where the first classes met in 1888): a crate of grubs
-      g.lineWidth = Math.max(1.2, s * 0.14);
-      g.strokeRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.4);
-      g.beginPath();
-      g.moveTo(-s * 0.75, -s * 0.65);
-      g.lineTo(s * 0.75, s * 0.75);
-      g.moveTo(s * 0.75, -s * 0.65);
-      g.lineTo(-s * 0.75, s * 0.75);
-      g.stroke();
+      resourceDepotIcon(g, s);
       break;
     }
     case 'TechLab': { // GRSC Makerspace: a flask
-      g.beginPath();
-      g.moveTo(-s * 0.22, -s * 0.9);
-      g.lineTo(-s * 0.22, -s * 0.25);
-      g.lineTo(-s * 0.8, s * 0.8);
-      g.lineTo(s * 0.8, s * 0.8);
-      g.lineTo(s * 0.22, -s * 0.25);
-      g.lineTo(s * 0.22, -s * 0.9);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(-s * 0.52, s * 0.3);
-      g.lineTo(s * 0.52, s * 0.3);
-      g.lineTo(s * 0.8, s * 0.8);
-      g.lineTo(-s * 0.8, s * 0.8);
-      g.closePath();
-      g.fill();
+      techLabIcon(g, s);
       break;
     }
     case 'GuardTower': { // tall tower with an arrow slit
-      g.beginPath();
-      g.moveTo(-s * 0.45, s * 0.9);
-      g.lineTo(-s * 0.35, -s * 0.5);
-      g.lineTo(-s * 0.6, -s * 0.5);
-      g.lineTo(-s * 0.6, -s * 0.9);
-      g.lineTo(-s * 0.3, -s * 0.9);
-      g.lineTo(-s * 0.3, -s * 0.72);
-      g.lineTo(-s * 0.1, -s * 0.72);
-      g.lineTo(-s * 0.1, -s * 0.9);
-      g.lineTo(s * 0.1, -s * 0.9);
-      g.lineTo(s * 0.1, -s * 0.72);
-      g.lineTo(s * 0.3, -s * 0.72);
-      g.lineTo(s * 0.3, -s * 0.9);
-      g.lineTo(s * 0.6, -s * 0.9);
-      g.lineTo(s * 0.6, -s * 0.5);
-      g.lineTo(s * 0.35, -s * 0.5);
-      g.lineTo(s * 0.45, s * 0.9);
-      g.closePath();
-      g.fill();
-      g.fillStyle = accent;
-      g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
+      guardTowerIcon(g, s);
       break;
     }
     case 'SiegeWorkshop': { // the Washburn Building's welding shop: a low shop with a roll-up bay door and a spark
@@ -1178,24 +1198,7 @@ function classicUnitIcon(g, type, cx, cy, s, ink, accent) {
       break;
     }
     case 'Archer': { // an arrow in flight
-      g.lineWidth = Math.max(1.4, s * 0.22);
-      g.beginPath();
-      g.moveTo(-s * 0.75, s * 0.75);
-      g.lineTo(s * 0.45, -s * 0.45);
-      g.stroke();
-      g.beginPath(); // head
-      g.moveTo(s * 0.9, -s * 0.9);
-      g.lineTo(s * 0.12, -s * 0.62);
-      g.lineTo(s * 0.62, -s * 0.12);
-      g.closePath();
-      g.fill();
-      g.lineWidth = Math.max(1, s * 0.14); // fletching
-      g.beginPath();
-      g.moveTo(-s * 0.55, s * 0.55);
-      g.lineTo(-s * 0.85, s * 0.35);
-      g.moveTo(-s * 0.55, s * 0.55);
-      g.lineTo(-s * 0.35, s * 0.85);
-      g.stroke();
+      archerIcon(g, s);
       break;
     }
     case 'Scout': { // an eye: scouts see furthest
@@ -1287,56 +1290,15 @@ function classicBuildingIcon(g, type, cx, cy, s, ink, accent) {
       break;
     }
     case 'ResourceDepot': { // crate
-      g.lineWidth = Math.max(1.2, s * 0.14);
-      g.strokeRect(-s * 0.75, -s * 0.65, s * 1.5, s * 1.4);
-      g.beginPath();
-      g.moveTo(-s * 0.75, -s * 0.65);
-      g.lineTo(s * 0.75, s * 0.75);
-      g.moveTo(s * 0.75, -s * 0.65);
-      g.lineTo(-s * 0.75, s * 0.75);
-      g.stroke();
+      resourceDepotIcon(g, s);
       break;
     }
     case 'TechLab': { // flask
-      g.beginPath();
-      g.moveTo(-s * 0.22, -s * 0.9);
-      g.lineTo(-s * 0.22, -s * 0.25);
-      g.lineTo(-s * 0.8, s * 0.8);
-      g.lineTo(s * 0.8, s * 0.8);
-      g.lineTo(s * 0.22, -s * 0.25);
-      g.lineTo(s * 0.22, -s * 0.9);
-      g.stroke();
-      g.beginPath();
-      g.moveTo(-s * 0.52, s * 0.3);
-      g.lineTo(s * 0.52, s * 0.3);
-      g.lineTo(s * 0.8, s * 0.8);
-      g.lineTo(-s * 0.8, s * 0.8);
-      g.closePath();
-      g.fill();
+      techLabIcon(g, s);
       break;
     }
     case 'GuardTower': { // tall tower with an arrow slit
-      g.beginPath();
-      g.moveTo(-s * 0.45, s * 0.9);
-      g.lineTo(-s * 0.35, -s * 0.5);
-      g.lineTo(-s * 0.6, -s * 0.5);
-      g.lineTo(-s * 0.6, -s * 0.9);
-      g.lineTo(-s * 0.3, -s * 0.9);
-      g.lineTo(-s * 0.3, -s * 0.72);
-      g.lineTo(-s * 0.1, -s * 0.72);
-      g.lineTo(-s * 0.1, -s * 0.9);
-      g.lineTo(s * 0.1, -s * 0.9);
-      g.lineTo(s * 0.1, -s * 0.72);
-      g.lineTo(s * 0.3, -s * 0.72);
-      g.lineTo(s * 0.3, -s * 0.9);
-      g.lineTo(s * 0.6, -s * 0.9);
-      g.lineTo(s * 0.6, -s * 0.5);
-      g.lineTo(s * 0.35, -s * 0.5);
-      g.lineTo(s * 0.45, s * 0.9);
-      g.closePath();
-      g.fill();
-      g.fillStyle = accent;
-      g.fillRect(-s * 0.07, -s * 0.25, s * 0.14, s * 0.45);
+      guardTowerIcon(g, s);
       break;
     }
     case 'SiegeWorkshop': { // an anvil with a hammer above it
