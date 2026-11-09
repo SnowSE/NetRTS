@@ -360,7 +360,7 @@ export class RuleEditor {
       card.dataset.state = s?.state ?? '';
       if (!s) { box.hidden = true; return; }
       box.hidden = false;
-      const bar = s.state === 'idle' && s.progress != null ? html`<span class="bb-bar" role="img" aria-label="${s.progress}% of the way"><span style="width:${s.progress}%"></span></span>` : '';
+      const bar = s.state === 'idle' && s.progress != null ? html`<span class="bb-progress" role="img" aria-label="${s.progress}% of the way"><span style="width:${s.progress}%"></span></span>` : '';
       setHtml(box, html`<span class="bb-dot" aria-hidden="true"></span><span class="bb-why">${s.why}${this.statusNote ? html` <span class="muted">${this.statusNote}</span>` : ''}</span>${bar}`);
     });
   }

@@ -181,7 +181,7 @@ export function mountLocker(main) {
             ${lockTag}
           </div>
           <fieldset>
-            <legend class="bb-step">Where do you want to play?</legend>
+            <legend class="bb-legend">Where do you want to play?</legend>
             <div class="bb-modes">
               ${[['Sandbox', 'Sandbox', `Try a build against the ${botLabel('sitter')}, who only digs.`],
                  ['HouseBot', 'Vs a house bot', 'One opponent, any time.'],
@@ -193,7 +193,7 @@ export function mountLocker(main) {
 
           ${st.mode === 'HouseBot' || st.mode === 'FreeForAll' ? html`
             <fieldset>
-              <legend class="bb-step">${multi ? 'Pick 2 or 3 opponents' : 'Pick an opponent'}</legend>
+              <legend class="bb-legend">${multi ? 'Pick 2 or 3 opponents' : 'Pick an opponent'}</legend>
               <div class="bb-bots">
                 ${st.bots.map((b) => {
                   const on = multi ? st.many.includes(b.name) : st.one === b.name;
@@ -210,7 +210,7 @@ export function mountLocker(main) {
 
           ${st.mode === 'Real' && st.real === 'create' ? html`
             <fieldset>
-              <legend class="bb-step">How many players?</legend>
+              <legend class="bb-legend">How many players?</legend>
               <div class="bb-seg">
                 ${[2, 3, 4].map((n) => html`<button type="button" data-seats="${n}" aria-pressed="${st.seats === n}">${n}</button>`)}
               </div>
@@ -223,7 +223,7 @@ export function mountLocker(main) {
 
           ${st.mode === 'Real' && st.real === 'join' ? html`
             <fieldset>
-              <legend class="bb-step">Pick a match</legend>
+              <legend class="bb-legend">Pick a match</legend>
               ${st.waiting.length ? html`<div class="bb-bots">${st.waiting.map((m) => html`
                 <button type="button" class="bb-bot" data-match="${m.matchId}" aria-pressed="${st.joinMatch === m.matchId}">
                   <span class="bb-mark" aria-hidden="true">${st.joinMatch === m.matchId ? '✓' : ''}</span>
@@ -240,7 +240,7 @@ export function mountLocker(main) {
 
           ${st.mode !== 'Real' || st.real === 'create' ? html`
             <fieldset class="bb-speed">
-              <legend class="bb-step">Speed</legend>
+              <legend class="bb-legend">Speed</legend>
               <div class="bb-seg">
                 <button type="button" data-fast="0" aria-pressed="${!st.fast}">Normal</button>
                 <button type="button" data-fast="1" aria-pressed="${st.fast}">Fast (4×)</button>

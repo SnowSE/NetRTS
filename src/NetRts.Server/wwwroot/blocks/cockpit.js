@@ -78,18 +78,18 @@ export function mountCockpit(main, matchId) {
       <div class="bb-right">
         <div class="bb-3d-wrap">
           <div class="map3d bb-3d" id="bb-3d"></div>
-          <div class="bb-view-left" role="group" aria-label="Camera">
-            <button type="button" class="bb-sq" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)">+</button>
-            <button type="button" class="bb-sq" data-zoom="out" aria-label="Zoom out" title="Zoom out (−)">−</button>
-            <button type="button" class="bb-sq" data-home aria-label="Home: center on my base" title="Home: center on my base (H)">${raw(HOME_ICON)}</button>
+          <div class="map-controls float hud-dark bb-view-left" role="group" aria-label="Camera">
+            <button type="button" data-zoom="in" aria-label="Zoom in" title="Zoom in (+)">+</button>
+            <button type="button" data-zoom="out" aria-label="Zoom out" title="Zoom out (−)">−</button>
+            <button type="button" data-home aria-label="Home: center on my base" title="Home: center on my base (H)">${raw(HOME_ICON)}</button>
           </div>
-          <div class="bb-view-right">
-            <button type="button" class="bb-sq" id="bb-sound" aria-pressed="true" aria-label="Sound"></button>
-            <button type="button" class="bb-sq" id="bb-quality" aria-label="Picture quality"></button>
+          <div class="map-controls float hud-dark bb-view-right" role="group" aria-label="Sound and picture">
+            <button type="button" id="bb-sound" aria-pressed="true" aria-label="Sound"></button>
+            <button type="button" id="bb-quality" aria-label="Picture quality"></button>
           </div>
-          <aside class="bb-hud" id="bb-hud" aria-label="Your stats over the last minute, and the scoreboard"></aside>
-          <aside class="bb-bcard" id="bb-bcard" aria-label="The building you clicked" aria-live="polite" hidden></aside>
-          <p class="bb-3d-msg" id="bb-3d-msg">Building the 3D valley…</p>
+          <aside class="bb-hud hud-dark" id="bb-hud" aria-label="Your stats over the last minute, and the scoreboard"></aside>
+          <aside class="map3d-card bb-bcard hud-dark" id="bb-bcard" aria-label="The building you clicked" aria-live="polite" hidden></aside>
+          <div class="overlay-msg boxed hud-dark" id="bb-3d-msg"><p id="bb-3d-msg-text">Building the 3D valley…</p></div>
           <div class="bb-result" id="bb-result" hidden></div>
         </div>
       </div>
@@ -245,9 +245,8 @@ export function mountCockpit(main, matchId) {
   }
 
   function setMsg(text) {
-    const m = $('bb-3d-msg');
-    m.hidden = !text;
-    m.textContent = text || '';
+    $('bb-3d-msg').hidden = !text;
+    $('bb-3d-msg-text').textContent = text || '';
   }
   const gone = () => setMsg('This match is over and gone from the server. Your strategy is still saved here.');
 

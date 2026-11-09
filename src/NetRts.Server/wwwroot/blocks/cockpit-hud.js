@@ -18,7 +18,8 @@ export class StatHistory {
   }
 }
 
-function trendTile(history, status, key, label, color) {
+/** tone: the --hud-<tone> colour (styles.css .hud-dark) of its number and line. */
+function trendTile(history, status, key, label, tone) {
   const h = history.points;
   const now = h[h.length - 1]?.[key] ?? status?.stats?.[key] ?? 0;
   const first = h[0], last = h[h.length - 1];
@@ -38,12 +39,12 @@ function trendTile(history, status, key, label, color) {
   }
   const rate = perMin == null ? '' : perMin === 0 ? 'steady' : `${perMin > 0 ? '▲ +' : '▼ −'}${fmt(Math.abs(perMin))}/min`;
   const rateClass = perMin == null || perMin === 0 ? '' : perMin > 0 ? ' up' : ' down';
-  return html`<div class="bb-tile">
+  return html`<div class="bb-tile" style="--tile:var(--hud-${tone})">
     <span class="bb-tile-label">${label}</span>
-    <span class="bb-tile-row"><span class="bb-tile-value" style="color:${color}">${fmt(now)}</span><span class="bb-tile-rate${rateClass}">${rate}</span></span>
+    <span class="bb-tile-row"><span class="bb-tile-value">${fmt(now)}</span><span class="bb-tile-rate${rateClass}">${rate}</span></span>
     <svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="${label} over the last minute, now ${fmt(now)}">
-      ${line ? html`<polyline points="${area}" fill="${color}" fill-opacity="0.14" stroke="none"/><polyline points="${line}" fill="none" stroke="${color}" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
-      ${mark ? html`<line x1="${mark}" y1="0" x2="${mark}" y2="${H}" stroke="#f2c14e" stroke-width="1" stroke-dasharray="2 2"><title>v${status.versions[status.versions.length - 1].version} went live</title></line>` : ''}
+      ${line ? html`<polyline points="${area}" fill="currentColor" fill-opacity="0.14" stroke="none"/><polyline points="${line}" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>` : ''}
+      ${mark ? html`<line class="bb-tile-mark" x1="${mark}" y1="0" x2="${mark}" y2="${H}" stroke-width="1" stroke-dasharray="2 2"><title>v${status.versions[status.versions.length - 1].version} went live</title></line>` : ''}
     </svg>
   </div>`;
 }
@@ -81,10 +82,10 @@ function clockTile(state, summary, status) {
 export function hudHtml({ state, summary, status, history }) {
   return html`
     ${clockTile(state, summary, status)}
-    ${trendTile(history, status, 'grubs', ORE[0].toUpperCase() + ORE.slice(1), '#f2c14e')}
-    ${trendTile(history, status, 'workers', 'Workers', '#7cc7f0')}
-    ${trendTile(history, status, 'fighters', 'Fighters', '#ff8a7a')}
-    ${trendTile(history, status, 'buildings', 'Buildings', '#c7b2f0')}
+    ${trendTile(history, status, 'grubs', ORE[0].toUpperCase() + ORE.slice(1), 'accent')}
+    ${trendTile(history, status, 'workers', 'Workers', 'workers')}
+    ${trendTile(history, status, 'fighters', 'Fighters', 'fighters')}
+    ${trendTile(history, status, 'buildings', 'Buildings', 'buildings')}
     ${scoreboard(state, status)}`;
 }
 
@@ -98,7 +99,7 @@ export function buildingCardHtml(b, { live, mine, ownerName, rules }) {
   return html`
     <div class="bb-bcard-head">
       <h2>${facts.name}</h2>
-      <button type="button" class="bb-sq small" data-bclose aria-label="Close">×</button>
+      <button type="button" class="bb-bcard-x" data-bclose aria-label="Close">×</button>
     </div>
     <p class="bb-bcard-owner"><span class="bb-bcard-dot" style="--pc:${slotVar(b.owner)}" aria-hidden="true"></span>${mine ? 'Yours' : ownerName}</p>
     ${live ? html`
