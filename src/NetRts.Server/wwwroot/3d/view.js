@@ -13,9 +13,10 @@ import { Sky } from 'three/addons/objects/Sky.js';
 import { Terrain } from './terrain.js';
 import { buildModels, entityMaterial } from './models.js';
 import { Effects } from './effects.js';
-import { CameraRig } from './camera.js';
+import { CameraRig, ZOOM_STEP } from './camera.js';
 import { clamp } from './noise.js';
 import { hqName, unitName, upgradeName } from '../lore.js';
+import { loadText, saveText } from '../storage.js';
 import { Commentary } from './commentary.js';
 
 /** Bright, colour-blind-friendly player colours (the site's dark palette): they read well in daylight. */
@@ -29,6 +30,9 @@ const QUALITY = {
   medium: { dpr: 1.5, shadow: 2048, post: true, ao: false },
   high: { dpr: 2, shadow: 4096, post: true, ao: true },
 };
+/** The quality settings by name, for buttons and labels, in the order cycleQuality steps through them. */
+export const QUALITY_NAMES = { low: 'Low', medium: 'Medium', high: 'High' };
+const QUALITY_KEY = 'netrts.3d.quality';
 const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(215));
 const NO_CUT = 99;
 const SHIELD_BLUE = new THREE.Color('#2f6bff');
@@ -196,8 +200,7 @@ export class View3D {
     this.onModeChange = null;
     this.onFollowChange = null;  // (unit | null) => void
 
-    let quality = 'medium';
-    try { quality = localStorage.getItem('netrts.3d.quality') || quality; } catch { /* storage blocked */ }
+    let quality = this.storedQuality() || 'medium';
     if (fixedQuality) quality = fixedQuality;
     this.quality = QUALITY[quality] ? quality : 'medium';
     this.autoQuality = { frames: 0, time: 0, done: manual || !!fixedQuality || !!this.storedQuality() };
@@ -251,7 +254,7 @@ export class View3D {
     this.ro.observe(canvas ?? container);
   }
 
-  storedQuality() { try { return localStorage.getItem('netrts.3d.quality'); } catch { return null; } }
+  storedQuality() { return loadText('localStorage', QUALITY_KEY); }
 
   // ---------------------------------------------------------------- scene
 
@@ -377,9 +380,19 @@ export class View3D {
     if (!QUALITY[q]) return;
     this.quality = q;
     this.autoQuality.done = true;
-    try { localStorage.setItem('netrts.3d.quality', q); } catch { /* storage blocked */ }
+    saveText('localStorage', QUALITY_KEY, q);
     this.applyQuality();
   }
+
+  /** The next quality setting along (low → medium → high → low), remembered like setQuality. */
+  cycleQuality() {
+    const order = Object.keys(QUALITY_NAMES);
+    this.setQuality(order[(order.indexOf(this.quality) + 1) % order.length]);
+  }
+
+  get qualityName() { return QUALITY_NAMES[this.quality] ?? 'Medium'; }
+  /** 1 (low) to 3 (high), for a signal-bars icon. */
+  get qualityLevel() { return Object.keys(QUALITY_NAMES).indexOf(this.quality) + 1 || 2; }
 
   applyQuality() {
     const Q = QUALITY[this.quality];
@@ -1427,6 +1440,8 @@ export class View3D {
 
   overview() { this.rig?.overview(); }
   zoom(f) { this.rig?.zoom(f); }
+  /** One step in ('in') or out ('out'): what a zoom button or one press of + or - does. */
+  zoomStep(dir) { this.zoom(dir === 'in' ? 1 / ZOOM_STEP : ZOOM_STEP); }
 
   setGrid(on) {
     this.grid = on;
@@ -1468,11 +1483,8 @@ export class View3D {
     if (b) this.rig.focus(b.x + 0.5, b.y + 0.5, 5);
   }
 
-  /**
-   * Ride along with a unit (by id), as clicking it does. dist: how far back the camera rides; pitch: how
-   * steeply it looks down (radians above the horizon, about 0.35 to 1.4).
-   */
-  follow(id, { dist, pitch } = {}) {
+  /** Ride along with a unit (by id), as clicking it does. */
+  follow(id) {
     if (!this.rig) return;
     this.setFollowed(id);
     this.rig.follow(() => {
@@ -1483,16 +1495,14 @@ export class View3D {
       if (lost && this.now() - lost.t < 2500) return new THREE.Vector3(lost.x, this.terrain.heightAt(lost.x, lost.z), lost.z);
       return null;
     });
-    if (dist) this.rig.goal.dist = Math.min(dist, this.rig.maxDist);
-    if (pitch) this.rig.goal.pitch = pitch;
   }
 
-  /** Look at a tile from a given distance and angle (see follow), leaving the camera free to move. */
+  /**
+   * Look at a tile from dist away, pitch radians above the horizon (about 0.35 to 1.4) if given, leaving
+   * the camera free to move.
+   */
   lookAtTile(x, y, { dist = 7, pitch } = {}) {
-    if (!this.rig) return;
-    this.rig.setMode('orbit');
-    this.rig.focus(x + 0.5, y + 0.5, Math.min(dist, this.rig.maxDist));
-    if (pitch) this.rig.goal.pitch = pitch;
+    this.rig?.lookAt(x + 0.5, y + 0.5, { dist, pitch });
   }
 
   hover(clientX, clientY) {

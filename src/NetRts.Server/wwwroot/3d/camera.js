@@ -7,6 +7,13 @@ import * as THREE from 'three';
 import { clamp } from './noise.js';
 
 const MIN_PITCH = 0.1, MAX_PITCH = 1.48;
+
+/**
+ * + and - zoom (= and _ are the same keys without Shift): held down in the focused view they zoom
+ * smoothly; a zoom button, or a press outside the view, is one step of ZOOM_STEP.
+ */
+export const ZOOM_KEYS = { '+': 'in', '=': 'in', '-': 'out', _: 'out' };
+export const ZOOM_STEP = 1.25;
 const damp = (rate, dt) => 1 - Math.exp(-rate * dt);
 const wrapAngle = (a) => Math.atan2(Math.sin(a), Math.cos(a));
 
@@ -68,6 +75,13 @@ export class CameraRig {
     this.goal.dist = dist;
     this.goal.pitch = clamp(this.goal.pitch, 0.45, 0.9);
     this.rate = 4;
+  }
+
+  /** Look at a ground point from dist away (no further than the camera goes), at pitch if given. */
+  lookAt(x, z, { dist = 7, pitch } = {}) {
+    this.setMode('orbit');
+    this.focus(x, z, Math.min(dist, this.maxDist));
+    if (pitch) this.goal.pitch = clamp(pitch, MIN_PITCH, MAX_PITCH);
   }
 
   zoom(factor) {
@@ -192,9 +206,8 @@ export class CameraRig {
       if (this.mode === 'director') this.setMode('orbit');
       this.zoom(f);
     }, { passive: false });
-    // + and - zoom like Z and X (= and _ are the same keys without Shift).
-    const ZOOM_KEYS = { '+': 'z', '=': 'z', '-': 'x', '_': 'x' };
-    const keyOf = (e) => ZOOM_KEYS[e.key] ?? e.key.toLowerCase();
+    // + and - zoom like Z and X while held.
+    const keyOf = (e) => ({ in: 'z', out: 'x' })[ZOOM_KEYS[e.key]] ?? e.key.toLowerCase();
     on(dom, 'keydown', (e) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
       const k = keyOf(e);
