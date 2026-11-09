@@ -4,8 +4,8 @@ namespace NetRts.Bots.Blocks;
 
 /// <summary>
 /// The words Block Bot uses when it explains itself, in either site theme: Snow College's Badger Brawl
-/// (Housing for Barracks, grubs for ore, Snow Mobile for Trebuchet) or the original NetRTS names. The
-/// page sends the theme it shows; the API's own names never change.
+/// (<see cref="SnowLore"/>: Housing for Barracks, grubs for ore, Snow Mobile for Trebuchet) or the original
+/// NetRTS names. Each request for a status says which theme the page shows; the API's own names never change.
 /// </summary>
 public sealed class BlockWords
 {
@@ -22,70 +22,40 @@ public sealed class BlockWords
 
     public bool IsSnow => _snow;
 
-    public string Ore => _snow ? "grubs" : "ore";
+    public string Ore => _snow ? SnowLore.Ore : "ore";
 
     /// <summary>What a grubsLeft condition counts.</summary>
-    public string OreLeft => _snow ? "grubs left near your base" : "ore left near your base";
+    public string OreLeft => $"{Ore} left near your base";
 
     public string Unit(UnitType type, int count = 1)
     {
-        var one = type switch
-        {
-            UnitType.Trebuchet => _snow ? "Snow Mobile" : "trebuchet",
-            _ => type.ToString().ToLowerInvariant(),
-        };
+        var one = _snow && SnowLore.Units.TryGetValue(type, out var snow) ? snow : type.ToString().ToLowerInvariant();
         return count == 1 ? one : one + "s";
     }
 
-    public string Building(BuildingType type) => _snow
-        ? type switch
-        {
-            BuildingType.CommandCenter => "HQ",
-            BuildingType.Barracks => "Housing",
-            BuildingType.ResourceDepot => "Co-op Store",
-            BuildingType.TechLab => "Makerspace",
-            BuildingType.GuardTower => "Bell Tower",
-            BuildingType.SiegeWorkshop => "Welding Shop",
-            _ => type.ToString(),
-        }
-        : type switch
-        {
-            BuildingType.CommandCenter => "Command Center",
-            BuildingType.Barracks => "Barracks",
-            BuildingType.ResourceDepot => "Resource Depot",
-            BuildingType.TechLab => "Tech Lab",
-            BuildingType.GuardTower => "Guard Tower",
-            BuildingType.SiegeWorkshop => "Siege Workshop",
-            _ => type.ToString(),
-        };
+    /// <summary>A building's name mid-sentence ("a Bell Tower"), in the Snow theme as the pages show it, without "The".</summary>
+    public string Building(BuildingType type) =>
+        _snow && SnowLore.Buildings.TryGetValue(type, out var snow) ? SnowLore.Bare(snow) : Spaced(type.ToString());
 
-    public string Upgrade(UpgradeType type) => _snow
-        ? type switch
+    public string Upgrade(UpgradeType type) =>
+        _snow && SnowLore.Upgrades.TryGetValue(type, out var snow) ? snow : Spaced(type.ToString());
+
+    /// <summary>"CommandCenter" -> "Command Center", "Weapons1" -> "Weapons 1" (as lore.js's spaced()).</summary>
+    private static string Spaced(string name)
+    {
+        var sb = new System.Text.StringBuilder(name.Length + 4);
+        for (var i = 0; i < name.Length; i++)
         {
-            UpgradeType.Weapons1 => "Intro to Chemistry",
-            UpgradeType.Weapons2 => "Organic Chemistry",
-            UpgradeType.Armor1 => "Unit Testing",
-            UpgradeType.Armor2 => "Code Review",
-            UpgradeType.Mobility1 => "Algorithms",
-            UpgradeType.Mobility2 => "Parallel Computing",
-            UpgradeType.Harvesting1 => "Intro to Biology",
-            UpgradeType.Harvesting2 => "Entomology",
-            UpgradeType.SiegeEngineering => "Welding Technology",
-            _ => type.ToString(),
+            if (i > 0 && char.IsLower(name[i - 1]) && (char.IsUpper(name[i]) || char.IsDigit(name[i])))
+            {
+                sb.Append(' ');
+            }
+
+            sb.Append(name[i]);
         }
-        : type switch
-        {
-            UpgradeType.Weapons1 => "Weapons 1",
-            UpgradeType.Weapons2 => "Weapons 2",
-            UpgradeType.Armor1 => "Armor 1",
-            UpgradeType.Armor2 => "Armor 2",
-            UpgradeType.Mobility1 => "Mobility 1",
-            UpgradeType.Mobility2 => "Mobility 2",
-            UpgradeType.Harvesting1 => "Harvesting 1",
-            UpgradeType.Harvesting2 => "Harvesting 2",
-            UpgradeType.SiegeEngineering => "Siege Engineering",
-            _ => type.ToString(),
-        };
+
+        return sb.ToString();
+    }
 
     /// <summary>"learn" an upgrade: a class at the Makerspace in the Snow theme, research otherwise.</summary>
     public string Learning => _snow ? "taking" : "researching";

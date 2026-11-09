@@ -22,11 +22,14 @@ public sealed class BlockBot : IBotStrategy
     /// <summary>A grub pile this close to an HQ or Co-op Store counts as "near my base".</summary>
     private const int NearBaseRange = 8;
 
+    /// <summary>What an action uses when a field is left out (also served to editors in the vocabulary).</summary>
+    private static readonly BlockDefaultsDto Defaults = new();
+
     private readonly object _lock = new();
     private readonly List<BlockVersionDto> _versions = [];
     private readonly Dictionary<string, bool> _switches = new(StringComparer.OrdinalIgnoreCase);
     private BlockProgramDto _program;
-    private IReadOnlyList<BlockRuleStatusDto> _ruleStatus = [];
+    private IReadOnlyList<RuleStatus> _ruleStatus = [];
     private BlockStatsDto _stats = new();
     private int _tick;
     private string? _error;
@@ -55,9 +58,6 @@ public sealed class BlockBot : IBotStrategy
     }
 
     public string Name { get; }
-
-    /// <summary>The words the status uses: the site theme the player's page shows (see <see cref="BlockWords.For"/>).</summary>
-    public BlockWords Words { get; set; } = BlockWords.Snow;
 
     public int Version
     {
@@ -104,8 +104,8 @@ public sealed class BlockBot : IBotStrategy
         }
     }
 
-    /// <summary>What the bot did on the last tick it played.</summary>
-    public BlockBotStatusDto Status(Guid matchId, MatchStatus matchStatus, int slot)
+    /// <summary>What the bot did on the last tick it played, in the words of the theme the page shows.</summary>
+    public BlockBotStatusDto Status(Guid matchId, MatchStatus matchStatus, int slot, BlockWords? words = null)
     {
         lock (_lock)
         {
@@ -120,7 +120,7 @@ public sealed class BlockBot : IBotStrategy
                 Program = _program,
                 Versions = [.. _versions],
                 Switches = new Dictionary<string, bool>(_switches),
-                Rules = _ruleStatus,
+                Rules = _ruleStatus.Select(r => r.Render(words ?? BlockWords.Snow)).ToList(),
                 Stats = _stats,
                 Error = _error,
             };
@@ -146,7 +146,7 @@ public sealed class BlockBot : IBotStrategy
 
         Remember(view);
         var turn = new Turn(this, view, switches);
-        var statuses = new List<BlockRuleStatusDto>(program.Rules.Count);
+        var statuses = new List<RuleStatus>(program.Rules.Count);
         string? error = null;
         try
         {
@@ -233,11 +233,23 @@ public sealed class BlockBot : IBotStrategy
         }
     }
 
-    private readonly record struct Check(bool Value, string Why, int? Progress = null);
+    /// <summary>
+    /// A sentence waiting for its words: what a rule did is worked out on the tick, but said in whichever theme
+    /// the page asking shows. A phrase may only use values that don't change after it's made.
+    /// </summary>
+    private delegate string Phrase(BlockWords words);
 
-    private readonly record struct Outcome(bool Did, string Text, IReadOnlyList<int> UnitIds)
+    private readonly record struct Check(bool Value, Phrase Why, int? Progress = null);
+
+    private readonly record struct Outcome(bool Did, Phrase Text, IReadOnlyList<int> UnitIds)
     {
-        public static Outcome Fail(string text) => new(false, text, []);
+        public static Outcome Fail(Phrase text) => new(false, text, []);
+    }
+
+    private sealed record RuleStatus(int Index, string State, Phrase Why, IReadOnlyList<int>? UnitIds = null, int? Progress = null)
+    {
+        public BlockRuleStatusDto Render(BlockWords words) =>
+            new() { Index = Index, State = State, Why = Why(words), UnitIds = UnitIds ?? [], Progress = Progress };
     }
 
     /// <summary>One tick's work: the grubs left to spend, the units already given orders, the commands so far.</summary>
@@ -251,24 +263,22 @@ public sealed class BlockBot : IBotStrategy
 
         private int Tick => view.State.Tick;
 
-        private BlockWords W => bot.Words;
-
-        public BlockRuleStatusDto RunRule(int index, BlockRuleDto rule)
+        public RuleStatus RunRule(int index, BlockRuleDto rule)
         {
             if (!rule.Enabled)
             {
-                return new BlockRuleStatusDto { Index = index, State = "off", Why = "This rule is turned off." };
+                return new RuleStatus(index, "off", _ => "This rule is turned off.");
             }
 
             var check = Evaluate(rule.When);
             if (!check.Value)
             {
-                return new BlockRuleStatusDto { Index = index, State = "idle", Why = "Not now: " + check.Why, Progress = check.Progress };
+                return new RuleStatus(index, "idle", w => "Not now: " + check.Why(w), Progress: check.Progress);
             }
 
             if (rule.Do.Count == 0)
             {
-                return new BlockRuleStatusDto { Index = index, State = "waiting", Why = "True, but this rule has nothing to do." };
+                return new RuleStatus(index, "waiting", _ => "True, but this rule has nothing to do.");
             }
 
             var done = new List<Outcome>();
@@ -280,14 +290,8 @@ public sealed class BlockBot : IBotStrategy
             }
 
             return done.Count > 0
-                ? new BlockRuleStatusDto
-                {
-                    Index = index,
-                    State = "firing",
-                    Why = "Firing: " + string.Join("; ", done.Select(d => d.Text)),
-                    UnitIds = done.SelectMany(d => d.UnitIds).Distinct().Take(60).ToList(),
-                }
-                : new BlockRuleStatusDto { Index = index, State = "waiting", Why = "Ready, but " + failed[0].Text };
+                ? new RuleStatus(index, "firing", w => "Firing: " + string.Join("; ", done.Select(d => d.Text(w))), done.SelectMany(d => d.UnitIds).Distinct().Take(60).ToList())
+                : new RuleStatus(index, "waiting", w => "Ready, but " + failed[0].Text(w));
         }
 
         // ------------------------------------------------------------ conditions
@@ -297,22 +301,22 @@ public sealed class BlockBot : IBotStrategy
             switch (c.Kind)
             {
                 case "always":
-                    return new Check(true, "every tick");
+                    return new Check(true, _ => "every tick");
                 case "enemyNearBase":
                     var near = Threat() is not null;
-                    return new Check(near, near ? "an enemy is near your base" : "no enemies near your base");
+                    return new Check(near, _ => near ? "an enemy is near your base" : "no enemies near your base");
                 case "seeEnemy":
                     var seen = view.EnemyUnits.Count + view.EnemyBuildings.Count > 0;
-                    return new Check(seen, seen ? "you can see an enemy" : "you can't see any enemies");
+                    return new Check(seen, _ => seen ? "you can see an enemy" : "you can't see any enemies");
                 case "count":
-                    return Compare(W.What(c.What!), Count(c.What!), c.Op!, c.Value ?? 0);
+                    return Compare(w => w.What(c.What!), Count(c.What!), c.Op!, c.Value ?? 0);
                 case "minute":
-                    return Compare("minute", Tick / TicksPerMinute, c.Op!, c.Value ?? 0);
+                    return Compare(_ => "minute", Tick / TicksPerMinute, c.Op!, c.Value ?? 0);
                 case "grubsLeft":
-                    return Compare(W.OreLeft, KnownDeposits().Where(d => NearBase(d.X, d.Y)).Sum(d => d.Remaining), c.Op!, c.Value ?? 0);
+                    return Compare(w => w.OreLeft, KnownDeposits().Where(d => NearBase(d.X, d.Y)).Sum(d => d.Remaining), c.Op!, c.Value ?? 0);
                 case "switch":
                     var on = switches.GetValueOrDefault(c.Name!);
-                    return new Check(on, $"{c.Name} is {(on ? "on" : "off")}");
+                    return new Check(on, _ => $"{c.Name} is {(on ? "on" : "off")}");
                 case "and":
                     var a = Evaluate(c.A!);
                     if (!a.Value)
@@ -321,7 +325,7 @@ public sealed class BlockBot : IBotStrategy
                     }
 
                     var b = Evaluate(c.B!);
-                    return b.Value ? new Check(true, $"{a.Why} and {b.Why}") : b;
+                    return b.Value ? new Check(true, w => $"{a.Why(w)} and {b.Why(w)}") : b;
                 case "or":
                     var left = Evaluate(c.A!);
                     if (left.Value)
@@ -332,7 +336,7 @@ public sealed class BlockBot : IBotStrategy
                     var right = Evaluate(c.B!);
                     return right.Value
                         ? right
-                        : new Check(false, $"{left.Why}, and {right.Why}", Max(left.Progress, right.Progress));
+                        : new Check(false, w => $"{left.Why(w)}, and {right.Why(w)}", Max(left.Progress, right.Progress));
                 case "not":
                     var inner = Evaluate(c.A!);
                     return new Check(!inner.Value, inner.Why);
@@ -343,7 +347,7 @@ public sealed class BlockBot : IBotStrategy
 
         private static int? Max(int? a, int? b) => a is null ? b : b is null ? a : Math.Max(a.Value, b.Value);
 
-        private Check Compare(string label, int actual, string op, int value)
+        private Check Compare(Phrase label, int actual, string op, int value)
         {
             var result = op switch
             {
@@ -355,7 +359,7 @@ public sealed class BlockBot : IBotStrategy
                 _ => throw new InvalidOperationException($"Unknown comparison '{op}'."),
             };
             int? progress = op is ">=" or ">" && value > 0 ? Math.Clamp(actual * 100 / value, 0, 100) : null;
-            return new Check(result, $"{label} is {actual} (needs {BlockWords.Op(op)} {value})", progress);
+            return new Check(result, w => $"{label(w)} is {actual} (needs {BlockWords.Op(op)} {value})", progress);
         }
 
         /// <summary>Units count with those in production; buildings with those going up or ordered.</summary>
@@ -393,13 +397,13 @@ public sealed class BlockBot : IBotStrategy
         {
             "train" => Train(a.Unit!.Value),
             "trainMix" => TrainMix(rule, action, a.Units!),
-            "build" => Build(a.Building!.Value, Enum.TryParse<SitePreference>(a.Site, true, out var site) ? site : SitePreference.TowardCenter),
+            "build" => Build(a.Building!.Value, Enum.TryParse<SitePreference>(a.Site ?? Defaults.Site, true, out var site) ? site : SitePreference.TowardCenter),
             "research" => Research(a.Upgrade!.Value),
-            "attack" => Attack(a.Who, a.Target ?? "enemyBase"),
-            "defend" => Defend(a.Who),
-            "retreat" => Retreat(a.Who),
-            "scout" => a.Target == "explore" ? Explore() : Scout(),
-            "expand" => Expand(a.Building ?? BuildingType.ResourceDepot),
+            "attack" => Attack(a.Who ?? Defaults.Who, a.Target ?? Defaults.Target),
+            "defend" => Defend(a.Who ?? Defaults.Who),
+            "retreat" => Retreat(a.Who ?? Defaults.Who),
+            "scout" => (a.Target ?? Defaults.ScoutTarget) == "explore" ? Explore() : Scout(),
+            "expand" => Expand(a.Building ?? Defaults.ExpandBuilding),
             _ => throw new InvalidOperationException($"Unknown action '{a.Kind}'."),
         };
 
@@ -410,7 +414,7 @@ public sealed class BlockBot : IBotStrategy
             var producers = view.MyBuildings.Where(b => b.Type == stats.ProducedAt && b.Completed).ToList();
             if (producers.Count == 0)
             {
-                return Outcome.Fail($"you need a {W.Building(stats.ProducedAt)} to train a {W.Unit(type)}.");
+                return Outcome.Fail(w => $"you need a {w.Building(stats.ProducedAt)} to train a {w.Unit(type)}.");
             }
 
             var building = producers
@@ -419,12 +423,13 @@ public sealed class BlockBot : IBotStrategy
                 .FirstOrDefault();
             if (building is null)
             {
-                return Outcome.Fail($"your {W.Building(stats.ProducedAt)} is busy.");
+                return Outcome.Fail(w => $"your {w.Building(stats.ProducedAt)} is busy.");
             }
 
+            var have = _budget;
             if (_budget < stats.Cost)
             {
-                return Outcome.Fail($"a {W.Unit(type)} costs {stats.Cost} {W.Ore} and you have {_budget}.");
+                return Outcome.Fail(w => $"a {w.Unit(type)} costs {stats.Cost} {w.Ore} and you have {have}.");
             }
 
             var command = new CommandRequest { Type = CommandType.Produce, BuildingId = building.Id, UnitType = type };
@@ -437,7 +442,7 @@ public sealed class BlockBot : IBotStrategy
             Commands.Add(command);
             _budget -= stats.Cost;
             _queuedAt[building.Id] = _queuedAt.GetValueOrDefault(building.Id) + 1;
-            return new Outcome(true, $"training a {W.Unit(type)}", []);
+            return new Outcome(true, w => $"training a {w.Unit(type)}", []);
         }
 
         private Outcome TrainMix(int rule, int action, IReadOnlyList<UnitType> units)
@@ -456,44 +461,45 @@ public sealed class BlockBot : IBotStrategy
         private Outcome Build(BuildingType type, SitePreference preference)
         {
             var stats = view.Rules.Buildings.First(b => b.Type == type);
-            var name = W.Building(type);
+            Phrase name = w => w.Building(type);
             foreach (var required in stats.Requires.Where(r => !view.MyBuildings.Any(b => b.Type == r && b.Completed)))
             {
-                return Outcome.Fail($"a {name} needs a finished {W.Building(required)} first.");
+                return Outcome.Fail(w => $"a {name(w)} needs a finished {w.Building(required)} first.");
             }
 
             if (stats.RequiresUpgrade is { } upgrade && !view.State.You.Upgrades.Contains(upgrade))
             {
-                return Outcome.Fail($"a {name} needs {W.Upgrade(upgrade)} first.");
+                return Outcome.Fail(w => $"a {name(w)} needs {w.Upgrade(upgrade)} first.");
             }
 
             if (bot._pendingSites.Any(kv => kv.Value.Type == type) || view.MyBuildings.Any(b => b.Type == type && !b.Completed))
             {
-                return Outcome.Fail($"a {name} is already going up.");
+                return Outcome.Fail(w => $"a {name(w)} is already going up.");
             }
 
+            var have = _budget;
             if (_budget < stats.Cost)
             {
-                return Outcome.Fail($"a {name} costs {stats.Cost} {W.Ore} and you have {_budget}.");
+                return Outcome.Fail(w => $"a {name(w)} costs {stats.Cost} {w.Ore} and you have {have}.");
             }
 
             var site = view.FindBuildSite(preference, bot._pendingSites.Keys);
             if (site is null)
             {
-                return Outcome.Fail($"there's no room near your HQ for a {name}.");
+                return Outcome.Fail(w => $"there's no room near your HQ for a {name(w)}.");
             }
 
             var builder = Builder(site.Value);
             if (builder is null)
             {
-                return Outcome.Fail($"there's no free worker to build a {name}.");
+                return Outcome.Fail(w => $"there's no free worker to build a {name(w)}.");
             }
 
             Commands.Add(new CommandRequest { Type = CommandType.Build, UnitIds = [builder.Id], BuildingType = type, X = site.Value.X, Y = site.Value.Y });
             _claimed.Add(builder.Id);
             bot._pendingSites[site.Value] = (type, Tick);
             _budget -= stats.Cost;
-            return new Outcome(true, $"building a {name}", [builder.Id]);
+            return new Outcome(true, w => $"building a {name(w)}", [builder.Id]);
         }
 
         private UnitDto? Builder((int X, int Y) site) =>
@@ -504,45 +510,46 @@ public sealed class BlockBot : IBotStrategy
 
         private Outcome Research(UpgradeType upgrade)
         {
-            var name = W.Upgrade(upgrade);
+            Phrase name = w => w.Upgrade(upgrade);
             var you = view.State.You;
             if (you.Upgrades.Contains(upgrade))
             {
-                return Outcome.Fail($"you already learned {name}.");
+                return Outcome.Fail(w => $"you already learned {name(w)}.");
             }
 
             if (you.Researching.Any(r => r.Upgrade == upgrade))
             {
-                return Outcome.Fail($"{name} is already being learned.");
+                return Outcome.Fail(w => $"{name(w)} is already being learned.");
             }
 
             var stats = view.Rules.Upgrades.First(u => u.Type == upgrade);
             if (stats.Requires is { } req && !you.Upgrades.Contains(req))
             {
-                return Outcome.Fail($"{name} needs {W.Upgrade(req)} first.");
+                return Outcome.Fail(w => $"{name(w)} needs {w.Upgrade(req)} first.");
             }
 
             var labs = view.MyBuildings.Where(b => b.Type == BuildingType.TechLab && b.Completed).ToList();
             if (labs.Count == 0)
             {
-                return Outcome.Fail($"you need a {W.Building(BuildingType.TechLab)} to learn {name}.");
+                return Outcome.Fail(w => $"you need a {w.Building(BuildingType.TechLab)} to learn {name(w)}.");
             }
 
             var lab = labs.FirstOrDefault(b => b.Research is null && !_queuedAt.ContainsKey(b.Id));
             if (lab is null)
             {
-                return Outcome.Fail($"your {W.Building(BuildingType.TechLab)} is busy.");
+                return Outcome.Fail(w => $"your {w.Building(BuildingType.TechLab)} is busy.");
             }
 
+            var have = _budget;
             if (_budget < stats.Cost)
             {
-                return Outcome.Fail($"{name} costs {stats.Cost} {W.Ore} and you have {_budget}.");
+                return Outcome.Fail(w => $"{name(w)} costs {stats.Cost} {w.Ore} and you have {have}.");
             }
 
             Commands.Add(new CommandRequest { Type = CommandType.Research, BuildingId = lab.Id, Upgrade = upgrade });
             _queuedAt[lab.Id] = 1;
             _budget -= stats.Cost;
-            return new Outcome(true, $"{W.Learning} {name}", []);
+            return new Outcome(true, w => $"{w.Learning} {name(w)}", []);
         }
 
         /// <summary>The fighters an army order goes to, minus those a rule higher up already used this tick.</summary>
@@ -559,7 +566,7 @@ public sealed class BlockBot : IBotStrategy
             var group = Group(who);
             if (group.Count == 0)
             {
-                return Outcome.Fail($"you have no {W.Who(who)} to send.");
+                return Outcome.Fail(w => $"you have no {w.Who(who)} to send.");
             }
 
             (int X, int Y)? spot;
@@ -574,7 +581,7 @@ public sealed class BlockBot : IBotStrategy
                     .FirstOrDefault();
                 if (spot is null)
                 {
-                    return Outcome.Fail("you can't see any enemies yet.");
+                    return Outcome.Fail(_ => "you can't see any enemies yet.");
                 }
             }
             else
@@ -582,12 +589,12 @@ public sealed class BlockBot : IBotStrategy
                 spot = view.AttackTarget();
                 if (spot is null)
                 {
-                    return Outcome.Fail("there's no enemy base left to attack.");
+                    return Outcome.Fail(_ => "there's no enemy base left to attack.");
                 }
             }
 
             Order(group, CommandType.Attack, spot.Value, retarget: true);
-            return new Outcome(true, $"{group.Count} {W.Who(who, group.Count)} attacking", group.Select(u => u.Id).ToList());
+            return new Outcome(true, w => $"{group.Count} {w.Who(who, group.Count)} attacking", group.Select(u => u.Id).ToList());
         }
 
         private Outcome Defend(string? who)
@@ -595,17 +602,17 @@ public sealed class BlockBot : IBotStrategy
             var threat = Threat();
             if (threat is null)
             {
-                return Outcome.Fail("no enemies near your base.");
+                return Outcome.Fail(_ => "no enemies near your base.");
             }
 
             var group = Group(who);
             if (group.Count == 0)
             {
-                return Outcome.Fail($"you have no {W.Who(who)} to defend with.");
+                return Outcome.Fail(w => $"you have no {w.Who(who)} to defend with.");
             }
 
             Order(group, CommandType.Attack, (threat.X, threat.Y), retarget: false);
-            return new Outcome(true, $"{group.Count} {W.Who(who, group.Count)} defending", group.Select(u => u.Id).ToList());
+            return new Outcome(true, w => $"{group.Count} {w.Who(who, group.Count)} defending", group.Select(u => u.Id).ToList());
         }
 
         private Outcome Retreat(string? who)
@@ -613,7 +620,7 @@ public sealed class BlockBot : IBotStrategy
             var group = Group(who);
             if (group.Count == 0)
             {
-                return Outcome.Fail($"you have no {W.Who(who)} to bring home.");
+                return Outcome.Fail(w => $"you have no {w.Who(who)} to bring home.");
             }
 
             var rally = view.RallyPoint();
@@ -625,11 +632,11 @@ public sealed class BlockBot : IBotStrategy
 
             if (away.Count == 0)
             {
-                return new Outcome(true, $"{group.Count} {W.Who(who, group.Count)} waiting at home", group.Select(u => u.Id).ToList());
+                return new Outcome(true, w => $"{group.Count} {w.Who(who, group.Count)} waiting at home", group.Select(u => u.Id).ToList());
             }
 
             Order(away, CommandType.Move, rally, retarget: false);
-            return new Outcome(true, $"{away.Count} {W.Who(who, away.Count)} heading home", away.Select(u => u.Id).ToList());
+            return new Outcome(true, w => $"{away.Count} {w.Who(who, away.Count)} heading home", away.Select(u => u.Id).ToList());
         }
 
         // ------------------------------------------------------------ grubs further away
@@ -651,10 +658,10 @@ public sealed class BlockBot : IBotStrategy
         /// </summary>
         private Outcome Expand(BuildingType type)
         {
-            var name = W.Building(type);
+            Phrase name = w => w.Building(type);
             if (bot._pendingSites.Any(kv => IsDropOff(kv.Value.Type)) || view.MyBuildings.Any(b => IsDropOff(b.Type) && !b.Completed))
             {
-                return Outcome.Fail($"a {W.Building(BuildingType.ResourceDepot)} or {W.Building(BuildingType.CommandCenter)} is already going up.");
+                return Outcome.Fail(w => $"a {w.Building(BuildingType.ResourceDepot)} or {w.Building(BuildingType.CommandCenter)} is already going up.");
             }
 
             var cc = view.CommandCenter!;
@@ -667,33 +674,34 @@ public sealed class BlockBot : IBotStrategy
             {
                 var look = Explore();
                 return look.Did
-                    ? new Outcome(true, $"looking for more {W.Ore}: {look.Text}", look.UnitIds)
-                    : Outcome.Fail($"you don't know where more {W.Ore} is yet, and {look.Text}");
+                    ? new Outcome(true, w => $"looking for more {w.Ore}: {look.Text(w)}", look.UnitIds)
+                    : Outcome.Fail(w => $"you don't know where more {w.Ore} is yet, and {look.Text(w)}");
             }
 
             var cost = view.Rules.Buildings.First(b => b.Type == type).Cost;
+            var have = _budget;
             if (_budget < cost)
             {
-                return Outcome.Fail($"a {name} costs {cost} {W.Ore} and you have {_budget}.");
+                return Outcome.Fail(w => $"a {name(w)} costs {cost} {w.Ore} and you have {have}.");
             }
 
             var site = SiteNear(target.Value);
             if (site is null)
             {
-                return Outcome.Fail($"there's no room for a {name} next to those {W.Ore}.");
+                return Outcome.Fail(w => $"there's no room for a {name(w)} next to those {w.Ore}.");
             }
 
             var builder = Builder(site.Value);
             if (builder is null)
             {
-                return Outcome.Fail($"there's no free worker to build a {name}.");
+                return Outcome.Fail(w => $"there's no free worker to build a {name(w)}.");
             }
 
             Commands.Add(new CommandRequest { Type = CommandType.Build, UnitIds = [builder.Id], BuildingType = type, X = site.Value.X, Y = site.Value.Y });
             _claimed.Add(builder.Id);
             bot._pendingSites[site.Value] = (type, Tick);
             _budget -= cost;
-            return new Outcome(true, $"building a {name} by new {W.Ore}", [builder.Id]);
+            return new Outcome(true, w => $"building a {name(w)} by new {w.Ore}", [builder.Id]);
         }
 
         /// <summary>
@@ -735,7 +743,7 @@ public sealed class BlockBot : IBotStrategy
                         ?? view.Army.Where(u => !_claimed.Contains(u.Id)).OrderBy(u => u.Id).FirstOrDefault();
             if (scout is null)
             {
-                return Outcome.Fail($"you have no scouts (or any fighters) to send exploring.");
+                return Outcome.Fail(w => $"you have no scouts (or any fighters) to send exploring.");
             }
 
             var width = view.Map.Width;
@@ -772,12 +780,12 @@ public sealed class BlockBot : IBotStrategy
 
             if (bot._exploreGoal is not { } goal)
             {
-                return Outcome.Fail("you've already seen the whole map.");
+                return Outcome.Fail(_ => "you've already seen the whole map.");
             }
 
             _claimed.Add(scout.Id);
             Order([scout], CommandType.Move, goal, retarget: false);
-            return new Outcome(true, $"a {W.Unit(scout.Type)} is exploring", [scout.Id]);
+            return new Outcome(true, w => $"a {w.Unit(scout.Type)} is exploring", [scout.Id]);
         }
 
         private Outcome Scout()
@@ -786,14 +794,14 @@ public sealed class BlockBot : IBotStrategy
                         ?? view.Army.Where(u => !_claimed.Contains(u.Id)).OrderBy(u => u.Id).FirstOrDefault();
             if (scout is null)
             {
-                return Outcome.Fail("you have no scouts (or any fighters) to send.");
+                return Outcome.Fail(_ => "you have no scouts (or any fighters) to send.");
             }
 
             var starts = view.State.Players.Where(p => p.Slot != view.State.You.Slot && !p.Eliminated)
                 .OrderBy(p => p.Slot).Select(p => p.StartPosition).ToList();
             if (starts.Count == 0)
             {
-                return Outcome.Fail("there's nobody left to find.");
+                return Outcome.Fail(_ => "there's nobody left to find.");
             }
 
             _claimed.Add(scout.Id);
@@ -805,7 +813,7 @@ public sealed class BlockBot : IBotStrategy
             }
 
             Order([scout], CommandType.Move, (goal.X, goal.Y), retarget: false);
-            return new Outcome(true, $"a {W.Unit(scout.Type)} is scouting", [scout.Id]);
+            return new Outcome(true, w => $"a {w.Unit(scout.Type)} is scouting", [scout.Id]);
         }
 
         /// <summary>

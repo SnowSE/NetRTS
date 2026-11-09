@@ -88,21 +88,44 @@ public class BlockBotTests
     }
 
     [Fact]
-    public void The_original_theme_explains_itself_in_its_own_words()
+    public void The_same_tick_is_explained_in_whichever_theme_the_page_asks_for()
     {
         var sim = NewSim(3);
-        var snow = new BlockBot("blocks", Rush());
-        var classic = new BlockBot("blocks", Rush()) { Words = BlockWords.For("classic") };
-        Play(sim, [snow, HouseBots.Create("sitter")], until: t => t >= 2);
-        var view = new BotContext(sim.GetPlayerView(0), sim.Map.ToDto(), GameRules.ToDto());
-        classic.Decide(view);
+        var bot = new BlockBot("blocks", Rush());
+        Play(sim, [bot, HouseBots.Create("sitter")], until: t => t >= 2);
 
-        Assert.Contains("Housing", snow.Status(Guid.Empty, sim.Status, 0).Rules[4].Why);
-        var why = classic.Status(Guid.Empty, sim.Status, 0).Rules[4].Why;
+        Assert.Contains("Housing", bot.Status(Guid.Empty, sim.Status, 0, BlockWords.Snow).Rules[4].Why);
+        var why = bot.Status(Guid.Empty, sim.Status, 0, BlockWords.Classic).Rules[4].Why;
         Assert.Contains("Barracks", why);
         Assert.DoesNotContain("Housing", why);
         Assert.Same(BlockWords.Snow, BlockWords.For(null));
         Assert.Equal("ore", BlockWords.Classic.What("grubs"));
+        Assert.Equal("Bell Tower", BlockWords.Snow.Building(BuildingType.GuardTower));
+        Assert.Equal("Guard Tower", BlockWords.Classic.Building(BuildingType.GuardTower));
+        Assert.Equal("Weapons 1", BlockWords.Classic.Upgrade(UpgradeType.Weapons1));
+    }
+
+    [Fact]
+    public void A_reason_keeps_the_grubs_you_had_when_the_rule_ran()
+    {
+        // 500 to start: Housing takes 150, the HQ (400) can't be paid for out of the 350 left, then a Co-op Store
+        // takes 100 more. The HQ's reason, said after the tick, must still say 350.
+        var program = new BlockProgramDto
+        {
+            Rules =
+            [
+                new() { Do = [new() { Kind = "build", Building = BuildingType.Barracks }] },
+                new() { Do = [new() { Kind = "build", Building = BuildingType.CommandCenter }] },
+                new() { Do = [new() { Kind = "build", Building = BuildingType.ResourceDepot }] },
+            ],
+        };
+        var sim = NewSim(3);
+        var bot = new BlockBot("blocks", program);
+        Play(sim, [bot, HouseBots.Create("sitter")], until: t => t >= 1);
+
+        var status = bot.Status(Guid.Empty, sim.Status, 0);
+        Assert.Equal("firing", status.Rules[2].State);
+        Assert.Contains("costs 400 grubs and you have 350", status.Rules[1].Why);
     }
 
     [Fact]

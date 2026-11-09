@@ -80,9 +80,6 @@ public sealed record StartBlockMatchRequest
     /// <summary>Milliseconds per tick; null for the server's default.</summary>
     public int? TickIntervalMs { get; init; }
 
-    /// <summary>The site theme the page shows, for the words in the status: "snow" (default) or "classic".</summary>
-    public string? Theme { get; init; }
-
     /// <summary>Create only: how many players, 2-4 (default 4). It starts when they're all in, or when its creator starts it.</summary>
     public int? Seats { get; init; }
 
@@ -93,9 +90,6 @@ public sealed record StartBlockMatchRequest
 public sealed record JoinBlockMatchRequest
 {
     public required BlockProgramDto Program { get; init; }
-
-    /// <summary>The site theme the page shows: "snow" (default) or "classic".</summary>
-    public string? Theme { get; init; }
 }
 
 public sealed record SetBlockSwitchRequest

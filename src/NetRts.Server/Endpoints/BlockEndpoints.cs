@@ -38,11 +38,11 @@ public static class BlockEndpoints
             .ProducesErrors()
             .WithSummary("Start a practice match that the server plays for you with a Block Bot program: a sandbox (against the Sleepy Sitter), one house bot, a free-for-all, or (Create) a match of 2-4 seats for other players to join.");
 
-        blocks.MapGet("/matches", (ClaimsPrincipal user, BlockBots bots) =>
-                bots.For(user.PlayerId()).Select(x => x.Bot.Status(x.Match.Id, x.Match.Status, x.Match.SlotOf(user.PlayerId()) ?? -1)).ToList())
+        blocks.MapGet("/matches", (ClaimsPrincipal user, BlockBots bots, string? theme) =>
+                bots.For(user.PlayerId()).Select(x => x.Bot.Status(x.Match.Id, x.Match.Status, x.Match.SlotOf(user.PlayerId()) ?? -1, BlockWords.For(theme))).ToList())
             .RequireAuthorization()
             .Produces<IReadOnlyList<BlockBotStatusDto>>()
-            .WithSummary("Your Block Bots in matches the server still has in memory, newest first.");
+            .WithSummary("Your Block Bots in matches the server still has in memory, newest first. Every call that returns a Block Bot status takes theme=classic for the original NetRTS names instead of Snow College's.");
 
         blocks.MapPost("/matches/{matchId:guid}/join", Join)
             .RequireAuthorization()
@@ -60,7 +60,7 @@ public static class BlockEndpoints
             .ProducesErrors()
             .WithSummary("Start a match you created (mode Create) with the players who have joined so far, at least two.");
 
-        blocks.MapPut("/matches/{matchId:guid}/program", (Guid matchId, BlockProgramDto program, ClaimsPrincipal user, BlockBots bots, MatchManager manager) =>
+        blocks.MapPut("/matches/{matchId:guid}/program", (Guid matchId, BlockProgramDto program, ClaimsPrincipal user, BlockBots bots, MatchManager manager, string? theme) =>
             {
                 if (BlockProgramValidator.Validate(program) is { } error)
                 {
@@ -69,18 +69,18 @@ public static class BlockEndpoints
 
                 var (host, bot) = Find(matchId, user, bots, manager);
                 bot.Apply(program);
-                return Results.Ok(bot.Status(matchId, host.Status, host.SlotOf(user.PlayerId()) ?? -1));
+                return Results.Ok(bot.Status(matchId, host.Status, host.SlotOf(user.PlayerId()) ?? -1, BlockWords.For(theme)));
             })
             .RequireAuthorization()
             .Produces<BlockBotStatusDto>()
             .ProducesErrors()
             .WithSummary("Swap in a new version of your Block Bot's program. It takes over on the next tick.");
 
-        blocks.MapPut("/matches/{matchId:guid}/switches", (Guid matchId, SetBlockSwitchRequest request, ClaimsPrincipal user, BlockBots bots, MatchManager manager) =>
+        blocks.MapPut("/matches/{matchId:guid}/switches", (Guid matchId, SetBlockSwitchRequest request, ClaimsPrincipal user, BlockBots bots, MatchManager manager, string? theme) =>
             {
                 var (host, bot) = Find(matchId, user, bots, manager);
                 return bot.SetSwitch(request.Name, request.On)
-                    ? Results.Ok(bot.Status(matchId, host.Status, host.SlotOf(user.PlayerId()) ?? -1))
+                    ? Results.Ok(bot.Status(matchId, host.Status, host.SlotOf(user.PlayerId()) ?? -1, BlockWords.For(theme)))
                     : ApiErrors.Error(404, "SWITCH_NOT_FOUND", $"Your program has no switch called '{request.Name}'.");
             })
             .RequireAuthorization()
@@ -91,13 +91,8 @@ public static class BlockEndpoints
         blocks.MapGet("/matches/{matchId:guid}/status", (Guid matchId, ClaimsPrincipal user, BlockBots bots, MatchManager manager, string? theme) =>
             {
                 var (host, bot) = Find(matchId, user, bots, manager);
-                if (theme is not null)
-                {
-                    bot.Words = BlockWords.For(theme);
-                }
-
                 host.Touch(user.PlayerId());
-                return Results.Ok(bot.Status(matchId, host.Status, host.SlotOf(user.PlayerId()) ?? -1));
+                return Results.Ok(bot.Status(matchId, host.Status, host.SlotOf(user.PlayerId()) ?? -1, BlockWords.For(theme)));
             })
             .RequireAuthorization()
             .Produces<BlockBotStatusDto>()
@@ -124,7 +119,7 @@ public static class BlockEndpoints
         };
 
         var seat = await Accounts.SeatForAsync(db, discord.Value, user, ct);
-        var bot = new BlockBot(seat.Name, request.Program) { Words = BlockWords.For(request.Theme) };
+        var bot = new BlockBot(seat.Name, request.Program);
         var create = request.Mode == BlockPlayMode.Create;
         if (create && request.Seats is { } seats && seats is < 2 or > 4)
         {
@@ -155,7 +150,7 @@ public static class BlockEndpoints
         }
 
         var seat = await Accounts.SeatForAsync(db, discord.Value, user, ct);
-        var bot = new BlockBot(seat.Name, request.Program) { Words = BlockWords.For(request.Theme) };
+        var bot = new BlockBot(seat.Name, request.Program);
         var host = manager.Join(matchId, seat, bot);
         bots.Add(host.Id, seat.PlayerId, bot);
         return Results.Ok(host.ToSummary());

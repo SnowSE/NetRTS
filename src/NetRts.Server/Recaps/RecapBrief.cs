@@ -83,12 +83,12 @@ public sealed class RecapBrief(
 
     private bool Snow => !string.Equals(recap.Value.Brand, "classic", StringComparison.OrdinalIgnoreCase);
 
-    private static readonly Dictionary<string, string> Nicknames = new()
+    /// <summary>What the hosts should know beyond a name: a few Snow College names get a note.</summary>
+    private static readonly Dictionary<string, string> LoreNotes = new()
     {
-        ["sitter"] = "Sleepy Sitter",
-        ["rusher"] = "Honey Badger",
-        ["balanced"] = "Blue Badger",
-        ["economist"] = "Grub Hoarder",
+        ["CommandCenter"] = "each team's is a campus building",
+        ["SiegeWorkshop"] = "Richfield campus",
+        ["Trebuchet"] = "an old Snap-on tool truck in Snow College colours, with a cannon on the roof",
     };
 
     /// <summary>A bot's name as the hosts say it: house bots by their nickname.</summary>
@@ -102,7 +102,7 @@ public sealed class RecapBrief(
         }
 
         var bot = name[6..].Split(' ')[0];
-        return Snow && Nicknames.TryGetValue(bot, out var nick) ? $"{nick} (house bot)" : $"{bot} (house bot)";
+        return Snow && SnowLore.BotNicknames.TryGetValue(bot, out var nick) ? $"{nick} (house bot)" : $"{bot} (house bot)";
     }
 
     private string? Owner(Guid id) =>
@@ -111,32 +111,14 @@ public sealed class RecapBrief(
     private RecapLoreDto Lore() => Snow
         ? new RecapLoreDto
         {
-            Game = "Badger Brawl",
-            Ore = "grubs",
+            Game = SnowLore.Game,
+            Ore = SnowLore.Ore,
             Setting = "Snow College in Ephraim, Utah (Go Badgers). Bots are student-written programs; their units are badgers.",
-            Names = new Dictionary<string, string>
-            {
-                ["house-sitter"] = "Sleepy Sitter",
-                ["house-rusher"] = "Honey Badger",
-                ["house-balanced"] = "Blue Badger",
-                ["house-economist"] = "Grub Hoarder",
-                ["CommandCenter"] = "HQ (each team's is a campus building)",
-                ["Barracks"] = "Housing",
-                ["ResourceDepot"] = "Co-op Store",
-                ["TechLab"] = "GRSC Makerspace",
-                ["GuardTower"] = "The Bell Tower",
-                ["SiegeWorkshop"] = "Washburn Welding Shop (Richfield campus)",
-                ["Trebuchet"] = "Snow Mobile (an old Snap-on tool truck in Snow College colours, with a cannon on the roof)",
-                ["Weapons1"] = "Intro to Chemistry",
-                ["Weapons2"] = "Organic Chemistry",
-                ["Armor1"] = "Unit Testing",
-                ["Armor2"] = "Code Review",
-                ["Mobility1"] = "Algorithms",
-                ["Mobility2"] = "Parallel Computing",
-                ["Harvesting1"] = "Intro to Biology",
-                ["Harvesting2"] = "Entomology",
-                ["SiegeEngineering"] = "Welding Technology",
-            },
+            Names = SnowLore.BotNicknames.Select(kv => ("house-" + kv.Key, kv.Value))
+                .Concat(SnowLore.Buildings.Select(kv => (kv.Key.ToString(), kv.Value)))
+                .Concat(SnowLore.Units.Select(kv => (kv.Key.ToString(), kv.Value)))
+                .Concat(SnowLore.Upgrades.Select(kv => (kv.Key.ToString(), kv.Value)))
+                .ToDictionary(x => x.Item1, x => LoreNotes.TryGetValue(x.Item1, out var note) ? $"{x.Item2} ({note})" : x.Item2),
         }
         : new RecapLoreDto { Game = "NetRTS", Ore = "ore", Setting = "A real-time strategy game played by bots over a REST API." };
 
