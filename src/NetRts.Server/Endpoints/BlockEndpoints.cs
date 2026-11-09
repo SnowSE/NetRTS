@@ -20,6 +20,10 @@ public static class BlockEndpoints
     {
         var blocks = app.MapGroup("/api/v1/blocks").WithTags("Block Bot");
 
+        blocks.MapGet("/vocabulary", () => BlockProgramValidator.Vocabulary)
+            .Produces<BlockVocabularyDto>()
+            .WithSummary("The conditions, actions, choices and limits a Block Bot program may use, and the defaults for fields left out.");
+
         blocks.MapPost("/validate", (BlockProgramDto program) =>
                 BlockProgramValidator.Validate(program) is { } error
                     ? ApiErrors.Error(400, "INVALID_PROGRAM", error)

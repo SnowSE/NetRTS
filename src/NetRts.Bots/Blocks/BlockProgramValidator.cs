@@ -14,12 +14,44 @@ public static class BlockProgramValidator
     public const int MaxSwitches = 8;
     public const int MaxNameLength = 40;
     public const int MaxNumber = 100_000;
+    public const int MaxSwitchNameLength = 24;
+    public const int MaxMixUnits = 8;
 
     public static readonly IReadOnlyList<string> Ops = ["<", "<=", ">", ">=", "="];
     public static readonly IReadOnlyList<string> ConditionKinds = ["always", "enemyNearBase", "seeEnemy", "count", "grubsLeft", "minute", "switch", "and", "or", "not"];
     public static readonly IReadOnlyList<string> ActionKinds = ["train", "trainMix", "build", "research", "attack", "defend", "retreat", "scout", "expand"];
     public static readonly IReadOnlyList<string> Targets = ["enemyBase", "nearestEnemy"];
     public static readonly IReadOnlyList<string> ScoutTargets = ["enemyBase", "explore"];
+    public static readonly IReadOnlyList<BuildingType> ExpandBuildings = [BuildingType.ResourceDepot, BuildingType.CommandCenter];
+
+    /// <summary>
+    /// Everything a program may say, for editors to build their pickers from (GET /api/v1/blocks/vocabulary), so
+    /// the lists and limits live here and nowhere else.
+    /// </summary>
+    public static BlockVocabularyDto Vocabulary { get; } = new()
+    {
+        ConditionKinds = ConditionKinds,
+        ActionKinds = ActionKinds,
+        Ops = Ops,
+        Targets = Targets,
+        ScoutTargets = ScoutTargets,
+        Sites = Enum.GetNames<SitePreference>(),
+        Who = ["fighters", .. Enum.GetValues<UnitType>().Where(t => t != UnitType.Worker).Select(t => t.ToString())],
+        Countable = ["grubs", "workers", "fighters", .. Enum.GetNames<UnitType>(), .. Enum.GetNames<BuildingType>()],
+        ExpandBuildings = ExpandBuildings,
+        Limits = new BlockLimitsDto
+        {
+            MaxRules = MaxRules,
+            MaxActionsPerRule = MaxActionsPerRule,
+            MaxDepth = MaxDepth,
+            MaxSwitches = MaxSwitches,
+            MaxNameLength = MaxNameLength,
+            MaxSwitchNameLength = MaxSwitchNameLength,
+            MaxNumber = MaxNumber,
+            MaxMixUnits = MaxMixUnits,
+        },
+        Defaults = new BlockDefaultsDto(),
+    };
 
     /// <summary>Null when the program is fine, else a message saying what's wrong (for the editor to show).</summary>
     public static string? Validate(BlockProgramDto? program)
@@ -40,9 +72,9 @@ public static class BlockProgramValidator
             return $"At most {MaxSwitches} switches.";
         }
 
-        if (switches.Any(s => string.IsNullOrWhiteSpace(s) || s.Length > 24))
+        if (switches.Any(s => string.IsNullOrWhiteSpace(s) || s.Length > MaxSwitchNameLength))
         {
-            return "Switch names are 1-24 characters.";
+            return $"Switch names are 1-{MaxSwitchNameLength} characters.";
         }
 
         if (switches.Distinct(StringComparer.OrdinalIgnoreCase).Count() != switches.Count)
@@ -152,7 +184,7 @@ public static class BlockProgramValidator
         return a.Kind switch
         {
             "train" => a.Unit is null ? "train what?" : null,
-            "trainMix" => a.Units is not { Count: > 0 and <= 8 } ? "a mix has 1 to 8 units." : null,
+            "trainMix" => a.Units is not { Count: > 0 and <= MaxMixUnits } ? $"a mix has 1 to {MaxMixUnits} units." : null,
             "build" => a.Building is null ? "build what?"
                 : a.Site is not null && !Enum.TryParse<SitePreference>(a.Site, true, out _) ? $"unknown place '{a.Site}'."
                 : null,
@@ -162,7 +194,7 @@ public static class BlockProgramValidator
                 : null,
             "defend" or "retreat" => !IsWho(a.Who) ? $"unknown unit '{a.Who}'." : null,
             "scout" => a.Target is not null && !ScoutTargets.Contains(a.Target) ? $"unknown place to scout '{a.Target}'." : null,
-            "expand" => a.Building is null or BuildingType.ResourceDepot or BuildingType.CommandCenter ? null
+            "expand" => a.Building is null || ExpandBuildings.Contains(a.Building.Value) ? null
                 : $"expand builds a {BuildingType.ResourceDepot} or a {BuildingType.CommandCenter}, not a {a.Building}.",
             _ => $"unknown action '{a.Kind}'.",
         };

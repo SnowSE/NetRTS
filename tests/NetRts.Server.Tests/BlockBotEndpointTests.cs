@@ -35,6 +35,21 @@ public class BlockBotEndpointTests(TickingServerFactory factory) : IClassFixture
         (await http.GetFromJsonAsync<BlockBotStatusDto>($"/api/v1/blocks/matches/{matchId}/status", NetRtsClient.JsonOptions, Ct))!;
 
     [Fact]
+    public async Task The_vocabulary_lists_what_the_validator_accepts()
+    {
+        var vocabulary = (await factory.CreateClient().GetFromJsonAsync<BlockVocabularyDto>("/api/v1/blocks/vocabulary", NetRtsClient.JsonOptions, Ct))!;
+
+        Assert.Contains("trainMix", vocabulary.ActionKinds);
+        Assert.Contains("grubsLeft", vocabulary.ConditionKinds);
+        Assert.Contains("TowardEnemy", vocabulary.Sites);
+        Assert.Contains("fighters", vocabulary.Who);
+        Assert.DoesNotContain("Worker", vocabulary.Who);
+        Assert.Contains("Barracks", vocabulary.Countable);
+        Assert.Equal(40, vocabulary.Limits.MaxRules);
+        Assert.Equal("enemyBase", vocabulary.Defaults.Target);
+    }
+
+    [Fact]
     public async Task The_server_plays_the_program_and_takes_new_versions_and_switches()
     {
         var http = await PlayerAsync();

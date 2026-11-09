@@ -152,3 +152,63 @@ public sealed record BlockStatsDto
     public int Buildings { get; init; }
     public int Score { get; init; }
 }
+
+/// <summary>
+/// The words a Block Bot program may use and the limits it must keep (GET /api/v1/blocks/vocabulary). Editors
+/// build their pickers from this rather than keeping their own copy.
+/// </summary>
+public sealed record BlockVocabularyDto
+{
+    public IReadOnlyList<string> ConditionKinds { get; init; } = [];
+    public IReadOnlyList<string> ActionKinds { get; init; } = [];
+    public IReadOnlyList<string> Ops { get; init; } = [];
+
+    /// <summary>Where attack goes.</summary>
+    public IReadOnlyList<string> Targets { get; init; } = [];
+
+    /// <summary>Where scout goes.</summary>
+    public IReadOnlyList<string> ScoutTargets { get; init; } = [];
+
+    /// <summary>Where build puts a building.</summary>
+    public IReadOnlyList<string> Sites { get; init; } = [];
+
+    /// <summary>Who an army order goes to: "fighters" or a unit type.</summary>
+    public IReadOnlyList<string> Who { get; init; } = [];
+
+    /// <summary>What a count condition can count.</summary>
+    public IReadOnlyList<string> Countable { get; init; } = [];
+
+    /// <summary>What expand can build.</summary>
+    public IReadOnlyList<BuildingType> ExpandBuildings { get; init; } = [];
+
+    public BlockLimitsDto Limits { get; init; } = new();
+    public BlockDefaultsDto Defaults { get; init; } = new();
+}
+
+public sealed record BlockLimitsDto
+{
+    public int MaxRules { get; init; }
+    public int MaxActionsPerRule { get; init; }
+
+    /// <summary>How deep and/or/not may nest.</summary>
+    public int MaxDepth { get; init; }
+    public int MaxSwitches { get; init; }
+    public int MaxNameLength { get; init; }
+    public int MaxSwitchNameLength { get; init; }
+
+    /// <summary>The largest number a condition may compare with (the smallest is 0).</summary>
+    public int MaxNumber { get; init; }
+
+    /// <summary>The most units a trainMix may cycle through.</summary>
+    public int MaxMixUnits { get; init; }
+}
+
+/// <summary>What the server uses when an optional field is left out.</summary>
+public sealed record BlockDefaultsDto
+{
+    public string Site { get; init; } = "TowardCenter";
+    public string Who { get; init; } = "fighters";
+    public string Target { get; init; } = "enemyBase";
+    public string ScoutTarget { get; init; } = "enemyBase";
+    public BuildingType ExpandBuilding { get; init; } = BuildingType.ResourceDepot;
+}
