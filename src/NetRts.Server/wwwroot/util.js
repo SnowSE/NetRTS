@@ -178,3 +178,98 @@ export function matchRow(m, { status = true, clock = false } = {}) {
     <span class="who">${m.category && m.category !== 'Practice' ? html`<span class="tag cat ${m.category}">${m.category}</span>` : ''}${m.name ? html`<b style="margin-right:8px">${m.name}</b>` : ''}${names}${m.heats ? '' : html`<span class="muted small" style="margin-left:8px">${m.mapWidth}×${m.mapHeight}</span>`}</span>
     <span class="meta">${meta}</span></a></li>`;
 }
+
+/**
+ * Everything a mounted page starts that must stop when it's torn down: timers, listeners on window or
+ * document, and awaited requests. dispose() (in the page's teardown) cancels the timers, removes the
+ * listeners and runs the cleanups; after that no callback from this scope runs, and a promise passed
+ * through wait() never settles, so code after `await scope.wait(...)` simply doesn't run on a page
+ * that has gone.
+ */
+export function mountScope() {
+  let alive = true;
+  const timers = new Set();
+  const cleanups = [];
+  return {
+    get alive() { return alive; },
+    /** setTimeout that forgets itself once it has fired, and never fires after dispose. */
+    later(fn, ms) {
+      if (!alive) return 0;
+      const t = setTimeout(() => { timers.delete(t); if (alive) fn(); }, ms);
+      timers.add(t);
+      return t;
+    },
+    /** Cancels a timer from later(). */
+    clear(t) { clearTimeout(t); timers.delete(t); },
+    /** addEventListener, removed on dispose. */
+    on(target, type, fn, opts) {
+      target.addEventListener(type, fn, opts);
+      cleanups.push(() => target.removeEventListener(type, fn, opts));
+    },
+    /** Runs fn on dispose (closing a stream, destroying a view); straight away if that has happened. */
+    cleanup(fn) { if (alive) cleanups.push(fn); else fn(); },
+    /** The promise's result, only while the page is still mounted; afterwards it never settles. */
+    wait(promise) {
+      return new Promise((resolve, reject) => {
+        Promise.resolve(promise).then((v) => { if (alive) resolve(v); }, (e) => { if (alive) reject(e); });
+      });
+    },
+    dispose() {
+      if (!alive) return;
+      alive = false;
+      timers.forEach(clearTimeout);
+      timers.clear();
+      for (const fn of cleanups.splice(0).reverse()) {
+        try { fn(); } catch (e) { console.error(e); }
+      }
+    },
+  };
+}
+
+/** Slot -> display name; a slot nobody has named yet reads "Player N". */
+class PlayerNames extends Map {
+  get(slot) { return super.get(slot) ?? `Player ${Number(slot) + 1}`; }
+}
+
+/** Every player's display name by slot, from the match summary and (newer, so it wins) the live state. */
+export function playerNames(summary, state) {
+  const names = new PlayerNames();
+  for (const p of summary?.players || []) names.set(p.slot, displayName(p.name));
+  for (const p of state?.players || []) names.set(p.slot, displayName(p.name));
+  return names;
+}
+
+/** A score's total (older results have only the three parts); 0 for no score. */
+export const totalOf = (score) => (score ? score.total ?? score.destruction + score.economy + score.survival : 0);
+
+/**
+ * Players in scoreboard order: those still in first, then by total score, then by slot. scoreOf finds a
+ * player's score where it isn't on the player itself. Returns [{ p, total, rank }].
+ */
+export function rankPlayers(players, scoreOf = (p) => p.score) {
+  return (players || [])
+    .map((p) => ({ p, total: totalOf(scoreOf(p)) }))
+    .sort((a, b) => (Number(!!a.p.eliminated) - Number(!!b.p.eliminated)) || (b.total - a.total) || (a.p.slot - b.p.slot))
+    .map((r, i) => ({ ...r, rank: i + 1 }));
+}
+
+/** Saves obj as a pretty-printed .json file through the browser's download. */
+export function downloadJson(fileName, obj) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
+  a.download = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/**
+ * A house bot's name for people: its nickname in the Snow College theme ("Honey Badger"), else its API
+ * name. withName: the nickname followed by the API name in brackets, for where both matter.
+ */
+export function botLabel(name, { withName = false } = {}) {
+  const nick = nickname(name);
+  if (!nick) return name;
+  return withName ? `${nick} (${name})` : nick;
+}

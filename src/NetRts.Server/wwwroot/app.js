@@ -1,5 +1,5 @@
 // Spectator UI: hash router + home view.
-import { api, html, raw, setHtml, botAndOwner, verifiedBadge, fmt, esc, matchRow, SKILL_TITLE } from './util.js';
+import { api, html, raw, setHtml, botAndOwner, verifiedBadge, fmt, esc, matchRow, botLabel, SKILL_TITLE } from './util.js';
 import { GAME, SNOW, say, nickname } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
@@ -238,7 +238,6 @@ Authorization: Bearer &lt;apiKey&gt;
   const MAX_SEATS = 16;
   const counts = new Map();   // bot name -> how many copies take a seat
   const picked = () => bots.flatMap((b) => Array(counts.get(b.name) || 0).fill(b.name));
-  const label = (name) => (nickname(name) ? `${nickname(name)} (${name})` : name);
   const showCounts = () => {
     const total = picked().length;
     totalEl.textContent = `${total} ${say('bot', 'badger')}${total === 1 ? '' : 's'} · ${total > 4 ? 'ring map' : 'corner map'}`;
@@ -259,7 +258,7 @@ Authorization: Bearer &lt;apiKey&gt;
     if (counts.has('economist')) counts.set('economist', 1); else if (bots[1]) counts.set(bots[1].name, 1);
     countsEl.innerHTML = bots.map((b, i) => `
       <label class="bot-count"><input type="number" min="0" max="${MAX_SEATS}" step="1" inputmode="numeric"
-        id="count-${i}" data-bot="${esc(b.name)}" value="${counts.get(b.name)}"> ${esc(label(b.name))}</label>`).join('');
+        id="count-${i}" data-bot="${esc(b.name)}" value="${counts.get(b.name)}"> ${esc(botLabel(b.name, { withName: true }))}</label>`).join('');
     showCounts();
   }).catch((e) => {
     if (!alive) return;
