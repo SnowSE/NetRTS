@@ -21,7 +21,12 @@ public enum SerumOutcome
 /// A player in a match. <c>Verified</c>: a Discord-verified person has claimed this bot;
 /// <c>OwnerName</c>, <c>OwnerAccountId</c>: that person's server nickname (or Discord name) and account.
 /// </summary>
-public sealed record Seat(Guid PlayerId, string Name, bool IsHouseBot, bool Verified = false, string? OwnerName = null, Guid? OwnerAccountId = null);
+/// <summary>A player in a match. <paramref name="IsBlockBot"/>: the server plays it with the player's Block Bot program.</summary>
+public sealed record Seat(Guid PlayerId, string Name, bool IsHouseBot, bool Verified = false, string? OwnerName = null, Guid? OwnerAccountId = null, bool IsBlockBot = false)
+{
+    /// <summary>Someone's own code plays this seat: not a house bot, not a program the server runs for them. Only these move ratings.</summary>
+    public bool IsOwnCode => !IsHouseBot && !IsBlockBot;
+}
 
 /// <summary>
 /// Owns one match: its seats while waiting, then the simulation, its tick loop and any house bots.
@@ -235,8 +240,8 @@ public sealed class MatchHost
         }
     }
 
-    /// <summary>Takes a seat. Returns an error code, or null on success.</summary>
-    public string? TryJoin(Seat seat, IBotStrategy? houseBot = null)
+    /// <summary>Takes a seat. <paramref name="bot"/>, when given, plays it on the server (a house bot or a Block Bot). Returns an error code, or null on success.</summary>
+    public string? TryJoin(Seat seat, IBotStrategy? bot = null)
     {
         lock (_gate)
         {
@@ -256,7 +261,7 @@ public sealed class MatchHost
             }
 
             _seats.Add(seat);
-            _seatBots.Add(houseBot);
+            _seatBots.Add(bot);
             return null;
         }
     }
@@ -359,7 +364,7 @@ public sealed class MatchHost
                 }
 
                 var started = Stopwatch.GetTimestamp();
-                RunHouseBots();
+                RunServerBots();
                 _sim.Step();
                 RecordFrame();
                 _metrics.TickRan(Stopwatch.GetElapsedTime(started), _tickIntervalMs);
@@ -505,6 +510,16 @@ public sealed class MatchHost
         }
     }
 
+    /// <summary>The bot the server plays this player's seat with (a house bot or a Block Bot), if any.</summary>
+    public IBotStrategy? BotFor(Guid playerId)
+    {
+        lock (_gate)
+        {
+            var index = _seats.FindIndex(s => s.PlayerId == playerId);
+            return index < 0 ? null : _seatBots[index];
+        }
+    }
+
     /// <summary>A player's slot once the match has started, else null.</summary>
     public int? SlotOf(Guid playerId)
     {
@@ -602,7 +617,7 @@ public sealed class MatchHost
                 CreatedAt = new DateTimeOffset(CreatedAt, TimeSpan.Zero),
                 Players = _seats.Select((s, i) => new MatchPlayerDto
                 {
-                    PlayerId = s.PlayerId, Name = s.Name, Slot = i, IsHouseBot = s.IsHouseBot, Verified = s.Verified, OwnerName = s.OwnerName,
+                    PlayerId = s.PlayerId, Name = s.Name, Slot = i, IsHouseBot = s.IsHouseBot, IsBlockBot = s.IsBlockBot, Verified = s.Verified, OwnerName = s.OwnerName,
                 }).ToList(),
                 Outcome = _sim?.Outcome,
                 Name = Name,
@@ -721,7 +736,7 @@ public sealed class MatchHost
         }
     }
 
-    private void RunHouseBots()
+    private void RunServerBots()
     {
         for (var slot = 0; slot < _seatBots.Count; slot++)
         {
@@ -740,8 +755,10 @@ public sealed class MatchHost
             }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "House bot {Bot} failed in match {MatchId}", bot.Name, Id);
-                _metrics.HouseBotFailed(bot.Name);
+                // Tag the metric with the kind of bot, never a player's name: a Block Bot is named after its player.
+                var kind = _seats[slot].IsHouseBot ? bot.Name : "block-bot";
+                _logger.LogWarning(ex, "Server-played bot {Bot} failed in match {MatchId}", kind, Id);
+                _metrics.ServerBotFailed(kind);
             }
         }
     }

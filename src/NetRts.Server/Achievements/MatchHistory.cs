@@ -4,7 +4,7 @@ using NetRts.Server.Data;
 namespace NetRts.Server.Achievements;
 
 /// <summary>What the history needs to know about a seat in a finished match.</summary>
-public sealed record HistorySeat(Guid PlayerId, int Slot, bool IsHouseBot, Guid? OwnerAccountId);
+public sealed record HistorySeat(Guid PlayerId, int Slot, bool IsHouseBot, Guid? OwnerAccountId, bool IsBlockBot = false);
 
 /// <summary>Builds the <see cref="MatchPlayerRecord"/> rows for a finished match.</summary>
 public static class MatchHistory
@@ -53,6 +53,7 @@ public static class MatchHistory
                 CompletedAt = completedAt,
                 Category = category,
                 IsHouseBot = seat.IsHouseBot,
+                IsBlockBot = seat.IsBlockBot,
                 OwnerAccountId = seat.OwnerAccountId,
                 Result = result.Outcome.WinnerId is null ? MatchResultKind.Draw : p.Winner ? MatchResultKind.Win : MatchResultKind.Loss,
                 Place = places[p.Slot],

@@ -264,7 +264,7 @@ public sealed class AchievementService(
                 var result = JsonSerializer.Deserialize<MatchResultDto>(m.ResultJson, NetRtsClient.JsonOptions)!;
                 results[m.Id] = (result, m.MaxTicks);
                 var seats = summary.Players.Select(p => new HistorySeat(p.PlayerId, p.Slot, p.IsHouseBot,
-                    players.GetValueOrDefault(p.PlayerId)?.OwnerAccountId)).ToList();
+                    players.GetValueOrDefault(p.PlayerId)?.OwnerAccountId, p.IsBlockBot)).ToList();
                 // Who surrendered isn't in the summary; in a match that ended by surrender, the losers did.
                 var surrendered = result.Outcome.Reason == MatchEndReason.Surrender
                     ? result.Players.Where(p => !p.Winner).Select(p => p.Slot).ToHashSet()

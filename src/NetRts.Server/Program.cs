@@ -61,7 +61,6 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<AchievementService
 builder.Services.AddSingleton<MatchRecorder>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchRecorder>());
 builder.Services.AddSingleton<MatchManager>();
-builder.Services.AddSingleton<BlockBots>();
 builder.Services.AddSingleton<LeagueMatchManager>();
 builder.Services.AddSingleton<LeagueFinalizer>();
 builder.Services.AddSingleton<ReplayFrameStore>();

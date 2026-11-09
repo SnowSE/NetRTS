@@ -35,6 +35,39 @@ public class BlockBotEndpointTests(TickingServerFactory factory) : IClassFixture
         (await http.GetFromJsonAsync<BlockBotStatusDto>($"/api/v1/blocks/matches/{matchId}/status", NetRtsClient.JsonOptions, Ct))!;
 
     [Fact]
+    public async Task A_block_bot_seat_is_marked_and_its_one_on_ones_count_but_are_not_rated()
+    {
+        var blocks = await PlayerAsync();
+        var start = await blocks.PostAsJsonAsync("/api/v1/blocks/matches",
+            new StartBlockMatchRequest { Program = Program, Mode = BlockPlayMode.Create, Seats = 2, TickIntervalMs = 20 }, NetRtsClient.JsonOptions, Ct);
+        var match = (await start.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+
+        var coder = await PlayerAsync();
+        var joined = await coder.PostAsync($"/api/v1/matches/{match.MatchId}/join", null, Ct);
+        Assert.Equal(HttpStatusCode.OK, joined.StatusCode);
+        var host = factory.Matches.Get(match.MatchId)!;
+        await host.WaitForTickAsync(2, TimeSpan.FromSeconds(20), Ct);
+
+        var summary = host.ToSummary();
+        Assert.True(summary.Players.Single(p => p.PlayerId == match.Players[0].PlayerId).IsBlockBot);
+        Assert.False(summary.Players.Single(p => p.PlayerId != match.Players[0].PlayerId).IsBlockBot);
+
+        var surrender = await coder.PostAsync($"/api/v1/matches/{match.MatchId}/surrender", null, Ct);
+        Assert.Equal(HttpStatusCode.OK, surrender.StatusCode);
+
+        PlayerProfileDto me = null!;
+        for (var i = 0; i < 50 && me?.Wins != 1; i++)
+        {
+            await Task.Delay(100, Ct);
+            me = (await blocks.GetFromJsonAsync<PlayerProfileDto>("/api/v1/players/me", NetRtsClient.JsonOptions, Ct))!;
+        }
+
+        Assert.Equal(1, me.Wins);
+        Assert.Equal(1200, me.Rating);
+        Assert.Equal(1200, (await coder.GetFromJsonAsync<PlayerProfileDto>("/api/v1/players/me", NetRtsClient.JsonOptions, Ct))!.Rating);
+    }
+
+    [Fact]
     public async Task The_vocabulary_lists_what_the_validator_accepts()
     {
         var vocabulary = (await factory.CreateClient().GetFromJsonAsync<BlockVocabularyDto>("/api/v1/blocks/vocabulary", NetRtsClient.JsonOptions, Ct))!;

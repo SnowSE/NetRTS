@@ -239,6 +239,9 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<int>("Gathered")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("IsBlockBot")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsHouseBot")
                         .HasColumnType("boolean");
 

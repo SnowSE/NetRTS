@@ -57,11 +57,12 @@ public sealed class MatchRecorder(
         var summary = host.ToSummary();
         var seats = host.Seats;
         // Each category (practice, season, championship) keeps its own ratings and records. Practice
-        // ratings move only in player-vs-player 1v1s, since games against house bots could be farmed.
-        // League matches are set up by admins, so every size is rated, by finishing place.
+        // ratings move only in 1v1s between two players' own code, since games against house bots could be
+        // farmed, and so could games between Block Bots the server plays. League matches are set up by
+        // admins, so every size is rated, by finishing place.
         var rated = host.Category == MatchCategory.Practice
-            ? seats.Count == 2 && seats.All(s => !s.IsHouseBot)
-            : seats.Count(s => !s.IsHouseBot) >= 2;
+            ? seats.Count == 2 && seats.All(s => s.IsOwnCode)
+            : seats.Count(s => s.IsOwnCode) >= 2;
 
         var completedAt = host.CompletedAt ?? DateTime.UtcNow;
         await using var scope = scopes.CreateAsyncScope();
@@ -150,7 +151,7 @@ public sealed class MatchRecorder(
         }
 
         var rows = MatchHistory.Rows(host.Id, completedAt, host.Category, result,
-            seats.Select((s, slot) => new HistorySeat(s.PlayerId, slot, s.IsHouseBot, s.OwnerAccountId)).ToList(),
+            seats.Select((s, slot) => new HistorySeat(s.PlayerId, slot, s.IsHouseBot, s.OwnerAccountId, s.IsBlockBot)).ToList(),
             known.ToHashSet(), rated ? ratingChanges : null, replay.Surrenders.Select(s => s.Slot).ToHashSet(), host.ParentMatchId);
         AddLeaguePoints(stats, rows);
         db.MatchPlayers.AddRange(rows);

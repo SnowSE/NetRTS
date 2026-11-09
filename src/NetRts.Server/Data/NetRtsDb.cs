@@ -191,6 +191,9 @@ public sealed class MatchPlayerRecord
     public MatchCategory Category { get; set; }
     public bool IsHouseBot { get; set; }
 
+    /// <summary>The server played this seat with the player's Block Bot program, not the player's own code.</summary>
+    public bool IsBlockBot { get; set; }
+
     /// <summary>The bot's owner when the match was played.</summary>
     public Guid? OwnerAccountId { get; set; }
 

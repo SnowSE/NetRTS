@@ -82,7 +82,8 @@ public sealed class MatchMetrics
         }
     }
 
-    public void HouseBotFailed(string bot) => _houseBotFailures.Add(1, new KeyValuePair<string, object?>("netrts.house_bot", bot));
+    /// <summary>A bot the server plays threw. <paramref name="kind"/> is a house bot's name or "block-bot", never a player's name.</summary>
+    public void ServerBotFailed(string kind) => _houseBotFailures.Add(1, new KeyValuePair<string, object?>("netrts.house_bot", kind));
 
     public void MatchRecorded(TimeSpan elapsed) => _recordDuration.Record(elapsed.TotalMilliseconds);
 

@@ -125,6 +125,9 @@ public sealed record MatchPlayerDto
     public int Slot { get; init; }
     public bool IsHouseBot { get; init; }
 
+    /// <summary>The server played this seat with the player's Block Bot program (built on the Block Bot page) rather than their own code calling in.</summary>
+    public bool IsBlockBot { get; init; }
+
     /// <summary>True when a Discord-verified person has claimed this bot (the blue check).</summary>
     public bool Verified { get; init; }
 

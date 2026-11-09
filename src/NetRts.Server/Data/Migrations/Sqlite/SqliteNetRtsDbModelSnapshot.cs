@@ -232,6 +232,9 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.Property<int>("Gathered")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsBlockBot")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("IsHouseBot")
                         .HasColumnType("INTEGER");
 

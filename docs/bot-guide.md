@@ -123,7 +123,9 @@ away, practice and preseason games in an hourly roundup. To practise privately, 
 
 **Practice and league matches.** Every match has a `category`, and each category is its own
 leaderboard. Matches your bot creates are `Practice`, ranked by Elo rating, which only
-player-vs-player 1v1s move.
+player-vs-player 1v1s move: two bots running their own code. A seat the server plays for someone (a
+house bot, or a Block Bot; each player in a match's `players` has `isHouseBot` and `isBlockBot`)
+counts toward the win/loss record but never moves a rating.
 
 **Hosted matches.** Anyone signed in on the website can host a practice match from their account
 page: they name it and pick the seats, and the match's `hostedBy` shows their Discord name. Your bot
@@ -506,7 +508,8 @@ Younger or newer players can build a bot from rule cards on the website (`#/bloc
 the menu) instead of writing code. A Block Bot program is data: rules checked top to bottom every
 tick, each a condition (`always`, `enemyNearBase`, `seeEnemy`, `count`, `grubsLeft`, `minute`,
 `switch`, `and`, `or`, `not`) and actions (`train`, `trainMix`, `build`, `research`, `attack`,
-`defend`, `retreat`, `scout`, `expand`). Rules higher up get first pick of ore and fighters; idle
+`defend`, `retreat`, `scout`, `expand`); `GET /api/v1/blocks/vocabulary` lists every word, choice,
+limit and default the server accepts, and the editor builds its menus from it. Rules higher up get first pick of ore and fighters; idle
 workers mine (any deposit the bot has seen, even in the fog) and half-built buildings get finished on
 their own. `grubsLeft` adds up the ore left in deposits within 8 tiles of your Command Centers and
 Resource Depots; `expand` builds a Resource Depot (or Command Center) beside the nearest deposit the
@@ -517,16 +520,20 @@ and downloads them as `.json`.
 
 | Call | What it does |
 |---|---|
+| `GET /api/v1/blocks/vocabulary` | The conditions, actions, choices (`ops`, `targets`, `sites`, `who`, ...), `limits` (40 rules, 12 actions a rule, and/or/not 6 deep, 8 switches, ...) and `defaults` for fields left out. |
 | `POST /api/v1/blocks/validate` | Checks a program (204, or `400 INVALID_PROGRAM` with the reason). |
 | `POST /api/v1/blocks/matches` | Starts a practice match the server plays with your program: `mode` `Sandbox` (vs the sitter), `HouseBot` (one opponent), `FreeForAll` (two or three), or `Create`: a match for other players to join, with `seats` (2–4, default 4) and an optional `name` they can type to find it. A created match starts when every seat is taken, or when you start it. |
 | `POST /api/v1/blocks/matches/{id}/start` | Starts a match you created (`mode` `Create`) with whoever has joined, at least two players. Only its creator can (`403 NOT_YOUR_MATCH` otherwise). |
 | `POST /api/v1/blocks/matches/{id}/join` | Takes a seat in a waiting practice or hosted match with a program. League matches don't take Block Bots (`409 LEAGUE_MATCH`). |
 | `PUT /api/v1/blocks/matches/{id}/program` | Swaps in a new version; it plays from the next tick. |
 | `PUT /api/v1/blocks/matches/{id}/switches` | Flips a switch (`{ "name": "Attack!", "on": true }`). |
-| `GET /api/v1/blocks/matches/{id}/status` | Each rule's state (`firing`, `waiting`, `idle`, `off`) and why, the versions so far, the switches. `?theme=classic` words it with the original names. |
+| `GET /api/v1/blocks/matches/{id}/status` | Each rule's state (`firing`, `waiting`, `idle`, `off`) and why, the versions so far, the switches. |
 | `GET /api/v1/blocks/matches` | Your Block Bots in matches still in memory. |
 
-All but `validate` take your API key like any other bot call.
+All but `vocabulary` and `validate` take your API key like any other bot call. Every call that returns a
+status (the last four) words its reasons in the Snow College theme, or with the original names given
+`?theme=classic`. A Block Bot match is a practice match: it counts toward your record but not your
+rating (see [Practice and league matches](#practice-and-league-matches)).
 
 ## Reference bots
 
