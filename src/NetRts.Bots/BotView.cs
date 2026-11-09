@@ -113,10 +113,10 @@ public sealed class BotView
         return units.Where(u => Dist(u.X, u.Y, rally.X, rally.Y) > 3);
     }
 
-    /// <summary>A worker to borrow for construction: not carrying much, closest to the site.</summary>
-    public UnitDto? PickBuilder((int X, int Y) site) =>
+    /// <summary>A worker to borrow for construction: not carrying much, closest to the site, and not one <paramref name="skip"/> rules out.</summary>
+    public UnitDto? PickBuilder((int X, int Y) site, Func<int, bool>? skip = null) =>
         Workers
-            .Where(w => w.Activity is UnitActivity.Gathering or UnitActivity.Moving or UnitActivity.Idle && w.Carrying < 6)
+            .Where(w => w.Activity is UnitActivity.Gathering or UnitActivity.Moving or UnitActivity.Idle && w.Carrying < 6 && skip?.Invoke(w.Id) != true)
             .OrderBy(w => Dist(w.X, w.Y, site.X, site.Y)).ThenBy(w => w.Id)
             .FirstOrDefault();
 

@@ -39,6 +39,13 @@ public sealed record BotPlan
 /// <summary>
 /// Plan-driven bot used by all the house bots. It is deliberately straightforward so it doubles
 /// as a readable example of using the API: count what you have, spend what you can, fight when ready.
+/// <para>
+/// The parts any bot needs are shared, so a new bot can reuse them: <see cref="BotView"/> answers questions
+/// about this tick (where to rally, where to build, what threatens the base), <see cref="BotMemory"/>
+/// remembers between ticks (buildings ordered, grub piles seen), and <see cref="BotTurn"/> holds this tick's
+/// budget and commands and does the common actions (TryTrain, TryBuild, TryResearch, gathering, finishing
+/// half-built buildings), each returning an <see cref="Attempt"/>. Block Bot runs on the same pieces.
+/// </para>
 /// </summary>
 public class PlanBot(string name, BotPlan plan) : IBotStrategy
 {
@@ -52,8 +59,8 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         (3, 0), (-3, 0), (0, 3), (0, -3), (3, 3), (-3, -3), (3, -3), (-3, 3),
     ];
 
-    // Build orders we issued whose building hasn't appeared yet: site -> (type, tick issued).
-    private readonly Dictionary<(int X, int Y), (BuildingType Type, int Tick)> _pendingSites = [];
+    // Build orders are kept for their full 40 ticks, even once the building appears.
+    private readonly BotMemory _memory = new(forgetSitesOnceBuilt: false);
     private int _armyCursor;
     private bool _attacking;
     private int _lastRetargetTick = -RetargetEveryTicks;
@@ -71,28 +78,27 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             return [];
         }
 
-        var commands = new List<CommandRequest>();
-        var budget = view.State.You.Resources;
+        _memory.Update(view);
 
-        Defend(view, commands);
-        TrainWorkers(view, commands, ref budget);
-        FollowBuildOrder(view, commands, ref budget);
-        FinishAbandonedSites(view, commands);
-        Research(view, commands, ref budget);
-        TrainSiege(view, commands, ref budget);
-        TrainArmy(view, commands, ref budget);
-        CommandArmy(view, commands);
-        PutIdleWorkersToWork(view, commands);
+        // The house bots don't reserve units: a worker picked twice in one tick takes its last order.
+        var turn = new BotTurn(view, _memory, reserveUnits: false);
 
-        return commands;
+        Defend(view, turn);
+        TrainWorkers(view, turn);
+        FollowBuildOrder(view, turn);
+        turn.FinishAbandonedSites();
+        Research(turn);
+        TrainSiege(view, turn);
+        TrainArmy(view, turn);
+        CommandArmy(view, turn);
+        turn.GatherIdleWorkers(GatherStyle.InSightNearCommandCenter);
+
+        return turn.Commands;
     }
 
-    private void Defend(BotView view, List<CommandRequest> commands)
+    private void Defend(BotView view, BotTurn turn)
     {
-        var threat = view.EnemyUnits
-            .Where(e => view.MyBuildings.Any(b => Dist(b.X, b.Y, e.X, e.Y) <= Plan.DefenseRadius))
-            .OrderBy(e => Dist(view.CommandCenter!.X, view.CommandCenter.Y, e.X, e.Y))
-            .FirstOrDefault();
+        var threat = view.Threat(Plan.DefenseRadius);
         if (threat is null)
         {
             return;
@@ -101,128 +107,53 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         var responders = view.Army.Where(u => u.Activity is UnitActivity.Idle or UnitActivity.Moving && !_attacking).Select(u => u.Id).ToArray();
         if (responders.Length > 0)
         {
-            commands.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = responders, X = threat.X, Y = threat.Y });
+            turn.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = responders, X = threat.X, Y = threat.Y });
         }
     }
 
-    private void TrainWorkers(BotView view, List<CommandRequest> commands, ref int budget)
+    private void TrainWorkers(BotView view, BotTurn turn)
     {
-        var cost = view.UnitCost(UnitType.Worker);
         foreach (var cc in view.MyBuildings.Where(b => b.Type == BuildingType.CommandCenter && b.Completed))
         {
             var queued = view.MyBuildings.Sum(b => b.Production.Count(p => p.UnitType == UnitType.Worker));
-            if (view.Workers.Count + queued >= Plan.TargetWorkers || cc.Production.Count >= 2 || budget < cost)
+            if (view.Workers.Count + queued >= Plan.TargetWorkers || cc.Production.Count >= 2)
             {
                 continue;
             }
 
-            commands.Add(new CommandRequest { Type = CommandType.Produce, BuildingId = cc.Id, UnitType = UnitType.Worker });
-            budget -= cost;
+            turn.TryTrainAt(cc, UnitType.Worker);
         }
     }
 
-    private void FollowBuildOrder(BotView view, List<CommandRequest> commands, ref int budget)
+    private void FollowBuildOrder(BotView view, BotTurn turn)
     {
-        foreach (var site in _pendingSites.Where(kv => view.State.Tick - kv.Value.Tick > 40).Select(kv => kv.Key).ToList())
-        {
-            _pendingSites.Remove(site);
-        }
-
         foreach (var step in Plan.BuildOrder)
         {
-            var have = view.MyBuildings.Count(b => b.Type == step.Type) + PendingCount(view, step.Type);
+            var have = view.MyBuildings.Count(b => b.Type == step.Type) + _memory.PendingCount(view, step.Type);
             if (have >= step.Count)
             {
                 continue;
             }
 
             // Steps are a strict order: if this one can't happen yet, save up for it.
-            var stats = view.Rules.Buildings.First(b => b.Type == step.Type);
-            var prerequisitesMet = stats.Requires.All(r => view.MyBuildings.Any(b => b.Type == r && b.Completed))
-                                   && (stats.RequiresUpgrade is not { } upgrade || view.State.You.Upgrades.Contains(upgrade));
-            if (view.Workers.Count < step.MinWorkers || !prerequisitesMet || budget < stats.Cost)
+            if (view.Workers.Count >= step.MinWorkers)
             {
-                return;
+                turn.TryBuild(step.Type, step.Site);
             }
 
-            var site = view.FindBuildSite(step.Site, _pendingSites.Keys);
-            var builder = site is null ? null : view.PickBuilder(site.Value);
-            if (site is null || builder is null)
-            {
-                return;
-            }
-
-            commands.Add(new CommandRequest
-            {
-                Type = CommandType.Build,
-                UnitIds = [builder.Id],
-                BuildingType = step.Type,
-                X = site.Value.X,
-                Y = site.Value.Y,
-            });
-            _pendingSites[site.Value] = (step.Type, view.State.Tick);
-            budget -= stats.Cost;
             return;
         }
     }
 
-    private int PendingCount(BotView view, BuildingType type) =>
-        _pendingSites.Count(kv => kv.Value.Type == type
-                                  && !view.MyBuildings.Any(b => b.X == kv.Key.X && b.Y == kv.Key.Y));
-
-    private static void FinishAbandonedSites(BotView view, List<CommandRequest> commands)
+    private void Research(BotTurn turn)
     {
-        foreach (var site in view.MyBuildings.Where(b => !b.Completed))
-        {
-            if (view.Workers.Any(w => w.TargetId == site.Id || (w.Destination is { } d && d.X == site.X && d.Y == site.Y)))
-            {
-                continue;
-            }
-
-            var builder = view.PickBuilder((site.X, site.Y));
-            if (builder is not null)
-            {
-                commands.Add(new CommandRequest
-                {
-                    Type = CommandType.Build,
-                    UnitIds = [builder.Id],
-                    BuildingType = site.Type,
-                    X = site.X,
-                    Y = site.Y,
-                });
-            }
-        }
-    }
-
-    private void Research(BotView view, List<CommandRequest> commands, ref int budget)
-    {
-        var lab = view.MyBuildings.FirstOrDefault(b => b.Type == BuildingType.TechLab && b.Completed && b.Research is null);
-        if (lab is null)
-        {
-            return;
-        }
-
-        var you = view.State.You;
+        // In plan order, skipping what's learned, being learned or still locked; wait for the first other one.
         foreach (var upgrade in Plan.Upgrades)
         {
-            if (you.Upgrades.Contains(upgrade) || you.Researching.Any(r => r.Upgrade == upgrade))
+            if (turn.TryResearch(upgrade) is not (Attempt.AlreadyHave or Attempt.InProgress or Attempt.NeedsUpgrade))
             {
-                continue;
+                return;
             }
-
-            var stats = view.Rules.Upgrades.First(u => u.Type == upgrade);
-            if (stats.Requires is { } req && !you.Upgrades.Contains(req))
-            {
-                continue;
-            }
-
-            if (budget >= stats.Cost)
-            {
-                commands.Add(new CommandRequest { Type = CommandType.Research, BuildingId = lab.Id, Upgrade = upgrade });
-                budget -= stats.Cost;
-            }
-
-            return;
         }
     }
 
@@ -231,7 +162,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         Plan.SiegeCount > 0
         && view.Siege.Count + view.MyBuildings.Sum(b => b.Production.Count(p => p.UnitType == UnitType.Trebuchet)) < Plan.SiegeCount;
 
-    private void TrainSiege(BotView view, List<CommandRequest> commands, ref int budget)
+    private void TrainSiege(BotView view, BotTurn turn)
     {
         if (!SiegePending(view))
         {
@@ -239,18 +170,13 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         }
 
         var workshop = view.MyBuildings.FirstOrDefault(b => b.Type == BuildingType.SiegeWorkshop && b.Completed && b.Production.Count == 0);
-        var cost = view.UnitCost(UnitType.Trebuchet);
-        if (workshop is null || budget < cost)
+        if (workshop is not null)
         {
-            return;
+            turn.TryTrainAt(workshop, UnitType.Trebuchet);
         }
-
-        var rally = view.RallyPoint();
-        commands.Add(new CommandRequest { Type = CommandType.Produce, BuildingId = workshop.Id, UnitType = UnitType.Trebuchet, X = rally.X, Y = rally.Y });
-        budget -= cost;
     }
 
-    private void TrainArmy(BotView view, List<CommandRequest> commands, ref int budget)
+    private void TrainArmy(BotView view, BotTurn turn)
     {
         if (Plan.ArmyMix.Count == 0)
         {
@@ -263,28 +189,23 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             return;
         }
 
+        // New units walk straight to where the army gathers.
         foreach (var barracks in view.MyBuildings.Where(b => b.Type == BuildingType.Barracks && b.Completed && b.Production.Count < 2))
         {
-            var type = Plan.ArmyMix[_armyCursor % Plan.ArmyMix.Count];
-            var cost = view.UnitCost(type);
-            if (budget < cost)
+            if (!turn.TryTrainAt(barracks, Plan.ArmyMix[_armyCursor % Plan.ArmyMix.Count]).Succeeded)
             {
                 return;
             }
 
-            // New units walk straight to where the army gathers.
-            var rally = view.RallyPoint();
-            commands.Add(new CommandRequest { Type = CommandType.Produce, BuildingId = barracks.Id, UnitType = type, X = rally.X, Y = rally.Y });
-            budget -= cost;
             _armyCursor++;
         }
     }
 
-    private void CommandArmy(BotView view, List<CommandRequest> commands)
+    private void CommandArmy(BotView view, BotTurn turn)
     {
         if (Plan.SiegeCount > 0)
         {
-            CommandSiegeArmy(view, commands);
+            CommandSiegeArmy(view, turn);
             return;
         }
 
@@ -313,7 +234,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             var ids = army.Where(u => retarget || u.Activity == UnitActivity.Idle).Select(u => u.Id).ToArray();
             if (ids.Length > 0)
             {
-                commands.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = ids, X = target.Value.X, Y = target.Value.Y });
+                turn.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = ids, X = target.Value.X, Y = target.Value.Y });
             }
 
             if (retarget)
@@ -324,14 +245,17 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             return;
         }
 
-        var rally = view.RallyPoint();
-        var stragglers = army
-            .Where(u => u.Activity == UnitActivity.Idle && Dist(u.X, u.Y, rally.X, rally.Y) > 3)
-            .Select(u => u.Id)
-            .ToArray();
+        GatherAtRallyPoint(view, turn);
+    }
+
+    /// <summary>Idle fighters that wandered off walk back to the rally point.</summary>
+    private static void GatherAtRallyPoint(BotView view, BotTurn turn)
+    {
+        var stragglers = view.AwayFromRally(view.Army.Where(u => u.Activity == UnitActivity.Idle)).Select(u => u.Id).ToArray();
         if (stragglers.Length > 0)
         {
-            commands.Add(new CommandRequest { Type = CommandType.Move, UnitIds = stragglers, X = rally.X, Y = rally.Y });
+            var rally = view.RallyPoint();
+            turn.Add(new CommandRequest { Type = CommandType.Move, UnitIds = stragglers, X = rally.X, Y = rally.Y });
         }
     }
 
@@ -341,7 +265,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
     /// range); the escorts attack-move to spots in a ring around them, a step ahead, so they meet whatever
     /// comes at the siege and fall back in beside it. When the trebuchets are gone, the rest come home.
     /// </summary>
-    private void CommandSiegeArmy(BotView view, List<CommandRequest> commands)
+    private void CommandSiegeArmy(BotView view, BotTurn turn)
     {
         var tick = view.State.Tick;
         var siege = view.Siege;
@@ -360,22 +284,13 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
         var target = _attacking ? view.AttackTarget() : null;
         if (target is null)
         {
-            var rally = view.RallyPoint();
-            var stragglers = view.Army
-                .Where(u => u.Activity == UnitActivity.Idle && Dist(u.X, u.Y, rally.X, rally.Y) > 3)
-                .Select(u => u.Id)
-                .ToArray();
-            if (stragglers.Length > 0)
-            {
-                commands.Add(new CommandRequest { Type = CommandType.Move, UnitIds = stragglers, X = rally.X, Y = rally.Y });
-            }
-
+            GatherAtRallyPoint(view, turn);
             return;
         }
 
         if (tick - _lastRetargetTick >= RetargetEveryTicks || siege.Any(u => u.Activity == UnitActivity.Idle))
         {
-            commands.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = siege.Select(u => u.Id).ToArray(), X = target.Value.X, Y = target.Value.Y });
+            turn.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = siege.Select(u => u.Id).ToArray(), X = target.Value.X, Y = target.Value.Y });
             _lastRetargetTick = tick;
         }
 
@@ -396,7 +311,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             var (x, y) = (Math.Clamp(cx + dx, 0, view.Map.Width - 1), Math.Clamp(cy + dy, 0, view.Map.Height - 1));
 
             // An escort already fighting near the siege keeps at it; one that wandered off or is idle falls in.
-            var nearSiege = Dist(escort.X, escort.Y, cx, cy) <= 4;
+            var nearSiege = BotView.Dist(escort.X, escort.Y, cx, cy) <= 4;
             if (escort.Activity == UnitActivity.Attacking && nearSiege
                 || escort.Destination is { } d && d.X == x && d.Y == y && escort.Activity != UnitActivity.Idle)
             {
@@ -408,32 +323,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
                 continue;
             }
 
-            commands.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = [escort.Id], X = x, Y = y });
+            turn.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = [escort.Id], X = x, Y = y });
         }
     }
-
-    private static void PutIdleWorkersToWork(BotView view, List<CommandRequest> commands)
-    {
-        var assigned = view.Workers
-            .Where(w => w.TargetId is not null && w.Activity != UnitActivity.Idle)
-            .GroupBy(w => w.TargetId!.Value)
-            .ToDictionary(g => g.Key, g => g.Count());
-
-        foreach (var worker in view.Workers.Where(w => w.Activity == UnitActivity.Idle))
-        {
-            var deposit = view.State.Resources
-                .OrderBy(d => Dist(d.X, d.Y, view.CommandCenter!.X, view.CommandCenter.Y) + 3 * assigned.GetValueOrDefault(d.Id))
-                .ThenBy(d => d.Id)
-                .FirstOrDefault();
-            if (deposit is null)
-            {
-                return;
-            }
-
-            commands.Add(new CommandRequest { Type = CommandType.Gather, UnitIds = [worker.Id], TargetId = deposit.Id });
-            assigned[deposit.Id] = assigned.GetValueOrDefault(deposit.Id) + 1;
-        }
-    }
-
-    internal static int Dist(int x1, int y1, int x2, int y2) => Math.Max(Math.Abs(x1 - x2), Math.Abs(y1 - y2));
 }

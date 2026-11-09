@@ -156,11 +156,7 @@ public sealed class BotTurn(BotView view, BotMemory memory, bool reserveUnits = 
     }
 
     /// <summary><see cref="BotView.PickBuilder"/>, skipping workers already used this tick.</summary>
-    public UnitDto? PickBuilder((int X, int Y) site) =>
-        View.Workers
-            .Where(w => !_claimed.Contains(w.Id) && w.Activity is UnitActivity.Gathering or UnitActivity.Moving or UnitActivity.Idle && w.Carrying < 6)
-            .OrderBy(w => BotView.Dist(w.X, w.Y, site.X, site.Y)).ThenBy(w => w.Id)
-            .FirstOrDefault();
+    public UnitDto? PickBuilder((int X, int Y) site) => View.PickBuilder(site, IsClaimed);
 
     /// <summary>Sends a worker to every half-built building nobody is working on.</summary>
     public void FinishAbandonedSites()
