@@ -2,7 +2,7 @@
 import { api, html, raw, setHtml, timeAgo, botLabel } from '../util.js';
 import { GAME, say } from '../lore.js';
 import { strategies, getStrategy, deleteStrategy, newStrategy, prefs, setPref, recordMatch, player, setPlayer, authed, nav, downloadKey, downloadStrategy } from './store.js';
-import { STARTERS, THEME, describeRules, readStrategyFile } from './program.js';
+import { starters, THEME, LIMITS, describeRules, readStrategyFile } from './program.js';
 import { ICON } from './icons.js';
 
 export function mountLocker(main) {
@@ -28,7 +28,7 @@ export function mountLocker(main) {
 
   function ensureStarter() {
     if (Object.keys(strategies()).length === 0) {
-      const s = newStrategy(STARTERS.first.program);
+      const s = newStrategy(starters().first.program);
       st.selected = s.id;
     }
   }
@@ -154,7 +154,7 @@ export function mountLocker(main) {
               <h3>New strategy</h3>
               <p class="small muted">Start blank, or from a starter and change it.</p>
               <div class="bb-actions">
-                ${Object.entries(STARTERS).map(([k, v]) => html`<button type="button" class="btn ${k === 'blank' ? '' : 'ghost'} small-btn" data-new="${k}">${v.label}</button>`)}
+                ${Object.entries(starters()).map(([k, v]) => html`<button type="button" class="btn ${k === 'blank' ? '' : 'ghost'} small-btn" data-new="${k}">${v.label}</button>`)}
               </div>
             </article>
           </div>
@@ -264,7 +264,7 @@ export function mountLocker(main) {
     else if (d.download) downloadStrategy(getStrategy(d.download));
     else if (d.copy) {
       const s = getStrategy(d.copy);
-      const c = newStrategy({ ...s.program, name: `${s.program.name} copy`.slice(0, 40) });
+      const c = newStrategy({ ...s.program, name: `${s.program.name} copy`.slice(0, LIMITS().maxNameLength) });
       st.selected = c.id;
       render();
     } else if (d.delete) {
@@ -272,7 +272,7 @@ export function mountLocker(main) {
       if (t.dataset.confirm === 'yes') { deleteStrategy(d.delete); render(); }
       else { t.dataset.confirm = 'yes'; t.textContent = `Delete ${s.program.name}?`; t.classList.add('danger'); }
     } else if (d.new) {
-      const s = newStrategy(STARTERS[d.new].program);
+      const s = newStrategy(starters()[d.new].program);
       location.hash = `#/blocks/edit/${s.id}`;
     } else if (d.mode) { st.mode = d.mode; setPref('mode', d.mode); st.error = ''; render(); }
     else if (d.bot) {

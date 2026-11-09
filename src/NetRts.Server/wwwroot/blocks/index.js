@@ -8,7 +8,7 @@
 //   #/blocks/match/<id>      the cockpit (cockpit.js): the match in the 3D view, the rules live, switches,
 //                            and each rule saved into the running match as you change it
 import { html, setHtml } from '../util.js';
-import { loadRules } from './program.js';
+import { loadVocabulary } from './program.js';
 import { mountLocker } from './locker.js';
 import { mountEditor } from './edit-page.js';
 import { mountCockpit } from './cockpit.js';
@@ -17,9 +17,9 @@ import { mountCockpit } from './cockpit.js';
 export function mountBlocks(main, route) {
   let alive = true;
   let teardown = null;
-  // The pages draw from the game's rules; they're fetched once, and again on the next visit if that failed.
+  // The pages draw on the server's vocabulary and the game's rules: fetched once, and again on the next visit if that failed.
   setHtml(main, html`<section class="bb-page"><p class="muted">Loading Block Bot…</p></section>`);
-  loadRules().then(() => {
+  loadVocabulary().then(() => {
     if (!alive) return;
     teardown = route?.page === 'edit' ? mountEditor(main, route.id)
       : route?.page === 'match' ? mountCockpit(main, route.id)

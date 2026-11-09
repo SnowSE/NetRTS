@@ -1,6 +1,7 @@
 // #/blocks/edit/<id>: one strategy in the rule-card editor, saved in this browser as you go.
 import { html, raw, setHtml } from '../util.js';
 import { getStrategy, putStrategy, prefs, setPref, matchRecords, player, authed, nav, downloadStrategy } from './store.js';
+import { LIMITS } from './program.js';
 import { RuleEditor } from './rule-editor.js';
 import { ICON } from './icons.js';
 
@@ -26,7 +27,7 @@ export function mountEditor(main, id) {
       <div class="bb-bar">
         <a href="#/blocks" class="bb-back">← My strategies</a>
         <label class="visually-hidden" for="bb-sname">Strategy name</label>
-        <input id="bb-sname" class="bb-title-in" maxlength="40" value="${strategy.program.name}">
+        <input id="bb-sname" class="bb-title-in" maxlength="${LIMITS().maxNameLength}" value="${strategy.program.name}">
         <span class="bb-saved small muted" id="bb-saved">${raw(ICON.check)} Saved in this browser</span>
         <span class="bb-spacer"></span>
         <div class="bb-edit-actions bb-top-actions">${actions(!!prefs().code)}</div>
@@ -51,7 +52,7 @@ export function mountEditor(main, id) {
   }
 
   main.querySelector('#bb-sname').addEventListener('input', (e) => {
-    strategy = { ...strategy, program: { ...strategy.program, name: e.target.value.slice(0, 40) } };
+    strategy = { ...strategy, program: { ...strategy.program, name: e.target.value.slice(0, LIMITS().maxNameLength) } };
     editor.program.name = strategy.program.name;
     save();
   });

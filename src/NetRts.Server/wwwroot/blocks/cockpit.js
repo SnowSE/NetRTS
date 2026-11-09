@@ -5,7 +5,7 @@ import { say } from '../lore.js';
 import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
 import { getStrategy, putStrategy, newStrategy, prefs, matchRecords, recordMatch, player, authed, clone } from './store.js';
-import { RULES, THEME, sameProgram } from './program.js';
+import { RULES, THEME, LIMITS, sameProgram } from './program.js';
 import { RuleEditor } from './rule-editor.js';
 import { ICON } from './icons.js';
 import { StatHistory, hudHtml, buildingCardHtml, qualityIcon, soundIcon } from './cockpit-hud.js';
@@ -110,7 +110,7 @@ export function mountCockpit(main, matchId) {
     const rec = matchRecords()[matchId];
     strategy = rec ? getStrategy(rec.strategyId) : null;
     if (!strategy) {
-      strategy = newStrategy({ ...program, name: `${program.name || 'Strategy'} (from a match)`.slice(0, 40) });
+      strategy = newStrategy({ ...program, name: `${program.name || 'Strategy'} (from a match)`.slice(0, LIMITS().maxNameLength) });
       recordMatch(matchId, strategy.id);
     }
     editor = new RuleEditor($('bb-editor'), {

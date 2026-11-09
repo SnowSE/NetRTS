@@ -1,9 +1,25 @@
 import { html, raw, setHtml } from '../util.js';
 import { say, upgradeName, ORE } from '../lore.js';
 import { clone, prefs, setPref } from './store.js';
-import { C, A, R, at, setAt, OPS, UNITS, FIGHTERS, BUILDINGS, UPGRADES, WHAT, WHO, SITES, TARGETS, unitWord, bWord, upgradeInfo } from './program.js';
+import {
+  C, A, R, at, setAt, LIMITS, knows, canCombine, byDefault,
+  OPS, UNITS, FIGHTERS, BUILDINGS, UPGRADES, WHAT, WHO, SITES, TARGETS, SCOUT_TARGETS, EXPAND_BUILDINGS, VOCAB,
+  unitWord, bWord, upgradeInfo,
+} from './program.js';
 import { pyRule } from './python.js';
 import { ICON } from './icons.js';
+
+// Where a new step or rule would go past the server's limits (GET /api/v1/blocks/vocabulary), its
+// button is disabled and says why.
+const fullRules = (p) => p.rules.length >= LIMITS().maxRules;
+const fullRule = (rule) => (rule?.do?.length ?? 0) >= LIMITS().maxActionsPerRule;
+const fullSwitches = (p) => p.switches.length >= LIMITS().maxSwitches;
+const why = {
+  rules: () => `A strategy has at most ${LIMITS().maxRules} rules.`,
+  steps: () => `A rule does at most ${LIMITS().maxActionsPerRule} things.`,
+  switches: () => `A strategy has at most ${LIMITS().maxSwitches} switches.`,
+  depth: () => `Checks go at most ${LIMITS().maxDepth} deep, so this one can't be combined further.`,
+};
 
 /**
  * Rule cards: each rule is a sentence ("When [fighters ≥ 8] do [attack the enemy base with all fighters]")
@@ -213,11 +229,13 @@ export class RuleEditor {
       case 'choose': return this.choose(b.dataset);
       case 'new-switch': {
         const input = this.root.querySelector('#bb-new-switch');
-        const name = (input?.value || '').trim().slice(0, 24);
+        const name = (input?.value || '').trim().slice(0, LIMITS().maxSwitchNameLength);
         if (!name) { input?.focus(); return; }
+        const known = this.program.switches.some((s) => s.toLowerCase() === name.toLowerCase());
+        if (!known && fullSwitches(this.program)) return;
         const path0 = this.picker?.path;
         const change = (p) => {
-          if (!p.switches.some((s) => s.toLowerCase() === name.toLowerCase())) p.switches.push(name);
+          if (!known) p.switches.push(name);
           if (path0) setAt(p, path0, C.switch(name));
         };
         if (path0) this.edit(ruleOf(path0), change); else this.commit(change);
@@ -228,7 +246,7 @@ export class RuleEditor {
       }, { keepPicker: true });
       case 'del-action': return this.edit(ruleOf(path), (p) => { at(p, path.replace(/\.\d+$/, '')).splice(Number(path.split('.').pop()), 1); });
       case 'unwrap': return this.edit(ruleOf(path), (p) => setAt(p, path, at(p, path).a));
-      case 'mix-add': return this.edit(ruleOf(path), (p) => at(p, path).units.push('Soldier'));
+      case 'mix-add': return this.edit(ruleOf(path), (p) => { const u = at(p, path).units; if (u.length < LIMITS().maxMixUnits) u.push(FIGHTERS()[0]); });
       case 'mix-del': return this.edit(ruleOf(path), (p) => { const u = at(p, path).units; if (u.length > 1) u.splice(i, 1); });
       case 'rule-up':
       case 'rule-down': {
@@ -245,7 +263,7 @@ export class RuleEditor {
       case 'insert-rule': {
         // The new rule goes where it was asked for, and its check's picker opens so it's ready to fill in.
         // In save mode it starts out being edited: Save sends it in, Cancel takes it away again.
-        if (this.session) return;
+        if (this.session || fullRules(this.program)) return;
         const at = act === 'insert-rule' ? i : this.program.rules.length;
         if (this.onSave) this.session = { index: at, snapshot: clone(this.program), inserted: true };
         this.commit((p) => { p.rules.splice(at, 0, R(C.count('fighters', '>=', 8), A.attack())); });
@@ -262,6 +280,9 @@ export class RuleEditor {
   choose(d) {
     const pk = this.picker;
     if (!pk) return;
+    if (!knows(pk.type, d.kind)) return;
+    if (pk.type === 'cond' && ['and', 'or', 'not'].includes(d.kind) && !canCombine(this.program, pk.path)) return;
+    if (pk.type === 'action' && pk.mode !== 'replace' && fullRule(at(this.program, pk.path))) return;
     this.edit(Number(pk.path.split('.')[1]), (p) => {
       if (pk.type === 'cond') {
         const current = at(p, pk.path);
@@ -275,9 +296,11 @@ export class RuleEditor {
         }
         setAt(p, pk.path, node);
       } else {
+        // A depot goes near the grubs and a tower toward the enemy; anything else where the server puts it.
+        const site = { ResourceDepot: 'NearOre', GuardTower: 'TowardEnemy' }[d.building];
         const node = d.kind === 'train' ? A.train(d.unit)
           : d.kind === 'scout' ? A.scout(d.target)
-          : d.kind === 'build' ? A.build(d.building, d.building === 'ResourceDepot' ? 'NearOre' : d.building === 'GuardTower' ? 'TowardEnemy' : 'TowardCenter')
+          : d.kind === 'build' ? A.build(d.building, VOCAB.sites.includes(site) ? site : undefined)
             : A[d.kind]();
         if (pk.mode === 'add') at(p, pk.path).do.push(node);
         else if (pk.mode === 'insert') at(p, pk.path).do.splice(pk.at, 0, node);
@@ -293,7 +316,7 @@ export class RuleEditor {
     this.edit(Number(path.split('.')[1]), (p) => {
       const node = at(p, path);
       if (field === 'units') node.units[Number(el.dataset.i)] = el.value;
-      else if (field === 'value') node.value = Math.max(0, Math.min(100000, Math.round(Number(el.value) || 0)));
+      else if (field === 'value') node.value = Math.max(0, Math.min(LIMITS().maxNumber, Math.round(Number(el.value) || 0)));
       else node[field] = el.value;
     }, { keepPicker: true });
   }
@@ -305,6 +328,7 @@ export class RuleEditor {
   render() {
     const focused = document.activeElement?.dataset?.k;
     const p = this.program;
+    const full = fullRules(p);
     const pickerUnder = (i) => this.picker
       && (this.picker.path === `rules.${i}` || this.picker.path.startsWith(`rules.${i}.`))
       ? html`<aside class="bb-picker inline" aria-label="Pick a block">${this.pickerHtml()}</aside>` : '';
@@ -313,8 +337,9 @@ export class RuleEditor {
         <div class="bb-rules">
           ${this.saveError && !this.session ? html`<p class="bb-error" role="alert">${this.saveError}</p>` : ''}
           ${p.rules.length ? '' : html`<p class="bb-empty">No rules yet. Add one, or start from one of the starter strategies in the locker.</p>`}
-          ${p.rules.map((r, i) => html`<button type="button" class="bb-insert" data-act="insert-rule" data-i="${i}" data-k="insert|${i}" aria-label="Add a rule before rule ${i + 1}"><span>+ rule</span></button>${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
-          <button type="button" class="bb-add-rule" data-act="add-rule" data-k="add-rule">+ Add a rule</button>
+          ${p.rules.map((r, i) => html`${full ? '' : html`<button type="button" class="bb-insert" data-act="insert-rule" data-i="${i}" data-k="insert|${i}" aria-label="Add a rule before rule ${i + 1}"><span>+ rule</span></button>`}${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
+          <button type="button" class="bb-add-rule" data-act="add-rule" data-k="add-rule" ${full ? html`disabled aria-describedby="bb-full-rules"` : ''}>+ Add a rule</button>
+          ${full ? html`<p class="small muted" id="bb-full-rules">${why.rules()}</p>` : ''}
           <p class="small muted">Rules are checked top to bottom, every tick. Higher rules get first pick of ${ORE} and fighters.
             Two things happen on their own: idle workers dig ${ORE}, and half-built buildings get finished.</p>
         </div>
@@ -343,6 +368,8 @@ export class RuleEditor {
   ruleHtml(r, i) {
     const n = this.program.rules.length;
     const off = r.enabled === false;
+    const full = fullRule(r);
+    const fullNote = full ? raw(`disabled title="${why.steps()}"`) : '';
     // While a rule is being edited, the one-click buttons wait for its Save or Cancel.
     const wait = this.session || this.saving ? 'disabled title="Save or cancel your change first"' : '';
     return html`
@@ -362,11 +389,11 @@ export class RuleEditor {
               ${(r.do || []).map((a, j) => {
                 const path = `rules.${i}.do.${j}`;
                 // Between two steps, a + adds one there; with two or more, each has a handle to drag it.
-                const insert = j > 0 ? html`<button type="button" class="bb-step-insert" data-act="insert-action" data-path="rules.${i}" data-j="${j}" data-k="ins-step|${i}|${j}" aria-label="Add a step between steps ${j} and ${j + 1} of rule ${i + 1}" title="Add a step here">+</button>` : '';
+                const insert = j > 0 && !full ? html`<button type="button" class="bb-step-insert" data-act="insert-action" data-path="rules.${i}" data-j="${j}" data-k="ins-step|${i}|${j}" aria-label="Add a step between steps ${j} and ${j + 1} of rule ${i + 1}" title="Add a step here">+</button>` : '';
                 const grip = r.do.length > 1 ? html`<button type="button" class="bb-step-grip" draggable="true" data-drag-step="${path}" data-k="stepgrip|${path}" aria-label="Move step ${j + 1} of rule ${i + 1}: drag it, or press the left or right arrow" title="Drag to move (or ← →)">${raw(ICON.grip)}</button>` : '';
                 return html`${insert}<span class="bb-step" data-step="${path}">${grip}${this.actionHtml(a, path)}</span>`;
               })}
-              <button type="button" class="bb-plus" data-act="add-action" data-path="rules.${i}" data-k="add-action|${i}" aria-label="Add something for rule ${i + 1} to do">+ do</button>
+              <button type="button" class="bb-plus" data-act="add-action" data-path="rules.${i}" data-k="add-action|${i}" aria-label="Add something for rule ${i + 1} to do" ${fullNote}>+ do</button>
             </div>
             <div class="bb-tools">
               <button type="button" class="bb-switch-toggle" role="switch" data-act="rule-toggle" data-i="${i}" data-k="toggle|${i}" aria-checked="${String(!off)}" aria-label="Rule ${i + 1}" title="${off ? 'Off: this rule is skipped. Click to turn it on.' : 'On: click to turn this rule off.'}" ${raw(wait)}><span class="bb-switch-track" aria-hidden="true"><span class="bb-switch-knob"></span></span><span class="bb-switch-text">${off ? 'Off' : 'On'}</span></button>
@@ -395,6 +422,8 @@ export class RuleEditor {
 
   select(path, field, value, options, label, extra = {}) {
     const k = `${path}|${field}|${extra.i ?? ''}`;
+    // A value this list doesn't offer (from an older file, say) still shows as itself rather than as the first choice.
+    if (value != null && !options.some(([v]) => String(v) === String(value))) options = [...options, [value, String(value)]];
     return html`<select class="bb-select" data-path="${path}" data-field="${field}" data-k="${k}" ${extra.i != null ? html`data-i="${extra.i}"` : ''} aria-label="${label}">
       ${options.map(([v, t]) => html`<option value="${v}" ${String(v) === String(value) ? 'selected' : ''}>${t}</option>`)}
     </select>`;
@@ -416,17 +445,17 @@ export class RuleEditor {
       case 'count':
         return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn('', 'Change this check')}
           ${this.select(path, 'what', c.what, WHAT(), 'What to count')}
-          ${this.select(path, 'op', c.op, OPS, 'Comparison')}
-          <input class="bb-num-in" type="number" min="0" max="100000" inputmode="numeric" value="${c.value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="Number">
+          ${this.select(path, 'op', c.op, OPS(), 'Comparison')}
+          <input class="bb-num-in" type="number" min="0" max="${LIMITS().maxNumber}" inputmode="numeric" value="${c.value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="Number">
         </span>`;
       case 'grubsLeft':
         return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn(`${ORE} left near my base`)}
-          ${this.select(path, 'op', c.op, OPS, 'Comparison')}
-          <input class="bb-num-in" type="number" min="0" max="100000" inputmode="numeric" value="${c.value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="Number">
+          ${this.select(path, 'op', c.op, OPS(), 'Comparison')}
+          <input class="bb-num-in" type="number" min="0" max="${LIMITS().maxNumber}" inputmode="numeric" value="${c.value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="Number">
         </span>`;
       case 'minute':
         return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn('minute')}
-          ${this.select(path, 'op', c.op, OPS, 'Comparison')}
+          ${this.select(path, 'op', c.op, OPS(), 'Comparison')}
           <input class="bb-num-in" type="number" min="0" max="999" inputmode="numeric" value="${c.value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="Minute">
         </span>`;
       case 'switch':
@@ -435,7 +464,8 @@ export class RuleEditor {
           <span>is on</span></span>`;
       case 'enemyNearBase': return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn('an enemy is near my base')}</span>`;
       case 'seeEnemy': return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn('I can see an enemy')}</span>`;
-      default: return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn('Every tick')}</span>`;
+      case 'always': return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn('Every tick')}</span>`;
+      default: return html`<span class="bb-chip cond${this.editing(path)}">${kindBtn(String(c?.kind ?? '?'))}</span>`;
     }
   }
 
@@ -445,25 +475,25 @@ export class RuleEditor {
     const cls = `bb-chip act${this.editing(path)}`;
     switch (a.kind) {
       case 'train':
-        return html`<span class="${cls}">${kindBtn('train a')}${this.select(path, 'unit', a.unit, UNITS.map((t) => [t, unitWord(t)]), 'Which unit')}${del}</span>`;
+        return html`<span class="${cls}">${kindBtn('train a')}${this.select(path, 'unit', a.unit, UNITS().map((t) => [t, unitWord(t)]), 'Which unit')}${del}</span>`;
       case 'trainMix':
         return html`<span class="${cls}">${kindBtn('train in turn')}
-          ${(a.units || []).map((u, i) => html`${this.select(path, 'units', u, FIGHTERS.map((t) => [t, unitWord(t)]), `Unit ${i + 1} of the mix`, { i })}${a.units.length > 1 ? html`<button type="button" class="bb-icon small" data-act="mix-del" data-path="${path}" data-i="${i}" data-k="mixdel|${path}|${i}" aria-label="Remove unit ${i + 1} from the mix">−</button>` : ''}`)}
-          ${a.units.length < 8 ? html`<button type="button" class="bb-icon small" data-act="mix-add" data-path="${path}" data-k="mixadd|${path}" aria-label="Add a unit to the mix">+</button>` : ''}${del}</span>`;
+          ${(a.units || []).map((u, i) => html`${this.select(path, 'units', u, FIGHTERS().map((t) => [t, unitWord(t)]), `Unit ${i + 1} of the mix`, { i })}${a.units.length > 1 ? html`<button type="button" class="bb-icon small" data-act="mix-del" data-path="${path}" data-i="${i}" data-k="mixdel|${path}|${i}" aria-label="Remove unit ${i + 1} from the mix">−</button>` : ''}`)}
+          ${a.units.length < LIMITS().maxMixUnits ? html`<button type="button" class="bb-icon small" data-act="mix-add" data-path="${path}" data-k="mixadd|${path}" aria-label="Add a unit to the mix">+</button>` : ''}${del}</span>`;
       case 'build':
-        return html`<span class="${cls} build">${kindBtn('build a')}${this.select(path, 'building', a.building, BUILDINGS.map((b) => [b, bWord(b)]), 'Which building')}${this.select(path, 'site', a.site ?? 'TowardCenter', SITES(), 'Where')}${del}</span>`;
+        return html`<span class="${cls} build">${kindBtn('build a')}${this.select(path, 'building', a.building, BUILDINGS().map((b) => [b, bWord(b)]), 'Which building')}${this.select(path, 'site', a.site ?? byDefault('site'), SITES(), 'Where')}${del}</span>`;
       case 'research':
-        return html`<span class="${cls} build">${kindBtn(say('research', 'take the class'))}${this.select(path, 'upgrade', a.upgrade, UPGRADES.map((u) => { const info = upgradeInfo(u); return [u, info ? `${upgradeName(u)}: ${info.short}` : upgradeName(u)]; }), 'Which upgrade')}${del}</span>`;
+        return html`<span class="${cls} build">${kindBtn(say('research', 'take the class'))}${this.select(path, 'upgrade', a.upgrade, UPGRADES().map((u) => { const info = upgradeInfo(u); return [u, info ? `${upgradeName(u)}: ${info.short}` : upgradeName(u)]; }), 'Which upgrade')}${del}</span>`;
       case 'attack':
-        return html`<span class="${cls}">${kindBtn('attack')}${this.select(path, 'target', a.target ?? 'enemyBase', TARGETS, 'Attack what')}<span>with</span>${this.select(path, 'who', a.who ?? 'fighters', WHO(), 'Who attacks')}${del}</span>`;
+        return html`<span class="${cls}">${kindBtn('attack')}${this.select(path, 'target', a.target ?? byDefault('target'), TARGETS(), 'Attack what')}<span>with</span>${this.select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who attacks')}${del}</span>`;
       case 'defend':
-        return html`<span class="${cls}">${kindBtn('defend with')}${this.select(path, 'who', a.who ?? 'fighters', WHO(), 'Who defends')}${del}</span>`;
+        return html`<span class="${cls}">${kindBtn('defend with')}${this.select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who defends')}${del}</span>`;
       case 'retreat':
-        return html`<span class="${cls}">${kindBtn('bring home')}${this.select(path, 'who', a.who ?? 'fighters', WHO(), 'Who comes home')}${del}</span>`;
+        return html`<span class="${cls}">${kindBtn('bring home')}${this.select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who comes home')}${del}</span>`;
       case 'scout':
-        return html`<span class="${cls}">${kindBtn('send a scout to')}${this.select(path, 'target', a.target ?? 'enemyBase', [['enemyBase', 'find the enemy base'], ['explore', `explore (find more ${ORE})`]], 'Where the scout goes')}${del}</span>`;
+        return html`<span class="${cls}">${kindBtn('send a scout to')}${this.select(path, 'target', a.target ?? byDefault('scoutTarget'), SCOUT_TARGETS(), 'Where the scout goes')}${del}</span>`;
       case 'expand':
-        return html`<span class="${cls} build">${kindBtn(`expand to new ${ORE} with a`)}${this.select(path, 'building', a.building ?? 'ResourceDepot', [['ResourceDepot', bWord('ResourceDepot')], ['CommandCenter', bWord('CommandCenter')]], 'What to build there')}${del}</span>`;
+        return html`<span class="${cls} build">${kindBtn(`expand to new ${ORE} with a`)}${this.select(path, 'building', a.building ?? byDefault('expandBuilding'), EXPAND_BUILDINGS(), 'What to build there')}${del}</span>`;
       default:
         return html`<span class="${cls}">${kindBtn(a.kind)}${del}</span>`;
     }
@@ -486,8 +516,10 @@ export class RuleEditor {
   }
 
   pickerBody(pk) {
-    const opt = (label, data) => html`<button type="button" class="bb-opt" data-act="choose" ${Object.entries(data).map(([k, v]) => html`data-${k}="${v}" `)}>${label}</button>`;
-    const group = (name, items) => html`<div class="bb-opt-group"><h3>${name}</h3><div>${items}</div></div>`;
+    // Only kinds the server knows are offered; a group with none left isn't shown.
+    const opt = (label, data) => (knows(pk.type, data.kind)
+      ? html`<button type="button" class="bb-opt" data-act="choose" ${Object.entries(data).map(([k, v]) => html`data-${k}="${v}" `)}>${label}</button>` : '');
+    const group = (name, items) => ([].concat(items).some(Boolean) ? html`<div class="bb-opt-group"><h3>${name}</h3><div>${items}</div></div>` : '');
     const head = (title) => html`<div class="bb-picker-head"><h2>${title}</h2><button type="button" class="bb-icon" data-act="close-picker" aria-label="Close the picker">×</button></div>`;
     if (pk.type === 'cond') {
       const current = at(this.program, pk.path);
@@ -501,14 +533,19 @@ export class RuleEditor {
         ])}
         ${group('The enemy', [opt('an enemy is near my base', { kind: 'enemyNearBase' }), opt('I can see an enemy', { kind: 'seeEnemy' })])}
         ${group('Time', [opt('minute ≥ 3', { kind: 'minute' }), opt('every tick', { kind: 'always' })])}
-        ${group('Switches', html`
+        ${knows('cond', 'switch') ? html`<div class="bb-opt-group"><h3>Switches</h3><div>
           ${this.program.switches.map((s) => opt(`${s} is on`, { kind: 'switch', name: s }))}
-          <span class="bb-new-switch"><label class="visually-hidden" for="bb-new-switch">New switch name</label><input id="bb-new-switch" type="text" maxlength="24" placeholder="New switch, e.g. Attack!"><button type="button" class="bb-opt" data-act="new-switch">Add</button></span>`)}
-        ${current?.kind !== 'always' ? group('Combine', [opt('both this and…', { kind: 'and' }), opt('either this or…', { kind: 'or' }), opt('not this', { kind: 'not' })]) : ''}`;
+          ${fullSwitches(this.program) ? html`<p class="small muted">${why.switches()}</p>` : html`
+          <span class="bb-new-switch"><label class="visually-hidden" for="bb-new-switch">New switch name</label><input id="bb-new-switch" type="text" maxlength="${LIMITS().maxSwitchNameLength}" placeholder="New switch, e.g. Attack!"><button type="button" class="bb-opt" data-act="new-switch">Add</button></span>`}</div></div>` : ''}
+        ${current?.kind === 'always' ? ''
+          : canCombine(this.program, pk.path) ? group('Combine', [opt('both this and…', { kind: 'and' }), opt('either this or…', { kind: 'or' }), opt('not this', { kind: 'not' })])
+            : html`<div class="bb-opt-group"><h3>Combine</h3><p class="small muted">${why.depth()}</p></div>`}`;
     }
+    if (pk.mode !== 'replace' && fullRule(at(this.program, pk.path))) return html`${head('Add something to do')}<p class="small muted">${why.steps()}</p>`;
     return html`${head(pk.mode === 'add' ? 'Add something to do' : pk.mode === 'insert' ? `Add a step before step ${pk.at + 1}` : 'Pick an action')}
-      ${group('Train', UNITS.map((t) => opt(unitWord(t), { kind: 'train', unit: t })).concat([opt('a mix, in turn', { kind: 'trainMix' })]))}
-      ${group('Build', BUILDINGS.slice(0, 5).map((b) => opt(bWord(b), { kind: 'build', building: b })).concat([opt(say('research an upgrade', 'take a class'), { kind: 'research' }), opt(`expand to new ${ORE}`, { kind: 'expand' })]))}
+      ${group('Train', UNITS().map((t) => opt(unitWord(t), { kind: 'train', unit: t })).concat([opt('a mix, in turn', { kind: 'trainMix' })]))}
+      ${group('Build', BUILDINGS().filter((b) => b !== 'CommandCenter')   // a new HQ is an expansion
+        .map((b) => opt(bWord(b), { kind: 'build', building: b })).concat([opt(say('research an upgrade', 'take a class'), { kind: 'research' }), opt(`expand to new ${ORE}`, { kind: 'expand' })]))}
       ${group('Army', [opt('attack', { kind: 'attack' }), opt('defend', { kind: 'defend' }), opt('bring home', { kind: 'retreat' }), opt('send a scout to the enemy', { kind: 'scout', target: 'enemyBase' }), opt(`explore for more ${ORE}`, { kind: 'scout', target: 'explore' })])}`;
   }
 }

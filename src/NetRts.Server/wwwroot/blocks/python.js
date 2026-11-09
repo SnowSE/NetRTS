@@ -1,7 +1,10 @@
 // The Python view of a program: each rule as the code it stands for.
+import { byDefault } from './program.js';
+
 const pyStr = (s) => JSON.stringify(String(s));
 function pyWho(who) {
-  return !who || who === 'fighters' ? 'bot.fighters()' : `bot.units(${pyStr(who)})`;
+  const w = who ?? byDefault('who');
+  return w === 'fighters' ? 'bot.fighters()' : `bot.units(${pyStr(w)})`;
 }
 function pyCond(c) {
   switch (c?.kind) {
@@ -27,13 +30,13 @@ function pyAction(a) {
   switch (a?.kind) {
     case 'train': return `bot.train(${pyStr(a.unit)})`;
     case 'trainMix': return `bot.train_mix([${(a.units || []).map(pyStr).join(', ')}])`;
-    case 'build': return `bot.build(${pyStr(a.building)}, place=${pyStr(a.site ?? 'TowardCenter')})`;
+    case 'build': return `bot.build(${pyStr(a.building)}, place=${pyStr(a.site ?? byDefault('site'))})`;
     case 'research': return `bot.research(${pyStr(a.upgrade)})`;
-    case 'attack': return `bot.attack(${a.target === 'nearestEnemy' ? 'bot.nearest_enemy()' : 'bot.enemy_base()'}, ${pyWho(a.who)})`;
+    case 'attack': return `bot.attack(${(a.target ?? byDefault('target')) === 'nearestEnemy' ? 'bot.nearest_enemy()' : 'bot.enemy_base()'}, ${pyWho(a.who)})`;
     case 'defend': return `bot.defend(${pyWho(a.who)})`;
     case 'retreat': return `bot.go_home(${pyWho(a.who)})`;
-    case 'scout': return a.target === 'explore' ? 'bot.explore()' : 'bot.scout()';
-    case 'expand': return `bot.expand(${pyStr(a.building ?? 'ResourceDepot')})`;
+    case 'scout': return (a.target ?? byDefault('scoutTarget')) === 'explore' ? 'bot.explore()' : 'bot.scout()';
+    case 'expand': return `bot.expand(${pyStr(a.building ?? byDefault('expandBuilding'))})`;
     default: return '?';
   }
 }
