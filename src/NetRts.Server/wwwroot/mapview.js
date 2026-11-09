@@ -959,7 +959,7 @@ function techLabIcon(g, s) {
 }
 
 /** The GuardTower icon, drawn the same in both themes. */
-function guardTowerIcon(g, s) {
+function guardTowerIcon(g, s, accent) {
   g.beginPath();
   g.moveTo(-s * 0.45, s * 0.9);
   g.lineTo(-s * 0.35, -s * 0.5);
@@ -1126,7 +1126,7 @@ function snowBuildingIcon(g, type, cx, cy, s, ink, accent) {
       break;
     }
     case 'GuardTower': { // tall tower with an arrow slit
-      guardTowerIcon(g, s);
+      guardTowerIcon(g, s, accent);
       break;
     }
     case 'SiegeWorkshop': { // the Washburn Building's welding shop: a low shop with a roll-up bay door and a spark
@@ -1298,7 +1298,7 @@ function classicBuildingIcon(g, type, cx, cy, s, ink, accent) {
       break;
     }
     case 'GuardTower': { // tall tower with an arrow slit
-      guardTowerIcon(g, s);
+      guardTowerIcon(g, s, accent);
       break;
     }
     case 'SiegeWorkshop': { // an anvil with a hammer above it
