@@ -262,7 +262,11 @@ export function mountCockpit(main, matchId) {
     }
     renderSummary();
     if (summary.status === 'Active') openFeed(true);
-    if (summary.status === 'Completed' && !lastState) openFeed(false);
+    if (summary.status === 'Completed') {
+      // Over: the final positions (the stream has none to send when nobody ticked, after a surrender, say).
+      if (feed?.open) feed.end();
+      else if (!lastState) openFeed(false);
+    }
     if (summary.status !== 'Completed') later(pollSummary, summary.status === 'Waiting' ? 2000 : 4000);
   }
 

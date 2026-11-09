@@ -9,21 +9,24 @@ const MAX_RETRY_MS = 30000;
  * Opens the feed for matchId. Callbacks (all optional):
  *   onMap(map)     the map, fetched first when this is given
  *   onState(s)     each spectator frame (fog=true: every player's vision is in it)
- *   onEnd()        the match is over: after its final frame, or the final snapshot when the stream
- *                  missed it (that snapshot comes through onState first, while the server still has it)
+ *   onEnd()        the match is over: after its final frame, or after the final snapshot when the stream
+ *                  didn't bring it (that snapshot comes through onState first, while the server has it)
  *   onGone()       the match isn't on the server any more (a 404)
  *   onError(e)     the map couldn't load for another reason; the feed tries again, less and less often
  * live: false for a match already over: no stream, just the map and the final snapshot.
  *
  * The feed closes itself when the match ends or is gone; close() stops it early (in a page's teardown).
- * No callback runs after it has closed.
+ * end(): the caller has learnt the match is over some other way (its summary says so): the feed stops
+ * waiting for frames, shows the final snapshot and calls onEnd. (A match that ends without a new tick, by
+ * a surrender, say, gets no last frame on the stream.) No callback runs after the feed has closed.
  */
 export function openMatchFeed(matchId, { onMap, onState, onEnd, onGone, onError, live = true } = {}) {
   let closed = false;
   let es = null;
   let timer = 0;
   let wait = FIRST_RETRY_MS;
-  let seen = false;   // a frame has come in
+  let ending = false;
+  let mapped = !onMap;   // the map has been handed over (or wasn't asked for)
 
   const close = () => {
     closed = true;
@@ -38,7 +41,6 @@ export function openMatchFeed(matchId, { onMap, onState, onEnd, onGone, onError,
   };
   const gone = () => { close(); onGone?.(); };
   const frame = (s) => {
-    seen = true;
     wait = FIRST_RETRY_MS;   // connected again: the next drop starts the backoff over
     onState?.(s);
   };
@@ -54,9 +56,10 @@ export function openMatchFeed(matchId, { onMap, onState, onEnd, onGone, onError,
       retry(loadMap);
       return;
     }
-    if (closed) return;
+    if (closed || ending) return;
+    mapped = true;
     onMap(map);
-    if (closed) return;
+    if (closed || ending) return;
     if (live) stream(); else finish();
   }
 
@@ -86,17 +89,24 @@ export function openMatchFeed(matchId, { onMap, onState, onEnd, onGone, onError,
     };
   }
 
-  /** The match is over: its final positions, unless a frame already showed them, and then onEnd. */
+  /** The match is over: its final positions, then onEnd. */
   async function finish() {
+    if (closed || ending) return;
+    ending = true;
+    clearTimeout(timer);
     es?.close();
     es = null;
-    if (!seen) {
-      try {
-        const s = await api(`/api/v1/matches/${matchId}/spectate?fog=true`);
+    try {
+      if (!mapped) {
+        const map = await api(`/api/v1/matches/${matchId}/map`);
         if (closed) return;
-        frame(s);
-      } catch { /* archived: only the result is left */ }
-    }
+        mapped = true;
+        onMap(map);
+      }
+      const s = await api(`/api/v1/matches/${matchId}/spectate?fog=true`);
+      if (closed) return;
+      frame(s);
+    } catch { /* archived: only the result is left */ }
     if (closed) return;
     close();
     onEnd?.();
@@ -108,6 +118,7 @@ export function openMatchFeed(matchId, { onMap, onState, onEnd, onGone, onError,
 
   return {
     close,
+    end: finish,
     get open() { return !closed; },
   };
 }
