@@ -1,12 +1,17 @@
 // #/blocks: the locker. Name your badger (or load a key), pick a strategy, pick who to play.
-import { api, html, raw, setHtml, timeAgo, botLabel } from '../util.js';
+import { api, html, raw, setHtml, timeAgo, botLabel, mountScope } from '../util.js';
 import { GAME, say } from '../lore.js';
-import { strategies, getStrategy, deleteStrategy, newStrategy, prefs, setPref, recordMatch, player, setPlayer, authed, nav, downloadKey, downloadStrategy } from './store.js';
-import { starters, THEME, LIMITS, describeRules, readStrategyFile } from './program.js';
+import {
+  strategies, getStrategy, deleteStrategy, newStrategy, prefs, setPref, recordMatch,
+  player, setPlayer, keptSignedIn, authed, themed, nav, downloadKey, downloadStrategy,
+} from './store.js';
+import { starters, LIMITS, describeRules, readStrategyFile } from './program.js';
 import { ICON } from './icons.js';
 
 export function mountLocker(main) {
-  let alive = true;
+  // Listeners go at teardown, and a request that answers after it never reaches the page (scope.wait).
+  const scope = mountScope();
+  const wait = scope.wait;
   const st = {
     mode: prefs().mode ?? 'HouseBot',
     one: prefs().one ?? 'sitter',
@@ -22,6 +27,7 @@ export function mountLocker(main) {
     matchName: '',
     busy: false,
     switching: false, // "Change" on step 1: show the name / key form again without forgetting the current badger
+    keep: keptSignedIn(),   // "Keep me signed in on this computer"; otherwise the key is forgotten when the tab closes
     error: '',
     fileError: '',
   };
@@ -35,17 +41,17 @@ export function mountLocker(main) {
   ensureStarter();
 
   async function refresh() {
-    try { st.bots = await api('/api/v1/bots'); } catch { st.bots = []; }
+    try { st.bots = await wait(api('/api/v1/bots')); } catch { st.bots = []; }
     try {
-      const waiting = await api('/api/v1/matches?status=Waiting');
+      const waiting = await wait(api('/api/v1/matches?status=Waiting'));
       // Waiting practice matches, but not one I'm already in (one I created, say).
       const meId = player()?.playerId;
       st.waiting = waiting.filter((m) => m.category === 'Practice' && !m.heats && !m.players.some((p) => p.playerId === meId));
     } catch { st.waiting = []; }
     if (player()) {
-      try { st.live = (await authed('/api/v1/blocks/matches')).filter((m) => m.matchStatus !== 'Completed'); } catch { st.live = []; }
+      try { st.live = (await wait(authed(themed('/api/v1/blocks/matches')))).filter((m) => m.matchStatus !== 'Completed'); } catch { st.live = []; }
     }
-    if (alive) render();
+    render();
   }
 
   function sorted() {
@@ -103,10 +109,13 @@ export function mountLocker(main) {
             </div>
             ${me ? html`
               <div class="bb-switching">
-                <p>You’re playing as <b>${me.name}</b>. Its key is saved only in this browser, so download it if you want to come back to it.</p>
+                <p>You’re playing as <b>${me.name}</b>. ${keptSignedIn()
+                  ? 'Its key is kept in this browser on this computer'
+                  : 'Its key is kept in this tab only, until you close it'}, so download it if you want to come back to it.</p>
                 <div class="bb-actions">
                   <button type="button" class="btn ghost small-btn" data-dlkey="1">${raw(ICON.download)} Download ${me.name}’s key</button>
                   <button type="button" class="btn ghost small-btn" data-switch-cancel="1">Keep playing as ${me.name}</button>
+                  <button type="button" class="btn ghost small-btn" data-signout="1">Sign out</button>
                 </div>
               </div>
               <p class="muted">Pick a new name, or load a key you already have.</p>` : html`
@@ -125,6 +134,7 @@ export function mountLocker(main) {
                 <label class="btn ghost bb-file">Browse for a key file<input type="file" accept=".txt,.json,.env,.key,text/plain,application/json" id="bb-keyfile"></label>
               </form>
             </details>
+            <label class="bb-keep small"><input type="checkbox" id="bb-keep" ${st.keep ? 'checked' : ''}> Keep me signed in on this computer</label>
             <p class="bb-error" id="bb-signup-err" role="alert">${st.error}</p>
           </section>`}
 
@@ -245,10 +255,10 @@ export function mountLocker(main) {
       </section>`);
   }
 
-  main.addEventListener('click', onClick);
-  main.addEventListener('submit', onSubmit);
-  main.addEventListener('change', onChange);
-  main.addEventListener('input', onInput);
+  scope.on(main, 'click', onClick);
+  scope.on(main, 'submit', onSubmit);
+  scope.on(main, 'change', onChange);
+  scope.on(main, 'input', onInput);
 
   function onClick(e) {
     const t = e.target.closest('button');
@@ -259,6 +269,7 @@ export function mountLocker(main) {
       render();
       main.querySelector('#bb-name')?.focus();
     } else if (d.switchCancel) { st.switching = false; render(); }
+    else if (d.signout) { setPlayer(null); st.switching = false; st.live = []; render(); main.querySelector('#bb-name')?.focus(); }
     else if (d.dlkey) downloadKey(player());
     else if (d.pick) { st.selected = d.pick; setPref('selected', d.pick); render(); }
     else if (d.download) downloadStrategy(getStrategy(d.download));
@@ -294,8 +305,8 @@ export function mountLocker(main) {
     if (e.target.id === 'bb-signup') {
       const name = e.target.name.value.trim();
       try {
-        const res = await api('/api/v1/players', { method: 'POST', body: { name } });
-        setPlayer({ playerId: res.playerId, name: res.name, apiKey: res.apiKey });
+        const res = await wait(api('/api/v1/players', { method: 'POST', body: { name } }));
+        setPlayer({ playerId: res.playerId, name: res.name, apiKey: res.apiKey }, { keep: st.keep });
         signedIn();
       } catch (ex) { if (err) err.textContent = ex.message; }
     } else if (e.target.id === 'bb-create') {
@@ -306,7 +317,7 @@ export function mountLocker(main) {
       const name = main.querySelector('#bb-code-in').value.trim();
       if (!name) return;
       try {
-        const m = await api(`/api/v1/matches/named/${encodeURIComponent(name)}`);
+        const m = await wait(api(`/api/v1/matches/named/${encodeURIComponent(name)}`));
         if (m.status !== 'Waiting') throw new Error(`"${name}" has already ${m.status === 'Completed' ? 'finished' : 'started'}.`);
         if (!st.waiting.some((w) => w.matchId === m.matchId)) st.waiting.unshift(m);
         st.joinMatch = m.matchId;
@@ -327,8 +338,8 @@ export function mountLocker(main) {
   async function useKey(key) {
     const err = main.querySelector('#bb-signup-err');
     try {
-      const me = await api('/api/v1/players/me', { headers: { authorization: `Bearer ${key}` } });
-      setPlayer({ playerId: me.playerId, name: me.name, apiKey: key });
+      const me = await wait(api('/api/v1/players/me', { headers: { authorization: `Bearer ${key}` } }));
+      setPlayer({ playerId: me.playerId, name: me.name, apiKey: key }, { keep: st.keep });
       signedIn();
     } catch (ex) { if (err) err.textContent = ex.status === 401 ? 'That key didn’t work.' : ex.message; }
   }
@@ -339,7 +350,7 @@ export function mountLocker(main) {
     const err = main.querySelector('#bb-signup-err');
     const input = main.querySelector('#bb-key-in');
     if (file.size > 64 * 1024) { if (err) err.textContent = 'That file is too big to be a key file.'; return; }
-    const key = (await file.text()).match(/nrts_[A-Za-z0-9_-]{20,}/)?.[0];
+    const key = (await wait(file.text())).match(/nrts_[A-Za-z0-9_-]{20,}/)?.[0];
     if (!key) { if (err) err.textContent = `There’s no API key (nrts_…) in ${file.name}.`; return; }
     if (input) input.value = key;
     useKey(key);
@@ -350,6 +361,7 @@ export function mountLocker(main) {
   }
 
   async function onChange(e) {
+    if (e.target.id === 'bb-keep') { st.keep = e.target.checked; return; }
     if (e.target.id === 'bb-keyfile' && e.target.files?.[0]) {
       const file = e.target.files[0];
       e.target.value = '';
@@ -357,7 +369,7 @@ export function mountLocker(main) {
     }
     if (e.target.id !== 'bb-open' || !e.target.files?.[0]) return;
     try {
-      const program = await readStrategyFile(e.target.files[0]);
+      const program = await wait(readStrategyFile(e.target.files[0]));
       const s = newStrategy(program);
       st.selected = s.id;
       st.fileError = '';
@@ -374,23 +386,22 @@ export function mountLocker(main) {
     try {
       let match;
       if (st.mode === 'Real' && st.real === 'create') {
-        match = await authed('/api/v1/blocks/matches', {
+        match = await wait(authed('/api/v1/blocks/matches', {
           method: 'POST',
-          body: { program: s.program, mode: 'Create', seats: st.seats, name: st.matchName.trim() || null, tickIntervalMs: st.fast ? 250 : null, theme: THEME },
-        });
+          body: { program: s.program, mode: 'Create', seats: st.seats, name: st.matchName.trim() || null, tickIntervalMs: st.fast ? 250 : null },
+        }));
       } else if (st.mode === 'Real') {
-        match = await authed(`/api/v1/blocks/matches/${st.joinMatch}/join`, { method: 'POST', body: { program: s.program, theme: THEME } });
+        match = await wait(authed(`/api/v1/blocks/matches/${st.joinMatch}/join`, { method: 'POST', body: { program: s.program } }));
       } else {
-        match = await authed('/api/v1/blocks/matches', {
+        match = await wait(authed('/api/v1/blocks/matches', {
           method: 'POST',
           body: {
             program: s.program,
             mode: st.mode,
             opponents: st.mode === 'FreeForAll' ? st.many : st.mode === 'HouseBot' ? [st.one] : [],
             tickIntervalMs: st.fast ? 250 : null,
-            theme: THEME,
           },
-        });
+        }));
       }
       recordMatch(match.matchId, s.id);
       location.hash = `#/blocks/match/${match.matchId}`;
@@ -399,28 +410,22 @@ export function mountLocker(main) {
       if (ex.status === 401) {
         setPlayer(null);
         st.error = `This server doesn’t know your ${say('bot', 'badger')} yet. Pick a name above and try again.`;
-        if (alive) render();
+        render();
         return;
       }
       st.error = ex.code === 'INVALID_PROGRAM' ? `Your strategy has a problem: ${ex.message}` : ex.message;
-      if (alive) render();
+      render();
     }
   }
 
   render();
   if (nav.jumpToPlay) {
     nav.jumpToPlay = false;
-    // After the router's scrollTo(0, 0), which runs once this mount returns.
-    requestAnimationFrame(() => { if (alive) main.querySelector('#bb-s3')?.scrollIntoView({ block: 'start' }); });
+    // After the router's scrollTo(0, 0).
+    requestAnimationFrame(() => { if (scope.alive) main.querySelector('#bb-s3')?.scrollIntoView({ block: 'start' }); });
   }
   refresh();
-  return () => {
-    alive = false;
-    main.removeEventListener('click', onClick);
-    main.removeEventListener('submit', onSubmit);
-    main.removeEventListener('change', onChange);
-    main.removeEventListener('input', onInput);
-  };
+  return () => scope.dispose();
 }
 
 function shortBlurb(desc) {

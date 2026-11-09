@@ -1,7 +1,8 @@
 // Block Bot: what this browser keeps (strategies, preferences, which strategy played which match, and
 // the player's key) and the authorised API call.
 import { api, downloadJson } from '../util.js';
-import { load, save } from '../storage.js';
+import { load, save, forget } from '../storage.js';
+import { SNOW } from '../lore.js';
 
 const KEYS = {
   strategies: 'netrts.blocks.strategies',
@@ -10,6 +11,7 @@ const KEYS = {
   prefs: 'netrts.blocks.prefs',
 };
 const LOCAL = 'localStorage';
+const SESSION = 'sessionStorage';
 
 export const strategies = () => load(LOCAL, KEYS.strategies, {});
 export const getStrategy = (id) => strategies()[id] ?? null;
@@ -51,8 +53,22 @@ export function downloadStrategy(strategy) {
 
 // ------------------------------------------------------------------ who's playing
 
-export const player = () => load(LOCAL, KEYS.player, null);
-export function setPlayer(p) { save(LOCAL, KEYS.player, p); }
+// The player's key lives in sessionStorage, so a shared lab computer forgets it when the tab closes (as the
+// API page does with its key), unless they tick "Keep me signed in on this computer": then localStorage.
+export const player = () => load(SESSION, KEYS.player, null) ?? load(LOCAL, KEYS.player, null);
+/** Whether the key is kept on this computer (past this tab). */
+export const keptSignedIn = () => load(LOCAL, KEYS.player, null) != null;
+/** Signs in as p (keep: on this computer, not just this tab); null signs out of both. */
+export function setPlayer(p, { keep = false } = {}) {
+  forget(SESSION, KEYS.player);
+  forget(LOCAL, KEYS.player);
+  if (p) save(keep ? LOCAL : SESSION, KEYS.player, p);
+}
+
+/** The site theme (the global Snow College / original toggle), so the server explains itself in the same words. */
+const THEME = SNOW ? 'snow' : 'classic';
+/** A Block Bot call that returns its status (the rules' "why" lines): the server words it in the site's theme. */
+export const themed = (path) => `${path}${path.includes('?') ? '&' : '?'}theme=${THEME}`;
 
 export function authed(path, options = {}) {
   const p = player();

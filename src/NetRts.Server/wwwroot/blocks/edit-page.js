@@ -1,6 +1,6 @@
 // #/blocks/edit/<id>: one strategy in the rule-card editor, saved in this browser as you go.
-import { html, raw, setHtml } from '../util.js';
-import { getStrategy, putStrategy, prefs, setPref, matchRecords, player, authed, nav, downloadStrategy } from './store.js';
+import { html, raw, setHtml, mountScope } from '../util.js';
+import { getStrategy, putStrategy, prefs, setPref, matchRecords, player, authed, themed, nav, downloadStrategy } from './store.js';
 import { LIMITS } from './program.js';
 import { RuleEditor } from './rule-editor.js';
 import { ICON } from './icons.js';
@@ -13,7 +13,7 @@ export function mountEditor(main, id) {
   }
   let strategy = s;
   let liveMatch = null;
-  let alive = true;
+  const scope = mountScope();
 
   // Python, Download and Play it: in the top bar on narrow screens (which sticks), at the top of the
   // side panel (which stays in view as the rules scroll) on wide ones.
@@ -65,21 +65,21 @@ export function mountEditor(main, id) {
     } else if (b.dataset.ed === 'dl') downloadStrategy(strategy);
     else if (b.dataset.ed === 'play') { setPref('selected', strategy.id); nav.jumpToPlay = true; }
   };
-  main.addEventListener('click', onAction);
+  scope.on(main, 'click', onAction);
 
   // A match already playing this strategy: changes here go live from its cockpit.
   (async () => {
     if (!player()) return;
     const recs = matchRecords();
     try {
-      const live = (await authed('/api/v1/blocks/matches')).filter((m) => m.matchStatus !== 'Completed' && recs[m.matchId]?.strategyId === strategy.id);
+      const live = (await scope.wait(authed(themed('/api/v1/blocks/matches')))).filter((m) => m.matchStatus !== 'Completed' && recs[m.matchId]?.strategyId === strategy.id);
       liveMatch = live[0] ?? null;
     } catch { liveMatch = null; }
-    if (!alive || !liveMatch) return;
+    if (!liveMatch) return;
     const banner = main.querySelector('#bb-livebanner');
     banner.hidden = false;
     setHtml(banner, html`This strategy is playing a match right now. <a href="#/blocks/match/${liveMatch.matchId}">Open the cockpit</a> to watch it and apply your changes.`);
   })();
 
-  return () => { alive = false; main.removeEventListener('click', onAction); };
+  return () => scope.dispose();
 }

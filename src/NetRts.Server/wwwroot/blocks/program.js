@@ -88,8 +88,6 @@ export function upgradeInfo(type) {
   ].filter(Boolean).join(' · ');
   return { short, detail, meta };
 }
-/** The site theme (the global Snow College / original toggle), so the server explains itself in the same words. */
-export const THEME = SNOW ? 'snow' : 'classic';
 /** What a count can count: fighters, workers and grubs first, then each fighter, then each building. */
 export function WHAT() {
   const can = VOCAB.countable;

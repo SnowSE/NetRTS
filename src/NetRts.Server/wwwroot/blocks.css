@@ -61,6 +61,8 @@
 .bb-lock { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 600; color: var(--muted); }
 .bb-signup { border: 3px solid var(--signal-bg); padding: 20px; }
 .bb-signup-form { max-width: 560px; margin-top: 0; }
+.bb-keep { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; justify-self: start; cursor: pointer; }
+.bb-keep input { width: 20px; height: 20px; margin: 0; }
 .bb-switching { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--bg); }
 .bb-switching p { margin: 0; }
 .bb-switching .bb-actions { border-top: 0; padding-top: 0; }

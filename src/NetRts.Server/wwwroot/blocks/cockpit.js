@@ -4,8 +4,8 @@ import { api, html, raw, setHtml, displayName, outcomeText, mountScope, playerNa
 import { say } from '../lore.js';
 import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
-import { getStrategy, putStrategy, newStrategy, prefs, matchRecords, recordMatch, player, authed, clone } from './store.js';
-import { RULES, THEME, LIMITS, sameProgram } from './program.js';
+import { getStrategy, putStrategy, newStrategy, prefs, matchRecords, recordMatch, player, authed, themed, clone } from './store.js';
+import { RULES, LIMITS, sameProgram } from './program.js';
 import { RuleEditor } from './rule-editor.js';
 import { ICON } from './icons.js';
 import { StatHistory, hudHtml, buildingCardHtml, qualityIcon, soundIcon } from './cockpit-hud.js';
@@ -16,7 +16,7 @@ const HOME_ICON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" s
 
 export function mountCockpit(main, matchId) {
   if (!player()) {
-    setHtml(main, html`<section class="bb-page"><h1>Block Bot</h1><p>This browser doesn’t have your ${say('bot', 'badger')}’s key. <a href="#/blocks">Go to the locker</a> to set it up, or <a href="#/match/${matchId}">just watch the match</a>.</p></section>`);
+    setHtml(main, html`<section class="bb-page"><h1>Block Bot</h1><p>You’re not signed in here, so this page doesn’t have your ${say('bot', 'badger')}’s key. <a href="#/blocks">Go to the locker</a> to sign in (or load your key file), or <a href="#/match/${matchId}">just watch the match</a>.</p></section>`);
     return () => {};
   }
 
@@ -120,7 +120,7 @@ export function mountCockpit(main, matchId) {
       onSave: async (p) => {
         if (status?.matchStatus === 'Completed') throw new Error('The match is over, so there’s nothing to send it to.');
         try {
-          status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/program`, { method: 'PUT', body: p }));
+          status = await scope.wait(authed(themed(`/api/v1/blocks/matches/${matchId}/program`), { method: 'PUT', body: p }));
         } catch (e) {
           throw new Error(e.code === 'INVALID_PROGRAM' ? `That doesn’t work yet: ${e.message}` : e.message);
         }
@@ -155,7 +155,7 @@ export function mountCockpit(main, matchId) {
     applying = true;
     renderApply();
     try {
-      status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/program`, { method: 'PUT', body: strategy.program }));
+      status = await scope.wait(authed(themed(`/api/v1/blocks/matches/${matchId}/program`), { method: 'PUT', body: strategy.program }));
       renderSide();
     } catch (e) {
       applying = false;
@@ -182,7 +182,7 @@ export function mountCockpit(main, matchId) {
   async function flip(name) {
     const on = !status?.switches?.[name];
     try {
-      status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/switches`, { method: 'PUT', body: { name, on } }));
+      status = await scope.wait(authed(themed(`/api/v1/blocks/matches/${matchId}/switches`), { method: 'PUT', body: { name, on } }));
       renderSide();
     } catch (e) { setMsg(e.message); later(() => setMsg(''), 3000); }
   }
@@ -269,7 +269,7 @@ export function mountCockpit(main, matchId) {
 
   async function pollStatus() {
     try {
-      status = await scope.wait(authed(`/api/v1/blocks/matches/${matchId}/status?theme=${THEME}`));
+      status = await scope.wait(authed(themed(`/api/v1/blocks/matches/${matchId}/status`)));
     } catch (e) {
       if (e.code === 'NO_BLOCK_BOT') { setMsg('You don’t have a Block Bot in this match.'); return; }
       if (e.status === 404) { gone(); return; }
