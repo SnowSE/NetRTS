@@ -2,7 +2,11 @@ using NetRts.Protocol;
 
 namespace NetRts.Bots;
 
-/// <summary>Convenience queries over one tick's <see cref="GameStateDto"/>.</summary>
+/// <summary>
+/// Convenience queries over one tick's <see cref="GameStateDto"/>. It's one of three pieces every bot here
+/// shares: this view (what's true now), <see cref="BotMemory"/> (what the bot remembers between ticks) and
+/// <see cref="BotTurn"/> (this tick's budget and commands, with actions like TryTrain and TryBuild).
+/// </summary>
 public sealed class BotView
 {
     private readonly HashSet<(int X, int Y)> _blocked;
@@ -48,21 +52,34 @@ public sealed class BotView
     public IReadOnlyList<UnitDto> Escorts { get; }
     public BuildingDto? CommandCenter { get; }
 
+    /// <summary>Distance in moves: diagonal steps count as one, so it's the larger of the two gaps.</summary>
+    public static int Dist(int x1, int y1, int x2, int y2) => Math.Max(Math.Abs(x1 - x2), Math.Abs(y1 - y2));
+
     public int UnitCost(UnitType type) => Rules.Units.First(u => u.Type == type).Cost;
+
+    /// <summary>
+    /// The enemy unit to deal with first: within <paramref name="radius"/> of one of our buildings, nearest
+    /// the Command Center (ties: the first listed, and the server lists units by id). Null when the base is safe.
+    /// </summary>
+    public UnitDto? Threat(int radius) =>
+        EnemyUnits
+            .Where(e => MyBuildings.Any(b => Dist(b.X, b.Y, e.X, e.Y) <= radius))
+            .OrderBy(e => Dist(CommandCenter!.X, CommandCenter.Y, e.X, e.Y))
+            .FirstOrDefault();
 
     public bool IsOpen(int x, int y) =>
         x >= 0 && y >= 0 && x < Map.Width && y < Map.Height && Map.Terrain[y][x] == '.' && !_blocked.Contains((x, y));
 
     public PositionDto? EnemyStart(int fromX, int fromY) =>
         State.Players.Where(p => p.Slot != State.You.Slot && !p.Eliminated)
-            .OrderBy(p => PlanBot.Dist(p.StartPosition.X, p.StartPosition.Y, fromX, fromY)).ThenBy(p => p.Slot)
+            .OrderBy(p => Dist(p.StartPosition.X, p.StartPosition.Y, fromX, fromY)).ThenBy(p => p.Slot)
             .Select(p => p.StartPosition).FirstOrDefault();
 
     /// <summary>Nearest visible enemy building, else the enemy's starting base.</summary>
     public (int X, int Y)? AttackTarget()
     {
         var cc = CommandCenter!;
-        var building = EnemyBuildings.OrderBy(b => PlanBot.Dist(b.X, b.Y, cc.X, cc.Y)).ThenBy(b => b.Id).FirstOrDefault();
+        var building = EnemyBuildings.OrderBy(b => Dist(b.X, b.Y, cc.X, cc.Y)).ThenBy(b => b.Id).FirstOrDefault();
         if (building is not null)
         {
             return (building.X, building.Y);
@@ -89,11 +106,18 @@ public sealed class BotView
         return (cc.X, cc.Y);
     }
 
+    /// <summary>The units more than three tiles from the <see cref="RallyPoint"/>: stragglers to call back.</summary>
+    public IEnumerable<UnitDto> AwayFromRally(IEnumerable<UnitDto> units)
+    {
+        var rally = RallyPoint();
+        return units.Where(u => Dist(u.X, u.Y, rally.X, rally.Y) > 3);
+    }
+
     /// <summary>A worker to borrow for construction: not carrying much, closest to the site.</summary>
     public UnitDto? PickBuilder((int X, int Y) site) =>
         Workers
             .Where(w => w.Activity is UnitActivity.Gathering or UnitActivity.Moving or UnitActivity.Idle && w.Carrying < 6)
-            .OrderBy(w => PlanBot.Dist(w.X, w.Y, site.X, site.Y)).ThenBy(w => w.Id)
+            .OrderBy(w => Dist(w.X, w.Y, site.X, site.Y)).ThenBy(w => w.Id)
             .FirstOrDefault();
 
     /// <summary>
@@ -112,21 +136,21 @@ public sealed class BotView
         {
             for (var x = cc.X - 8; x <= cc.X + 8; x++)
             {
-                var ring = PlanBot.Dist(x, y, cc.X, cc.Y);
+                var ring = Dist(x, y, cc.X, cc.Y);
                 if (ring < 3 || !IsOpen(x, y) || reservedSet.Contains((x, y)))
                 {
                     continue;
                 }
 
-                if (State.Buildings.Any(b => PlanBot.Dist(b.X, b.Y, x, y) <= 1)
-                    || reservedSet.Any(r => PlanBot.Dist(r.X, r.Y, x, y) <= 1)
-                    || State.Resources.Any(r => PlanBot.Dist(r.X, r.Y, x, y) <= 2 && preference != SitePreference.NearOre)
-                    || State.Resources.Any(r => PlanBot.Dist(r.X, r.Y, x, y) <= 1))
+                if (State.Buildings.Any(b => Dist(b.X, b.Y, x, y) <= 1)
+                    || reservedSet.Any(r => Dist(r.X, r.Y, x, y) <= 1)
+                    || State.Resources.Any(r => Dist(r.X, r.Y, x, y) <= 2 && preference != SitePreference.NearOre)
+                    || State.Resources.Any(r => Dist(r.X, r.Y, x, y) <= 1))
                 {
                     continue;
                 }
 
-                var score = PlanBot.Dist(x, y, anchor.X, anchor.Y) * 10 + ring;
+                var score = Dist(x, y, anchor.X, anchor.Y) * 10 + ring;
                 if (score < bestScore)
                 {
                     bestScore = score;
@@ -144,7 +168,7 @@ public sealed class BotView
         {
             case SitePreference.NearOre:
             {
-                var ore = State.Resources.Where(r => PlanBot.Dist(r.X, r.Y, cc.X, cc.Y) <= 10).ToList();
+                var ore = State.Resources.Where(r => Dist(r.X, r.Y, cc.X, cc.Y) <= 10).ToList();
                 return ore.Count == 0
                     ? (cc.X, cc.Y)
                     : ((int)Math.Round(ore.Average(r => r.X)), (int)Math.Round(ore.Average(r => r.Y)));
