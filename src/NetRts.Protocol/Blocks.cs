@@ -64,6 +64,9 @@ public enum BlockPlayMode
     Sandbox,
     HouseBot,
     FreeForAll,
+
+    /// <summary>A match for other players to join (people with Block Bots, or bots calling in): 2-4 seats, optionally named.</summary>
+    Create,
 }
 
 public sealed record StartBlockMatchRequest
@@ -79,6 +82,12 @@ public sealed record StartBlockMatchRequest
 
     /// <summary>The site theme the page shows, for the words in the status: "snow" (default) or "classic".</summary>
     public string? Theme { get; init; }
+
+    /// <summary>Create only: how many players, 2-4 (default 4). It starts when they're all in, or when its creator starts it.</summary>
+    public int? Seats { get; init; }
+
+    /// <summary>Create only: an optional name others can type to find it, e.g. "period-3": 3-32 letters, digits, '_' or '-'.</summary>
+    public string? Name { get; init; }
 }
 
 public sealed record JoinBlockMatchRequest

@@ -171,6 +171,32 @@ public sealed partial class MatchManager(
         return host;
     }
 
+    /// <summary>
+    /// The player who created a practice match (a Block Bot's "Create a match") starts it with whoever has
+    /// joined, rather than waiting for every seat to fill.
+    /// </summary>
+    public MatchHost StartByCreator(Guid matchId, Guid playerId)
+    {
+        var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
+        if (host.CreatorId != playerId || host.HostAccountId is not null || host.ParentMatchId is not null)
+        {
+            throw new MatchException(403, "NOT_YOUR_MATCH", "Only the player who created this match can start it.");
+        }
+
+        if (host.Status != MatchStatus.Waiting)
+        {
+            throw new MatchException(409, "MATCH_ALREADY_STARTED", "The match has already started.");
+        }
+
+        if (host.Seats.Count < 2)
+        {
+            throw new MatchException(409, "NOT_ENOUGH_PLAYERS", "A match needs at least two players. Wait for someone to join.");
+        }
+
+        host.Start(_options.AutoTick, TimeSpan.FromMilliseconds(_options.StartDelayMs));
+        return host;
+    }
+
     /// <summary>The host calls off their match before it starts.</summary>
     public MatchHost CancelHosted(Guid matchId, Guid accountId) => Cancel(HostedMatch(matchId, accountId).Id);
 

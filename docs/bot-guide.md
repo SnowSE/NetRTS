@@ -518,7 +518,8 @@ and downloads them as `.json`.
 | Call | What it does |
 |---|---|
 | `POST /api/v1/blocks/validate` | Checks a program (204, or `400 INVALID_PROGRAM` with the reason). |
-| `POST /api/v1/blocks/matches` | Starts a practice match the server plays with your program: `mode` `Sandbox` (vs the sitter), `HouseBot` (one opponent) or `FreeForAll` (two or three). |
+| `POST /api/v1/blocks/matches` | Starts a practice match the server plays with your program: `mode` `Sandbox` (vs the sitter), `HouseBot` (one opponent), `FreeForAll` (two or three), or `Create`: a match for other players to join, with `seats` (2–4, default 4) and an optional `name` they can type to find it. A created match starts when every seat is taken, or when you start it. |
+| `POST /api/v1/blocks/matches/{id}/start` | Starts a match you created (`mode` `Create`) with whoever has joined, at least two players. Only its creator can (`403 NOT_YOUR_MATCH` otherwise). |
 | `POST /api/v1/blocks/matches/{id}/join` | Takes a seat in a waiting practice or hosted match with a program. League matches don't take Block Bots (`409 LEAGUE_MATCH`). |
 | `PUT /api/v1/blocks/matches/{id}/program` | Swaps in a new version; it plays from the next tick. |
 | `PUT /api/v1/blocks/matches/{id}/switches` | Flips a switch (`{ "name": "Attack!", "on": true }`). |

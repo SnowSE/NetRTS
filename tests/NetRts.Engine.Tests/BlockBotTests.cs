@@ -240,6 +240,12 @@ public class BlockBotTests
         var tooMany = new BlockProgramDto { Rules = Enumerable.Range(0, BlockProgramValidator.MaxRules + 1).Select(_ => Rule(new() { Kind = "always" })).ToList() };
         Assert.NotNull(BlockProgramValidator.Validate(tooMany));
 
+        // A dozen steps in one rule is fine; a thirteenth is one too many.
+        BlockActionDto[] Steps(int n) => Enumerable.Range(0, n).Select(_ => new BlockActionDto { Kind = "research", Upgrade = UpgradeType.Weapons1 }).ToArray();
+        Assert.Equal(12, BlockProgramValidator.MaxActionsPerRule);
+        Assert.Null(BlockProgramValidator.Validate(new BlockProgramDto { Rules = [Rule(new() { Kind = "always" }, Steps(12))] }));
+        Assert.Contains("at most 12 actions", BlockProgramValidator.Validate(new BlockProgramDto { Rules = [Rule(new() { Kind = "always" }, Steps(13))] }));
+
         BlockConditionDto deep = new() { Kind = "always" };
         for (var i = 0; i < BlockProgramValidator.MaxDepth + 1; i++)
         {

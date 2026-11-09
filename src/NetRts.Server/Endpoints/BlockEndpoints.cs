@@ -32,7 +32,7 @@ public static class BlockEndpoints
             .RequireAuthorization()
             .Produces<MatchSummaryDto>(201)
             .ProducesErrors()
-            .WithSummary("Start a practice match that the server plays for you with a Block Bot program: a sandbox (against the Sleepy Sitter), one house bot, or a free-for-all.");
+            .WithSummary("Start a practice match that the server plays for you with a Block Bot program: a sandbox (against the Sleepy Sitter), one house bot, a free-for-all, or (Create) a match of 2-4 seats for other players to join.");
 
         blocks.MapGet("/matches", (ClaimsPrincipal user, BlockBots bots) =>
                 bots.For(user.PlayerId()).Select(x => x.Bot.Status(x.Match.Id, x.Match.Status, x.Match.SlotOf(user.PlayerId()) ?? -1)).ToList())
@@ -45,6 +45,16 @@ public static class BlockEndpoints
             .Produces<MatchSummaryDto>()
             .ProducesErrors()
             .WithSummary("Take a seat in a waiting practice or hosted match with a Block Bot program. League matches don't take Block Bots.");
+
+        blocks.MapPost("/matches/{matchId:guid}/start", (Guid matchId, ClaimsPrincipal user, BlockBots bots, MatchManager manager) =>
+            {
+                Find(matchId, user, bots, manager);
+                return Results.Ok(manager.StartByCreator(matchId, user.PlayerId()).ToSummary());
+            })
+            .RequireAuthorization()
+            .Produces<MatchSummaryDto>()
+            .ProducesErrors()
+            .WithSummary("Start a match you created (mode Create) with the players who have joined so far, at least two.");
 
         blocks.MapPut("/matches/{matchId:guid}/program", (Guid matchId, BlockProgramDto program, ClaimsPrincipal user, BlockBots bots, MatchManager manager) =>
             {
@@ -102,6 +112,7 @@ public static class BlockEndpoints
         IReadOnlyList<string> houseBots = request.Mode switch
         {
             BlockPlayMode.Sandbox => ["sitter"],
+            BlockPlayMode.Create => [],
             BlockPlayMode.HouseBot when opponents.Count == 1 => opponents,
             BlockPlayMode.FreeForAll when opponents.Count is >= 2 and <= 3 => opponents,
             BlockPlayMode.HouseBot => throw new MatchException(400, "INVALID_SETTINGS", "Pick one house bot to play."),
@@ -110,11 +121,18 @@ public static class BlockEndpoints
 
         var seat = await Accounts.SeatForAsync(db, discord.Value, user, ct);
         var bot = new BlockBot(seat.Name, request.Program) { Words = BlockWords.For(request.Theme) };
+        var create = request.Mode == BlockPlayMode.Create;
+        if (create && request.Seats is { } seats && seats is < 2 or > 4)
+        {
+            return ApiErrors.Error(400, "INVALID_SETTINGS", "A match you create has 2 to 4 seats.");
+        }
+
         var host = manager.Create(seat, new CreateMatchRequest
         {
-            MaxPlayers = houseBots.Count + 1,
+            MaxPlayers = create ? request.Seats ?? 4 : houseBots.Count + 1,
             HouseBots = houseBots,
             Settings = request.TickIntervalMs is { } ms ? new MatchSettingsDto { TickIntervalMs = ms } : null,
+            Name = create && !string.IsNullOrWhiteSpace(request.Name) ? request.Name.Trim() : null,
         }, bot);
         bots.Add(host.Id, seat.PlayerId, bot);
         return Results.Created($"/api/v1/matches/{host.Id}", host.ToSummary());

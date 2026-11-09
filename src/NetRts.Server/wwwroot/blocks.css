@@ -42,15 +42,32 @@
 .bb-inline-form { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 8px; }
 .bb-inline-form input { min-height: 44px; padding: 8px 10px; border: 1px solid var(--line); border-radius: var(--radius-s); background: var(--bg); flex: 1 1 200px; min-width: 0; }
 .bb-inline-form label { flex-basis: 100%; }
+.bb-inline-form label.bb-file { flex-basis: auto; }
 .btn.danger { background: var(--danger); border-color: var(--danger); color: #fff; }
 .bb-spacer { flex: 1; }
 
 /* ---------- locker ---------- */
 
-.bb-locker { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
-.bb-mine { flex: 999 1 520px; min-width: 0; display: grid; gap: 12px; }
-.bb-mine-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 10px; }
-.bb-mine-head h2 { margin: 0; }
+/* One column, three steps: name your badger, pick a strategy, pick who to play. */
+.bb-locker { max-width: 880px; width: 100%; margin: 0 auto; gap: 28px; }
+.bb-stage { display: grid; gap: 12px; min-width: 0; }
+.bb-stage > p { margin: 0; }
+.bb-stage-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.bb-stage-head h2 { margin: 0; font-size: 1.6rem; }
+.bb-stage-num { width: 36px; height: 36px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 700; font-size: 1.1rem; }
+.bb-stage-num.hot { background: var(--signal-bg); color: #15222a; }
+.bb-stage-num.done { background: var(--ok); color: var(--bg); }
+.bb-stage.locked { opacity: 0.5; }
+.bb-lock { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 0.875rem; font-weight: 600; color: var(--muted); }
+.bb-signup { border: 3px solid var(--signal-bg); padding: 20px; }
+.bb-signup-form { max-width: 560px; margin-top: 0; }
+.bb-switching { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--bg); }
+.bb-switching p { margin: 0; }
+.bb-switching .bb-actions { border-top: 0; padding-top: 0; }
+.bb-signup-form input { min-height: 52px; font-size: 1.15rem; border: 2px solid var(--ink); }
+.bb-signup-form .btn { min-height: 52px; font-size: 1.1rem; }
+.bb-stage-foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.bb-stage-foot p { margin: 0; flex: 1 1 280px; }
 .bb-file { position: relative; overflow: hidden; }
 .bb-file input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
 .bb-file:focus-within { outline: 2px solid var(--focus); outline-offset: 2px; }
@@ -63,14 +80,12 @@
 .bb-actions { display: flex; flex-wrap: wrap; gap: 6px; border-top: 1px solid var(--line); padding-top: 10px; }
 .bb-new { border-style: dashed; display: flex; flex-direction: column; gap: 6px; background: transparent; }
 .bb-new h3 { font-size: 1.2rem; }
-.bb-play { flex: 1 1 360px; min-width: 0; display: grid; gap: 16px; }
-.bb-play h2 { font-size: 1.6rem; }
 .bb-step { font-weight: 700; margin: 0 0 8px; padding: 0; }
-.bb-modes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bb-modes { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
 .bb-mode, .bb-bot { display: flex; gap: 10px; text-align: left; background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 10px 12px; cursor: pointer; min-height: 56px; }
 .bb-mode { flex-direction: column; gap: 2px; }
 .bb-mode[aria-pressed="true"] { border: 3px solid var(--signal-bg); padding: 8px 10px; }
-.bb-bots { display: grid; gap: 6px; }
+.bb-bots { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 6px; }
 .bb-bot { align-items: center; }
 .bb-bot > span:last-child { display: flex; flex-direction: column; }
 .bb-bot[aria-pressed="true"] { border: 2px solid var(--ink); padding: 9px 11px; }
@@ -81,7 +96,7 @@
 .bb-seg button { min-height: 44px; padding: 0 16px; background: var(--bg); border: 0; cursor: pointer; font-weight: 600; }
 .bb-seg button + button { border-left: 1px solid var(--line); }
 .bb-seg button[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
-.bb-bring { font-size: 1.2rem; font-weight: 700; margin: 0; }
+.bb-bring { font-size: 1.1rem; }
 .bb-start { min-height: 56px; font-size: 1.15rem; }
 .bb-live-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
 .bb-live-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
@@ -97,6 +112,23 @@
 .bb-bar .btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .bb-banner { margin: 0; padding: 10px 14px; border: 1px solid var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 18%, var(--panel)); border-radius: var(--radius-m); }
 
+/* ---------- the edit page: Python, Download and Play it stay in view ---------- */
+
+.bb-edit-page { container-type: inline-size; }
+.bb-edit-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.bb-side-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
+.bb-side-actions .start { grid-column: 1 / -1; min-height: 52px; font-size: 1.1rem; }
+.bb-side-actions .btn { padding-inline: 10px; }
+.bb-edit-actions svg { flex: none; }
+.bb-edit-actions [aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+/* Wide: the side panel sits beside the rules and stays put, so the buttons live there. */
+@container (min-width: 880px) { .bb-top-actions { display: none; } }
+/* Narrow: the side panel drops under the rules, so the top bar keeps the buttons and sticks. */
+@container (max-width: 879.98px) {
+  .bb-side-actions { display: none; }
+  .bb-edit-page > .bb-bar { position: sticky; top: 0; z-index: 3; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); }
+}
+
 /* ---------- rule cards ---------- */
 
 .bb-editor { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
@@ -108,7 +140,6 @@
 .bb-rule[data-state="firing"] { border-color: var(--ok); box-shadow: inset 4px 0 0 var(--ok); }
 .bb-rule[data-state="waiting"] { box-shadow: inset 4px 0 0 var(--signal-bg); }
 .bb-rule-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.bb-grip { width: 28px; min-height: 44px; display: flex; align-items: center; justify-content: center; background: none; border: 0; color: var(--muted); cursor: grab; }
 .bb-num { width: 30px; height: 30px; flex: none; display: flex; align-items: center; justify-content: center; border-radius: 999px; background: var(--ink); color: var(--bg); font-weight: 700; }
 .bb-sentence { flex: 1 1 300px; min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 1.05rem; }
 .bb-word { font-weight: 700; }
@@ -119,6 +150,27 @@
 .bb-chip.act.build { border-color: var(--bb-build); background: var(--bb-build-bg); }
 .bb-chip.switch { border-color: var(--signal); background: var(--bb-switch-bg); color: #15222a; border-radius: var(--radius-m); }
 .bb-group { border-style: dashed; border-color: var(--line); border-radius: var(--radius-m); }
+/* A step (action) in a rule: a handle to drag it when there are two or more, and a + between steps. */
+.bb-step { display: inline-flex; align-items: center; gap: 1px; max-width: 100%; border-radius: 12px; }
+/* Dragging: the original fades; a yellow line marks where it will land. */
+.bb-rule, .bb-step { position: relative; }
+.bb-rule.dragging, .bb-step.dragging { opacity: 0.35; }
+.bb-rule.drop-before::before, .bb-rule.drop-after::after,
+.bb-step.drop-before::before, .bb-step.drop-after::after {
+  content: ""; position: absolute; z-index: 3; pointer-events: none;
+  background: var(--signal-bg); border-radius: 3px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--ink) 55%, transparent);
+}
+.bb-rule.drop-before::before { left: -4px; right: -4px; top: -13px; height: 5px; }
+.bb-rule.drop-after::after { left: -4px; right: -4px; bottom: -13px; height: 5px; }
+.bb-step.drop-before::before { top: 0; bottom: 0; left: -6px; width: 5px; }
+.bb-step.drop-after::after { top: 0; bottom: 0; right: -6px; width: 5px; }
+.bb-step-grip:active { cursor: grabbing; }
+.bb-step-grip { width: 18px; min-height: 34px; flex: none; display: flex; align-items: center; justify-content: center; padding: 0; background: none; border: 0; border-radius: 4px; color: var(--muted); cursor: grab; }
+.bb-step-grip:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.bb-step-insert { width: 24px; height: 24px; flex: none; padding: 0; border: 1.5px dashed var(--line); border-radius: 999px; background: none; color: var(--muted); font-weight: 700; line-height: 1; cursor: pointer; opacity: 0.45; }
+.bb-rule:hover .bb-step-insert, .bb-step-insert:focus-visible { opacity: 1; }
+.bb-step-insert:hover { border-color: var(--ink); color: var(--ink); }
+@media (hover: none) { .bb-step-insert { opacity: 0.8; width: 30px; height: 30px; } }
 .bb-chip.editing, .bb-group.editing { outline: 3px solid var(--signal-bg); outline-offset: 2px; }
 .bb-kind { background: none; border: 0; padding: 4px 6px; min-height: 36px; font-weight: 600; cursor: pointer; border-radius: 6px; color: inherit; text-align: left; }
 .bb-kind:hover { background: color-mix(in srgb, var(--ink) 10%, transparent); }
@@ -128,15 +180,30 @@
 .bb-plus { min-height: 36px; padding: 0 10px; border: 1px dashed var(--line); border-radius: 999px; background: none; cursor: pointer; color: var(--muted); font-weight: 600; }
 .bb-plus:hover { border-color: var(--ink); color: var(--ink); }
 .bb-tools { display: flex; gap: 4px; align-items: center; margin-left: auto; }
-.bb-toggle { min-width: 60px; min-height: 40px; border-radius: 999px; font-weight: 700; cursor: pointer; border: 2px solid var(--ok); background: var(--ok); color: #fff; }
-.bb-toggle[aria-pressed="false"] { background: transparent; color: var(--muted); border-color: var(--line); }
-.bb-toggle:disabled { opacity: 0.4; cursor: default; }
+/* Move Up / Move Down, to the left of each rule card. */
+.bb-rule-line { flex: 1 1 560px; min-width: 0; display: flex; gap: 8px; align-items: center; }
+.bb-rule-line > .bb-rule { flex: 1 1 0; }
+.bb-move { flex: none; display: grid; gap: 14px; }
+.bb-move-btn { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 52px; padding: 4px 10px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--panel); color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
+.bb-move-btn span { font-size: 1.15rem; line-height: 1; }
+.bb-move-btn:hover:not(:disabled) { border-color: var(--ink); }
+.bb-move-btn:disabled { opacity: 0.35; cursor: default; }
+/* On / off: a switch, green and to the right when the rule plays. */
+.bb-switch-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 4px; background: none; border: 0; border-radius: var(--radius-m); color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; }
+.bb-switch-track { position: relative; width: 42px; height: 24px; flex: none; border-radius: 999px; background: var(--line); transition: background 0.15s; }
+.bb-switch-knob { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 999px; background: #fff; box-shadow: 0 1px 2px rgb(0 0 0 / 0.35); transition: left 0.15s; }
+.bb-switch-toggle[aria-checked="true"] { color: var(--ok); }
+.bb-switch-toggle[aria-checked="true"] .bb-switch-track { background: var(--ok); }
+.bb-switch-toggle[aria-checked="true"] .bb-switch-knob { left: 21px; }
+.bb-switch-text { min-width: 1.8em; text-align: left; }
+.bb-switch-toggle:disabled { opacity: 0.4; cursor: default; }
 .bb-icon { min-width: 40px; min-height: 40px; background: none; border: 1px solid transparent; border-radius: var(--radius-s); cursor: pointer; font-size: 1.1rem; color: var(--muted); }
 .bb-icon:hover:not(:disabled) { border-color: var(--line); color: var(--ink); }
 .bb-icon:disabled { opacity: 0.3; cursor: default; }
 .bb-icon.small { min-width: 30px; min-height: 30px; font-size: 0.95rem; padding: 0 4px; }
 .bb-live { margin: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 0.9rem; padding-left: 74px; }
 .bb-live[hidden] { display: none; }
+.bb-note { margin: 0; padding-left: 74px; font-size: 0.875rem; }
 .bb-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--line); flex: none; }
 .bb-rule[data-state="firing"] .bb-dot { background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 25%, transparent); }
 .bb-rule[data-state="waiting"] .bb-dot { background: var(--signal-bg); }
@@ -195,6 +262,12 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-left-head { display: grid; gap: 4px; }
 .bb-left-head .bb-bar { gap: 8px; }
 .bb-running { margin: 0; }
+.bb-waiting { display: grid; gap: 6px; padding: 10px 12px; border: 2px solid var(--signal-bg); border-radius: var(--radius-m); background: color-mix(in srgb, var(--signal-bg) 14%, var(--panel)); }
+.bb-waiting[hidden] { display: none; }
+.bb-waiting p { margin: 0; }
+.bb-waiting-name { display: inline-block; margin: 2px 4px 0 0; padding: 0 8px; border-radius: 999px; background: var(--panel); border: 1px solid var(--line); font-size: 0.85rem; }
+.bb-waiting .btn { justify-self: start; }
+.bb-real-seg { justify-self: start; }
 .bb-live-pill { background: var(--signal-bg); color: #15222a; font-weight: 700; font-size: 0.75rem; letter-spacing: 0.08em; padding: 3px 8px; border-radius: var(--radius-s); }
 .bb-live-pill[data-state="Completed"] { background: var(--line); }
 .bb-match-title { font-size: clamp(1.15rem, 1.8vw, 1.5rem); font-stretch: 87.5%; }
@@ -223,10 +296,9 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 /* The rule cards in a narrow column: dense, one per row, code and picker underneath. */
 .bb-editor.compact .bb-rules { flex-basis: 100%; }
 .bb-editor.compact .bb-row { gap: 4px; }
-.bb-editor.compact .bb-rule, .bb-editor.compact .bb-py { flex-basis: 100%; }
+.bb-editor.compact .bb-py { flex-basis: 100%; }
 .bb-editor.compact .bb-rule { padding: 6px 6px 6px 4px; gap: 2px; }
 .bb-editor.compact .bb-rule-main { flex-wrap: nowrap; align-items: flex-start; gap: 4px; }
-.bb-editor.compact .bb-grip { width: 16px; min-height: 28px; }
 .bb-editor.compact .bb-num { width: 22px; height: 22px; font-size: 0.8rem; margin-top: 3px; }
 .bb-editor.compact .bb-sentence { flex: 1 1 0; min-width: 0; gap: 4px; font-size: 0.92rem; }
 .bb-editor.compact .bb-word:not(:empty) { font-size: 0.85rem; }
@@ -235,20 +307,25 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-editor.compact .bb-select, .bb-editor.compact .bb-num-in { min-height: 28px; padding: 2px 4px; }
 .bb-editor.compact .bb-num-in { width: 4em; }
 .bb-editor.compact .bb-plus { min-height: 28px; padding: 0 8px; }
+.bb-editor.compact .bb-step-grip { width: 14px; min-height: 28px; }
+.bb-editor.compact .bb-step-insert { width: 20px; height: 20px; font-size: 0.8rem; }
 .bb-editor.compact .bb-icon.small { min-width: 24px; min-height: 24px; }
 /* On, delete, up and down as a small 2×2 block instead of a wide column. */
-.bb-editor.compact .bb-tools { display: grid; grid-template-columns: auto auto; gap: 2px; margin-left: 0; flex: none; }
-.bb-editor.compact .bb-toggle { min-width: 38px; min-height: 26px; font-size: 0.75rem; padding: 0 6px; border-width: 1.5px; }
+.bb-editor.compact .bb-tools { display: flex; flex-direction: column; align-items: flex-end; gap: 2px; margin-left: 0; flex: none; }
+.bb-editor.compact .bb-switch-toggle { min-height: 28px; font-size: 0.75rem; gap: 4px; padding: 0 2px; }
+.bb-editor.compact .bb-switch-track { width: 32px; height: 18px; }
+.bb-editor.compact .bb-switch-knob { top: 2px; left: 2px; width: 14px; height: 14px; }
+.bb-editor.compact .bb-switch-toggle[aria-checked="true"] .bb-switch-knob { left: 16px; }
 .bb-editor.compact .bb-tools .bb-icon { min-width: 26px; min-height: 26px; font-size: 0.9rem; padding: 0; }
-.bb-editor.compact .bb-tools [data-act="rule-toggle"] { order: 1; }
-.bb-editor.compact .bb-tools [data-act="rule-del"] { order: 2; }
-.bb-editor.compact .bb-tools [data-act="rule-up"] { order: 3; }
-.bb-editor.compact .bb-tools [data-act="rule-down"] { order: 4; }
+.bb-editor.compact .bb-rule-line { flex-basis: 100%; gap: 4px; }
+.bb-editor.compact .bb-move { gap: 8px; }
+.bb-editor.compact .bb-move-btn { min-height: 40px; padding: 2px 6px; font-size: 0.72rem; }
 .bb-editor.compact .bb-live { padding-left: 0; font-size: 0.82rem; gap: 6px; }
 .bb-editor.compact .bb-py { padding: 6px 10px; font-size: 0.78rem; }
 .bb-editor.compact .bb-add-rule { min-height: 40px; }
 .bb-editor.compact > .bb-rules > p { font-size: 0.8rem; margin: 8px 0 0; }
 .bb-picker.inline { position: static; border: 2px solid var(--signal-bg); margin-top: 4px; }
+.bb-rules > .bb-picker.inline { margin-bottom: 4px; }
 
 .bb-right { min-height: 0; }
 .bb-3d-wrap { position: relative; height: 100%; }
@@ -270,6 +347,33 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-tile-rate { font-size: 10px; font-weight: 700; color: #93a3a8; white-space: nowrap; }
 .bb-tile-rate.up { color: #5fd3a8; }
 .bb-tile-rate.down { color: #ff8a7a; }
+.bb-clock { pointer-events: auto; }
+.bb-clock .bb-tile-label span { letter-spacing: 0; text-transform: none; font-weight: 600; color: #c9d3d6; }
+.bb-clock .bb-tile-value small { font-size: 0.75rem; font-weight: 600; color: #93a3a8; }
+.bb-clock-bar { display: block; height: 4px; margin: 3px 0 2px; border-radius: 2px; background: rgba(226, 233, 232, 0.16); overflow: hidden; }
+.bb-clock-bar > span { display: block; height: 100%; background: #f2c14e; }
+/* The building you clicked: top right, under the sound and quality buttons. */
+.bb-bcard { position: absolute; top: 54px; right: 10px; width: 236px; box-sizing: border-box; padding: 10px 12px; border-radius: 8px; background: rgba(12, 17, 20, 0.9); border: 1px solid rgba(226, 233, 232, 0.18); color: #e2e9e8; display: grid; gap: 6px; font-size: 0.85rem; }
+.bb-bcard[hidden] { display: none; }
+.bb-bcard p { margin: 0; }
+.bb-bcard-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.bb-bcard-head h2 { margin: 0; font-size: 1.1rem; font-stretch: 87.5%; line-height: 1.15; color: #fff; }
+.bb-sq.small { width: 28px; height: 28px; font-size: 16px; flex: none; }
+.bb-bcard-owner { display: flex; align-items: center; gap: 6px; font-weight: 700; }
+.bb-bcard-dot { width: 10px; height: 10px; border-radius: 999px; background: var(--pc); flex: none; }
+.bb-bcard-hp { display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums; }
+.bb-bcard-hp span { font-size: 10px; font-weight: 700; letter-spacing: 0.08em; color: #93a3a8; }
+.bb-hpbar > span { background: #5fd3a8; }
+.bb-hpbar.low > span { background: #ff8a7a; }
+.bb-bcard-role { color: #c9d3d6; }
+.bb-bcard-q { color: #93a3a8; }
+.bb-bcard-gone { color: #ff8a7a; font-weight: 700; }
+.bb-bcard-stats { margin: 0; display: grid; gap: 2px; }
+.bb-bcard-stats div { display: flex; justify-content: space-between; gap: 8px; }
+.bb-bcard-stats dt { color: #93a3a8; }
+.bb-bcard-stats dd { margin: 0; text-align: right; font-weight: 600; }
+.bb-bcard-zoom { justify-self: start; min-height: 32px; padding: 0 10px; border-radius: 6px; border: 1px solid rgba(226, 233, 232, 0.3); background: transparent; color: #e2e9e8; font: inherit; font-weight: 600; cursor: pointer; }
+.bb-bcard-zoom:hover { border-color: rgba(226, 233, 232, 0.7); }
 .bb-board { width: 176px; gap: 3px; }
 .bb-board-count { font-weight: 400; letter-spacing: 0; text-transform: none; }
 .bb-board ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
@@ -296,7 +400,10 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 }
 
 @media (max-width: 640px) {
-  .bb-live { padding-left: 0; }
+  .bb-live, .bb-note { padding-left: 0; }
   .bb-modes { grid-template-columns: minmax(0, 1fr); }
   .bb-tools { margin-left: 0; }
 }
+@media (max-width: 560px) { .bb-bcard { width: 190px; } }
+/* While something is being dragged, the "+ rule" labels step aside for the drop line. */
+.bb-editor:has(.dragging) .bb-insert { visibility: hidden; }

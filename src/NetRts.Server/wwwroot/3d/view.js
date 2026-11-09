@@ -15,7 +15,7 @@ import { buildModels, entityMaterial } from './models.js';
 import { Effects } from './effects.js';
 import { CameraRig } from './camera.js';
 import { clamp } from './noise.js';
-import { hqName } from '../lore.js';
+import { hqName, unitName, upgradeName } from '../lore.js';
 import { Commentary } from './commentary.js';
 
 /** Bright, colour-blind-friendly player colours (the site's dark palette): they read well in daylight. */
@@ -192,6 +192,7 @@ export class View3D {
     this.grid = false;
     this.alive = true;
     this.onHoverTile = null;     // (tile | null, {x, y}) => void
+    this.onPickBuilding = null;  // (building | null) => void: set, a click on a building reports it rather than flying there
     this.onModeChange = null;
     this.onFollowChange = null;  // (unit | null) => void
 
@@ -333,6 +334,7 @@ export class View3D {
     if (this.rings) { this.scene.remove(this.rings); this.rings.dispose(); }
     if (this.bars) this.scene.remove(this.bars.mesh);
     for (const l of this.labelObjs?.values() || []) { l.removeFromParent(); }
+    for (const l of this.workObjs?.values() || []) { l.removeFromParent(); }
     const L = {};
     for (const [type, def] of Object.entries(this.models.units)) L['u' + type] = new Instances(this.scene, def.geo, this.mat, this.depthMat, 64);
     L.deposit = new Instances(this.scene, this.models.deposit, this.mat, this.depthMat, 32);
@@ -366,6 +368,7 @@ export class View3D {
     this.bars = healthBars(1024);
     this.scene.add(this.bars.mesh);
     this.labelObjs = new Map();
+    this.workObjs = new Map();   // building id -> its "working on" tag
   }
 
   // ---------------------------------------------------------------- quality
@@ -433,6 +436,7 @@ export class View3D {
   setVision(slot) {
     this.vision = slot;
     this.applyVision();
+    this.updateWork();
   }
 
   applyVision() {
@@ -653,6 +657,7 @@ export class View3D {
     }
     this.applyVision();
     this.updateLabels();
+    this.updateWork();
     if (this.commentary) {
       // A live stream may skip a tick or two; a seek in a replay starts the commentary afresh.
       const close = prev && s.tick > prev.tick && s.tick - prev.tick <= 5;
@@ -798,6 +803,9 @@ export class View3D {
     this.terrain.uniforms.uTime.value += dt;
     if (this.composer) this.composer.render(dt);
     else this.renderer.render(this.scene, this.camera);
+    // The work tags fade out when the camera is far back, where they'd only be clutter.
+    const far = this.rig.cur.dist > 30;
+    if (far !== this.workFar) { this.workFar = far; this.labels.domElement.classList.toggle('work-far', far); }
     this.labels.render(this.scene, this.camera);
     this.checkQuality(dt);
   }
@@ -1290,6 +1298,53 @@ export class View3D {
     bars.data.needsUpdate = true;
   }
 
+  /**
+   * What a building is working on, as a small see-through tag over it: the unit it's training (or the
+   * class it's taking, the upgrade it's researching) with a thin progress bar, "+2" when more are
+   * queued. Kept quiet on purpose, and hidden when zoomed far out. In a player's own view (vision set)
+   * only their buildings show it; a spectator sees everyone's.
+   */
+  updateWork() {
+    if (!this.workObjs || !this.terrain) return;
+    const want = new Map();
+    for (const b of this.state?.buildings || []) {
+      if (!b.completed || (this.vision != null && b.owner !== this.vision)) continue;
+      const q = b.production?.[0];
+      const job = q ? { label: unitName(q.unitType), pct: q.percent, more: b.production.length - 1 }
+        : b.research ? { label: upgradeName(b.research.upgrade), pct: b.research.percent, more: 0 } : null;
+      if (job) want.set(b.id, { b, job });
+    }
+    for (const [id, obj] of this.workObjs) {
+      if (!want.has(id)) { obj.removeFromParent(); this.workObjs.delete(id); }
+    }
+    for (const [id, { b, job }] of want) {
+      let obj = this.workObjs.get(id);
+      if (!obj) {
+        const el = document.createElement('div');
+        el.className = `map3d-work${b.type === 'CommandCenter' ? ' under-name' : ''}`;
+        el.style.setProperty('--pc', `#${teamOf(b.owner).getHexString(THREE.SRGBColorSpace)}`);
+        el.setAttribute('aria-hidden', 'true');
+        const text = document.createElement('span');
+        text.className = 'map3d-work-text';
+        const bar = document.createElement('span');
+        bar.className = 'map3d-work-bar';
+        bar.append(document.createElement('span'));
+        el.append(text, bar);
+        obj = new CSS2DObject(el);
+        this.scene.add(obj);
+        this.workObjs.set(id, obj);
+      }
+      const text = job.more > 0 ? `${job.label} +${job.more}` : job.label;
+      const [t, bar] = obj.element.children;
+      if (t.textContent !== text) t.textContent = text;
+      bar.firstChild.style.width = `${Math.max(0, Math.min(100, job.pct))}%`;
+      const x = b.x + 0.5, z = b.y + 0.5;
+      // Over the roof; an HQ's sits under the player's name, which floats a little higher.
+      const top = this.models.building(b.type, b.owner).height * this.buildingScale;
+      obj.position.set(x, this.terrain.heightAt(x, z) + top + (b.type === 'CommandCenter' ? 0.45 : 0.2), z);
+    }
+  }
+
   /** Player names float over their headquarters. */
   updateLabels() {
     const names = this.names();
@@ -1402,10 +1457,15 @@ export class View3D {
       return;
     }
     const hit = this.rig.groundAt(clientX, clientY);
-    if (hit) {
-      const b = this.state?.buildings.find((x) => x.x === Math.floor(hit.x) && x.y === Math.floor(hit.z));
-      if (b) this.rig.focus(b.x + 0.5, b.y + 0.5, 5);
+    const b = hit ? this.state?.buildings.find((x) => x.x === Math.floor(hit.x) && x.y === Math.floor(hit.z)) : null;
+    // With onPickBuilding (the Block Bot cockpit) a click shows the building's details instead of
+    // flying to it, and a click on open ground (null) closes them. Only what this view can see counts.
+    if (this.onPickBuilding) {
+      const seen = b && (this.vision == null || b.owner === this.vision || this.visibleTo(b.x, b.y));
+      this.onPickBuilding(seen ? b : null);
+      return;
     }
+    if (b) this.rig.focus(b.x + 0.5, b.y + 0.5, 5);
   }
 
   /**

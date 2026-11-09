@@ -9,7 +9,7 @@ namespace NetRts.Bots.Blocks;
 public static class BlockProgramValidator
 {
     public const int MaxRules = 40;
-    public const int MaxActionsPerRule = 8;
+    public const int MaxActionsPerRule = 12;
     public const int MaxDepth = 6;
     public const int MaxSwitches = 8;
     public const int MaxNameLength = 40;

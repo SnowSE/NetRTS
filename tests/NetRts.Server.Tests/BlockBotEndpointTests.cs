@@ -74,6 +74,38 @@ public class BlockBotEndpointTests(TickingServerFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task A_created_match_waits_for_people_and_its_creator_can_start_it()
+    {
+        var creator = await PlayerAsync();
+        var name = $"blk-{Guid.NewGuid():N}"[..14];
+        var created = await creator.PostAsJsonAsync("/api/v1/blocks/matches",
+            new StartBlockMatchRequest { Program = Program, Mode = BlockPlayMode.Create, Seats = 4, Name = name, TickIntervalMs = 20 }, NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(HttpStatusCode.Created, created.StatusCode);
+        var match = (await created.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+        Assert.Equal(MatchStatus.Waiting, match.Status);
+        Assert.Equal(4, match.MaxPlayers);
+        Assert.Single(match.Players);
+
+        // Others find it by name and join with their own Block Bots.
+        var found = await creator.GetFromJsonAsync<MatchSummaryDto>($"/api/v1/matches/named/{name}", NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(match.MatchId, found!.MatchId);
+        var second = await PlayerAsync();
+        var join = await second.PostAsJsonAsync($"/api/v1/blocks/matches/{match.MatchId}/join", new JoinBlockMatchRequest { Program = Program }, NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(HttpStatusCode.OK, join.StatusCode);
+
+        // Only the creator can start it early.
+        var notYours = await second.PostAsync($"/api/v1/blocks/matches/{match.MatchId}/start", null, Ct);
+        Assert.Equal(HttpStatusCode.Forbidden, notYours.StatusCode);
+        var start = await creator.PostAsync($"/api/v1/blocks/matches/{match.MatchId}/start", null, Ct);
+        Assert.Equal(HttpStatusCode.OK, start.StatusCode);
+        await factory.Matches.Get(match.MatchId)!.WaitForTickAsync(3, TimeSpan.FromSeconds(20), Ct);
+
+        var tooMany = await creator.PostAsJsonAsync("/api/v1/blocks/matches",
+            new StartBlockMatchRequest { Program = Program, Mode = BlockPlayMode.Create, Seats = 5 }, NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
+    }
+
+    [Fact]
     public async Task Bad_programs_and_other_players_are_turned_away()
     {
         var http = await PlayerAsync();

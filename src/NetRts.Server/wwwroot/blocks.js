@@ -7,7 +7,7 @@
 //   #/blocks/edit/<id>       the rule-card editor
 //   #/blocks/match/<id>      the cockpit: the match in a simple 3D view, the rules live, switches, Apply
 import { api, html, raw, setHtml, displayName, timeAgo, outcomeText, slotVar } from './util.js';
-import { GAME, SNOW, say, unitName, upgradeName, buildingName, nickname, ORE } from './lore.js';
+import { GAME, SNOW, say, unitName, upgradeName, buildingName, buildingRole, nickname, ORE, badgerize } from './lore.js';
 
 // ------------------------------------------------------------------ storage
 
@@ -81,6 +81,47 @@ function unitWord(t, many = false) {
 }
 /** Building names without a leading "The" ("build a Bell Tower", not "build a The Bell Tower"). */
 const bWord = (t) => buildingName(t).replace(/^The /, '');
+
+// The balance numbers, from GET /api/v1/rules (GameRules on the server), so what a class does is
+// never typed twice. Fetched once; anything drawn before it arrives draws again when it does.
+let RULES = null;
+const rulesReady = api('/api/v1/rules').then((r) => { RULES = r; return r; }).catch(() => null);
+
+/**
+ * What an upgrade ("class") does, in the player's words: `short` for its menu entry ("+2 damage"),
+ * `detail` and `meta` for the line under the rule. Null until the rules are in.
+ */
+function upgradeInfo(type) {
+  const u = RULES?.upgrades?.find((x) => x.type === type);
+  if (!u) return null;
+  const tier = /2$/.test(type) ? 2 : 1;
+  const m = /^\+(\d+) (?:more )?(damage|armor|speed|ore)\b/.exec(u.effect ?? '');
+  const n = m ? Number(m[1]) : 0;
+  const short = !m ? (type === 'SiegeEngineering' ? `unlocks ${unitWord('Trebuchet', true)}` : badgerize(u.effect))
+    : `+${n}${tier > 1 ? ' more' : ''} ${m[2] === 'ore' ? `${n === 1 && SNOW ? 'grub' : ORE} per dig` : m[2]}`;
+  let detail = badgerize(u.effect).replace(/\bore\b/g, ORE);
+  if (SNOW) {
+    detail = detail.replace(/\bguard towers\b/g, `${bWord('GuardTower')}s`)
+      .replace(/\bTrebuchets\b/g, unitWord('Trebuchet', true))
+      .replace(/\b1 grubs\b/g, '1 grub');
+  }
+  if (tier > 1 && u.requires && (m?.[2] === 'damage' || m?.[2] === 'armor')) detail += ` (+${n * tier} in all, with ${upgradeName(u.requires)})`;
+  if (m?.[2] === 'speed') {
+    const from = (RULES.units?.find((x) => x.type === 'Soldier')?.speed ?? 10) + n * (tier - 1);
+    detail = detail.replace(/\s*\(tenths of a tile per tick\)/, '') + ` (a ${unitWord('Soldier')} goes ${from} → ${from + n} tenths of a tile a tick)`;
+  } else if (m?.[2] === 'ore') {
+    const from = (RULES.economy?.gatherPerTick ?? 2) + n * (tier - 1);
+    detail += ` (${from} → ${from + n})`;
+  }
+  const lab = RULES.buildings?.find((b) => b.canResearch)?.type;
+  const meta = [
+    `${u.cost} ${ORE}`,
+    `${u.researchTicks} ticks`,
+    u.requires ? `after ${upgradeName(u.requires)}` : '',
+    lab ? `at the ${bWord(lab)}` : '',
+  ].filter(Boolean).join(' · ');
+  return { short, detail, meta };
+}
 /** The site theme (the global Snow College / original toggle), so the server explains itself in the same words. */
 const THEME = SNOW ? 'snow' : 'classic';
 const WHAT = () => [
@@ -247,8 +288,9 @@ function pyRule(rule, i) {
  * another kind. Every change calls onChange with a fresh copy of the program.
  */
 class RuleEditor {
-  constructor(root, { program, onChange, onHover, onSave, compact = false }) {
+  constructor(root, { program, onChange, onHover, onSave, compact = false, sideTop = null }) {
     this.root = root;
+    this.sideTop = sideTop;   // the edit page's buttons, at the top of the side panel so they stay in view
     this.compact = compact;   // a narrow column: no side panel; the picker opens under its rule
     // With onSave (the cockpit), edits go into the running match one rule at a time: changing a rule
     // starts a session on it (a yellow border, Save and Cancel) and locks the others until it ends.
@@ -265,26 +307,72 @@ class RuleEditor {
     this.status = null;    // the running bot's rule statuses (cockpit)
     this.statusNote = '';
     this.code = !!prefs().code;
-    this.dragFrom = null;
     root.addEventListener('click', (e) => this.click(e));
     root.addEventListener('change', (e) => this.change(e));
-    root.addEventListener('keydown', (e) => { if (e.key === 'Escape' && this.session && !this.saving) { e.preventDefault(); this.cancel(); } });
+    root.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.session && !this.saving) { e.preventDefault(); this.cancel(); return; }
+      // A step's handle moves it with the arrow keys too, for keyboards (and where dragging doesn't work).
+      const grip = e.target.closest?.('[data-drag-step]');
+      if (grip && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
+        e.preventDefault();
+        const path = grip.dataset.dragStep;
+        const j = Number(path.split('.').pop());
+        this.moveStep(path, j + (e.key === 'ArrowLeft' || e.key === 'ArrowUp' ? -1 : 1), { focus: true });
+      }
+    });
+    // Dragging a step by its handle, within its rule (rules move with their Move Up and Move Down
+    // buttons): the step follows the pointer, the original fades, and a yellow line shows where it
+    // will land, before or after a step of the same rule. It drops exactly there.
+    const clearDrop = () => this.root.querySelectorAll('.drop-before, .drop-after, .dragging')
+      .forEach((el) => el.classList.remove('drop-before', 'drop-after', 'dragging'));
+    const markDrop = (el, before) => {
+      this.root.querySelectorAll('.drop-before, .drop-after').forEach((x) => { if (x !== el) x.classList.remove('drop-before', 'drop-after'); });
+      el?.classList.toggle('drop-before', before);
+      el?.classList.toggle('drop-after', !before);
+    };
+    const stepDrop = (e) => {
+      const el = e.target.closest?.('[data-step]');
+      if (!this.dragStep || !el) return null;
+      const list = this.dragStep.replace(/\.\d+$/, '');
+      if (el.dataset.step.replace(/\.\d+$/, '') !== list) return null;
+      const r = el.getBoundingClientRect();
+      const before = e.clientX < r.left + r.width / 2;
+      const from = Number(this.dragStep.split('.').pop());
+      const j = Number(el.dataset.step.split('.').pop());
+      let to = before ? j : j + 1;
+      if (from < to) to -= 1;
+      return { el, before, to: to === from ? null : to };
+    };
     root.addEventListener('dragstart', (e) => {
-      const grip = e.target.closest('[data-drag]');
-      if (!grip || this.session) { if (grip) e.preventDefault(); return; }
-      this.dragFrom = Number(grip.dataset.drag);
+      const stepGrip = e.target.closest('[data-drag-step]');
+      if (!stepGrip) return;
+      const rule = Number(stepGrip.dataset.dragStep.split('.')[1]);
+      if (this.saving || (this.session && this.session.index !== rule)) { e.preventDefault(); return; }
+      this.dragStep = stepGrip.dataset.dragStep;
+      const el = stepGrip.closest('.bb-step') ?? stepGrip;
+      const r = el.getBoundingClientRect();
       e.dataTransfer.effectAllowed = 'move';
-      e.dataTransfer.setData('text/plain', grip.dataset.drag);
+      e.dataTransfer.setData('text/plain', this.dragStep);
+      e.dataTransfer.setDragImage(el, Math.max(0, e.clientX - r.left), Math.max(0, e.clientY - r.top));
+      requestAnimationFrame(() => el.classList.add('dragging'));   // after the browser has taken its picture
     });
-    root.addEventListener('dragover', (e) => { if (this.dragFrom != null && e.target.closest('.bb-rule')) e.preventDefault(); });
+    root.addEventListener('dragover', (e) => {
+      if (!this.dragStep) return;
+      e.preventDefault();   // anywhere in the editor; a drop where nothing would move does nothing
+      const d = stepDrop(e);
+      if (d?.to != null) markDrop(d.el, d.before);
+      else markDrop(null);
+    });
     root.addEventListener('drop', (e) => {
-      const card = e.target.closest('.bb-rule');
-      if (this.dragFrom == null || !card) return;
+      if (!this.dragStep) return;
       e.preventDefault();
-      this.move(this.dragFrom, Number(card.dataset.rule));
-      this.dragFrom = null;
+      const d = stepDrop(e);
+      const from = this.dragStep;
+      this.dragStep = null;
+      clearDrop();
+      if (d?.to != null) this.moveStep(from, d.to);
     });
-    root.addEventListener('dragend', () => { this.dragFrom = null; });
+    root.addEventListener('dragend', () => { this.dragStep = null; clearDrop(); });
     const hover = (e) => {
       const card = e.target.closest?.('.bb-rule');
       this.onHover?.(card ? Number(card.dataset.rule) : null);
@@ -363,6 +451,20 @@ class RuleEditor {
     this.render();
   }
 
+  /** A step (action) to a new place in its rule. In save mode it's an edit of that rule: Save or Cancel. */
+  moveStep(path, to, { focus = false } = {}) {
+    const list = path.replace(/\.\d+$/, '');
+    const from = Number(path.split('.').pop());
+    const n = at(this.program, list)?.length ?? 0;
+    if (to < 0 || to >= n || to === from) return;
+    this.edit(Number(path.split('.')[1]), (p) => {
+      const steps = at(p, list);
+      const [a] = steps.splice(from, 1);
+      steps.splice(to, 0, a);
+    });
+    if (focus) this.root.querySelector(`[data-k="${CSS.escape(`stepgrip|${list}.${to}`)}"]`)?.focus();
+  }
+
   move(from, to) {
     if (from === to || from < 0 || to < 0) return;
     this.structural((p) => {
@@ -383,6 +485,7 @@ class RuleEditor {
       case 'pick-cond': this.picker = { type: 'cond', path }; this.render(); this.focusPicker(); return;
       case 'pick-action': this.picker = { type: 'action', path, mode: 'replace' }; this.render(); this.focusPicker(); return;
       case 'add-action': this.picker = { type: 'action', path, mode: 'add' }; this.render(); this.focusPicker(); return;
+      case 'insert-action': this.picker = { type: 'action', path, mode: 'insert', at: Number(b.dataset.j) }; this.render(); this.focusPicker(); return;
       case 'close-picker': this.picker = null; this.render(); return;
       case 'choose': return this.choose(b.dataset);
       case 'new-switch': {
@@ -404,8 +507,15 @@ class RuleEditor {
       case 'unwrap': return this.edit(ruleOf(path), (p) => setAt(p, path, at(p, path).a));
       case 'mix-add': return this.edit(ruleOf(path), (p) => at(p, path).units.push('Soldier'));
       case 'mix-del': return this.edit(ruleOf(path), (p) => { const u = at(p, path).units; if (u.length > 1) u.splice(i, 1); });
-      case 'rule-up': return this.move(i, i - 1);
-      case 'rule-down': return this.move(i, Math.min(i + 1, this.program.rules.length - 1));
+      case 'rule-up':
+      case 'rule-down': {
+        // Focus follows the rule that moved, so pressing again keeps moving it.
+        const to = act === 'rule-up' ? i - 1 : Math.min(i + 1, this.program.rules.length - 1);
+        this.move(i, to);
+        const btn = this.root.querySelector(`[data-k="${act === 'rule-up' ? 'up' : 'down'}|${to}"]`);
+        (btn && !btn.disabled ? btn : this.root.querySelector(`[data-k="${act === 'rule-up' ? 'down' : 'up'}|${to}"]`))?.focus();
+        return;
+      }
       case 'rule-toggle': return this.structural((p) => { p.rules[i].enabled = p.rules[i].enabled === false; });
       case 'rule-del': return this.structural((p) => { p.rules.splice(i, 1); });
       case 'add-rule':
@@ -447,6 +557,7 @@ class RuleEditor {
           : d.kind === 'build' ? A.build(d.building, d.building === 'ResourceDepot' ? 'NearOre' : d.building === 'GuardTower' ? 'TowardEnemy' : 'TowardCenter')
             : A[d.kind]();
         if (pk.mode === 'add') at(p, pk.path).do.push(node);
+        else if (pk.mode === 'insert') at(p, pk.path).do.splice(pk.at, 0, node);
         else setAt(p, pk.path, node);
       }
     });
@@ -469,9 +580,13 @@ class RuleEditor {
   // ---------------------------------------------------------------- rendering
 
   render() {
+    if (!RULES && !this.waitingForRules) {
+      this.waitingForRules = true;
+      rulesReady.then((r) => { if (r && this.root.isConnected) this.render(); });
+    }
     const focused = document.activeElement?.dataset?.k;
     const p = this.program;
-    const pickerUnder = (i) => this.compact && this.picker
+    const pickerUnder = (i) => this.picker
       && (this.picker.path === `rules.${i}` || this.picker.path.startsWith(`rules.${i}.`))
       ? html`<aside class="bb-picker inline" aria-label="Pick a block">${this.pickerHtml()}</aside>` : '';
     setHtml(this.root, html`
@@ -484,7 +599,7 @@ class RuleEditor {
           <p class="small muted">Rules are checked top to bottom, every tick. Higher rules get first pick of ${ORE} and fighters.
             Two things happen on their own: idle workers dig ${ORE}, and half-built buildings get finished.</p>
         </div>
-        ${this.compact ? '' : html`<aside class="bb-picker" aria-label="${this.picker ? 'Pick a block' : 'How rules work'}">${this.pickerHtml()}</aside>`}
+        ${this.compact ? '' : html`<aside class="bb-picker bb-help" aria-label="How rules work">${this.sideTop ? this.sideTop(this) : ''}${this.helpHtml()}</aside>`}
       </div>`);
     if (focused) this.root.querySelector(`[data-k="${CSS.escape(focused)}"]`)?.focus();
     this.renderStatus();
@@ -513,24 +628,36 @@ class RuleEditor {
     const wait = this.session || this.saving ? 'disabled title="Save or cancel your change first"' : '';
     return html`
       <div class="bb-row">
+        <div class="bb-rule-line">
+        <div class="bb-move" role="group" aria-label="Move rule ${i + 1}">
+          <button type="button" class="bb-move-btn" data-act="rule-up" data-i="${i}" data-k="up|${i}" aria-label="Move rule ${i + 1} up" ${i === 0 ? 'disabled' : raw(wait)}><span aria-hidden="true">↑</span> Move Up</button>
+          <button type="button" class="bb-move-btn" data-act="rule-down" data-i="${i}" data-k="down|${i}" aria-label="Move rule ${i + 1} down" ${i === n - 1 ? 'disabled' : raw(wait)}>Move Down <span aria-hidden="true">↓</span></button>
+        </div>
         <article class="bb-rule${off ? ' off' : ''}${this.session?.index === i ? ' editing-rule' : ''}" data-rule="${i}">
           <div class="bb-rule-main">
-            <button type="button" class="bb-grip" draggable="true" data-drag="${i}" aria-label="Drag to move rule ${i + 1}" title="Drag to move">${raw('<svg width="12" height="20" viewBox="0 0 12 20" fill="currentColor" aria-hidden="true"><circle cx="3" cy="4" r="1.8"/><circle cx="9" cy="4" r="1.8"/><circle cx="3" cy="10" r="1.8"/><circle cx="9" cy="10" r="1.8"/><circle cx="3" cy="16" r="1.8"/><circle cx="9" cy="16" r="1.8"/></svg>')}</button>
             <span class="bb-num" aria-hidden="true">${i + 1}</span>
             <div class="bb-sentence">
               ${r.when?.kind === 'always' ? '' : html`<span class="bb-word">When</span>`}
               ${this.condHtml(r.when, `rules.${i}.when`)}
               <span class="bb-word">${r.when?.kind === 'always' ? '' : 'do'}</span>
-              ${(r.do || []).map((a, j) => this.actionHtml(a, `rules.${i}.do.${j}`))}
+              ${(r.do || []).map((a, j) => {
+                const path = `rules.${i}.do.${j}`;
+                // Between two steps, a + adds one there; with two or more, each has a handle to drag it.
+                const insert = j > 0 ? html`<button type="button" class="bb-step-insert" data-act="insert-action" data-path="rules.${i}" data-j="${j}" data-k="ins-step|${i}|${j}" aria-label="Add a step between steps ${j} and ${j + 1} of rule ${i + 1}" title="Add a step here">+</button>` : '';
+                const grip = r.do.length > 1 ? html`<button type="button" class="bb-step-grip" draggable="true" data-drag-step="${path}" data-k="stepgrip|${path}" aria-label="Move step ${j + 1} of rule ${i + 1}: drag it, or press the left or right arrow" title="Drag to move (or ← →)">${raw(ICON.grip)}</button>` : '';
+                return html`${insert}<span class="bb-step" data-step="${path}">${grip}${this.actionHtml(a, path)}</span>`;
+              })}
               <button type="button" class="bb-plus" data-act="add-action" data-path="rules.${i}" data-k="add-action|${i}" aria-label="Add something for rule ${i + 1} to do">+ do</button>
             </div>
             <div class="bb-tools">
-              <button type="button" class="bb-toggle" data-act="rule-toggle" data-i="${i}" data-k="toggle|${i}" aria-pressed="${!off}" aria-label="Rule ${i + 1} on or off" ${raw(wait)}>${off ? 'Off' : 'On'}</button>
-              <button type="button" class="bb-icon" data-act="rule-up" data-i="${i}" data-k="up|${i}" aria-label="Move rule ${i + 1} up" ${i === 0 ? 'disabled' : raw(wait)}>↑</button>
-              <button type="button" class="bb-icon" data-act="rule-down" data-i="${i}" data-k="down|${i}" aria-label="Move rule ${i + 1} down" ${i === n - 1 ? 'disabled' : raw(wait)}>↓</button>
+              <button type="button" class="bb-switch-toggle" role="switch" data-act="rule-toggle" data-i="${i}" data-k="toggle|${i}" aria-checked="${String(!off)}" aria-label="Rule ${i + 1}" title="${off ? 'Off: this rule is skipped. Click to turn it on.' : 'On: click to turn this rule off.'}" ${raw(wait)}><span class="bb-switch-track" aria-hidden="true"><span class="bb-switch-knob"></span></span><span class="bb-switch-text">${off ? 'Off' : 'On'}</span></button>
               <button type="button" class="bb-icon" data-act="rule-del" data-i="${i}" data-k="del|${i}" aria-label="Delete rule ${i + 1}" ${raw(wait)}>×</button>
             </div>
           </div>
+          ${(r.do || []).filter((a) => a.kind === 'research').map((a) => {
+            const info = upgradeInfo(a.upgrade);
+            return info ? html`<p class="bb-note"><b>${upgradeName(a.upgrade)}</b>: ${info.detail}. <span class="muted">${info.meta}</span></p>` : '';
+          })}
           <p class="bb-live" hidden></p>
           ${this.session?.index === i ? html`
             <div class="bb-save-row">
@@ -540,6 +667,7 @@ class RuleEditor {
               ${this.saveError ? html`<span class="bb-error" role="alert">${this.saveError}</span>` : ''}
             </div>` : ''}
         </article>
+        </div>
         ${this.code ? html`<pre class="bb-py" aria-label="Rule ${i + 1} in Python">${pyRule(r, i)}</pre>` : ''}
       </div>`;
   }
@@ -606,7 +734,7 @@ class RuleEditor {
       case 'build':
         return html`<span class="${cls} build">${kindBtn('build a')}${this.select(path, 'building', a.building, BUILDINGS.map((b) => [b, bWord(b)]), 'Which building')}${this.select(path, 'site', a.site ?? 'TowardCenter', SITES(), 'Where')}${del}</span>`;
       case 'research':
-        return html`<span class="${cls} build">${kindBtn(say('research', 'take the class'))}${this.select(path, 'upgrade', a.upgrade, UPGRADES.map((u) => [u, upgradeName(u)]), 'Which upgrade')}${del}</span>`;
+        return html`<span class="${cls} build">${kindBtn(say('research', 'take the class'))}${this.select(path, 'upgrade', a.upgrade, UPGRADES.map((u) => { const info = upgradeInfo(u); return [u, info ? `${upgradeName(u)}: ${info.short}` : upgradeName(u)]; }), 'Which upgrade')}${del}</span>`;
       case 'attack':
         return html`<span class="${cls}">${kindBtn('attack')}${this.select(path, 'target', a.target ?? 'enemyBase', TARGETS, 'Attack what')}<span>with</span>${this.select(path, 'who', a.who ?? 'fighters', WHO(), 'Who attacks')}${del}</span>`;
       case 'defend':
@@ -624,14 +752,21 @@ class RuleEditor {
 
   pickerHtml() {
     const pk = this.picker;
-    if (!pk) {
-      return html`
+    if (!pk) return '';
+    return this.pickerBody(pk);
+  }
+
+  helpHtml() {
+    return html`
         <h2>How rules work</h2>
         <p>Each rule says <b>when</b> and <b>what to do</b>. Every tick (about once a second) your bot checks the rules from the top.</p>
         <p>Click a <b>▾</b> to swap a piece for a different one. Change numbers and choices right in the sentence.</p>
         <p>Add a <b>switch</b> to flip during a match: a rule like "When the <i>Attack!</i> switch is on, attack" lets you send your army in whenever you want.</p>
+        <p>To add a step between two others, use the <b>+</b> between them. Drag a step by its <b>⠿</b> handle to change the order (or focus the handle and press ← or →).</p>
         ${this.program.switches.length ? html`<h3>Your switches</h3><ul class="bb-switch-list">${this.program.switches.map((s) => html`<li>${s} <button type="button" class="bb-icon small" data-act="del-switch" data-name="${s}" aria-label="Delete the ${s} switch">×</button></li>`)}</ul>` : ''}`;
-    }
+  }
+
+  pickerBody(pk) {
     const opt = (label, data) => html`<button type="button" class="bb-opt" data-act="choose" ${Object.entries(data).map(([k, v]) => html`data-${k}="${v}" `)}>${label}</button>`;
     const group = (name, items) => html`<div class="bb-opt-group"><h3>${name}</h3><div>${items}</div></div>`;
     const head = (title) => html`<div class="bb-picker-head"><h2>${title}</h2><button type="button" class="bb-icon" data-act="close-picker" aria-label="Close the picker">×</button></div>`;
@@ -652,7 +787,7 @@ class RuleEditor {
           <span class="bb-new-switch"><label class="visually-hidden" for="bb-new-switch">New switch name</label><input id="bb-new-switch" type="text" maxlength="24" placeholder="New switch, e.g. Attack!"><button type="button" class="bb-opt" data-act="new-switch">Add</button></span>`)}
         ${current?.kind !== 'always' ? group('Combine', [opt('both this and…', { kind: 'and' }), opt('either this or…', { kind: 'or' }), opt('not this', { kind: 'not' })]) : ''}`;
     }
-    return html`${head(pk.mode === 'add' ? 'Add something to do' : 'Pick an action')}
+    return html`${head(pk.mode === 'add' ? 'Add something to do' : pk.mode === 'insert' ? `Add a step before step ${pk.at + 1}` : 'Pick an action')}
       ${group('Train', UNITS.map((t) => opt(unitWord(t), { kind: 'train', unit: t })).concat([opt('a mix, in turn', { kind: 'trainMix' })]))}
       ${group('Build', BUILDINGS.slice(0, 5).map((b) => opt(bWord(b), { kind: 'build', building: b })).concat([opt(say('research an upgrade', 'take a class'), { kind: 'research' }), opt(`expand to new ${ORE}`, { kind: 'expand' })]))}
       ${group('Army', [opt('attack', { kind: 'attack' }), opt('defend', { kind: 'defend' }), opt('bring home', { kind: 'retreat' }), opt('send a scout to the enemy', { kind: 'scout', target: 'enemyBase' }), opt(`explore for more ${ORE}`, { kind: 'scout', target: 'explore' })])}`;
@@ -665,7 +800,25 @@ const ICON = {
   download: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><polyline points="7 10 12 15 17 10"/><path d="M4 20h16"/></svg>',
   code: '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>',
   check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>',
+  grip: '<svg width="8" height="14" viewBox="0 0 8 14" fill="currentColor" aria-hidden="true"><circle cx="2" cy="2" r="1.4"/><circle cx="6" cy="2" r="1.4"/><circle cx="2" cy="7" r="1.4"/><circle cx="6" cy="7" r="1.4"/><circle cx="2" cy="12" r="1.4"/><circle cx="6" cy="12" r="1.4"/></svg>',
+  lock: '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="1"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>',
 };
+
+// Set by the editor's "Play it": the locker opens scrolled to step 3.
+let jumpToPlay = false;
+
+// The key file the locker's "Browse for a key file" reads back.
+function downloadKey(me) {
+  if (!me?.apiKey) return;
+  const body = JSON.stringify({ playerId: me.playerId, name: me.name, apiKey: me.apiKey }, null, 2);
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([body], { type: 'application/json' }));
+  a.download = `${me.name}-api-key.json`;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
 
 function download(strategy) {
   const body = JSON.stringify({ format: 'netrts-block-bot', version: 1, program: strategy.program }, null, 2);
@@ -715,7 +868,11 @@ function mountLocker(main) {
     waiting: [],
     live: [],
     joinMatch: null,
+    real: prefs().real ?? 'join',   // Real match: 'join' one that's waiting, or 'create' one for others to join
+    seats: prefs().seats ?? 4,
+    matchName: '',
     busy: false,
+    switching: false, // "Change" on step 1: show the name / key form again without forgetting the current badger
     error: '',
     fileError: '',
   };
@@ -732,7 +889,9 @@ function mountLocker(main) {
     try { st.bots = await api('/api/v1/bots'); } catch { st.bots = []; }
     try {
       const waiting = await api('/api/v1/matches?status=Waiting');
-      st.waiting = waiting.filter((m) => m.category === 'Practice' && !m.heats);
+      // Waiting practice matches, but not one I'm already in (one I created, say).
+      const meId = player()?.playerId;
+      st.waiting = waiting.filter((m) => m.category === 'Practice' && !m.heats && !m.players.some((p) => p.playerId === meId));
     } catch { st.waiting = []; }
     if (player()) {
       try { st.live = (await authed('/api/v1/blocks/matches')).filter((m) => m.matchStatus !== 'Completed'); } catch { st.live = []; }
@@ -754,36 +913,23 @@ function mountLocker(main) {
       Sandbox: 'Start the sandbox',
       HouseBot: `Play vs ${botLabel(st.one)}`,
       FreeForAll: st.many.length >= 2 ? `Start a free-for-all (${st.many.length} bots)` : 'Pick 2 or 3 bots',
-      Real: st.joinMatch ? 'Join the match' : 'Pick a match',
+      Real: st.real === 'create' ? `Create a match for ${st.seats} players` : st.joinMatch ? 'Join the match' : 'Pick a match',
     }[st.mode];
-    const canStart = me && picked && !st.busy && !(multi && (st.many.length < 2 || st.many.length > 3)) && !(st.mode === 'Real' && !st.joinMatch);
+    const canStart = me && picked && !st.busy && !(multi && (st.many.length < 2 || st.many.length > 3)) && !(st.mode === 'Real' && st.real === 'join' && !st.joinMatch);
+
+    // One column, three steps: name your badger, pick a strategy, pick who to play.
+    // Until the badger exists, steps 2 and 3 are dimmed and inert so the name is the only thing to do.
+    const locked = !me;
+    const lockTag = locked ? html`<span class="bb-lock">${raw(ICON.lock)} After step 1</span>` : '';
+    const lockAttr = locked ? 'inert' : '';
 
     setHtml(main, html`
-      <section class="bb-page">
+      <section class="bb-page bb-locker">
         <header class="bb-hero">
           <p class="eyebrow">${GAME}</p>
           <h1 class="headline">Block Bot</h1>
           <p class="lede">Build a bot out of rules, no typing code. The server plays it for you, and you can change the rules while it plays.</p>
         </header>
-
-        ${me ? '' : html`
-          <section class="bb-card bb-signup" aria-labelledby="bb-signup-h">
-            <h2 id="bb-signup-h">First, name your ${say('bot', 'badger')}</h2>
-            <p class="muted">This is the name other players see on the scoreboard. Letters, numbers, - and _, 3 to 32 of them.</p>
-            <form id="bb-signup" class="bb-inline-form">
-              <label class="visually-hidden" for="bb-name">Name</label>
-              <input id="bb-name" name="name" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_\\-]{3,32}" placeholder="e.g. rowan-b" autocomplete="off">
-              <button class="btn" type="submit">Make my ${say('bot', 'badger')}</button>
-            </form>
-            <details class="small"><summary>I already have an API key</summary>
-              <form id="bb-key" class="bb-inline-form">
-                <label class="visually-hidden" for="bb-key-in">API key</label>
-                <input id="bb-key-in" name="key" required placeholder="Paste your key" autocomplete="off">
-                <button class="btn ghost" type="submit">Use this key</button>
-              </form>
-            </details>
-            <p class="bb-error" id="bb-signup-err" role="alert"></p>
-          </section>`}
 
         ${st.live.length ? html`
           <section class="bb-card" aria-labelledby="bb-live-h">
@@ -793,113 +939,179 @@ function mountLocker(main) {
             </ul>
           </section>` : ''}
 
-        <div class="bb-locker">
-          <section class="bb-mine" aria-labelledby="bb-mine-h">
-            <div class="bb-mine-head">
-              <div>
-                <h2 id="bb-mine-h">My strategies</h2>
-                <p class="small muted">Saved in this browser as you work. Download one to keep it safe or move it to another computer.</p>
-              </div>
-              <label class="btn ghost bb-file">Open a strategy file<input type="file" accept=".json,application/json" id="bb-open"></label>
+        ${me && !st.switching ? html`
+          <section class="bb-stage" aria-labelledby="bb-s1-h">
+            <div class="bb-stage-head">
+              <span class="bb-stage-num done" aria-hidden="true">${raw(ICON.check)}</span>
+              <h2 id="bb-s1-h">Playing as ${me.name}</h2>
+              <button type="button" class="btn ghost small-btn" data-switch="1">Change</button>
             </div>
-            <p class="bb-error" role="alert">${st.fileError}</p>
-            <div class="bb-grid">
-              ${list.map((s) => html`
-                <article class="bb-card bb-strategy${s.id === st.selected ? ' picked' : ''}">
-                  <button type="button" class="bb-pick" data-pick="${s.id}" aria-pressed="${s.id === st.selected}">
-                    <span class="bb-sname">${s.program.name || 'Untitled'}</span>
-                    <span class="small muted">${describeRules(s.program)} · changed ${timeAgo(s.updatedAt)}</span>
-                    ${s.id === st.selected ? html`<span class="bb-bringing">Bringing this one</span>` : ''}
-                  </button>
-                  <div class="bb-actions">
-                    <a class="btn small-btn" href="#/blocks/edit/${s.id}">Edit</a>
-                    <button type="button" class="btn ghost small-btn" data-download="${s.id}">Download</button>
-                    <button type="button" class="btn ghost small-btn" data-copy="${s.id}">Copy</button>
-                    <button type="button" class="btn ghost small-btn" data-delete="${s.id}" aria-label="Delete ${s.program.name}">Delete</button>
-                  </div>
-                </article>`)}
-              <article class="bb-card bb-new">
-                <h3>New strategy</h3>
-                <p class="small muted">Start blank, or from a starter and change it.</p>
+          </section>` : html`
+          <section class="bb-card bb-stage bb-signup" aria-labelledby="bb-s1-h">
+            <div class="bb-stage-head">
+              <span class="bb-stage-num hot" aria-hidden="true">1</span>
+              <h2 id="bb-s1-h">${me ? 'Play as someone else' : `Name your ${say('bot', 'badger')}`}</h2>
+            </div>
+            ${me ? html`
+              <div class="bb-switching">
+                <p>You’re playing as <b>${me.name}</b>. Its key is saved only in this browser, so download it if you want to come back to it.</p>
                 <div class="bb-actions">
-                  ${Object.entries(STARTERS).map(([k, v]) => html`<button type="button" class="btn ${k === 'blank' ? '' : 'ghost'} small-btn" data-new="${k}">${v.label}</button>`)}
+                  <button type="button" class="btn ghost small-btn" data-dlkey="1">${raw(ICON.download)} Download ${me.name}’s key</button>
+                  <button type="button" class="btn ghost small-btn" data-switch-cancel="1">Keep playing as ${me.name}</button>
                 </div>
-              </article>
-            </div>
-          </section>
-
-          <aside class="bb-card bb-play" aria-labelledby="bb-play-h">
-            <h2 id="bb-play-h">Play</h2>
-            <fieldset>
-              <legend class="bb-step">1. Where do you want to play?</legend>
-              <div class="bb-modes">
-                ${[['Sandbox', 'Sandbox', `Try a build against the ${botLabel('sitter')}, who only digs.`],
-                   ['HouseBot', 'Vs a house bot', 'One opponent, any time.'],
-                   ['FreeForAll', 'Free-for-all', 'You vs 2 or 3 house bots.'],
-                   ['Real', 'Real match', 'Join a match other players are in.']]
-                  .map(([id, name, desc]) => html`<button type="button" class="bb-mode" data-mode="${id}" aria-pressed="${st.mode === id}"><b>${name}</b><span class="small muted">${desc}</span></button>`)}
               </div>
-            </fieldset>
+              <p class="muted">Pick a new name, or load a key you already have.</p>` : html`
+              <p class="muted">This is the name other players see on the scoreboard. Letters, numbers, - and _, 3 to 32 of them.</p>`}
+            <form id="bb-signup" class="bb-inline-form bb-signup-form">
+              <label class="visually-hidden" for="bb-name">Name</label>
+              <input id="bb-name" name="name" required minlength="3" maxlength="32" pattern="[A-Za-z0-9_\\-]{3,32}" placeholder="e.g. rowan-b" autocomplete="off">
+              <button class="btn" type="submit">Make my ${say('bot', 'badger')}</button>
+            </form>
+            <details class="small"><summary>I already have an API key</summary>
+              <form id="bb-key" class="bb-inline-form">
+                <label class="visually-hidden" for="bb-key-in">API key</label>
+                <input id="bb-key-in" name="key" required placeholder="Paste your key" autocomplete="off">
+                <button class="btn ghost" type="submit">Use this key</button>
+                <span class="muted">or</span>
+                <label class="btn ghost bb-file">Browse for a key file<input type="file" accept=".txt,.json,.env,.key,text/plain,application/json" id="bb-keyfile"></label>
+              </form>
+            </details>
+            <p class="bb-error" id="bb-signup-err" role="alert">${st.error}</p>
+          </section>`}
 
-            ${st.mode === 'HouseBot' || st.mode === 'FreeForAll' ? html`
-              <fieldset>
-                <legend class="bb-step">2. ${multi ? 'Pick 2 or 3 opponents' : 'Pick an opponent'}</legend>
-                <div class="bb-bots">
-                  ${st.bots.map((b) => {
-                    const on = multi ? st.many.includes(b.name) : st.one === b.name;
-                    return html`<button type="button" class="bb-bot${multi ? ' multi' : ''}" data-bot="${b.name}" aria-pressed="${on}"><span class="bb-mark" aria-hidden="true">${on ? '✓' : ''}</span><span><b>${botLabel(b.name)}</b><span class="small muted">${shortBlurb(b.description)}</span></span></button>`;
-                  })}
+        <section class="bb-stage${locked ? ' locked' : ''}" aria-labelledby="bb-s2-h" ${lockAttr}>
+          <div class="bb-stage-head">
+            <span class="bb-stage-num" aria-hidden="true">2</span>
+            <h2 id="bb-s2-h">Pick a strategy to bring</h2>
+            ${lockTag}
+          </div>
+          <p class="bb-error" role="alert">${st.fileError}</p>
+          <div class="bb-grid">
+            ${list.map((s) => html`
+              <article class="bb-card bb-strategy${s.id === st.selected ? ' picked' : ''}">
+                <button type="button" class="bb-pick" data-pick="${s.id}" aria-pressed="${s.id === st.selected}">
+                  <span class="bb-sname">${s.program.name || 'Untitled'}</span>
+                  <span class="small muted">${describeRules(s.program)} · changed ${timeAgo(s.updatedAt)}</span>
+                  ${s.id === st.selected ? html`<span class="bb-bringing">Bringing this one</span>` : ''}
+                </button>
+                <div class="bb-actions">
+                  <a class="btn small-btn" href="#/blocks/edit/${s.id}">Edit</a>
+                  <button type="button" class="btn ghost small-btn" data-download="${s.id}">Download</button>
+                  <button type="button" class="btn ghost small-btn" data-copy="${s.id}">Copy</button>
+                  <button type="button" class="btn ghost small-btn" data-delete="${s.id}" aria-label="Delete ${s.program.name}">Delete</button>
                 </div>
-              </fieldset>` : ''}
+              </article>`)}
+            <article class="bb-card bb-new">
+              <h3>New strategy</h3>
+              <p class="small muted">Start blank, or from a starter and change it.</p>
+              <div class="bb-actions">
+                ${Object.entries(STARTERS).map(([k, v]) => html`<button type="button" class="btn ${k === 'blank' ? '' : 'ghost'} small-btn" data-new="${k}">${v.label}</button>`)}
+              </div>
+            </article>
+          </div>
+          <div class="bb-stage-foot">
+            <p class="small muted">Saved in this browser as you work. Download one to keep it safe or move it to another computer.</p>
+            <label class="btn ghost small-btn bb-file">Open a strategy file<input type="file" accept=".json,application/json" id="bb-open"></label>
+          </div>
+        </section>
 
-            ${st.mode === 'Real' ? html`
-              <fieldset>
-                <legend class="bb-step">2. Pick a match</legend>
-                ${st.waiting.length ? html`<div class="bb-bots">${st.waiting.map((m) => html`
-                  <button type="button" class="bb-bot" data-match="${m.matchId}" aria-pressed="${st.joinMatch === m.matchId}">
-                    <span class="bb-mark" aria-hidden="true">${st.joinMatch === m.matchId ? '✓' : ''}</span>
-                    <span><b>${m.name || `Match ${m.matchId.slice(0, 8)}`}</b><span class="small muted">${m.players.length} of ${m.maxPlayers} seats${m.hostedBy ? ` · hosted by ${m.hostedBy}` : ''} · starts when ${m.hostedBy ? 'the host starts it' : 'full'}</span></span>
-                  </button>`)}</div>`
-                  : html`<p class="small muted">No matches are waiting for players right now.</p>`}
-                <form id="bb-code" class="bb-inline-form">
-                  <label for="bb-code-in" class="small muted">Or type the match name your teacher gave you</label>
-                  <input id="bb-code-in" maxlength="40" placeholder="e.g. cs1400-lab" autocomplete="off">
-                  <button class="btn ghost" type="submit">Find it</button>
-                </form>
-                <p class="small muted">League matches don't take Block Bots yet.</p>
-              </fieldset>` : ''}
-
-            ${st.mode !== 'Real' ? html`
-              <fieldset>
-                <legend class="bb-step">${st.mode === 'Sandbox' ? '2' : '3'}. Speed</legend>
-                <div class="bb-seg">
-                  <button type="button" data-fast="0" aria-pressed="${!st.fast}">Normal</button>
-                  <button type="button" data-fast="1" aria-pressed="${st.fast}">Fast (4×)</button>
-                </div>
-              </fieldset>` : ''}
-
-            <div>
-              <p class="bb-step">Bring</p>
-              <p class="bb-bring">${picked ? picked.program.name : 'Pick a strategy on the left'}</p>
+        <section class="bb-stage${locked ? ' locked' : ''}" id="bb-s3" aria-labelledby="bb-s3-h" ${lockAttr}>
+          <div class="bb-stage-head">
+            <span class="bb-stage-num" aria-hidden="true">3</span>
+            <h2 id="bb-s3-h">Pick who to play</h2>
+            ${lockTag}
+          </div>
+          <fieldset>
+            <legend class="bb-step">Where do you want to play?</legend>
+            <div class="bb-modes">
+              ${[['Sandbox', 'Sandbox', `Try a build against the ${botLabel('sitter')}, who only digs.`],
+                 ['HouseBot', 'Vs a house bot', 'One opponent, any time.'],
+                 ['FreeForAll', 'Free-for-all', 'You vs 2 or 3 house bots.'],
+                 ['Real', 'Real match', 'Join or create a match with other players.']]
+                .map(([id, name, desc]) => html`<button type="button" class="bb-mode" data-mode="${id}" aria-pressed="${st.mode === id}"><b>${name}</b><span class="small muted">${desc}</span></button>`)}
             </div>
-            <button type="button" class="btn start bb-start" id="bb-start" ${canStart ? '' : 'disabled'}>${me ? startLabel : `Name your ${say('bot', 'badger')} first`}</button>
-            <p class="bb-error" role="alert">${st.error}</p>
-            <p class="small muted">Your bot plays on the game server. Close this tab and it keeps playing. Come back any time to watch or change it.</p>
-            ${me ? html`<p class="small muted">Playing as <b>${me.name}</b>.</p>` : ''}
-          </aside>
-        </div>
+          </fieldset>
+
+          ${st.mode === 'HouseBot' || st.mode === 'FreeForAll' ? html`
+            <fieldset>
+              <legend class="bb-step">${multi ? 'Pick 2 or 3 opponents' : 'Pick an opponent'}</legend>
+              <div class="bb-bots">
+                ${st.bots.map((b) => {
+                  const on = multi ? st.many.includes(b.name) : st.one === b.name;
+                  return html`<button type="button" class="bb-bot${multi ? ' multi' : ''}" data-bot="${b.name}" aria-pressed="${on}"><span class="bb-mark" aria-hidden="true">${on ? '✓' : ''}</span><span><b>${botLabel(b.name)}</b><span class="small muted">${shortBlurb(b.description)}</span></span></button>`;
+                })}
+              </div>
+            </fieldset>` : ''}
+
+          ${st.mode === 'Real' ? html`
+            <div class="bb-seg bb-real-seg" role="group" aria-label="Join or create">
+              <button type="button" data-real="join" aria-pressed="${st.real === 'join'}">Join a match</button>
+              <button type="button" data-real="create" aria-pressed="${st.real === 'create'}">Create a match</button>
+            </div>` : ''}
+
+          ${st.mode === 'Real' && st.real === 'create' ? html`
+            <fieldset>
+              <legend class="bb-step">How many players?</legend>
+              <div class="bb-seg">
+                ${[2, 3, 4].map((n) => html`<button type="button" data-seats="${n}" aria-pressed="${st.seats === n}">${n}</button>`)}
+              </div>
+              <p class="small muted">Everyone brings their own Block Bot (or a bot they wrote). It starts when every seat is taken, or when you start it from the cockpit.</p>
+            </fieldset>
+            <form id="bb-create" class="bb-inline-form">
+              <label for="bb-match-name" class="small muted">A name others can type to find it (optional)</label>
+              <input id="bb-match-name" maxlength="32" pattern="[A-Za-z0-9_\-]{3,32}" placeholder="e.g. period-3" autocomplete="off" value="${st.matchName}">
+            </form>` : ''}
+
+          ${st.mode === 'Real' && st.real === 'join' ? html`
+            <fieldset>
+              <legend class="bb-step">Pick a match</legend>
+              ${st.waiting.length ? html`<div class="bb-bots">${st.waiting.map((m) => html`
+                <button type="button" class="bb-bot" data-match="${m.matchId}" aria-pressed="${st.joinMatch === m.matchId}">
+                  <span class="bb-mark" aria-hidden="true">${st.joinMatch === m.matchId ? '✓' : ''}</span>
+                  <span><b>${m.name || `Match ${m.matchId.slice(0, 8)}`}</b><span class="small muted">${m.players.length} of ${m.maxPlayers} seats${m.hostedBy ? ` · hosted by ${m.hostedBy}` : ''} · starts when ${m.hostedBy ? 'the host starts it' : 'full, or when its creator starts it'}</span></span>
+                </button>`)}</div>`
+                : html`<p class="small muted">No matches are waiting for players right now.</p>`}
+              <form id="bb-code" class="bb-inline-form">
+                <label for="bb-code-in" class="small muted">Or type the match name your teacher gave you</label>
+                <input id="bb-code-in" maxlength="40" placeholder="e.g. cs1400-lab" autocomplete="off">
+                <button class="btn ghost" type="submit">Find it</button>
+              </form>
+              <p class="small muted">League matches don't take Block Bots yet.</p>
+            </fieldset>` : ''}
+
+          ${st.mode !== 'Real' || st.real === 'create' ? html`
+            <fieldset class="bb-speed">
+              <legend class="bb-step">Speed</legend>
+              <div class="bb-seg">
+                <button type="button" data-fast="0" aria-pressed="${!st.fast}">Normal</button>
+                <button type="button" data-fast="1" aria-pressed="${st.fast}">Fast (4×)</button>
+              </div>
+            </fieldset>` : ''}
+
+          <p class="bb-bring">${picked ? html`Bringing <b>${picked.program.name}</b>` : 'Pick a strategy in step 2'}</p>
+          <button type="button" class="btn start bb-start" id="bb-start" ${canStart ? '' : 'disabled'}>${me ? startLabel : `Name your ${say('bot', 'badger')} first`}</button>
+          <p class="bb-error" role="alert">${me ? st.error : ''}</p>
+          <p class="small muted">Your bot plays on the game server. Close this tab and it keeps playing. Come back any time to watch or change it.</p>
+        </section>
       </section>`);
   }
 
   main.addEventListener('click', onClick);
   main.addEventListener('submit', onSubmit);
   main.addEventListener('change', onChange);
+  main.addEventListener('input', onInput);
 
   function onClick(e) {
     const t = e.target.closest('button');
     if (!t) return;
     const d = t.dataset;
-    if (d.pick) { st.selected = d.pick; setPref('selected', d.pick); render(); }
+    if (d.switch) {
+      st.switching = true;
+      render();
+      main.querySelector('#bb-name')?.focus();
+    } else if (d.switchCancel) { st.switching = false; render(); }
+    else if (d.dlkey) downloadKey(player());
+    else if (d.pick) { st.selected = d.pick; setPref('selected', d.pick); render(); }
     else if (d.download) download(getStrategy(d.download));
     else if (d.copy) {
       const s = getStrategy(d.copy);
@@ -921,6 +1133,8 @@ function mountLocker(main) {
       } else { st.one = d.bot; setPref('one', d.bot); }
       render();
     } else if (d.match) { st.joinMatch = d.match; render(); }
+    else if (d.real) { st.real = d.real; setPref('real', d.real); st.error = ''; render(); }
+    else if (d.seats) { st.seats = Number(d.seats); setPref('seats', st.seats); render(); }
     else if (d.fast) { st.fast = d.fast === '1'; setPref('fast', st.fast); render(); }
     else if (t.id === 'bb-start') start();
   }
@@ -933,15 +1147,12 @@ function mountLocker(main) {
       try {
         const res = await api('/api/v1/players', { method: 'POST', body: { name } });
         store(KEYS.player, { playerId: res.playerId, name: res.name, apiKey: res.apiKey });
-        refresh();
+        signedIn();
       } catch (ex) { if (err) err.textContent = ex.message; }
+    } else if (e.target.id === 'bb-create') {
+      start();
     } else if (e.target.id === 'bb-key') {
-      const key = e.target.key.value.trim();
-      try {
-        const me = await api('/api/v1/players/me', { headers: { authorization: `Bearer ${key}` } });
-        store(KEYS.player, { playerId: me.playerId, name: me.name, apiKey: key });
-        refresh();
-      } catch (ex) { if (err) err.textContent = ex.status === 401 ? 'That key didn’t work.' : ex.message; }
+      useKey(e.target.key.value.trim());
     } else if (e.target.id === 'bb-code') {
       const name = main.querySelector('#bb-code-in').value.trim();
       if (!name) return;
@@ -956,7 +1167,45 @@ function mountLocker(main) {
     }
   }
 
+  // A new badger (or a different key) is stored: back to the done state and reload what it owns.
+  function signedIn() {
+    st.switching = false;
+    st.error = '';
+    st.live = [];
+    refresh();
+  }
+
+  async function useKey(key) {
+    const err = main.querySelector('#bb-signup-err');
+    try {
+      const me = await api('/api/v1/players/me', { headers: { authorization: `Bearer ${key}` } });
+      store(KEYS.player, { playerId: me.playerId, name: me.name, apiKey: key });
+      signedIn();
+    } catch (ex) { if (err) err.textContent = ex.status === 401 ? 'That key didn’t work.' : ex.message; }
+  }
+
+  // A key file is any small text file with an nrts_ key in it: the bare key, the saved
+  // registration JSON, a .env line. The first key found wins.
+  async function onKeyFile(file) {
+    const err = main.querySelector('#bb-signup-err');
+    const input = main.querySelector('#bb-key-in');
+    if (file.size > 64 * 1024) { if (err) err.textContent = 'That file is too big to be a key file.'; return; }
+    const key = (await file.text()).match(/nrts_[A-Za-z0-9_-]{20,}/)?.[0];
+    if (!key) { if (err) err.textContent = `There’s no API key (nrts_…) in ${file.name}.`; return; }
+    if (input) input.value = key;
+    useKey(key);
+  }
+
+  function onInput(e) {
+    if (e.target.id === 'bb-match-name') st.matchName = e.target.value;
+  }
+
   async function onChange(e) {
+    if (e.target.id === 'bb-keyfile' && e.target.files?.[0]) {
+      const file = e.target.files[0];
+      e.target.value = '';
+      return onKeyFile(file);
+    }
     if (e.target.id !== 'bb-open' || !e.target.files?.[0]) return;
     try {
       const program = await readStrategyFile(e.target.files[0]);
@@ -975,7 +1224,12 @@ function mountLocker(main) {
     render();
     try {
       let match;
-      if (st.mode === 'Real') {
+      if (st.mode === 'Real' && st.real === 'create') {
+        match = await authed('/api/v1/blocks/matches', {
+          method: 'POST',
+          body: { program: s.program, mode: 'Create', seats: st.seats, name: st.matchName.trim() || null, tickIntervalMs: st.fast ? 250 : null, theme: THEME },
+        });
+      } else if (st.mode === 'Real') {
         match = await authed(`/api/v1/blocks/matches/${st.joinMatch}/join`, { method: 'POST', body: { program: s.program, theme: THEME } });
       } else {
         match = await authed('/api/v1/blocks/matches', {
@@ -1005,12 +1259,18 @@ function mountLocker(main) {
   }
 
   render();
+  if (jumpToPlay) {
+    jumpToPlay = false;
+    // After the router's scrollTo(0, 0), which runs once this mount returns.
+    requestAnimationFrame(() => { if (alive) main.querySelector('#bb-s3')?.scrollIntoView({ block: 'start' }); });
+  }
   refresh();
   return () => {
     alive = false;
     main.removeEventListener('click', onClick);
     main.removeEventListener('submit', onSubmit);
     main.removeEventListener('change', onChange);
+    main.removeEventListener('input', onInput);
   };
 }
 
@@ -1035,17 +1295,22 @@ function mountEditor(main, id) {
   let liveMatch = null;
   let alive = true;
 
+  // Python, Download and Play it: in the top bar on narrow screens (which sticks), at the top of the
+  // side panel (which stays in view as the rules scroll) on wide ones.
+  const actions = (code) => html`
+    <button type="button" class="btn ghost" data-ed="code" aria-pressed="${code}">${raw(ICON.code)} Python</button>
+    <button type="button" class="btn ghost" data-ed="dl">${raw(ICON.download)} Download</button>
+    <a class="btn start" href="#/blocks" data-ed="play">Play it</a>`;
+
   setHtml(main, html`
-    <section class="bb-page">
+    <section class="bb-page bb-edit-page">
       <div class="bb-bar">
         <a href="#/blocks" class="bb-back">← My strategies</a>
         <label class="visually-hidden" for="bb-sname">Strategy name</label>
         <input id="bb-sname" class="bb-title-in" maxlength="40" value="${strategy.program.name}">
         <span class="bb-saved small muted" id="bb-saved">${raw(ICON.check)} Saved in this browser</span>
         <span class="bb-spacer"></span>
-        <button type="button" class="btn ghost" id="bb-code" aria-pressed="${!!prefs().code}">${raw(ICON.code)} Python</button>
-        <button type="button" class="btn ghost" id="bb-dl">${raw(ICON.download)} Download</button>
-        <a class="btn start" href="#/blocks" id="bb-play">Play it</a>
+        <div class="bb-edit-actions bb-top-actions">${actions(!!prefs().code)}</div>
       </div>
       <p class="bb-banner" id="bb-livebanner" hidden></p>
       <div id="bb-editor"></div>
@@ -1054,6 +1319,7 @@ function mountEditor(main, id) {
   const savedEl = main.querySelector('#bb-saved');
   const editor = new RuleEditor(main.querySelector('#bb-editor'), {
     program: strategy.program,
+    sideTop: (ed) => html`<div class="bb-edit-actions bb-side-actions">${actions(ed.code)}</div>`,
     onChange: (program) => {
       strategy = { ...strategy, program: { ...program, name: strategy.program.name } };
       save();
@@ -1070,14 +1336,16 @@ function mountEditor(main, id) {
     editor.program.name = strategy.program.name;
     save();
   });
-  const codeBtn = main.querySelector('#bb-code');
-  codeBtn.addEventListener('click', () => {
-    const on = codeBtn.getAttribute('aria-pressed') !== 'true';
-    codeBtn.setAttribute('aria-pressed', String(on));
-    editor.setCode(on);
-  });
-  main.querySelector('#bb-dl').addEventListener('click', () => download(strategy));
-  main.querySelector('#bb-play').addEventListener('click', () => setPref('selected', strategy.id));
+  const onAction = (e) => {
+    const b = e.target.closest('[data-ed]');
+    if (!b) return;
+    if (b.dataset.ed === 'code') {
+      editor.setCode(!editor.code);
+      main.querySelectorAll('[data-ed="code"]').forEach((x) => x.setAttribute('aria-pressed', String(editor.code)));
+    } else if (b.dataset.ed === 'dl') download(strategy);
+    else if (b.dataset.ed === 'play') { setPref('selected', strategy.id); jumpToPlay = true; }
+  };
+  main.addEventListener('click', onAction);
 
   // A match already playing this strategy: changes here go live from its cockpit.
   (async () => {
@@ -1093,7 +1361,7 @@ function mountEditor(main, id) {
     setHtml(banner, html`This strategy is playing a match right now. <a href="#/blocks/match/${liveMatch.matchId}">Open the cockpit</a> to watch it and apply your changes.`);
   })();
 
-  return () => { alive = false; };
+  return () => { alive = false; main.removeEventListener('click', onAction); };
 }
 
 // ------------------------------------------------------------------ the cockpit
@@ -1192,10 +1460,27 @@ function mountCockpit(main, matchId) {
         : html`<li class="${p.me ? 'me' : ''}${p.eliminated ? ' out' : ''}" style="--pc:${slotVar(p.slot)}"><span class="bb-board-rank">${p.rank}</span><span class="bb-board-name">${p.me ? 'You' : displayName(p.name)}</span><span class="bb-board-score">${fmtN(p.score?.total)}</span></li>`)}</ol>
     </div>`;
   }
+  /** The tick, the tick limit and roughly how long until it (a match can also end sooner, by elimination). */
+  function clockTile() {
+    const tick = Math.max(lastState?.tick ?? 0, status?.tick ?? 0);
+    const max = lastState?.maxTicks ?? summary?.maxTicks ?? 0;
+    if (!max) return '';
+    const done = summary?.status === 'Completed' || status?.matchStatus === 'Completed';
+    const secs = Math.round((Math.max(0, max - tick) * (lastState?.tickIntervalMs ?? summary?.tickIntervalMs ?? 1000)) / 1000);
+    const left = done ? 'final' : `${Math.floor(secs / 60)}:${String(secs % 60).padStart(2, '0')} left`;
+    const pct = Math.min(100, (tick / max) * 100);
+    return html`<div class="bb-tile bb-clock" title="The match ends at tick ${fmtN(max)} if nobody is knocked out first. Then the highest score wins.">
+      <span class="bb-tile-label">Tick <span>${left}</span></span>
+      <span class="bb-tile-value">${fmtN(tick)}<small> / ${fmtN(max)}</small></span>
+      <span class="bb-clock-bar" role="progressbar" aria-label="Match progress" aria-valuemin="0" aria-valuemax="${max}" aria-valuenow="${tick}"><span style="width:${pct.toFixed(1)}%"></span></span>
+    </div>`;
+  }
+
   function renderHud() {
     const box = $('bb-hud');
     if (!box || !status) return;
     setHtml(box, html`
+      ${clockTile()}
       ${trendTile('grubs', ORE[0].toUpperCase() + ORE.slice(1), '#f2c14e')}
       ${trendTile('workers', 'Workers', '#7cc7f0')}
       ${trendTile('fighters', 'Fighters', '#ff8a7a')}
@@ -1224,6 +1509,7 @@ function mountCockpit(main, matchId) {
           </div>
           <h1 class="bb-match-title" id="bb-title">Loading the match…</h1>
           <p class="small muted bb-running" id="bb-running"></p>
+          <div class="bb-waiting" id="bb-waiting" aria-live="polite" hidden></div>
         </div>
         <div class="bb-controls">
           <section class="bb-switches-row" aria-labelledby="bb-sw-h">
@@ -1256,6 +1542,7 @@ function mountCockpit(main, matchId) {
             <button type="button" class="bb-sq" id="bb-quality" aria-label="Picture quality"></button>
           </div>
           <aside class="bb-hud" id="bb-hud" aria-label="Your stats over the last minute, and the scoreboard"></aside>
+          <aside class="bb-bcard" id="bb-bcard" aria-label="The building you clicked" aria-live="polite" hidden></aside>
           <p class="bb-3d-msg" id="bb-3d-msg">Building the 3D valley…</p>
           <div class="bb-result" id="bb-result" hidden></div>
         </div>
@@ -1345,8 +1632,46 @@ function mountCockpit(main, matchId) {
       setHtml(result, html`<h2>${won ? 'You won!' : summary.outcome?.winnerId ? 'Good game' : 'A draw'}</h2>
         <p>${outcomeText(summary.outcome, summary.players)}</p>
         <div class="bb-row-btns"><a class="btn start" href="#/blocks">Play again</a><a class="btn ghost" href="#/blocks/edit/${strategy?.id ?? ''}">Edit this strategy</a><a class="btn ghost" href="#/match/${matchId}">Watch the replay</a></div>`);
-    } else if (summary.status === 'Waiting') {
-      setMsg(`Waiting for players: ${summary.players.length} of ${summary.maxPlayers} seats taken. It starts when ${summary.players.length >= summary.maxPlayers ? 'it’s ready' : 'the match fills or its host starts it'}.`);
+    }
+    renderWaiting();
+    if (summary.status === 'Waiting') {
+      setMsg(`Waiting for players: ${summary.players.length} of ${summary.maxPlayers} seats taken.`);
+      waitingMsg = true;
+    } else if (waitingMsg) {
+      waitingMsg = false;
+      setMsg('');
+    }
+  }
+  let waitingMsg = false;
+
+  /** A match waiting for people: who's in, how others find it, and (for whoever created it) Start now. */
+  function renderWaiting() {
+    const box = $('bb-waiting');
+    if (!box) return;
+    if (summary?.status !== 'Waiting') { box.hidden = true; return; }
+    const me = player()?.playerId;
+    const creator = !summary.hostedBy && summary.players.find((p) => p.slot === 0)?.playerId === me;
+    const n = summary.players.length;
+    box.hidden = false;
+    setHtml(box, html`
+      <p><b>Waiting for players: ${n} of ${summary.maxPlayers}.</b>
+        ${summary.players.map((p) => html`<span class="bb-waiting-name">${displayName(p.name)}</span>`)}</p>
+      <p class="small">Others join from Block Bot → Real match → Join a match${summary.name ? html`, or by typing <b>${summary.name}</b>` : ''}.
+        It starts when every seat is taken${creator ? ', or when you start it' : summary.hostedBy ? ' or when the host starts it' : ' or when its creator starts it'}.</p>
+      ${creator ? html`<button type="button" class="btn start small-btn" id="bb-start-now" ${n >= 2 ? '' : 'disabled'}>${n >= 2 ? `Start now with ${n} players` : 'Start now (needs 2 players)'}</button>` : ''}
+      <p class="bb-error" id="bb-start-err" role="alert"></p>`);
+  }
+
+  async function startNow(btn) {
+    btn.disabled = true;
+    try {
+      summary = await authed(`/api/v1/blocks/matches/${matchId}/start`, { method: 'POST' });
+      renderSummary();
+      if (summary?.status === 'Active' && !es) startStream();
+    } catch (e) {
+      const err = $('bb-start-err');
+      if (err) err.textContent = e.message;
+      btn.disabled = false;
     }
   }
 
@@ -1399,6 +1724,7 @@ function mountCockpit(main, matchId) {
       view3d = new View3D(box, { badger: SNOW, names, audio });
       box.view3d = view3d;   // handy from the dev tools console, as on the spectator page
       view3d.onQualityChange = renderViewTools;
+      view3d.onPickBuilding = (b) => { pickedId = b?.id ?? null; pickedLast = b; renderBuildingCard(); };
       renderViewTools();
       view3d.onReady = () => {
         if (!alive) return;
@@ -1449,6 +1775,7 @@ function mountCockpit(main, matchId) {
       retryMs = 2000;   // connected again: the next drop starts the backoff over
       lastState = s;
       view3d?.setState(s);
+      if (pickedId != null) renderBuildingCard();
       if (!homed) goHome();
     };
     es.onerror = () => {
@@ -1456,6 +1783,47 @@ function mountCockpit(main, matchId) {
       es = null;
       if (alive && summary?.status !== 'Completed') { later(startStream, retryMs); retryMs = Math.min(retryMs * 2, 30000); }
     };
+  }
+
+  // ---- the building you clicked in the 3D view: what it is, whose, its health and what it's doing
+  let pickedId = null;
+  let pickedLast = null;   // the last picture of it, for when it's gone
+  function renderBuildingCard() {
+    const box = $('bb-bcard');
+    if (!box) return;
+    if (pickedId == null) { box.hidden = true; return; }
+    const live = lastState?.buildings?.find((x) => x.id === pickedId);
+    const b = live ?? pickedLast;
+    if (!b) { box.hidden = true; return; }
+    if (live) pickedLast = live;
+    const mine = b.owner === status?.slot;
+    const ownerName = displayName((lastState?.players || summary?.players || []).find((p) => p.slot === b.owner)?.name ?? `Player ${b.owner + 1}`);
+    const r = RULES?.buildings?.find((x) => x.type === b.type);
+    const pct = b.maxHp ? Math.max(0, Math.min(100, (b.hp / b.maxHp) * 100)) : 0;
+    const stats = [
+      r ? ['Armor', r.armor] : null,
+      r?.damage ? ['Attack', `${r.damage} damage, range ${r.range}`] : null,
+      r?.storageBonus ? ['Stores', `${fmtN(r.storageBonus)} ${ORE}`] : null,
+      r?.produces?.length ? ['Trains', r.produces.map((t) => unitName(t)).join(', ')] : null,
+      r?.canResearch ? ['Classes', say('researches upgrades', 'teaches the classes')] : null,
+    ].filter(Boolean);
+    box.hidden = false;
+    setHtml(box, html`
+      <div class="bb-bcard-head">
+        <h2>${buildingName(b.type, b.owner)}</h2>
+        <button type="button" class="bb-sq small" data-bclose aria-label="Close">×</button>
+      </div>
+      <p class="bb-bcard-owner"><span class="bb-bcard-dot" style="--pc:${slotVar(b.owner)}" aria-hidden="true"></span>${mine ? 'Yours' : ownerName}</p>
+      ${live ? html`
+        <div class="bb-bcard-hp"><span>HP</span><b>${fmtN(b.hp)} / ${fmtN(b.maxHp)}</b></div>
+        <span class="bb-clock-bar bb-hpbar${pct < 34 ? ' low' : ''}" aria-hidden="true"><span style="width:${pct.toFixed(1)}%"></span></span>
+        ${b.completed ? '' : html`<p>Under construction: ${b.constructionPercent}%</p>`}
+        ${b.production?.length ? html`<p>${say('Producing', 'Training')}: ${unitName(b.production[0].unitType)} ${b.production[0].percent}%${b.production.length > 1 ? html` <span class="bb-bcard-q">(+${b.production.length - 1} queued)</span>` : ''}</p>` : ''}
+        ${b.research ? html`<p>${say('Researching', 'Studying')}: ${upgradeName(b.research.upgrade)} ${b.research.percent}%</p>` : ''}`
+        : html`<p class="bb-bcard-gone">Destroyed.</p>`}
+      <p class="bb-bcard-role">${buildingRole(b.type)}</p>
+      ${stats.length ? html`<dl class="bb-bcard-stats">${stats.map(([k, v]) => html`<div><dt>${k}</dt><dd>${v}</dd></div>`)}</dl>` : ''}
+      ${live ? html`<button type="button" class="bb-bcard-zoom" data-bzoom>Zoom to it</button>` : ''}`);
   }
 
   /** Your base from above: your HQ (any of them), else where you started. */
@@ -1512,6 +1880,9 @@ function mountCockpit(main, matchId) {
       renderApply();
     } else if (b.dataset.switch) flip(b.dataset.switch);
     else if ('home' in b.dataset) goHome();
+    else if (b.id === 'bb-start-now') startNow(b);
+    else if ('bclose' in b.dataset) { pickedId = null; renderBuildingCard(); }
+    else if ('bzoom' in b.dataset && pickedLast) view3d?.lookAtTile(pickedLast.x, pickedLast.y, { dist: 5 });
     else if (b.dataset.zoom) view3d?.zoom(b.dataset.zoom === 'in' ? 0.8 : 1.25);
     else if (b.id === 'bb-quality' && view3d) {
       const order = ['low', 'medium', 'high'];
@@ -1538,6 +1909,7 @@ function mountCockpit(main, matchId) {
   function onKey(e) {
     if (e.ctrlKey || e.metaKey || e.altKey || !view3d) return;
     if (e.target.closest?.('input, select, textarea, [contenteditable]')) return;
+    if (e.key === 'Escape' && pickedId != null && !e.target.closest?.('.bb-editor')) { pickedId = null; renderBuildingCard(); return; }
     if ((e.key === 'h' || e.key === 'H' || e.key === 'Home') && !e.target.closest?.('.map3d')) { e.preventDefault(); goHome(); return; }
     const zoom = { '+': 0.8, '=': 0.8, '-': 1.25, '_': 1.25 }[e.key];
     if (!zoom || e.target.closest?.('.map3d')) return;

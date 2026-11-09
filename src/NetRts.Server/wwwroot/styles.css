@@ -184,6 +184,7 @@ a:hover { text-decoration-thickness: 2px; }
 
 .topbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 16px;
@@ -205,8 +206,10 @@ a:hover { text-decoration-thickness: 2px; }
 .bm-b { fill: var(--p1); }
 .bm-line { stroke: var(--ink); stroke-width: 1.5; fill: none; }
 
-.topbar nav { display: flex; gap: 20px; }
+/* The links wrap onto a second line rather than run off the edge (the bar is wider than ~1,060px only on desktops). */
+.topbar nav { flex: 1 1 320px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px 20px; min-width: 0; }
 .topbar nav a { text-decoration: none; color: var(--muted); }
+.topbar-toggles { display: inline-flex; align-items: center; gap: 8px; }   /* the two theme buttons wrap as a pair */
 .topbar nav a:hover, .topbar nav a[aria-current="page"] { color: var(--ink); text-decoration: underline; }
 
 main {
@@ -966,6 +969,18 @@ pre.snippet {
   text-align: center;
 }
 .map3d-label small { display: block; font-size: 10px; font-weight: 500; opacity: 0.85; letter-spacing: 0.01em; }
+/* What a building is working on: small and see-through so it informs without shouting. */
+.map3d-work {
+  display: grid; gap: 2px; min-width: 56px; padding: 2px 6px 3px; border-radius: 6px;
+  font: 600 10px/1.15 Bahnschrift, "Segoe UI", sans-serif; color: rgba(255, 255, 255, 0.88); white-space: nowrap; text-align: center;
+  background: rgba(11, 17, 22, 0.5); text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+  transition: opacity 0.25s;
+}
+.map3d-work.under-name { margin-top: 46px; }
+.map3d-work-bar { display: block; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.18); overflow: hidden; }
+.map3d-work-bar > span { display: block; height: 100%; background: color-mix(in srgb, var(--pc) 55%, #fff); transition: width 0.4s linear; }
+.work-far .map3d-work { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .map3d-work, .map3d-work-bar > span { transition: none; } }
 .map3d-card {
   position: absolute; left: 22px; bottom: 22px; z-index: 2; min-width: 190px; max-width: 260px;
   display: grid; gap: 4px; padding: 10px 12px;
