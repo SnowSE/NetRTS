@@ -440,6 +440,28 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task Spectator_stream_sends_the_end_when_a_player_surrenders_between_ticks()
+    {
+        var (winner, _) = await factory.NewPlayerAsync();
+        var (loser, _) = await factory.NewPlayerAsync();
+        var match = await winner.CreateMatchAsync(new CreateMatchRequest(), Ct);
+        await loser.JoinMatchAsync(match.MatchId, Ct);
+        factory.Matches.Get(match.MatchId)!.Advance(2);
+        var http = factory.CreateClient();
+
+        using var response = await http.GetAsync($"/api/v1/matches/{match.MatchId}/spectate/stream", HttpCompletionOption.ResponseHeadersRead, Ct);
+        using var reader = new StreamReader(await response.Content.ReadAsStreamAsync(Ct));
+        Assert.StartsWith("data: ", await reader.ReadLineAsync(Ct));
+        await reader.ReadLineAsync(Ct); // blank separator
+
+        await loser.SurrenderAsync(match.MatchId, Ct);
+        var last = await reader.ReadLineAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(5), Ct);
+        Assert.Contains("\"status\":\"Completed\"", last);
+        await reader.ReadLineAsync(Ct); // blank separator
+        Assert.Null(await reader.ReadLineAsync(Ct).AsTask().WaitAsync(TimeSpan.FromSeconds(5), Ct)); // and the stream ends
+    }
+
+    [Fact]
     public async Task Invalid_match_settings_are_rejected()
     {
         var (client, _) = await factory.NewPlayerAsync();

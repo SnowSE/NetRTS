@@ -459,14 +459,18 @@ public static class MatchEndpoints
 
         var lastTick = -1;
         (int, bool) lastSpeed = default;
+        (MatchStatus, int) lastStanding = default;
         while (!ct.IsCancellationRequested)
         {
             var next = host.NextTick;
             var view = host.GetSpectatorView(lastTick < 0 ? null : lastTick, fog ?? false);
-            // A new tick, or a speed change or pause, which other spectators should see straight away.
-            if (view is not null && (view.Tick != lastTick || (view.TickIntervalMs, view.Paused) != lastSpeed))
+            // A new tick, a speed change or pause, or a surrender between ticks (the match over, or one player
+            // out), which other spectators should see straight away.
+            var standing = view is null ? default : (view.Status, view.Players.Count(p => p.Eliminated));
+            if (view is not null && (view.Tick != lastTick || (view.TickIntervalMs, view.Paused) != lastSpeed || standing != lastStanding))
             {
                 lastSpeed = (view.TickIntervalMs, view.Paused);
+                lastStanding = standing;
                 await context.Response.WriteAsync($"data: {JsonSerializer.Serialize(view, NetRtsClient.JsonOptions)}\n\n", ct);
                 await context.Response.Body.FlushAsync(ct);
                 lastTick = view.Tick;
