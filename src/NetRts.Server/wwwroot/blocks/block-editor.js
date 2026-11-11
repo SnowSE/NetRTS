@@ -41,6 +41,7 @@ export class BlockEditor extends EditorCore {
       onStart: (payload) => { this.dragging = payload; root.querySelector('.bb-blocks')?.classList.add('is-dragging', `drag-${payload.type}`); },
       onEnd: () => { this.dragging = null; root.querySelector('.bb-blocks')?.classList.remove('is-dragging', 'drag-rule', 'drag-step', 'drag-cond', 'drag-new-rule', 'drag-new-cond', 'drag-new-action'); },
       covered: () => this.paletteCover(),
+      layer: () => root.querySelector('.bb-blocks'),   // the block colours are set there
     }));
     this.render();
   }
@@ -101,13 +102,12 @@ export class BlockEditor extends EditorCore {
       return { el: rows[j] ?? list.querySelector('.bb-rules-end'), cls: 'drop-above', j };
     }
     if (payload.type === 'step' || payload.type === 'new-action') {
-      // Onto a rule's stack, or its top (which adds at the end).
-      const hat = dropSpot(x, y, '.bb-hat');
-      const stack = dropSpot(x, y, '[data-drop-stack]') ?? hat?.closest('.bb-script')?.querySelector('[data-drop-stack]');
+      // Anywhere on a rule (or in the gap next to one) goes into its stack, at the step nearest the pointer.
+      const stack = this.ruleAt(x, y)?.querySelector('[data-drop-stack]');
       if (!stack) return null;
       const rulePath = stack.dataset.dropStack;
       const steps = [...stack.querySelectorAll(':scope > [data-step]')];
-      const j = hat ? steps.length : slotAmong(steps, y);
+      const j = slotAmong(steps, y);
       const sameList = payload.path?.startsWith(`${rulePath}.do.`);
       if (sameList) {
         const from = Number(payload.path.split('.').pop());
@@ -115,8 +115,12 @@ export class BlockEditor extends EditorCore {
       } else if (fullRule(at(this.program, rulePath))) return { el: stack, cls: 'drop-no' };
       return { el: steps[j] ?? stack.querySelector('.bb-mouth-end'), cls: 'drop-above', rulePath, j };
     }
-    // A check: onto a check's spot, which it replaces (and/or/not wrap it).
-    const slot = dropSpot(x, y, '[data-drop-cond]');
+    // A check: onto a check's spot, which it replaces (and/or/not wrap it). Anywhere else on a rule's top
+    // means its whole "when", unless that's and/or/not, which a single check shouldn't wipe out by a near miss.
+    const hatWhen = dropSpot(x, y, '.bb-hat')?.querySelector(':scope > [data-drop-cond]');
+    const wraps = ['and', 'or', 'not'].includes(payload.data?.kind);
+    const slot = dropSpot(x, y, '[data-drop-cond]')
+      ?? (hatWhen && (wraps || !['and', 'or', 'not'].includes(at(this.program, hatWhen.dataset.dropCond)?.kind)) ? hatWhen : null);
     if (!slot) return null;
     const path = slot.dataset.dropCond;
     if (payload.type === 'cond') {
@@ -124,6 +128,21 @@ export class BlockEditor extends EditorCore {
       return fitsAt(at(this.program, payload.path), path) ? { el: slot, cls: 'drop-into', path } : { el: slot, cls: 'drop-no' };
     }
     return canWrap(this.program, path, payload.data.kind) ? { el: slot, cls: 'drop-into', path } : { el: slot, cls: 'drop-no' };
+  }
+
+  /** The rule under x, y, or in the rules' column, the one nearest it (the gaps between them count). */
+  ruleAt(x, y) {
+    const hit = dropSpot(x, y, '.bb-script');
+    if (hit) return hit;
+    if (!dropSpot(x, y, '[data-drop-rules]')) return null;
+    let best = null;
+    let gap = Infinity;
+    for (const s of this.root.querySelectorAll('.bb-script')) {
+      const r = s.getBoundingClientRect();
+      const d = y < r.top ? r.top - y : y > r.bottom ? y - r.bottom : 0;
+      if (d < gap) { gap = d; best = s; }
+    }
+    return gap <= 40 ? best : null;
   }
 
   drop(payload, t) {
@@ -249,6 +268,7 @@ export class BlockEditor extends EditorCore {
     return html`
       <div class="bb-row">
         <article class="bb-rule bb-script${off ? ' off' : ''}${this.session?.index === i ? ' editing-rule' : ''}${this.target === i ? ' selected' : ''}" data-rule="${i}" aria-label="Rule ${i + 1}">
+          <div class="bb-shape">
           <div class="bb-hat" data-drag="rule" data-i="${i}" title="Drag to move this rule">
             <span class="bb-num" aria-hidden="true">${i + 1}</span>
             <span class="bb-word">when</span>
@@ -265,6 +285,7 @@ export class BlockEditor extends EditorCore {
             <div class="bb-mouth-end">${steps.length ? '' : html`<span class="muted small">Drag actions here</span>`}${fullRule(r) ? html`<span class="muted small">${why.steps()}</span>` : ''}</div>
           </div>
           <div class="bb-cap" aria-hidden="true"></div>
+          </div>
           ${ruleFooter(this, r, i)}
         </article>
         ${this.code ? html`<pre class="bb-py" aria-label="Rule ${i + 1} in Python">${pyRule(r, i)}</pre>` : ''}
@@ -295,7 +316,7 @@ export class BlockEditor extends EditorCore {
       <p>Each rule is a <b>when … do</b> block. Every tick (about once a second) your bot checks the rules from the top.</p>
       <p>Drag a <b>check</b> (green) onto a rule's <i>when</i> to swap it. <b>and</b>, <b>or</b> and <b>not</b> wrap the check you drop them on.</p>
       <p>To start a rule somewhere other than the bottom, use a <b>+ rule</b> line, or drag the <b>when … do</b> block to that spot.</p>
-      <p>Drag <b>actions</b> into the rule's mouth, in the order you want. Drag any block back onto the palette to remove it.</p>
+      <p>Drag <b>actions</b> onto a rule, where you want them in its stack. Drag any block back onto the palette to remove it.</p>
       <p>No mouse? Tap a palette block to add it to the selected rule. A focused step moves with <b>↑ ↓</b> and goes with <b>Delete</b>.</p>
       ${this.program.switches.length ? html`<h3>Your switches</h3>${switchListHtml(this.program)}` : ''}`;
   }

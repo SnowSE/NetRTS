@@ -100,10 +100,13 @@
 .bb-script > .bb-note, .bb-script > .bb-live, .bb-script > .bb-save-row { padding-left: 0; margin-top: 6px; }
 .bb-script > .bb-live { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
-.bb-script.selected .bb-hat { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--focus); }
+/* Selected and being-edited rules get one ring around the whole when … do shape (hat, side and cap),
+   not one per piece, which leaves the side bare and the shape looking broken in two. */
+.bb-shape { border-radius: 16px 16px 12px 12px; }
+.bb-script.selected .bb-shape { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--focus); }
 .bb-script.off { opacity: 0.55; }
 .bb-script.editing-rule { border: 0; box-shadow: none; }
-.bb-script.editing-rule .bb-hat, .bb-script.editing-rule .bb-cap { box-shadow: 0 0 0 3px var(--signal-bg); }
+.bb-script.editing-rule .bb-shape { box-shadow: 0 0 0 3px var(--bg), 0 0 0 6px var(--signal-bg); }
 .bb-script[data-state="firing"] .bb-hat { box-shadow: inset 0 -4px 0 var(--ok); }
 .bb-script[data-state="waiting"] .bb-hat { box-shadow: inset 0 -4px 0 var(--signal-bg); }
 .bb-blocks.locked .bb-script:not(.editing-rule) { opacity: 0.45; pointer-events: none; }
@@ -168,7 +171,8 @@
 
 /* ---------------------------------------------------------------- dragging */
 
-.bb-ghost {
+/* Doubled to outrank .bb-b.act's position: relative, which left an action's copy at the end of the page. */
+.bb-ghost.bb-ghost {
   position: fixed; z-index: 1000; pointer-events: none; margin: 0;
   opacity: 0.92; transform: rotate(-2deg); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
 }
@@ -184,7 +188,7 @@
 .bb-blocks.is-dragging:is(.drag-step, .drag-new-action) .bb-mouth { background: color-mix(in srgb, var(--blk-rule) 8%, transparent); }
 .bb-blocks.is-dragging:is(.drag-cond, .drag-new-cond) .bb-hat .bb-b.cond { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55); }
 
-@media (prefers-reduced-motion: reduce) { .bb-ghost { transform: none; } .bb-pal-toggle svg { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .bb-ghost.bb-ghost { transform: none; } .bb-pal-toggle svg { transition: none; } }
 
 /* ---------------------------------------------------------------- the style toggle */
 
