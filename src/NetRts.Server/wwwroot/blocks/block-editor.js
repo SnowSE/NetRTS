@@ -28,6 +28,7 @@ export class BlockEditor extends EditorCore {
   constructor(root, opts) {
     super(root, opts);
     this.tab = 'cond';
+    this.palOpen = true;    // the palette's chevron folds it down to its title (it stays a place to drop blocks to remove)
     this.selected = null;   // the rule a tapped palette block goes into (null: the last one)
     this.dragging = null;
     this.listen(root, 'keydown', (e) => this.key(e));
@@ -39,6 +40,7 @@ export class BlockEditor extends EditorCore {
       drop: (payload, target) => this.drop(payload, target),
       onStart: (payload) => { this.dragging = payload; root.querySelector('.bb-blocks')?.classList.add('is-dragging', `drag-${payload.type}`); },
       onEnd: () => { this.dragging = null; root.querySelector('.bb-blocks')?.classList.remove('is-dragging', 'drag-rule', 'drag-step', 'drag-cond', 'drag-new-rule', 'drag-new-cond', 'drag-new-action'); },
+      covered: () => this.paletteCover(),
     }));
     this.render();
   }
@@ -57,6 +59,13 @@ export class BlockEditor extends EditorCore {
     this.root.querySelectorAll('.bb-script').forEach((s) => s.classList.toggle('selected', Number(s.dataset.rule) === i));
     const hint = this.root.querySelector('#bb-pal-hint');
     if (hint) hint.textContent = this.hint();
+  }
+
+  /** In one column the pinned palette sits over the top of the rules: where they show from (else 0). */
+  paletteCover() {
+    const pal = this.root.querySelector('.bb-palette')?.getBoundingClientRect();
+    const canvas = this.root.querySelector('.bb-canvas')?.getBoundingClientRect();
+    return pal && canvas && pal.right > canvas.left && pal.left < canvas.right ? pal.bottom : 0;
   }
 
   hint() { return this.target == null ? 'Drag a rule block in to start.' : `Drag blocks into a rule, or tap one to add it to rule ${this.target + 1}.`; }
@@ -149,6 +158,7 @@ export class BlockEditor extends EditorCore {
   act(act, b) {
     switch (act) {
       case 'pal-tab': this.tab = b.dataset.tab; this.render(); this.root.querySelector(`[data-tab="${this.tab}"]`)?.focus(); return;
+      case 'pal-toggle': this.palOpen = !this.palOpen; this.render(); this.root.querySelector('[data-act="pal-toggle"]')?.focus(); return;
       case 'add-rule': this.addRule(); return;
       case 'insert-rule': this.addRule(Number(b.dataset.i)); return;
       case 'palette': this.tap(this.payload(b)); return;
@@ -189,7 +199,7 @@ export class BlockEditor extends EditorCore {
   html() {
     const p = this.program;
     return html`
-      <div class="bb-blocks${this.code ? ' with-code' : ''}${this.compact ? ' compact' : ''}${this.session ? ' locked' : ''}">
+      <div class="bb-blocks${this.code ? ' with-code' : ''}${this.compact ? ' compact' : ''}${this.session ? ' locked' : ''}${this.palOpen ? '' : ' pal-closed'}">
         ${this.paletteHtml()}
         <div class="bb-canvas">
           ${this.saveError && !this.session ? html`<p class="bb-error" role="alert">${this.saveError}</p>` : ''}
@@ -212,15 +222,21 @@ export class BlockEditor extends EditorCore {
     const block = (it, ptype, cls) => html`<button type="button" class="bb-b pal ${cls}" data-drag="palette" data-act="palette" data-ptype="${ptype}" ${dataAttrs(it.data)}>${it.label}</button>`;
     return html`
       <aside class="bb-palette" data-drop-trash aria-label="Blocks to add">
-        <p class="small muted bb-pal-hint" id="bb-pal-hint">${this.hint()}</p>
-        <button type="button" class="bb-b pal hat" data-drag="palette" data-act="palette" data-ptype="rule" ${fullRules(this.program) ? html`disabled title="${why.rules()}"` : ''}><span>when</span><span class="bb-b-gap"></span><span>do</span></button>
-        <div class="bb-pal-tabs" role="tablist" aria-label="Kinds of block">
-          ${TABS.map((t) => html`<button type="button" role="tab" class="bb-pal-tab tab-${t.id.toLowerCase()}" data-act="pal-tab" data-tab="${t.id}" aria-selected="${String(this.tab === t.id)}">${t.label}</button>`)}
+        <div class="bb-pal-head">
+          <h2>Blocks</h2>
+          <button type="button" class="bb-icon bb-pal-toggle" data-act="pal-toggle" aria-expanded="${String(this.palOpen)}" aria-controls="bb-pal-main" title="${this.palOpen ? 'Fold the blocks away' : 'Show the blocks'}">${raw(ICON.chevron)}<span class="visually-hidden">${this.palOpen ? 'Hide the blocks' : 'Show the blocks'}</span></button>
         </div>
-        <div class="bb-pal-body" role="tabpanel">
-          ${groups.map((g) => html`<div class="bb-pal-group"><h3>${g.name}</h3><div class="bb-pal-items">
-            ${g.items.map((it) => block(it, this.tab === 'cond' ? 'cond' : 'action', g.switches ? 'cond switch' : family))}
-            ${g.switches ? newSwitchHtml(this.program) : ''}</div></div>`)}
+        <div class="bb-pal-main" id="bb-pal-main" ${this.palOpen ? '' : 'hidden'}>
+          <p class="small muted bb-pal-hint" id="bb-pal-hint">${this.hint()}</p>
+          <button type="button" class="bb-b pal hat" data-drag="palette" data-act="palette" data-ptype="rule" ${fullRules(this.program) ? html`disabled title="${why.rules()}"` : ''}><span>when</span><span class="bb-b-gap"></span><span>do</span></button>
+          <div class="bb-pal-tabs" role="tablist" aria-label="Kinds of block">
+            ${TABS.map((t) => html`<button type="button" role="tab" class="bb-pal-tab tab-${t.id.toLowerCase()}" data-act="pal-tab" data-tab="${t.id}" aria-selected="${String(this.tab === t.id)}">${t.label}</button>`)}
+          </div>
+          <div class="bb-pal-body" role="tabpanel">
+            ${groups.map((g) => html`<div class="bb-pal-group"><h3>${g.name}</h3><div class="bb-pal-items">
+              ${g.items.map((it) => block(it, this.tab === 'cond' ? 'cond' : 'action', g.switches ? 'cond switch' : family))}
+              ${g.switches ? newSwitchHtml(this.program) : ''}</div></div>`)}
+          </div>
         </div>
         <p class="bb-trash" aria-hidden="true">Drop here to remove it</p>
       </aside>`;

@@ -11,9 +11,10 @@ const CONTROLS = 'select, input, textarea, label, a, button';
  * @param drop(payload, target)  makes the drop (target is what over returned)
  * @param onStart(payload)  the drag began (past a few pixels of movement)
  * @param onEnd()           it ended, dropped or not
+ * @param covered()         where the page shows from, when something pinned covers its top (else 0)
  * Returns a function that stops it.
  */
-export function pointerDrag(root, { pick, over, drop, onStart, onEnd, threshold = 5 }) {
+export function pointerDrag(root, { pick, over, drop, onStart, onEnd, covered = () => 0, threshold = 5 }) {
   let pending = null;    // { el, payload, x, y, id }
   let drag = null;       // { el, payload, ghost, dx, dy, target }
   let suppressClick = false;
@@ -61,7 +62,7 @@ export function pointerDrag(root, { pick, over, drop, onStart, onEnd, threshold 
     drag.ghost.style.left = `${e.clientX - drag.dx}px`;
     drag.ghost.style.top = `${e.clientY - drag.dy}px`;
     mark(over(drag.payload, e.clientX, e.clientY));
-    autoScroll(root, e.clientY);
+    autoScroll(root, e.clientY, covered());
   };
 
   const finish = (dropIt) => {
@@ -113,18 +114,22 @@ export function slotAmong(items, y) {
   return items.length;
 }
 
-/** Near the top or bottom of the scrolling column (or the window), scroll it a little. */
-function autoScroll(root, y) {
+/**
+ * Near the top or bottom of the scrolling column (or the window), scroll it a little. Under something
+ * pinned over the top (from y = cover down), the band just below it scrolls up instead of the top edge.
+ */
+function autoScroll(root, y, cover = 0) {
   const edge = 48;
   const step = 14;
   let box = root;
   while (box && box !== document.body && !(box.scrollHeight > box.clientHeight && /(auto|scroll)/.test(getComputedStyle(box).overflowY))) box = box.parentElement;
   if (box && box !== document.body) {
     const r = box.getBoundingClientRect();
-    if (y < r.top + edge) box.scrollTop -= step;
+    const top = Math.max(r.top, cover);
+    if (y < top + edge && (!cover || y >= top)) box.scrollTop -= step;
     else if (y > r.bottom - edge) box.scrollTop += step;
     return;
   }
-  if (y < edge) window.scrollBy(0, -step);
+  if (y < cover + edge && (!cover || y >= cover)) window.scrollBy(0, -step);
   else if (y > window.innerHeight - edge) window.scrollBy(0, step);
 }

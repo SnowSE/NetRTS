@@ -19,15 +19,19 @@
   gap: 16px;
   align-items: start;
 }
+/* The palette folded away: its column shrinks to its title. */
+.bb-blocks.pal-closed { grid-template-columns: auto minmax(0, 1fr) minmax(220px, 300px); }
 @media (max-width: 1100px) {
   .bb-blocks { grid-template-columns: minmax(190px, 230px) minmax(0, 1fr); }
+  .bb-blocks.pal-closed { grid-template-columns: auto minmax(0, 1fr); }
   .bb-blocks > .bb-help { grid-column: 1 / -1; position: static; }
 }
+/* One column is a flex column, not a grid: a grid puts the palette in a row of its own, and a pinned
+   (sticky) palette can't leave its row, so it would scroll away with the first rule. */
 @media (max-width: 700px) {
-  .bb-blocks { grid-template-columns: minmax(0, 1fr); }
-  .bb-blocks .bb-palette { position: static; max-height: none; }   /* one column: it would cover the rules */
+  .bb-blocks { display: flex; flex-direction: column; align-items: stretch; }
 }
-.bb-blocks.compact { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.bb-blocks.compact { display: flex; flex-direction: column; align-items: stretch; gap: 10px; }
 
 /* ---------------------------------------------------------------- a block */
 
@@ -115,9 +119,21 @@
 .bb-palette {
   display: grid; gap: 10px; align-content: start;
   background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 12px;
-  position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: hidden auto;
+  /* short enough to stay in full view at the end of the page too, with the footer under it */
+  position: sticky; top: 12px; max-height: calc(100vh - 120px); overflow: hidden auto;
   grid-template-columns: minmax(0, 1fr); min-width: 0;
 }
+/* In one column (a phone, the match cockpit) it stays pinned over the top of the rules, shorter, and folds away. */
+@media (max-width: 700px) {
+  .bb-blocks .bb-palette { top: 0; z-index: 5; max-height: 42vh; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
+}
+.bb-blocks.compact .bb-palette { top: 0; z-index: 5; max-height: 42vh; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
+.bb-pal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
+.bb-pal-head h2 { margin: 0; font-size: 0.95rem; }
+.bb-pal-toggle svg { transition: transform 0.15s; }
+.bb-blocks.pal-closed .bb-pal-toggle svg { transform: rotate(-90deg); }
+.bb-pal-main { display: grid; gap: 10px; min-width: 0; }
+.bb-pal-main[hidden] { display: none; }
 .bb-pal-hint { margin: 0; }
 .bb-b.pal { font-size: 0.92rem; min-height: 32px; }
 .bb-b.pal.hat { --c: var(--blk-rule); border-radius: 14px 14px 4px 4px; padding: 6px 12px; gap: 8px; }
@@ -142,7 +158,8 @@
 .bb-trash { display: none; margin: 0; padding: 10px; border: 2px dashed var(--danger); border-radius: var(--radius-m); color: var(--danger); text-align: center; font-weight: 700; }
 .bb-blocks.is-dragging:is(.drag-step, .drag-cond, .drag-rule) .bb-trash { display: block; }
 
-.bb-blocks.compact .bb-palette { position: static; max-height: none; padding: 8px; gap: 8px; }
+.bb-blocks.compact .bb-palette { padding: 8px; gap: 8px; }
+.bb-blocks.compact .bb-pal-main { gap: 8px; }
 .bb-blocks.compact .bb-pal-group { display: contents; }
 .bb-blocks.compact .bb-pal-group h3 { display: none; }
 .bb-blocks.compact .bb-pal-body { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -167,7 +184,7 @@
 .bb-blocks.is-dragging:is(.drag-step, .drag-new-action) .bb-mouth { background: color-mix(in srgb, var(--blk-rule) 8%, transparent); }
 .bb-blocks.is-dragging:is(.drag-cond, .drag-new-cond) .bb-hat .bb-b.cond { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55); }
 
-@media (prefers-reduced-motion: reduce) { .bb-ghost { transform: none; } }
+@media (prefers-reduced-motion: reduce) { .bb-ghost { transform: none; } .bb-pal-toggle svg { transition: none; } }
 
 /* ---------------------------------------------------------------- the style toggle */
 
