@@ -144,7 +144,7 @@ export function mountCockpit(main, matchId) {
     if (status.matchStatus !== 'Completed' && pending()) {
       setHtml(box, html`<div class="bb-pending"><p><b>This strategy changed in the editor</b> since this version started playing.</p>
         <div class="bb-row-btns"><button type="button" class="btn start small-btn" id="bb-apply-btn" ${applying ? 'disabled' : ''}>Send the changes in</button>
-        <button type="button" class="btn ghost small-btn" id="bb-undo">Keep what’s playing</button></div><p class="bb-error" id="bb-apply-err" role="alert"></p></div>`);
+        <button type="button" class="btn ghost small-btn" id="bb-keep-playing">Keep what’s playing</button></div><p class="bb-error" id="bb-apply-err" role="alert"></p></div>`);
     } else {
       setHtml(box, '');
     }
@@ -398,7 +398,7 @@ export function mountCockpit(main, matchId) {
       if (editor) editor = restyle(editor, b.dataset.editorStyle);
       markStyle(root);
     } else if (b.id === 'bb-apply-btn') apply();
-    else if (b.id === 'bb-undo' && status?.program) {
+    else if (b.id === 'bb-keep-playing' && status?.program) {
       strategy = { ...strategy, program: { ...clone(status.program), name: strategy.program.name } };
       putStrategy(strategy);
       editor.setProgram(strategy.program);

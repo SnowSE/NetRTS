@@ -3,6 +3,7 @@
 // (on/off, Save and Cancel, notes). Each editor wraps these in its own look.
 import { html, raw } from '../util.js';
 import { say, upgradeName, ORE } from '../lore.js';
+import { ICON } from './icons.js';
 import {
   C, A, LIMITS, knows, canCombine, condDepth, condHeight, byDefault,
   OPS, UNITS, FIGHTERS, BUILDINGS, UPGRADES, WHAT, WHO, SITES, TARGETS, SCOUT_TARGETS, EXPAND_BUILDINGS, VOCAB,
@@ -43,10 +44,23 @@ const number = (path, value, max, label) =>
   html`<input class="bb-num-in" type="number" min="0" max="${max}" inputmode="numeric" value="${value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="${label}">`;
 
 /**
+ * How a block's inputs are drawn: LIVE as the dropdowns and number boxes of a placed block; SHOWN, for a
+ * choice not placed yet (the palette, the picker), as {its value}, so it's clear that part can be changed.
+ */
+const LIVE = { select, number, live: true };
+const slot = (text) => html`<span class="bb-slot"><span aria-hidden="true">{</span>${text}<span aria-hidden="true">}</span></span> `;
+const SHOWN = {
+  // Just the name: a class's dropdown also says what it does ("Intro to Chemistry: +2 damage").
+  select: (path, field, value, options) => slot(String(options.find(([v]) => String(v) === String(value))?.[1] ?? value).split(': ')[0]),
+  number: (path, value) => slot(value),
+  live: false,
+};
+
+/**
  * A single check's words and inputs ("minute", [≥], [3]). And, or and not are made of other checks, so
  * each editor draws those itself.
  */
-export function condParts(program, c, path) {
+export function condParts(program, c, path, { select, number } = LIVE) {
   switch (c?.kind) {
     case 'count': return { label: '', fields: html`${select(path, 'what', c.what, WHAT(), 'What to count')}${select(path, 'op', c.op, OPS(), 'Comparison')}${number(path, c.value, LIMITS().maxNumber, 'Number')}` };
     case 'grubsLeft': return { label: `${ORE} left near my base`, fields: html`${select(path, 'op', c.op, OPS(), 'Comparison')}${number(path, c.value, LIMITS().maxNumber, 'Number')}` };
@@ -54,7 +68,7 @@ export function condParts(program, c, path) {
     case 'switch': return {
       label: 'switch',
       kind: 'switch',
-      fields: html`${select(path, 'name', c.name, (program.switches.length ? program.switches : [c.name]).map((s) => [s, s]), 'Which switch')}<span>is on</span>`,
+      fields: html`${select(path, 'name', c.name, (program.switches.length ? program.switches : [c.name]).map((s) => [s, s]), 'Which switch')} <span>is on</span>`,
     };
     case 'enemyNearBase': return { label: 'an enemy is near my base', fields: '' };
     case 'seeEnemy': return { label: 'I can see an enemy', fields: '' };
@@ -68,16 +82,16 @@ export const actionFamily = (kind) => (['train', 'trainMix'].includes(kind) ? 't
   : ['build', 'research', 'expand'].includes(kind) ? 'build' : 'army');
 
 /** An action's words and inputs ("attack", [the enemy base], "with", [all fighters]). */
-export function actionParts(a, path) {
+export function actionParts(a, path, { select, live } = LIVE) {
   const parts = (label, fields) => ({ label, fields, family: actionFamily(a.kind) });
   switch (a.kind) {
     case 'train': return parts('train a', select(path, 'unit', a.unit, UNITS().map((t) => [t, unitWord(t)]), 'Which unit'));
     case 'trainMix': return parts('train in turn', html`
-      ${(a.units || []).map((u, i) => html`${select(path, 'units', u, FIGHTERS().map((t) => [t, unitWord(t)]), `Unit ${i + 1} of the mix`, { i })}${a.units.length > 1 ? html`<button type="button" class="bb-icon small" data-act="mix-del" data-path="${path}" data-i="${i}" data-k="mixdel|${path}|${i}" aria-label="Remove unit ${i + 1} from the mix">−</button>` : ''}`)}
-      ${a.units.length < LIMITS().maxMixUnits ? html`<button type="button" class="bb-icon small" data-act="mix-add" data-path="${path}" data-k="mixadd|${path}" aria-label="Add a unit to the mix">+</button>` : ''}`);
+      ${(a.units || []).map((u, i) => html`${select(path, 'units', u, FIGHTERS().map((t) => [t, unitWord(t)]), `Unit ${i + 1} of the mix`, { i })}${live && a.units.length > 1 ? html`<button type="button" class="bb-icon small" data-act="mix-del" data-path="${path}" data-i="${i}" data-k="mixdel|${path}|${i}" aria-label="Remove unit ${i + 1} from the mix">−</button>` : ''}`)}
+      ${live && a.units.length < LIMITS().maxMixUnits ? html`<button type="button" class="bb-icon small" data-act="mix-add" data-path="${path}" data-k="mixadd|${path}" aria-label="Add a unit to the mix">+</button>` : ''}`);
     case 'build': return parts('build a', html`${select(path, 'building', a.building, BUILDINGS().map((b) => [b, bWord(b)]), 'Which building')}${select(path, 'site', a.site ?? byDefault('site'), SITES(), 'Where')}`);
     case 'research': return parts(say('research', 'take the class'), select(path, 'upgrade', a.upgrade, UPGRADES().map((u) => { const info = upgradeInfo(u); return [u, info ? `${upgradeName(u)}: ${info.short}` : upgradeName(u)]; }), 'Which upgrade'));
-    case 'attack': return parts('attack', html`${select(path, 'target', a.target ?? byDefault('target'), TARGETS(), 'Attack what')}<span>with</span>${select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who attacks')}`);
+    case 'attack': return parts('attack', html`${select(path, 'target', a.target ?? byDefault('target'), TARGETS(), 'Attack what')}<span>with</span> ${select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who attacks')}`);
     case 'defend': return parts('defend with', select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who defends'));
     case 'retreat': return parts('bring home', select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who comes home'));
     case 'scout': return parts('send a scout to', select(path, 'target', a.target ?? byDefault('scoutTarget'), SCOUT_TARGETS(), 'Where the scout goes'));
@@ -94,29 +108,35 @@ export function actionParts(a, path) {
  * knows are included, and a group with none left is dropped.
  */
 export function choiceGroups(type, program) {
-  const item = (label, data) => (knows(type, data.kind) ? { label, data } : null);
+  // Most choices are labelled as the block they make, with {braces} on what can be changed once it's placed.
+  const shown = (data) => {
+    const node = choiceNode(type, data);
+    const { label, fields } = type === 'cond' ? condParts(program, node, '', SHOWN) : actionParts(node, '', SHOWN);
+    return html`${label ? `${label} ` : ''}${fields}`;
+  };
+  const item = (label, data) => (knows(type, data.kind) ? { label: label ?? shown(data), data } : null);
   const group = (name, items, extra = {}) => ({ name, items: items.filter(Boolean), ...extra });
   const groups = type === 'cond'
     ? [
       group('My stuff', [
-        item('fighters ≥ 8', { kind: 'count', what: 'fighters', op: '>=', value: 8 }),
-        item('workers < 12', { kind: 'count', what: 'workers', op: '<', value: 12 }),
-        item(`${ORE} ≥ 150`, { kind: 'count', what: 'grubs', op: '>=', value: 150 }),
-        item(`fewer than 2 ${bWord('Barracks')}`, { kind: 'count', what: 'Barracks', op: '<', value: 2 }),
-        item(`${ORE} left near my base ≤ 300`, { kind: 'grubsLeft' }),
+        item(null, { kind: 'count', what: 'fighters', op: '>=', value: 8 }),
+        item(null, { kind: 'count', what: 'workers', op: '<', value: 12 }),
+        item(null, { kind: 'count', what: 'grubs', op: '>=', value: 150 }),
+        item(null, { kind: 'count', what: 'Barracks', op: '<', value: 2 }),
+        item(null, { kind: 'grubsLeft' }),
       ]),
-      group('The enemy', [item('an enemy is near my base', { kind: 'enemyNearBase' }), item('I can see an enemy', { kind: 'seeEnemy' })]),
-      group('Time', [item('minute ≥ 3', { kind: 'minute' }), item('every tick', { kind: 'always' })]),
-      knows('cond', 'switch') ? group('Switches', program.switches.map((s) => item(`${s} is on`, { kind: 'switch', name: s })), { switches: true }) : null,
+      group('The enemy', [item(null, { kind: 'enemyNearBase' }), item(null, { kind: 'seeEnemy' })]),
+      group('Time', [item(null, { kind: 'minute' }), item('every tick', { kind: 'always' })]),
+      knows('cond', 'switch') ? group('Switches', program.switches.map((s) => item(null, { kind: 'switch', name: s })), { switches: true }) : null,
       group('Combine', [item('both this and…', { kind: 'and' }), item('either this or…', { kind: 'or' }), item('not this', { kind: 'not' })], { combine: true }),
     ]
     : [
-      group('Train', UNITS().map((t) => item(unitWord(t), { kind: 'train', unit: t })).concat([item('a mix, in turn', { kind: 'trainMix' })])),
+      group('Train', UNITS().map((t) => item(null, { kind: 'train', unit: t })).concat([item(null, { kind: 'trainMix' })])),
       group('Build', BUILDINGS().filter((b) => b !== 'CommandCenter')   // a new HQ is an expansion
-        .map((b) => item(bWord(b), { kind: 'build', building: b }))
-        .concat([item(say('research an upgrade', 'take a class'), { kind: 'research' }), item(`expand to new ${ORE}`, { kind: 'expand' })])),
-      group('Army', [item('attack', { kind: 'attack' }), item('defend', { kind: 'defend' }), item('bring home', { kind: 'retreat' }),
-        item('send a scout to the enemy', { kind: 'scout', target: 'enemyBase' }), item(`explore for more ${ORE}`, { kind: 'scout', target: 'explore' })]),
+        .map((b) => item(null, { kind: 'build', building: b }))
+        .concat([item(null, { kind: 'research' }), item(null, { kind: 'expand' })])),
+      group('Army', [item(null, { kind: 'attack' }), item(null, { kind: 'defend' }), item(null, { kind: 'retreat' }),
+        item(null, { kind: 'scout', target: 'enemyBase' }), item(null, { kind: 'scout', target: 'explore' })]),
     ];
   return groups.filter((g) => g && (g.items.length || g.switches));
 }
@@ -157,6 +177,13 @@ export function ruleTools(ed, i, off) {
     <button type="button" class="bb-switch-toggle" role="switch" data-act="rule-toggle" data-i="${i}" data-k="toggle|${i}" aria-checked="${String(!off)}" aria-label="Rule ${i + 1}" title="${off ? 'Off: this rule is skipped. Click to turn it on.' : 'On: click to turn this rule off.'}" ${waitAttr(ed)}><span class="bb-switch-track" aria-hidden="true"><span class="bb-switch-knob"></span></span><span class="bb-switch-text">${off ? 'Off' : 'On'}</span></button>
     <button type="button" class="bb-icon" data-act="rule-del" data-i="${i}" data-k="del|${i}" aria-label="Delete rule ${i + 1}" ${waitAttr(ed)}>×</button>`;
 }
+
+/** Undo and redo (Ctrl+Z, Ctrl+Shift+Z): EditorCore keeps the history. */
+export const historyHtml = (ed) => html`
+  <span class="bb-history" role="group" aria-label="Undo and redo">
+    <button type="button" class="bb-icon bb-hist" data-act="undo" data-k="undo" aria-label="Undo" title="Undo (Ctrl+Z)" ${ed.canUndo ? '' : 'disabled'}>${raw(ICON.undo)}</button>
+    <button type="button" class="bb-icon bb-hist" data-act="redo" data-k="redo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" ${ed.canRedo ? '' : 'disabled'}>${raw(ICON.redo)}</button>
+  </span>`;
 
 /** The "+ rule" line above rule i (above none once the rules are full): a new rule goes in there. */
 export const insertRuleHtml = (program, i) => (fullRules(program) ? '' : html`

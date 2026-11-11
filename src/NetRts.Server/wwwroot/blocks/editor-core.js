@@ -6,6 +6,8 @@ import { clone, prefs, setPref } from './store.js';
 import { C, at, setAt, LIMITS, FIGHTERS } from './program.js';
 import { fullRule, fullRules, fullSwitches, fitsAt, ruleOf } from './editor-parts.js';
 
+const HISTORY = 100;   // undo steps kept
+
 export class EditorCore {
   /**
    * @param root      the element to draw in
@@ -24,12 +26,17 @@ export class EditorCore {
     // on it (a yellow border, Save and Cancel) and locks the others until it ends. One-click changes
     // (on/off, moving, deleting) are saved straight away. Without it, every change goes to onChange.
     this.onSave = onSave;
-    this.session = null;   // { index, snapshot (the program before the edit), inserted }
+    this.session = null;   // { index, snapshot (the program before the edit), inserted, mark (where in past it began) }
     this.saving = false;
     this.saveError = '';
     this.program = clone(program);
     this.onChange = onChange;
     this.onHover = onHover;
+    // Undo and redo: the programs before (past) and after (future) this one. In save mode the steps of a
+    // rule's session fold into one once it's saved, and undoing with no session open sends the earlier
+    // program into the match, as a move or a delete does.
+    this.past = [];
+    this.future = [];
     this.status = null;    // the running bot's rule statuses (cockpit)
     this.statusNote = '';
     this.code = !!prefs().code;
@@ -41,6 +48,15 @@ export class EditorCore {
     this.listen(root, 'change', (e) => this.change(e));
     this.listen(root, 'keydown', (e) => {
       if (e.key === 'Escape' && this.session && !this.saving) { e.preventDefault(); this.cancel(); }
+    });
+    // Ctrl+Z, Ctrl+Shift+Z and Ctrl+Y (⌘ on a Mac), except in a text box, which has its own undo.
+    this.listen(document, 'keydown', (e) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.target.closest?.('input, textarea, [contenteditable]')) return;
+      const key = e.key.toLowerCase();
+      const back = key === 'z' && !e.shiftKey;
+      if (!back && !(key === 'z' && e.shiftKey) && key !== 'y') return;
+      e.preventDefault();
+      if (back) this.undo(); else this.redo();
     });
     const hover = (e) => {
       const card = e.target.closest?.('.bb-rule');
@@ -59,7 +75,7 @@ export class EditorCore {
   /** Stops listening (when the page switches to the other editor style). */
   destroy() { this.listeners.forEach((off) => off()); this.listeners = []; }
 
-  setProgram(program) { this.program = clone(program); this.session = null; this.render(); }
+  setProgram(program) { this.program = clone(program); this.session = null; this.past = []; this.future = []; this.render(); }
   get busy() { return !!this.session; }
   setStatus(rules, note = '') {
     const changed = JSON.stringify(rules) !== JSON.stringify(this.status) || note !== this.statusNote;
@@ -73,6 +89,12 @@ export class EditorCore {
 
   /** Applies mutate to a copy of the program and draws it. (opts are for the editor style's own use.) */
   commit(mutate, opts) {
+    this.past.push(clone(this.program));
+    if (this.past.length > HISTORY) {
+      this.past.shift();
+      if (this.session) this.session.mark = Math.max(0, this.session.mark - 1);
+    }
+    this.future = [];
     const p = clone(this.program);
     mutate(p);
     this.program = p;
@@ -84,7 +106,7 @@ export class EditorCore {
   edit(index, mutate, opts) {
     if (this.onSave) {
       if (this.saving || (this.session && this.session.index !== index)) return false;
-      this.session ??= { index, snapshot: clone(this.program), inserted: false };
+      this.session ??= { index, snapshot: clone(this.program), inserted: false, mark: this.past.length };
       this.saveError = '';
     }
     this.commit(mutate, opts);
@@ -97,16 +119,56 @@ export class EditorCore {
     const before = clone(this.program);
     this.commit(mutate);
     if (!this.onSave) return true;
-    this.saving = true;
-    this.saveError = '';
-    try { await this.onSave(clone(this.program)); } catch (e) {
+    if (!(await this.sendNow())) {
       this.program = before;
-      this.saveError = e.message;
+      this.past.pop();
     }
-    this.saving = false;
     this.render();
     return true;
   }
+
+  /** Save mode: sends the program into the match now. False (with saveError set) if it was refused. */
+  async sendNow() {
+    this.saving = true;
+    this.saveError = '';
+    let ok = true;
+    try { await this.onSave(clone(this.program)); } catch (e) {
+      this.saveError = e.message;
+      ok = false;
+    }
+    this.saving = false;
+    return ok;
+  }
+
+  get canUndo() { return !this.saving && this.past.length > 0; }
+  get canRedo() { return !this.saving && this.future.length > 0; }
+  undo() { return this.step(true); }
+  redo() { return this.step(false); }
+
+  /** One step back (or forward) through the history. */
+  async step(back) {
+    const [from, to] = back ? [this.past, this.future] : [this.future, this.past];
+    if (this.saving || !from.length) return;
+    // Back past the start of a rule's session is the same as its Cancel.
+    if (back && this.session && this.past.length <= this.session.mark + 1) { this.cancel(); return; }
+    const was = this.program;
+    to.push(clone(was));
+    this.program = from.pop();
+    this.saveError = '';
+    this.afterReplace();
+    this.render();
+    if (!this.onSave) { this.onChange?.(clone(this.program)); return; }
+    if (this.session) return;
+    if (!(await this.sendNow())) {
+      from.push(this.program);
+      to.pop();
+      this.program = was;
+    }
+    this.render();
+  }
+
+  /** A hook for when undo or redo swaps the program (the cards close their picker). */
+  afterReplace() {}
 
   async save() {
     if (!this.session || this.saving) return;
@@ -115,6 +177,8 @@ export class EditorCore {
     this.render();
     try {
       await this.onSave(clone(this.program));
+      this.past.length = Math.min(this.past.length, this.session.mark + 1);   // the session is one step now
+      this.future = [];
       this.session = null;
       this.afterSession();
     } catch (e) { this.saveError = e.message; }
@@ -125,6 +189,8 @@ export class EditorCore {
   cancel() {
     if (!this.session) return;
     this.program = this.session.snapshot;
+    this.past.length = Math.min(this.past.length, this.session.mark);
+    this.future = [];
     this.session = null;
     this.saveError = '';
     this.afterSession();
@@ -137,7 +203,7 @@ export class EditorCore {
   /** A new rule at index. In save mode it starts out being edited: Save sends it in, Cancel takes it away. */
   insertRule(index, rule) {
     if (this.session || this.saving || fullRules(this.program)) return false;
-    if (this.onSave) this.session = { index, snapshot: clone(this.program), inserted: true };
+    if (this.onSave) this.session = { index, snapshot: clone(this.program), inserted: true, mark: this.past.length };
     this.commit((p) => { p.rules.splice(index, 0, rule); });
     return true;
   }
@@ -221,6 +287,8 @@ export class EditorCore {
     switch (act) {
       case 'save-rule': return this.save();
       case 'cancel-rule': return this.cancel();
+      case 'undo': return this.undo();
+      case 'redo': return this.redo();
       case 'new-switch': {
         const input = this.root.querySelector('#bb-new-switch');
         if (!this.addSwitch(input?.value, this.switchTarget?.())) input?.focus();

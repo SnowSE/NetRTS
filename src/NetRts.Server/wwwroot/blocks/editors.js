@@ -29,7 +29,10 @@ export function restyle(editor, style) {
   setPref('editorStyle', style);
   editor.destroy();
   const next = createEditor(editor.root, { ...editor.opts, program: editor.program });
-  Object.assign(next, { session: editor.session, saveError: editor.saveError, status: editor.status, statusNote: editor.statusNote });
+  Object.assign(next, {
+    session: editor.session, saveError: editor.saveError, status: editor.status, statusNote: editor.statusNote,
+    past: editor.past, future: editor.future,
+  });
   next.render();
   return next;
 }

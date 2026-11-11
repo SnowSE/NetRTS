@@ -134,7 +134,13 @@
 /* ---------- rule cards ---------- */
 
 .bb-editor { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.bb-rules { flex: 999 1 560px; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.bb-rules { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; align-items: stretch; }   /* not a grid: the undo bar's sticky would be stuck in its row */
+/* Undo and redo: pinned at the top right of the rules as they scroll (the blocks keep them in the palette). */
+.bb-toolbar { position: sticky; top: 8px; z-index: 4; display: flex; justify-content: flex-end; margin-bottom: 4px; pointer-events: none; }
+.bb-toolbar .bb-history { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
+.bb-history { display: inline-flex; gap: 4px; }
+.bb-icon.bb-hist { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
+.bb-icon.bb-hist:disabled { opacity: 0.35; cursor: default; }
 .bb-empty { margin: 0 0 6px; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius-m); color: var(--muted); }
 .bb-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
 .bb-rule { flex: 1 1 480px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 8px 10px; display: grid; gap: 4px; }
@@ -408,3 +414,7 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 @media (max-width: 560px) { .map3d-card.bb-bcard { width: 190px; } }
 /* While something is being dragged, the "+ rule" labels step aside for the drop line. */
 .bb-editor:has(.dragging) .bb-insert { visibility: hidden; }
+
+/* A part of a not-yet-placed block that can be changed once it's placed: {Housing}. */
+.bb-slot { white-space: nowrap; }
+.bb-slot > [aria-hidden] { opacity: 0.7; font-weight: 400; padding-inline: 1px; }

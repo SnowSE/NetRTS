@@ -6,7 +6,7 @@ import { EditorCore } from './editor-core.js';
 import { pointerDrag, dropSpot, slotAmong } from './drag.js';
 import {
   fullRule, fullRules, why, ruleOf, select, condParts, actionParts, choiceGroups, choiceNode, canWrap, fitsAt,
-  dataAttrs, waitAttr, ruleTools, ruleFooter, insertRuleHtml, switchListHtml, newSwitchHtml, howRulesRun,
+  dataAttrs, waitAttr, ruleTools, ruleFooter, insertRuleHtml, historyHtml, switchListHtml, newSwitchHtml, howRulesRun,
 } from './editor-parts.js';
 
 /** The palette's tabs: the checks, then the action groups by name (as choiceGroups names them). */
@@ -243,6 +243,7 @@ export class BlockEditor extends EditorCore {
       <aside class="bb-palette" data-drop-trash aria-label="Blocks to add">
         <div class="bb-pal-head">
           <h2>Blocks</h2>
+          ${historyHtml(this)}
           <button type="button" class="bb-icon bb-pal-toggle" data-act="pal-toggle" aria-expanded="${String(this.palOpen)}" aria-controls="bb-pal-main" title="${this.palOpen ? 'Fold the blocks away' : 'Show the blocks'}">${raw(ICON.chevron)}<span class="visually-hidden">${this.palOpen ? 'Hide the blocks' : 'Show the blocks'}</span></button>
         </div>
         <div class="bb-pal-main" id="bb-pal-main" ${this.palOpen ? '' : 'hidden'}>
@@ -317,6 +318,7 @@ export class BlockEditor extends EditorCore {
       <p>Drag a <b>check</b> (green) onto a rule's <i>when</i> to swap it. <b>and</b>, <b>or</b> and <b>not</b> wrap the check you drop them on.</p>
       <p>To start a rule somewhere other than the bottom, use a <b>+ rule</b> line, or drag the <b>when … do</b> block to that spot.</p>
       <p>Drag <b>actions</b> onto a rule, where you want them in its stack. Drag any block back onto the palette to remove it.</p>
+      <p><b>Undo</b> and <b>redo</b> are at the top of the palette (or press Ctrl+Z and Ctrl+Shift+Z). Parts in <b>{braces}</b> on a palette block can be changed once it's in a rule.</p>
       <p>No mouse? Tap a palette block to add it to the selected rule. A focused step moves with <b>↑ ↓</b> and goes with <b>Delete</b>.</p>
       ${this.program.switches.length ? html`<h3>Your switches</h3>${switchListHtml(this.program)}` : ''}`;
   }

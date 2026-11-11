@@ -5,7 +5,7 @@ import { ICON } from './icons.js';
 import { EditorCore } from './editor-core.js';
 import {
   fullRule, fullRules, why, ruleOf, select, condParts, actionParts, choiceGroups, choiceNode, canWrap, dataAttrs,
-  waitAttr, ruleTools, ruleFooter, insertRuleHtml, switchListHtml, newSwitchHtml, howRulesRun,
+  waitAttr, ruleTools, ruleFooter, insertRuleHtml, historyHtml, switchListHtml, newSwitchHtml, howRulesRun,
 } from './editor-parts.js';
 
 /**
@@ -90,6 +90,7 @@ export class RuleEditor extends EditorCore {
 
   setProgram(program) { this.picker = null; super.setProgram(program); }
   afterSession() { this.picker = null; }
+  afterReplace() { this.picker = null; }
   commit(mutate, { keepPicker = false } = {}) {
     if (!keepPicker) this.picker = null;
     super.commit(mutate);
@@ -157,6 +158,7 @@ export class RuleEditor extends EditorCore {
     return html`
       <div class="bb-editor${this.code ? ' with-code' : ''}${this.compact ? ' compact' : ''}${this.session ? ' locked' : ''}">
         <div class="bb-rules">
+          <div class="bb-toolbar">${historyHtml(this)}</div>
           ${this.saveError && !this.session ? html`<p class="bb-error" role="alert">${this.saveError}</p>` : ''}
           ${p.rules.length ? '' : html`<p class="bb-empty">No rules yet. Add one, or start from one of the starter strategies in the locker.</p>`}
           ${p.rules.map((r, i) => html`${insertRuleHtml(p, i)}${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
@@ -233,6 +235,7 @@ export class RuleEditor extends EditorCore {
         <p>Each rule says <b>when</b> and <b>what to do</b>. Every tick (about once a second) your bot checks the rules from the top.</p>
         <p>Click a <b>▾</b> to swap a piece for a different one. Change numbers and choices right in the sentence.</p>
         <p>Add a <b>switch</b> to flip during a match: a rule like "When the <i>Attack!</i> switch is on, attack" lets you send your army in whenever you want.</p>
+        <p><b>Undo</b> and <b>redo</b> are at the top right of your rules (or press Ctrl+Z and Ctrl+Shift+Z).</p>
         <p>To add a rule above another one, use the <b>+ rule</b> line above it.</p>
         <p>To add a step between two others, use the <b>+</b> between them. Drag a step by its <b>⠿</b> handle to change the order (or focus the handle and press ← or →).</p>
         ${this.program.switches.length ? html`<h3>Your switches</h3>${switchListHtml(this.program)}` : ''}`;
