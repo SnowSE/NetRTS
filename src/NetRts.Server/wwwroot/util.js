@@ -56,6 +56,36 @@ function render(v) {
 export const raw = (s) => ({ __html: s });
 export const setHtml = (el, h) => { el.innerHTML = h.__html ?? h; };
 
+/**
+ * Like setHtml, but keeps the elements that are still there and changes only what differs, so redrawing
+ * often (a HUD each tick) doesn't throw away what's under the pointer: its tooltip, its hover.
+ */
+export function patchHtml(el, h) {
+  const next = document.createElement('template');
+  next.innerHTML = h.__html ?? h;
+  patchChildren(el, next.content);
+}
+
+function patchChildren(el, want) {
+  const have = [...el.childNodes];
+  const wanted = [...want.childNodes];
+  wanted.forEach((w, i) => {
+    const old = have[i];
+    if (!old || old.nodeType !== w.nodeType || old.nodeName !== w.nodeName) {
+      if (old) old.replaceWith(w); else el.append(w);
+      return;
+    }
+    if (w.nodeType !== Node.ELEMENT_NODE) {
+      if (old.nodeValue !== w.nodeValue) old.nodeValue = w.nodeValue;
+      return;
+    }
+    for (const a of [...old.attributes]) if (!w.hasAttribute(a.name)) old.removeAttribute(a.name);
+    for (const a of [...w.attributes]) if (old.getAttribute(a.name) !== a.value) old.setAttribute(a.name, a.value);
+    patchChildren(old, w);
+  });
+  have.slice(wanted.length).forEach((n) => n.remove());
+}
+
 /** Player colours: one per slot, up to 16 players. */
 export const SLOT_COLOURS = 16;
 

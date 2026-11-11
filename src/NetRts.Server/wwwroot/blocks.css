@@ -404,9 +404,10 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-bcard-stats div { display: flex; justify-content: space-between; gap: 8px; }
 .bb-bcard-stats dt { color: var(--hud-muted); }
 .bb-bcard-stats dd { margin: 0; text-align: right; font-weight: 600; }
-.bb-board { width: 176px; gap: 3px; }
+/* As wide as the longest name needs, up to a limit; past it, names end in … (each has its full name as a tooltip). */
+.bb-board { width: max-content; min-width: 176px; max-width: 280px; gap: 3px; pointer-events: auto; }
 .bb-board-count { font-weight: 400; letter-spacing: 0; text-transform: none; }
-.bb-board ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.bb-board ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: minmax(0, 1fr); gap: 2px; }
 .bb-board li { display: flex; align-items: center; gap: 6px; padding: 2px 4px; border-radius: 4px; font-size: 0.8rem; color: var(--hud-soft); }
 .bb-board li.me { background: color-mix(in srgb, var(--pc) 28%, transparent); box-shadow: inset 2px 0 0 var(--pc); color: var(--hud-ink-hi); font-weight: 700; }
 .bb-board li.out { opacity: 0.5; text-decoration: line-through; }

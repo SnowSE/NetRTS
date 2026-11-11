@@ -1,6 +1,6 @@
 // #/blocks/match/<id>: the cockpit. The match in the 3D view, your rules lighting up as they fire,
 // switches to flip, and each rule saved into the running match as you change it.
-import { api, html, raw, setHtml, displayName, outcomeText, mountScope, playerNames } from '../util.js';
+import { api, html, raw, setHtml, patchHtml, displayName, outcomeText, mountScope, playerNames } from '../util.js';
 import { say } from '../lore.js';
 import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
@@ -361,7 +361,8 @@ export function mountCockpit(main, matchId) {
   }
 
   function renderHud() {
-    if (status) setHtml($('bb-hud'), hudHtml({ state: lastState, summary, status, history }));
+    // Patched, not replaced: a scoreboard name keeps its tooltip while the scores tick over.
+    if (status) patchHtml($('bb-hud'), hudHtml({ state: lastState, summary, status, history }));
   }
 
   function renderBuildingCard() {
