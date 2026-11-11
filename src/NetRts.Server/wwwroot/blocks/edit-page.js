@@ -1,4 +1,5 @@
-// #/blocks/edit/<id>: one strategy in the rule editor (cards or blocks, editors.js), saved in this browser as you go.
+// #/blocks/edit/<id>: one strategy in the rule editor (cards or blocks, editors.js), saved in this browser as you go
+// (and to the account when someone is signed in: sync.js).
 import { html, raw, setHtml, mountScope } from '../util.js';
 import { getStrategy, putStrategy, setPref, matchRecords, player, authed, themed, nav, downloadStrategy } from './store.js';
 import { LIMITS } from './program.js';
@@ -9,7 +10,7 @@ import { savedLabel, SYNC_EVENT } from './sync.js';
 export function mountEditor(main, id) {
   const s = getStrategy(id);
   if (!s) {
-    setHtml(main, html`<section class="bb-page"><h1>Strategy not found</h1><p>It isn’t saved in this browser. <a href="#/blocks">Back to my strategies</a></p></section>`);
+    setHtml(main, html`<section class="bb-page"><h1>Strategy not found</h1><p>It isn’t saved in this browser, or in your account if you’re signed in. <a href="#/blocks">Back to my strategies</a></p></section>`);
     return () => {};
   }
   let strategy = s;
