@@ -37,7 +37,7 @@ export function mountSpectate(root, matchKey) {
             <span class="small muted" aria-hidden="true">Vision</span>
             <div class="segmented" id="vision"></div>
           </fieldset>
-          <ul class="legend" aria-label="Map key">${legendItems()}</ul>
+          <ul class="legend" id="map-legend" aria-label="Map key">${legendItems()}</ul>
           <div class="map-controls" role="toolbar" aria-label="Map view">
             <button type="button" id="view3d" aria-pressed="false" title="Fly around the battlefield in 3D (3)">3D</button>
             <button type="button" id="zoom-in" aria-label="Zoom in" title="Zoom in (+)">+</button>
@@ -369,6 +369,7 @@ export function mountSpectate(root, matchKey) {
     for (const id of ['zoom-in', 'zoom-out', 'zoom-fit', 'follow']) $(id).hidden = false;
     $('map-help').hidden = is3d;
     $('map-help-3d').hidden = !is3d;
+    $('map-legend').hidden = is3d;   // the key is for the 2D map's symbols
     if (!is3d) { view.onCameraChange(view); return; }
     const mode = view3d?.mode ?? 'orbit';
     followBtn.setAttribute('aria-pressed', String(mode === 'director'));
