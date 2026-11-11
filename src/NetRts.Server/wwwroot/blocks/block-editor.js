@@ -271,6 +271,7 @@ export class BlockEditor extends EditorCore {
         <article class="bb-rule bb-script${off ? ' off' : ''}${this.session?.index === i ? ' editing-rule' : ''}${this.target === i ? ' selected' : ''}" data-rule="${i}" aria-label="Rule ${i + 1}">
           <div class="bb-shape">
           <div class="bb-hat" data-drag="rule" data-i="${i}" title="Drag to move this rule">
+            <span class="bb-grip bb-rule-grip" aria-hidden="true" title="Drag to move this rule">${raw(ICON.grip)}</span>
             <span class="bb-num" aria-hidden="true">${i + 1}</span>
             <span class="bb-word">when</span>
             ${this.condHtml(r.when, `rules.${i}.when`)}

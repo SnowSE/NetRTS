@@ -91,6 +91,9 @@
   border-radius: 14px 14px 4px 0; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .bb-hat .bb-word { font-weight: 700; }
+/* The grip a rule is dragged by (the whole top bar drags; this shows where to take hold). */
+.bb-rule-grip { align-self: stretch; padding: 0 2px 0 0; cursor: grab; opacity: 0.8; }
+.bb-rule-grip svg { width: 10px; height: 18px; }
 .bb-hat .bb-num { background: rgba(0, 0, 0, 0.25); color: var(--blk-text); }
 .bb-hat .bb-tools { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
 .bb-hat .bb-icon { color: var(--blk-text); background: rgba(0, 0, 0, 0.2); border: 0; border-radius: 999px; min-width: 28px; min-height: 28px; }
