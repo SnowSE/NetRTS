@@ -78,6 +78,23 @@ public sealed class BlockWords
             _ => what,
         };
 
+    /// <summary>What an enemies or underAttack condition is about, as a plural ("units", "soldiers", "Bell Towers").</summary>
+    public string Group(string what)
+    {
+        if (what.Equals("units", StringComparison.OrdinalIgnoreCase) || what.Equals("buildings", StringComparison.OrdinalIgnoreCase))
+        {
+            return what.ToLowerInvariant();
+        }
+
+        if (Enum.TryParse<BuildingType>(what, true, out var building))
+        {
+            var name = Building(building);
+            return name.EndsWith('s') ? name : name + "s";
+        }
+
+        return What(what);
+    }
+
     public static string Op(string op) => op switch
     {
         "<" => "fewer than",

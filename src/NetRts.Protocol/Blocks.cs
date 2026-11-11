@@ -18,6 +18,13 @@ public sealed record BlockProgramDto
 public sealed record BlockRuleDto
 {
     public bool Enabled { get; init; } = true;
+
+    /// <summary>Runs (does at least one of its actions) only once a match. Changing the rule starts it over.</summary>
+    public bool Once { get; init; }
+
+    /// <summary>Runs at most once every this many seconds (game seconds: one a tick); null for every tick. Not with Once.</summary>
+    public int? EverySeconds { get; init; }
+
     public BlockConditionDto When { get; init; } = new() { Kind = "always" };
     public IReadOnlyList<BlockActionDto> Do { get; init; } = [];
 }
@@ -25,9 +32,13 @@ public sealed record BlockRuleDto
 /// <summary>
 /// A condition. Kind is one of: always, enemyNearBase, seeEnemy, count (What Op Value), grubsLeft (Op Value: the
 /// grubs left in the piles near your HQs and Co-op Stores), minute (Op Value),
-/// switch (Name), and (A, B), or (A, B), not (A).
+/// switch (Name), enemies (What Op Value: the enemies you can see), underAttack (What: one of yours lost
+/// health or was destroyed in the last few seconds), hqHealth (Op Value: your HQ's health in percent),
+/// and (A, B), or (A, B), not (A).
 /// What for count: grubs, workers, fighters, a unit type (Soldier, Archer, Scout, Trebuchet) or a building
 /// type (Barracks, TechLab, ...). Units in production and buildings going up count too.
+/// What for enemies: fighters, workers, buildings, a unit type or a building type.
+/// What for underAttack: units, workers, fighters, buildings, a unit type or a building type (CommandCenter: your HQ).
 /// </summary>
 public sealed record BlockConditionDto
 {
@@ -42,8 +53,9 @@ public sealed record BlockConditionDto
 
 /// <summary>
 /// An action. Kind is one of: train (Unit), trainMix (Units), build (Building, Site), research (Upgrade),
-/// attack (Who, Target), defend (Who), retreat (Who), scout (Target: enemyBase or explore), expand (Building:
-/// ResourceDepot or CommandCenter, built beside the nearest grub pile you know of that isn't near one yet).
+/// attack (Who, Target, Percent), defend (Who), retreat (Who), scout (Target: enemyBase or explore), expand (Building:
+/// ResourceDepot or CommandCenter, built beside the nearest grub pile you know of that isn't near one yet),
+/// setSwitch (Name, On: flips one of the program's switches, for the rules below it too).
 /// Who: fighters or a unit type. Target: enemyBase or nearestEnemy. Site: TowardCenter, NearOre or TowardEnemy.
 /// </summary>
 public sealed record BlockActionDto
@@ -56,6 +68,15 @@ public sealed record BlockActionDto
     public UpgradeType? Upgrade { get; init; }
     public string? Who { get; init; }
     public string? Target { get; init; }
+
+    /// <summary>attack: the share of Who to send, 1-100 (null: all of them).</summary>
+    public int? Percent { get; init; }
+
+    /// <summary>setSwitch: which switch.</summary>
+    public string? Name { get; init; }
+
+    /// <summary>setSwitch: on or off.</summary>
+    public bool? On { get; init; }
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<BlockPlayMode>))]
@@ -172,6 +193,12 @@ public sealed record BlockVocabularyDto
     /// <summary>What a count condition can count.</summary>
     public IReadOnlyList<string> Countable { get; init; } = [];
 
+    /// <summary>What an enemies condition can count.</summary>
+    public IReadOnlyList<string> EnemyCountable { get; init; } = [];
+
+    /// <summary>What an underAttack condition can watch.</summary>
+    public IReadOnlyList<string> Attackable { get; init; } = [];
+
     /// <summary>What expand can build.</summary>
     public IReadOnlyList<BuildingType> ExpandBuildings { get; init; } = [];
 
@@ -195,6 +222,9 @@ public sealed record BlockLimitsDto
 
     /// <summary>The most units a trainMix may cycle through.</summary>
     public int MaxMixUnits { get; init; }
+
+    /// <summary>The longest wait a rule may have between runs (EverySeconds).</summary>
+    public int MaxEverySeconds { get; init; }
 }
 
 /// <summary>What the server uses when an optional field is left out.</summary>

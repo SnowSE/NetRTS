@@ -44,6 +44,11 @@ public sealed partial class BlockBot : IBotStrategy
     private int _scoutCursor;
     private (int X, int Y)? _exploreGoal;
 
+    // What was hurt lately (the underAttack check), and when each rule last ran (Once, EverySeconds), by the
+    // rule's text: an edited rule starts over, a moved one doesn't.
+    private readonly AttackWatch _attacks = new();
+    private readonly Dictionary<string, int> _lastRun = [];
+
     public BlockBot(string name, BlockProgramDto program)
     {
         Name = name;
@@ -143,6 +148,7 @@ public sealed partial class BlockBot : IBotStrategy
         }
 
         _memory.Update(view);
+        _attacks.Update(view);
         if (_exploreGoal is { } goal && _memory.HasSeen(goal.X, goal.Y))
         {
             _exploreGoal = null;

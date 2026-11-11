@@ -7,7 +7,7 @@ import { ICON } from './icons.js';
 import {
   C, A, LIMITS, knows, canCombine, condDepth, condHeight, byDefault,
   OPS, UNITS, FIGHTERS, BUILDINGS, UPGRADES, WHAT, WHO, SITES, TARGETS, SCOUT_TARGETS, EXPAND_BUILDINGS, VOCAB,
-  unitWord, bWord, upgradeInfo,
+  ENEMY_WHAT, ATTACKABLE, ON_OFF, unitWord, bWord, upgradeInfo,
 } from './program.js';
 
 // ------------------------------------------------------------------ limits
@@ -40,8 +40,11 @@ export function select(path, field, value, options, label, extra = {}) {
   </select>`;
 }
 
-const number = (path, value, max, label) =>
-  html`<input class="bb-num-in" type="number" min="0" max="${max}" inputmode="numeric" value="${value}" data-path="${path}" data-field="value" data-k="${path}|value|" aria-label="${label}">`;
+const number = (path, value, max, label, field = 'value', min = 0) =>
+  html`<input class="bb-num-in" type="number" min="${min}" max="${max}" inputmode="numeric" value="${value}" data-path="${path}" data-field="${field}" data-k="${path}|${field}|" aria-label="${label}">`;
+
+/** A program's switches, for a dropdown (one it names that's gone still shows as itself). */
+const switchChoices = (program, name) => (program?.switches?.length ? program.switches : [name]).map((s) => [s, s]);
 
 /**
  * How a block's inputs are drawn: LIVE as the dropdowns and number boxes of a placed block; SHOWN, for a
@@ -68,8 +71,11 @@ export function condParts(program, c, path, { select, number } = LIVE) {
     case 'switch': return {
       label: 'switch',
       kind: 'switch',
-      fields: html`${select(path, 'name', c.name, (program.switches.length ? program.switches : [c.name]).map((s) => [s, s]), 'Which switch')} <span>is on</span>`,
+      fields: html`${select(path, 'name', c.name, switchChoices(program, c.name), 'Which switch')} <span>is on</span>`,
     };
+    case 'enemies': return { label: 'enemy', fields: html`${select(path, 'what', c.what, ENEMY_WHAT(), 'Which enemies')} <span>I can see</span> ${select(path, 'op', c.op, OPS(), 'Comparison')}${number(path, c.value, LIMITS().maxNumber, 'Number')}` };
+    case 'underAttack': return { label: '', fields: html`${select(path, 'what', c.what, ATTACKABLE(), 'What is under attack')} <span>under attack</span>` };
+    case 'hqHealth': return { label: `my ${bWord('CommandCenter')}'s health`, fields: html`${select(path, 'op', c.op, OPS(), 'Comparison')}${number(path, c.value, 100, 'Percent')} <span>%</span>` };
     case 'enemyNearBase': return { label: 'an enemy is near my base', fields: '' };
     case 'seeEnemy': return { label: 'I can see an enemy', fields: '' };
     case 'always': return { label: 'Every tick', fields: '' };
@@ -77,12 +83,12 @@ export function condParts(program, c, path, { select, number } = LIVE) {
   }
 }
 
-/** Which colour family an action belongs to: train, build or army (as the choices group them). */
+/** Which colour family an action belongs to: train, build, army or switch (as the choices group them). */
 export const actionFamily = (kind) => (['train', 'trainMix'].includes(kind) ? 'train'
-  : ['build', 'research', 'expand'].includes(kind) ? 'build' : 'army');
+  : ['build', 'research', 'expand'].includes(kind) ? 'build' : kind === 'setSwitch' ? 'switch' : 'army');
 
 /** An action's words and inputs ("attack", [the enemy base], "with", [all fighters]). */
-export function actionParts(a, path, { select, live } = LIVE) {
+export function actionParts(program, a, path, { select, number, live } = LIVE) {
   const parts = (label, fields) => ({ label, fields, family: actionFamily(a.kind) });
   switch (a.kind) {
     case 'train': return parts('train a', select(path, 'unit', a.unit, UNITS().map((t) => [t, unitWord(t)]), 'Which unit'));
@@ -91,7 +97,8 @@ export function actionParts(a, path, { select, live } = LIVE) {
       ${live && a.units.length < LIMITS().maxMixUnits ? html`<button type="button" class="bb-icon small" data-act="mix-add" data-path="${path}" data-k="mixadd|${path}" aria-label="Add a unit to the mix">+</button>` : ''}`);
     case 'build': return parts('build a', html`${select(path, 'building', a.building, BUILDINGS().map((b) => [b, bWord(b)]), 'Which building')}${select(path, 'site', a.site ?? byDefault('site'), SITES(), 'Where')}`);
     case 'research': return parts(say('research', 'take the class'), select(path, 'upgrade', a.upgrade, UPGRADES().map((u) => { const info = upgradeInfo(u); return [u, info ? `${upgradeName(u)}: ${info.short}` : upgradeName(u)]; }), 'Which upgrade'));
-    case 'attack': return parts('attack', html`${select(path, 'target', a.target ?? byDefault('target'), TARGETS(), 'Attack what')}<span>with</span> ${select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who attacks')}`);
+    case 'attack': return parts('attack', html`${select(path, 'target', a.target ?? byDefault('target'), TARGETS(), 'Attack what')}<span>with</span> ${number(path, a.percent ?? 100, 100, 'Percent of them to send', 'percent', 1)} <span>% of</span> ${select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who attacks')}`);
+    case 'setSwitch': return parts('turn', html`${select(path, 'name', a.name, switchChoices(program, a.name), 'Which switch')}${select(path, 'on', String(a.on !== false), ON_OFF(), 'On or off')}`);
     case 'defend': return parts('defend with', select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who defends'));
     case 'retreat': return parts('bring home', select(path, 'who', a.who ?? byDefault('who'), WHO(), 'Who comes home'));
     case 'scout': return parts('send a scout to', select(path, 'target', a.target ?? byDefault('scoutTarget'), SCOUT_TARGETS(), 'Where the scout goes'));
@@ -111,7 +118,7 @@ export function choiceGroups(type, program) {
   // Most choices are labelled as the block they make, with {braces} on what can be changed once it's placed.
   const shown = (data) => {
     const node = choiceNode(type, data);
-    const { label, fields } = type === 'cond' ? condParts(program, node, '', SHOWN) : actionParts(node, '', SHOWN);
+    const { label, fields } = type === 'cond' ? condParts(program, node, '', SHOWN) : actionParts(program, node, '', SHOWN);
     return html`${label ? `${label} ` : ''}${fields}`;
   };
   const item = (label, data) => (knows(type, data.kind) ? { label: label ?? shown(data), data } : null);
@@ -125,7 +132,10 @@ export function choiceGroups(type, program) {
         item(null, { kind: 'count', what: 'Barracks', op: '<', value: 2 }),
         item(null, { kind: 'grubsLeft' }),
       ]),
-      group('The enemy', [item(null, { kind: 'enemyNearBase' }), item(null, { kind: 'seeEnemy' })]),
+      group('The enemy', [item(null, { kind: 'enemyNearBase' }), item(null, { kind: 'seeEnemy' }),
+        item(null, { kind: 'enemies', what: 'fighters', op: '>=', value: 5 }),
+        item(null, { kind: 'underAttack', what: 'units' }), item(null, { kind: 'underAttack', what: 'workers' }),
+        item(null, { kind: 'underAttack', what: 'CommandCenter' }), item(null, { kind: 'hqHealth' })]),
       group('Time', [item(null, { kind: 'minute' }), item('every tick', { kind: 'always' })]),
       knows('cond', 'switch') ? group('Switches', program.switches.map((s) => item(null, { kind: 'switch', name: s })), { switches: true }) : null,
       group('Combine', [item('both this and…', { kind: 'and' }), item('either this or…', { kind: 'or' }), item('not this', { kind: 'not' })], { combine: true }),
@@ -135,8 +145,11 @@ export function choiceGroups(type, program) {
       group('Build', BUILDINGS().filter((b) => b !== 'CommandCenter')   // a new HQ is an expansion
         .map((b) => item(null, { kind: 'build', building: b }))
         .concat([item(null, { kind: 'research' }), item(null, { kind: 'expand' })])),
-      group('Army', [item(null, { kind: 'attack' }), item(null, { kind: 'defend' }), item(null, { kind: 'retreat' }),
+      group('Army', [item(null, { kind: 'attack' }), item(null, { kind: 'attack', percent: 50 }), item(null, { kind: 'defend' }), item(null, { kind: 'retreat' }),
         item(null, { kind: 'scout', target: 'enemyBase' }), item(null, { kind: 'scout', target: 'explore' })]),
+      // Turning switches on and off goes with the army orders in the palette (tab: which tab shows a group).
+      knows('action', 'setSwitch') ? group('Switches', program.switches.flatMap((s) => [
+        item(null, { kind: 'setSwitch', name: s, on: true }), item(null, { kind: 'setSwitch', name: s, on: false })]), { switches: true, tab: 'Army' }) : null,
     ];
   return groups.filter((g) => g && (g.items.length || g.switches));
 }
@@ -149,9 +162,13 @@ export function choiceNode(type, d, current) {
       case 'not': return C.not(current ?? C.always());
       case 'count': return C.count(d.what, d.op, Number(d.value));
       case 'switch': return C.switch(d.name);
+      case 'enemies': return C.enemies(d.what, d.op, Number(d.value));
+      case 'underAttack': return C.underAttack(d.what);
       default: return C[d.kind]();
     }
   }
+  if (d.kind === 'setSwitch') return A.setSwitch(d.name, String(d.on) !== 'false');
+  if (d.kind === 'attack') return A.attack(undefined, undefined, d.percent ? Number(d.percent) : undefined);
   // A depot goes near the grubs and a tower toward the enemy; anything else where the server puts it.
   const site = { ResourceDepot: 'NearOre', GuardTower: 'TowardEnemy' }[d.building];
   return d.kind === 'train' ? A.train(d.unit)
@@ -195,6 +212,15 @@ export const canvasControlsHtml = (ed) => html`
       <button type="button" class="bb-pill-opt" data-act="code" data-k="code" aria-pressed="${String(ed.code)}" title="Show each rule as Python too">${raw(ICON.code)} Python</button>
     </div>
   </div>`;
+
+/** How often rule i may run: [every tick | only once | at most every [30] s] (EditorCore's change() sets it). */
+export function repeatHtml(r, i) {
+  const how = r.once ? 'once' : r.everySeconds ? 'every' : 'tick';
+  return html`<span class="bb-repeat">
+    ${select(`rules.${i}`, 'repeat', how, [['tick', 'every tick'], ['once', 'only once'], ['every', 'at most every']], `How often rule ${i + 1} may run`)}
+    ${how === 'every' ? html`${number(`rules.${i}`, r.everySeconds, LIMITS().maxEverySeconds, `Seconds between runs of rule ${i + 1}`, 'everySeconds', 1)}<span>s</span>` : ''}
+  </span>`;
+}
 
 /** The "+ rule" line above rule i (above none once the rules are full): a new rule goes in there. */
 export const insertRuleHtml = (program, i) => (fullRules(program) ? '' : html`

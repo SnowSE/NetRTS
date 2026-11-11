@@ -16,10 +16,17 @@ public static class BlockProgramValidator
     public const int MaxNumber = 100_000;
     public const int MaxSwitchNameLength = 24;
     public const int MaxMixUnits = 8;
+    public const int MaxEverySeconds = 3600;
 
     public static readonly IReadOnlyList<string> Ops = ["<", "<=", ">", ">=", "="];
-    public static readonly IReadOnlyList<string> ConditionKinds = ["always", "enemyNearBase", "seeEnemy", "count", "grubsLeft", "minute", "switch", "and", "or", "not"];
-    public static readonly IReadOnlyList<string> ActionKinds = ["train", "trainMix", "build", "research", "attack", "defend", "retreat", "scout", "expand"];
+    public static readonly IReadOnlyList<string> ConditionKinds = ["always", "enemyNearBase", "seeEnemy", "enemies", "underAttack", "hqHealth", "count", "grubsLeft", "minute", "switch", "and", "or", "not"];
+    public static readonly IReadOnlyList<string> ActionKinds = ["train", "trainMix", "build", "research", "attack", "defend", "retreat", "scout", "expand", "setSwitch"];
+
+    /// <summary>What an enemies condition counts (of the enemies you can see).</summary>
+    public static readonly IReadOnlyList<string> EnemyCountable = ["fighters", "workers", "buildings", .. Enum.GetNames<UnitType>().Where(t => t != nameof(UnitType.Worker)), .. Enum.GetNames<BuildingType>()];
+
+    /// <summary>What an underAttack condition watches (of yours).</summary>
+    public static readonly IReadOnlyList<string> Attackable = ["units", "workers", "fighters", .. Enum.GetNames<UnitType>().Where(t => t != nameof(UnitType.Worker)), "buildings", .. Enum.GetNames<BuildingType>()];
     public static readonly IReadOnlyList<string> Targets = ["enemyBase", "nearestEnemy"];
     public static readonly IReadOnlyList<string> ScoutTargets = ["enemyBase", "explore"];
     public static readonly IReadOnlyList<BuildingType> ExpandBuildings = [BuildingType.ResourceDepot, BuildingType.CommandCenter];
@@ -38,6 +45,8 @@ public static class BlockProgramValidator
         Sites = Enum.GetNames<SitePreference>(),
         Who = ["fighters", .. Enum.GetValues<UnitType>().Where(t => t != UnitType.Worker).Select(t => t.ToString())],
         Countable = ["grubs", "workers", "fighters", .. Enum.GetNames<UnitType>(), .. Enum.GetNames<BuildingType>()],
+        EnemyCountable = EnemyCountable,
+        Attackable = Attackable,
         ExpandBuildings = ExpandBuildings,
         Limits = new BlockLimitsDto
         {
@@ -49,6 +58,7 @@ public static class BlockProgramValidator
             MaxSwitchNameLength = MaxSwitchNameLength,
             MaxNumber = MaxNumber,
             MaxMixUnits = MaxMixUnits,
+            MaxEverySeconds = MaxEverySeconds,
         },
         Defaults = new BlockDefaultsDto(),
     };
@@ -101,6 +111,16 @@ public static class BlockProgramValidator
                 return $"Rule {i + 1}: {bad}";
             }
 
+            if (rule.Once && rule.EverySeconds is not null)
+            {
+                return $"Rule {i + 1}: a rule runs only once, or at most every so many seconds, not both.";
+            }
+
+            if (rule.EverySeconds is { } every && (every < 1 || every > MaxEverySeconds))
+            {
+                return $"Rule {i + 1}: a rule can wait 1 to {MaxEverySeconds} seconds between runs.";
+            }
+
             var actions = rule.Do ?? [];
             if (actions.Count > MaxActionsPerRule)
             {
@@ -109,7 +129,7 @@ public static class BlockProgramValidator
 
             foreach (var action in actions)
             {
-                if (Action(action) is { } badAction)
+                if (Action(action, switches) is { } badAction)
                 {
                     return $"Rule {i + 1}: {badAction}";
                 }
@@ -144,6 +164,16 @@ public static class BlockProgramValidator
                 return Comparison(c);
             case "minute" or "grubsLeft":
                 return Comparison(c);
+            case "enemies":
+                return c.What is null || !EnemyCountable.Contains(c.What, StringComparer.OrdinalIgnoreCase)
+                    ? $"can't count enemy '{c.What}'."
+                    : Comparison(c);
+            case "underAttack":
+                return c.What is null || !Attackable.Contains(c.What, StringComparer.OrdinalIgnoreCase)
+                    ? $"can't watch '{c.What}' for attacks."
+                    : null;
+            case "hqHealth":
+                return Comparison(c) ?? (c.Value > 100 ? "health is 0 to 100 percent." : null);
             case "switch":
                 return c.Name is not null && switches.Contains(c.Name, StringComparer.OrdinalIgnoreCase)
                     ? null
@@ -174,7 +204,7 @@ public static class BlockProgramValidator
         || who.Equals("fighters", StringComparison.OrdinalIgnoreCase)
         || (Enum.TryParse<UnitType>(who, true, out var type) && type != UnitType.Worker);
 
-    private static string? Action(BlockActionDto? a)
+    private static string? Action(BlockActionDto? a, IReadOnlyList<string> switches)
     {
         if (a is null)
         {
@@ -191,6 +221,10 @@ public static class BlockProgramValidator
             "research" => a.Upgrade is null ? "research what?" : null,
             "attack" => !IsWho(a.Who) ? $"unknown unit '{a.Who}'."
                 : a.Target is not null && !Targets.Contains(a.Target) ? $"unknown target '{a.Target}'."
+                : a.Percent is < 1 or > 100 ? "attack with 1 to 100 percent."
+                : null,
+            "setSwitch" => a.Name is null || !switches.Contains(a.Name, StringComparer.OrdinalIgnoreCase) ? $"there's no switch called '{a.Name}'."
+                : a.On is null ? "turn the switch on or off?"
                 : null,
             "defend" or "retreat" => !IsWho(a.Who) ? $"unknown unit '{a.Who}'." : null,
             "scout" => a.Target is not null && !ScoutTargets.Contains(a.Target) ? $"unknown place to scout '{a.Target}'." : null,

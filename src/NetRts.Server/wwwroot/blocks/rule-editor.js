@@ -5,7 +5,7 @@ import { ICON } from './icons.js';
 import { EditorCore } from './editor-core.js';
 import {
   fullRule, fullRules, why, ruleOf, select, condParts, actionParts, choiceGroups, choiceNode, canWrap, dataAttrs,
-  waitAttr, ruleTools, ruleFooter, insertRuleHtml, canvasControlsHtml, switchListHtml, newSwitchHtml, howRulesRun,
+  waitAttr, ruleTools, ruleFooter, insertRuleHtml, canvasControlsHtml, repeatHtml, switchListHtml, newSwitchHtml, howRulesRun,
 } from './editor-parts.js';
 
 /**
@@ -197,7 +197,7 @@ export class RuleEditor extends EditorCore {
               })}
               <button type="button" class="bb-plus" data-act="add-action" data-path="rules.${i}" data-k="add-action|${i}" aria-label="Add something for rule ${i + 1} to do" ${fullNote}>+ do</button>
             </div>
-            <div class="bb-tools">${ruleTools(this, i, off)}</div>
+            <div class="bb-tools">${repeatHtml(r, i)}${ruleTools(this, i, off)}</div>
           </div>
           ${ruleFooter(this, r, i)}
         </article>
@@ -225,8 +225,8 @@ export class RuleEditor extends EditorCore {
   }
 
   actionHtml(a, path) {
-    const { label, fields, family } = actionParts(a, path);
-    return html`<span class="bb-chip act${family === 'build' ? ' build' : ''}${this.editing(path)}"><button type="button" class="bb-kind" data-act="pick-action" data-path="${path}" data-k="pick|${path}" aria-label="Change this action: ${label}">${label}<span aria-hidden="true"> ▾</span></button>${fields}<button type="button" class="bb-icon small" data-act="del-action" data-path="${path}" data-k="del|${path}" aria-label="Remove this action">×</button></span>`;
+    const { label, fields, family } = actionParts(this.program, a, path);
+    return html`<span class="bb-chip act${family === 'build' ? ' build' : family === 'switch' ? ' switch' : ''}${this.editing(path)}"><button type="button" class="bb-kind" data-act="pick-action" data-path="${path}" data-k="pick|${path}" aria-label="Change this action: ${label}">${label}<span aria-hidden="true"> ▾</span></button>${fields}<button type="button" class="bb-icon small" data-act="del-action" data-path="${path}" data-k="del|${path}" aria-label="Remove this action">×</button></span>`;
   }
 
   helpHtml() {

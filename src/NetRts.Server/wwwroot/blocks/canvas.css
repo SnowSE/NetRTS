@@ -63,6 +63,12 @@
 .bb-b.fam-train { --c: var(--blk-train); }
 .bb-b.fam-build { --c: var(--blk-build); }
 .bb-b.fam-army { --c: var(--blk-army); }
+.bb-b.fam-switch { --c: var(--blk-switch); }
+/* How often a rule may run, in its top bar: white boxes like a block's own. */
+.bb-hat .bb-repeat .bb-select, .bb-hat .bb-repeat .bb-num-in {
+  min-height: 28px; padding: 2px 8px; border: 0; border-radius: 999px; background: var(--blk-field); color: var(--blk-field-ink); font: inherit; font-weight: 600;
+}
+.bb-hat .bb-repeat .bb-num-in { width: 4.5em; }
 .bb-grip { display: inline-flex; align-items: center; padding: 0 2px; opacity: 0.75; }
 
 /* What's on a block: white boxes with dark writing, as on paper. */

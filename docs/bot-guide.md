@@ -506,10 +506,17 @@ Discord first), `409 JOIN_NEXT_ROUND` (your league heat is over; join again for 
 
 Younger or newer players can build a bot from rule cards on the website (`#/blocks`, "Block Bot" in
 the menu) instead of writing code. A Block Bot program is data: rules checked top to bottom every
-tick, each a condition (`always`, `enemyNearBase`, `seeEnemy`, `count`, `grubsLeft`, `minute`,
-`switch`, `and`, `or`, `not`) and actions (`train`, `trainMix`, `build`, `research`, `attack`,
-`defend`, `retreat`, `scout`, `expand`); `GET /api/v1/blocks/vocabulary` lists every word, choice,
-limit and default the server accepts, and the editor builds its menus from it. Rules higher up get first pick of ore and fighters; idle
+tick, each a condition (`always`, `enemyNearBase`, `seeEnemy`, `enemies`, `underAttack`, `hqHealth`,
+`count`, `grubsLeft`, `minute`, `switch`, `and`, `or`, `not`) and actions (`train`, `trainMix`, `build`,
+`research`, `attack`, `defend`, `retreat`, `scout`, `expand`, `setSwitch`); `GET /api/v1/blocks/vocabulary`
+lists every word, choice, limit and default the server accepts, and the editor builds its menus from it.
+`enemies` counts the enemies you can see (`fighters`, `workers`, `buildings` or a type); `underAttack` is
+true while any of yours (`units`, `workers`, `fighters`, `buildings` or a type; `CommandCenter` is your
+HQ) lost health or was destroyed in the last 5 seconds; `hqHealth` is your HQ's health in percent.
+`attack` can take a `percent` (1–100) of `who`: those already heading for the target first, then the
+nearest, leaving the rest for the rules below. `setSwitch` (`name`, `on`) flips one of the program's
+switches, for the rules below it too. A rule with `once: true` runs (does at least one of its actions)
+only once a match, and one with `everySeconds` at most that often; editing a rule starts it over. Rules higher up get first pick of ore and fighters; idle
 workers mine (any deposit the bot has seen, even in the fog) and half-built buildings get finished on
 their own. `grubsLeft` adds up the ore left in deposits within 8 tiles of your Command Centers and
 Resource Depots; `expand` builds a Resource Depot (or Command Center) beside the nearest deposit the

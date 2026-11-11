@@ -72,6 +72,21 @@ class Memory
     public Dictionary<string, int> Mix { get; } = [];                           // where each TrainMix is up to
     public int ScoutTurn { get; set; }
     public (int X, int Y)? ExploreGoal { get; set; }
+    public Dictionary<int, int> LastRun { get; } = [];                         // rule number -> the tick it last did something
+
+    public const int HurtTicks = 5;   // something that lost health (or was destroyed) this recently is "under attack"
+    Dictionary<(bool IsUnit, int Id), (string Type, int Hp)> _health = [];
+    readonly List<(bool IsUnit, string Type, int Tick)> _hits = [];
+
+    /// <summary>Whether any of what (units, workers, fighters, buildings, or a type) was hurt in the last few seconds.</summary>
+    public bool Hurt(string what, int tick) => _hits.Any(h => tick - h.Tick <= HurtTicks && what switch
+    {
+        "units" => h.IsUnit,
+        "workers" => h.IsUnit && h.Type == "Worker",
+        "fighters" => h.IsUnit && h.Type != "Worker",
+        "buildings" => !h.IsUnit,
+        _ => h.Type == what,
+    });
 
     public void Update(State state)
     {
@@ -109,6 +124,20 @@ class Memory
         {
             ExploreGoal = null;
         }
+
+        var now = state.Units.Where(u => u.Owner == state.You.Slot).Select(u => ((true, u.Id), (u.Type, u.Hp)))
+            .Concat(state.Buildings.Where(b => b.Owner == state.You.Slot).Select(b => ((false, b.Id), (b.Type, b.Hp))))
+            .ToDictionary(x => x.Item1, x => x.Item2);
+        foreach (var (key, (type, hp)) in _health)
+        {
+            if (!now.TryGetValue(key, out var after) || after.Item2 < hp)   // destroyed, or lost health
+            {
+                _hits.Add((key.IsUnit, type, state.Tick));
+            }
+        }
+
+        _health = now;
+        _hits.RemoveAll(h => state.Tick - h.Tick > HurtTicks);
     }
 }
 
@@ -209,6 +238,46 @@ class Bot
     public int OreLeftNearBase() => _memory.Deposits.Values.Where(d => IsNearBase(d.X, d.Y)).Sum(d => d.Remaining);
 
     public bool Switch(string name) => Strategy.Switches.GetValueOrDefault(name);
+
+    /// <summary>How many enemies you can see: fighters, workers, buildings, or one type of unit or building.</summary>
+    public int Enemies(string what) => what switch
+    {
+        "fighters" => EnemyUnits.Count(u => u.Type != "Worker"),
+        "workers" => EnemyUnits.Count(u => u.Type == "Worker"),
+        "buildings" => EnemyBuildings.Count,
+        _ => EnemyUnits.Count(u => u.Type == what) + EnemyBuildings.Count(b => b.Type == what),
+    };
+
+    /// <summary>Whether any of your units, workers, fighters, buildings (or one type) lost health or was destroyed lately.</summary>
+    public bool UnderAttack(string what) => _memory.Hurt(what, Tick);
+
+    /// <summary>Your HQ's health, in percent.</summary>
+    public int HqHealth() => Hq == null ? 0 : Hq.Hp * 100 / Math.Max(1, Hq.MaxHp);
+
+    /// <summary>Turns one of your switches on or off, for the rules below this one too.</summary>
+    public bool SetSwitch(string name, bool on)
+    {
+        if (Strategy.Switches.GetValueOrDefault(name) == on)
+        {
+            return Fail($"{name} is already {(on ? "on" : "off")}");
+        }
+
+        Strategy.Switches[name] = on;
+        return true;
+    }
+
+    /// <summary>Whether a rule that runs only once (or at most every so many seconds) may run now.</summary>
+    public bool Ready(int rule, bool once = false, int? every = null) =>
+        !_memory.LastRun.TryGetValue(rule, out var last) || (!once && every != null && Tick - last >= every);
+
+    /// <summary>Notes that a rule did something this tick (for Ready).</summary>
+    public void Ran(int rule, bool done)
+    {
+        if (done)
+        {
+            _memory.LastRun[rule] = Tick;
+        }
+    }
 
     // ----------------------------------------------------------------- who and where
 
@@ -482,7 +551,8 @@ class Bot
         }
     }
 
-    public bool Attack((int X, int Y)? spot, List<Unit> group)
+    /// <summary>Attacks the spot with the group, or with percent of it: those already on their way first, then the nearest.</summary>
+    public bool Attack((int X, int Y)? spot, List<Unit> group, int percent = 100)
     {
         if (group.Count == 0)
         {
@@ -492,6 +562,14 @@ class Bot
         if (spot == null)
         {
             return Fail("there's no enemy to attack in sight");
+        }
+
+        if (percent < 100)
+        {
+            var (x, y) = spot.Value;
+            var take = Math.Max(1, (int)Math.Ceiling(group.Count * percent / 100.0));
+            group = group.OrderBy(u => _memory.LastOrders.TryGetValue(u.Id, out var o) && o.Command == "Attack" && o.X == x && o.Y == y ? 0 : 1)
+                .ThenBy(u => Dist(u.X, u.Y, x, y)).ThenBy(u => u.Id).Take(take).ToList();
         }
 
         Order(group, "Attack", spot.Value, retarget: true);
@@ -899,8 +977,8 @@ record State(int Tick, string Status, Me You, List<PlayerInfo> Players, List<str
              List<Unit> Units, List<Building> Buildings, List<Pile> Resources);
 record Me(int Slot, int Resources, List<string> Upgrades, List<Learning> Researching);
 record Learning(string Upgrade);
-record Unit(int Id, int Owner, string Type, int X, int Y, string Activity, int Carrying, int? TargetId, Spot Destination);
-record Building(int Id, int Owner, string Type, int X, int Y, bool Completed, List<Queued> Production, Learning Research);
+record Unit(int Id, int Owner, string Type, int X, int Y, string Activity, int Carrying, int? TargetId, Spot Destination, int Hp);
+record Building(int Id, int Owner, string Type, int X, int Y, bool Completed, List<Queued> Production, Learning Research, int Hp, int MaxHp);
 record Queued(string UnitType);
 record Pile(int Id, int X, int Y, int Remaining);
 record PlayerInfo(int Slot, string Name, bool Eliminated, Spot StartPosition);

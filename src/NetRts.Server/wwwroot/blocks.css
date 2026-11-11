@@ -478,3 +478,7 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-code-card p { margin: 0; }
 .bb-code-card .bb-row-btns { display: flex; flex-wrap: wrap; gap: 8px; }
 .bb-code-card [hidden] { display: none; }
+
+/* How often a rule may run (every tick, only once, at most every N s), beside its on/off. */
+.bb-repeat { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.bb-repeat .bb-num-in { width: 4.5em; }

@@ -327,10 +327,17 @@ export class EditorCore {
     const el = e.target;
     const { path, field } = el.dataset;
     if (!path || !field) return;
+    // A number box keeps to its own min and max (a percent is 1-100, a wait 1-3600 seconds).
+    const num = () => Math.max(Number(el.min) || 0, Math.min(Number(el.max) || LIMITS().maxNumber, Math.round(Number(el.value) || 0)));
     this.edit(ruleOf(path), (p) => {
       const node = at(p, path);
       if (field === 'units') node.units[Number(el.dataset.i)] = el.value;
-      else if (field === 'value') node.value = Math.max(0, Math.min(LIMITS().maxNumber, Math.round(Number(el.value) || 0)));
+      else if (field === 'value' || field === 'everySeconds') node[field] = num();
+      else if (field === 'percent') {
+        if (num() >= 100) delete node.percent;   // all of them, as if it were never set
+        else node.percent = num();
+      } else if (field === 'on') node.on = el.value === 'true';
+      else if (field === 'repeat') setRepeat(node, el.value);
       else node[field] = el.value;
     }, { keepPicker: true });
   }
@@ -363,6 +370,14 @@ export class EditorCore {
       setHtml(box, html`<span class="bb-dot" aria-hidden="true"></span><span class="bb-why">${s.why}${this.statusNote ? html` <span class="muted">${this.statusNote}</span>` : ''}</span>${bar}`);
     });
   }
+}
+
+/** How often a rule may run: every tick (nothing set), once a match, or at most every so many seconds. */
+function setRepeat(rule, how) {
+  delete rule.once;
+  if (how !== 'every') delete rule.everySeconds;
+  if (how === 'once') rule.once = true;
+  if (how === 'every') rule.everySeconds = rule.everySeconds ?? 30;
 }
 
 /** Takes the check at path out of the program, closing up what held it. */

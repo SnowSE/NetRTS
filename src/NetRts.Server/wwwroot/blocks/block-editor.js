@@ -6,7 +6,7 @@ import { EditorCore } from './editor-core.js';
 import { pointerDrag, dropSpot, slotAmong } from './drag.js';
 import {
   fullRule, fullRules, why, ruleOf, select, condParts, actionParts, choiceGroups, choiceNode, canWrap, fitsAt,
-  dataAttrs, waitAttr, ruleTools, ruleFooter, insertRuleHtml, canvasControlsHtml, switchListHtml, newSwitchHtml, howRulesRun,
+  dataAttrs, waitAttr, ruleTools, ruleFooter, insertRuleHtml, canvasControlsHtml, repeatHtml, switchListHtml, newSwitchHtml, howRulesRun,
 } from './editor-parts.js';
 
 /** The palette's tabs: the checks, then the action groups by name (as choiceGroups names them). */
@@ -16,7 +16,7 @@ const TABS = [
   { id: 'Build', label: 'Build' },
   { id: 'Army', label: 'Army' },
 ];
-const CHOICE_KEYS = ['kind', 'what', 'op', 'value', 'name', 'unit', 'building', 'target'];
+const CHOICE_KEYS = ['kind', 'what', 'op', 'value', 'name', 'unit', 'building', 'target', 'on', 'percent'];
 
 /**
  * Snap-together blocks: a palette of coloured blocks to drag into rules, each rule a "when ⟨check⟩ do"
@@ -237,7 +237,7 @@ export class BlockEditor extends EditorCore {
   }
 
   paletteHtml() {
-    const groups = this.tab === 'cond' ? choiceGroups('cond', this.program) : choiceGroups('action', this.program).filter((g) => g.name === this.tab);
+    const groups = this.tab === 'cond' ? choiceGroups('cond', this.program) : choiceGroups('action', this.program).filter((g) => (g.tab ?? g.name) === this.tab);
     const family = this.tab === 'cond' ? 'cond' : `act fam-${this.tab.toLowerCase()}`;
     const block = (it, ptype, cls) => html`<button type="button" class="bb-b pal ${cls}" data-drag="palette" data-act="palette" data-ptype="${ptype}" ${dataAttrs(it.data)}>${it.label}</button>`;
     return html`
@@ -254,7 +254,7 @@ export class BlockEditor extends EditorCore {
           </div>
           <div class="bb-pal-body" role="tabpanel">
             ${groups.map((g) => html`<div class="bb-pal-group"><h3>${g.name}</h3><div class="bb-pal-items">
-              ${g.items.map((it) => block(it, this.tab === 'cond' ? 'cond' : 'action', g.switches ? 'cond switch' : family))}
+              ${g.items.map((it) => block(it, this.tab === 'cond' ? 'cond' : 'action', !g.switches ? family : this.tab === 'cond' ? 'cond switch' : 'act fam-switch'))}
               ${g.switches ? newSwitchHtml(this.program) : ''}</div></div>`)}
           </div>
         </div>
@@ -276,6 +276,7 @@ export class BlockEditor extends EditorCore {
             ${this.condHtml(r.when, `rules.${i}.when`)}
             <span class="bb-word">do</span>
             <span class="bb-tools">
+              ${repeatHtml(r, i)}
               <button type="button" class="bb-icon small" data-act="rule-up" data-i="${i}" data-k="up|${i}" aria-label="Move rule ${i + 1} up" ${i === 0 ? 'disabled' : waitAttr(this)}>↑</button>
               <button type="button" class="bb-icon small" data-act="rule-down" data-i="${i}" data-k="down|${i}" aria-label="Move rule ${i + 1} down" ${i === n - 1 ? 'disabled' : waitAttr(this)}>↓</button>
               ${ruleTools(this, i, off)}
@@ -294,7 +295,7 @@ export class BlockEditor extends EditorCore {
   }
 
   stepHtml(a, path, j) {
-    const { label, fields, family } = actionParts(a, path);
+    const { label, fields, family } = actionParts(this.program, a, path);
     return html`<div class="bb-b act fam-${family}" data-drag="step" data-path="${path}" data-step="${path}" data-k="step|${path}" tabindex="0" aria-label="Step ${j + 1}: ${label}. Arrow keys move it, Delete removes it.">
       <span class="bb-grip" aria-hidden="true">${raw(ICON.grip)}</span><span class="bb-b-label">${label}</span>${fields}
       <button type="button" class="bb-icon small" data-act="del-action" data-path="${path}" data-k="del|${path}" aria-label="Remove this step">×</button></div>`;

@@ -40,6 +40,7 @@ DEFENSE_RADIUS = 10   # an enemy this close to one of your buildings is "near yo
 NEAR_BASE = 8         # grubs this close to your HQ or a Co-op Store (ResourceDepot) are "near your base"
 RETARGET_TICKS = 15   # how often units heading for a target that may have moved are re-aimed
 PENDING_TICKS = 40    # how long a building we ordered counts before it shows up
+HURT_TICKS = 5        # something that lost health (or was destroyed) this recently is "under attack"
 
 
 def dist(ax, ay, bx, by):
@@ -62,6 +63,9 @@ class Memory:
         self.mix = {}           # where each train_mix is up to
         self.scout_turn = 0
         self.explore_goal = None
+        self.health = {}        # ("unit" or "building", id) -> (type, hp) last tick, to see what's being hurt
+        self.hits = []          # (unit?, type, tick) for each of ours hurt or destroyed lately
+        self.last_run = {}      # rule number -> the tick it last did something (only once / at most every N s)
 
     def update(self, state):
         visible = set()
@@ -84,6 +88,32 @@ class Memory:
                 del self.pending[site]
         if self.explore_goal in self.seen:
             self.explore_goal = None
+        now = {}
+        for u in state["units"]:
+            if u["owner"] == me:
+                now[("unit", u["id"])] = (u["type"], u["hp"])
+        for b in state["buildings"]:
+            if b["owner"] == me:
+                now[("building", b["id"])] = (b["type"], b["hp"])
+        for key, (kind, hp) in self.health.items():
+            if key not in now or now[key][1] < hp:   # destroyed, or lost health
+                self.hits.append((key[0] == "unit", kind, state["tick"]))
+        self.health = now
+        self.hits = [h for h in self.hits if state["tick"] - h[2] <= HURT_TICKS]
+
+    def hurt(self, what, tick):
+        """Whether any of what (units, workers, fighters, buildings, or a type) was hurt in the last few seconds."""
+        def matches(unit, kind):
+            if what == "units":
+                return unit
+            if what == "workers":
+                return unit and kind == "Worker"
+            if what == "fighters":
+                return unit and kind != "Worker"
+            if what == "buildings":
+                return not unit
+            return kind == what
+        return any(matches(unit, kind) for unit, kind, when in self.hits if tick - when <= HURT_TICKS)
 
 
 class Bot:
@@ -158,6 +188,44 @@ class Bot:
 
     def switch(self, name):
         return any(on for key, on in SWITCHES.items() if key.lower() == name.lower())
+
+    def enemies(self, what):
+        """How many enemies you can see: fighters, workers, buildings, or one type of unit or building."""
+        if what == "fighters":
+            return sum(1 for u in self.enemy_units if u["type"] != "Worker")
+        if what == "workers":
+            return sum(1 for u in self.enemy_units if u["type"] == "Worker")
+        if what == "buildings":
+            return len(self.enemy_buildings)
+        return sum(1 for e in self.enemy_units + self.enemy_buildings if e["type"] == what)
+
+    def under_attack(self, what):
+        """Whether any of your units, workers, fighters, buildings (or one type) lost health or was destroyed lately."""
+        return self.memory.hurt(what, self.tick)
+
+    def hq_health(self):
+        """Your HQ's health, in percent."""
+        return self.hq["hp"] * 100 // max(1, self.hq["maxHp"]) if self.hq else 0
+
+    def set_switch(self, name, on):
+        """Turns one of your switches on or off, for the rules below this one too."""
+        key = next((k for k in SWITCHES if k.lower() == name.lower()), name)
+        if SWITCHES.get(key) == on:
+            return self.fail(f"{key} is already {'on' if on else 'off'}")
+        SWITCHES[key] = on
+        return True
+
+    def ready(self, rule, once=False, every=None):
+        """Whether a rule that runs only once (or at most every so many seconds) may run now."""
+        last = self.memory.last_run.get(rule)
+        if last is None:
+            return True
+        return not once and every is not None and self.tick - last >= every
+
+    def ran(self, rule, done):
+        """Notes that a rule did something this tick (for ready)."""
+        if done:
+            self.memory.last_run[rule] = self.tick
 
     # ----------------------------------------------------------------- who and where
 
@@ -344,11 +412,18 @@ class Bot:
         if ids:
             self.commands.append({"type": command, "unitIds": ids, "x": spot[0], "y": spot[1]})
 
-    def attack(self, spot, group):
+    def attack(self, spot, group, percent=100):
+        """Attacks the spot with the group, or with percent of it: those already on their way first, then the nearest."""
         if not group:
             return self.fail("you have no fighters to send")
         if spot is None:
             return self.fail("there's no enemy to attack in sight")
+        if percent < 100:
+            take = max(1, -(-len(group) * percent // 100))   # rounded up
+            def heading_there(u):
+                last = self.memory.last_orders.get(u["id"])
+                return last is not None and last[:3] == ("Attack", spot[0], spot[1])
+            group = sorted(group, key=lambda u: (not heading_there(u), dist(u["x"], u["y"], spot[0], spot[1]), u["id"]))[:take]
         self.order(group, "Attack", spot, retarget=True)
         return True
 

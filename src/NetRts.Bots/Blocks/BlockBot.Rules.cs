@@ -1,3 +1,4 @@
+using System.Text.Json;
 using NetRts.Protocol;
 
 namespace NetRts.Bots.Blocks;
@@ -8,7 +9,7 @@ public sealed partial class BlockBot
     /// Runs the rules for one tick on a <see cref="BotTurn"/> (the grubs left to spend, the units already
     /// given orders, the commands so far) and explains each in a <see cref="Phrase"/>.
     /// </summary>
-    private sealed class Runner(BlockBot bot, BotView view, BotTurn turn, IReadOnlyDictionary<string, bool> switches)
+    private sealed class Runner(BlockBot bot, BotView view, BotTurn turn, Dictionary<string, bool> switches)
     {
         private int Tick => view.State.Tick;
 
@@ -17,6 +18,22 @@ public sealed partial class BlockBot
             if (!rule.Enabled)
             {
                 return new RuleStatus(index, "off", _ => "This rule is turned off.");
+            }
+
+            var key = rule.Once || rule.EverySeconds is not null ? JsonSerializer.Serialize(new { rule.When, rule.Do }) : null;
+            if (key is not null && bot._lastRun.TryGetValue(key, out var ran))
+            {
+                if (rule.Once)
+                {
+                    return new RuleStatus(index, "idle", _ => "Done: this rule runs only once.");
+                }
+
+                var every = rule.EverySeconds!.Value;
+                var wait = every - (Tick - ran);
+                if (wait > 0)
+                {
+                    return new RuleStatus(index, "idle", _ => $"Resting: it runs at most every {every} s, so again in {wait} s.", Progress: (Tick - ran) * 100 / every);
+                }
             }
 
             var check = Evaluate(rule.When);
@@ -36,6 +53,11 @@ public sealed partial class BlockBot
             {
                 var outcome = Run(index, a, rule.Do[a]);
                 (outcome.Did ? done : failed).Add(outcome);
+            }
+
+            if (key is not null && done.Count > 0)
+            {
+                bot._lastRun[key] = Tick;
             }
 
             return done.Count > 0
@@ -66,6 +88,15 @@ public sealed partial class BlockBot
                 case "switch":
                     var on = switches.GetValueOrDefault(c.Name!);
                     return new Check(on, _ => $"{c.Name} is {(on ? "on" : "off")}");
+                case "enemies":
+                    return Compare(w => $"enemy {w.Group(c.What!)} you can see", EnemyCount(c.What!), c.Op!, c.Value ?? 0);
+                case "underAttack":
+                    var hit = bot._attacks.Any(c.What!, Tick);
+                    return new Check(hit, w => $"your {w.Group(c.What!)} {(hit ? "are" : "aren't")} under attack");
+                case "hqHealth":
+                    var hq = view.CommandCenter;
+                    var health = hq is null ? 0 : hq.Hp * 100 / Math.Max(1, hq.MaxHp);
+                    return Compare(w => $"your {w.Building(BuildingType.CommandCenter)}'s health (%)", health, c.Op!, c.Value ?? 0);
                 case "and":
                     var a = Evaluate(c.A!);
                     if (!a.Value)
@@ -140,6 +171,17 @@ public sealed partial class BlockBot
             throw new InvalidOperationException($"Can't count '{what}'.");
         }
 
+        /// <summary>The enemies you can see: fighters, workers, buildings, or one type of unit or building.</summary>
+        private int EnemyCount(string what) => what.ToLowerInvariant() switch
+        {
+            "fighters" => view.EnemyUnits.Count(u => u.Type != UnitType.Worker),
+            "workers" => view.EnemyUnits.Count(u => u.Type == UnitType.Worker),
+            "buildings" => view.EnemyBuildings.Count,
+            _ when Enum.TryParse<UnitType>(what, true, out var unit) => view.EnemyUnits.Count(u => u.Type == unit),
+            _ when Enum.TryParse<BuildingType>(what, true, out var building) => view.EnemyBuildings.Count(b => b.Type == building),
+            _ => throw new InvalidOperationException($"Can't count enemy '{what}'."),
+        };
+
         // ------------------------------------------------------------ actions
 
         private Outcome Run(int rule, int action, BlockActionDto a) => a.Kind switch
@@ -148,11 +190,12 @@ public sealed partial class BlockBot
             "trainMix" => TrainMix(rule, action, a.Units!),
             "build" => Build(a.Building!.Value, Enum.TryParse<SitePreference>(a.Site ?? Defaults.Site, true, out var site) ? site : SitePreference.TowardCenter),
             "research" => Research(a.Upgrade!.Value),
-            "attack" => Attack(a.Who ?? Defaults.Who, a.Target ?? Defaults.Target),
+            "attack" => Attack(a.Who ?? Defaults.Who, a.Target ?? Defaults.Target, a.Percent),
             "defend" => Defend(a.Who ?? Defaults.Who),
             "retreat" => Retreat(a.Who ?? Defaults.Who),
             "scout" => (a.Target ?? Defaults.ScoutTarget) == "explore" ? Explore() : Scout(),
             "expand" => Expand(a.Building ?? Defaults.ExpandBuilding),
+            "setSwitch" => SetSwitch(a.Name!, a.On ?? true),
             _ => throw new InvalidOperationException($"Unknown action '{a.Kind}'."),
         };
 
@@ -221,7 +264,7 @@ public sealed partial class BlockBot
             return all.Where(u => !turn.IsClaimed(u.Id)).ToList();
         }
 
-        private Outcome Attack(string? who, string target)
+        private Outcome Attack(string? who, string target, int? percent)
         {
             var group = Group(who);
             if (group.Count == 0)
@@ -253,8 +296,39 @@ public sealed partial class BlockBot
                 }
             }
 
+            if (percent is { } share and < 100)
+            {
+                group = Share(group, share, spot.Value);
+            }
+
             turn.Order(group, CommandType.Attack, spot.Value, retarget: true);
             return new Outcome(true, w => $"{group.Count} {w.Who(who, group.Count)} attacking", group.Select(u => u.Id).ToList());
+        }
+
+        /// <summary>
+        /// Part of a group, at least one: those already heading for the spot first (so the same ones keep going),
+        /// then the nearest. The rest stay free for the rules below.
+        /// </summary>
+        private List<UnitDto> Share(List<UnitDto> group, int percent, (int X, int Y) spot)
+        {
+            var take = Math.Max(1, (int)Math.Ceiling(group.Count * percent / 100.0));
+            return group
+                .OrderBy(u => bot._memory.LastOrders.TryGetValue(u.Id, out var o) && o.Type == CommandType.Attack && o.X == spot.X && o.Y == spot.Y ? 0 : 1)
+                .ThenBy(u => BotView.Dist(u.X, u.Y, spot.X, spot.Y)).ThenBy(u => u.Id)
+                .Take(take).ToList();
+        }
+
+        /// <summary>Flips one of the program's switches, for the rules below this one too.</summary>
+        private Outcome SetSwitch(string name, bool on)
+        {
+            if (switches.GetValueOrDefault(name) == on)
+            {
+                return Outcome.Fail(_ => $"{name} is already {(on ? "on" : "off")}.");
+            }
+
+            switches[name] = on;
+            bot.SetSwitch(name, on);
+            return new Outcome(true, _ => $"turned {name} {(on ? "on" : "off")}", []);
         }
 
         private Outcome Defend(string? who)

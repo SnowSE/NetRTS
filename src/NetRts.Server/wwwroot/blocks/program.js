@@ -103,6 +103,16 @@ export function WHAT() {
   return [...listed, ...rest];
 }
 export const WHO = () => VOCAB.who.map((w) => [w, w === 'fighters' ? 'all fighters' : `my ${unitWord(w, true)}`]);
+
+/** A plural for a group the enemy and attack checks name: units, workers, fighters, buildings, a unit or building type. */
+const groupWord = (k) => ({ units: 'units', workers: 'workers', fighters: 'fighters', buildings: 'buildings' }[k]
+  ?? (UNITS().includes(k) ? unitWord(k, true) : BUILDINGS().includes(k) ? bWord(k) : spaced(k).toLowerCase()));
+/** What an enemies check counts (of the enemies you can see). */
+export const ENEMY_WHAT = () => VOCAB.enemyCountable.map((k) => [k, groupWord(k)]);
+/** What an underAttack check watches (of yours): "my workers", "any of my units", "my HQ". */
+export const ATTACKABLE = () => VOCAB.attackable.map((k) => [k,
+  k === 'units' ? 'any of my units' : k === 'buildings' ? 'any of my buildings' : `my ${groupWord(k)}`]);
+export const ON_OFF = () => [['true', 'on'], ['false', 'off']];
 const word = (words, k) => words[k] ?? spaced(k).toLowerCase();
 export const SITES = () => VOCAB.sites.map((s) => [s, word({ TowardCenter: 'toward the middle', NearOre: `near the ${ORE}`, TowardEnemy: 'toward the enemy' }, s)]);
 export const TARGETS = () => VOCAB.targets.map((t) => [t, word({ enemyBase: 'the enemy base', nearestEnemy: 'the nearest enemy' }, t)]);
@@ -121,6 +131,9 @@ export const C = {
   minute: (op = '>=', value = 3) => ({ kind: 'minute', op, value }),
   grubsLeft: (op = '<=', value = 300) => ({ kind: 'grubsLeft', op, value }),
   switch: (name) => ({ kind: 'switch', name }),
+  enemies: (what = 'fighters', op = '>=', value = 5) => ({ kind: 'enemies', what, op, value }),
+  underAttack: (what = 'units') => ({ kind: 'underAttack', what }),
+  hqHealth: (op = '<', value = 50) => ({ kind: 'hqHealth', op, value }),
   and: (a, b) => ({ kind: 'and', a, b }),
   or: (a, b) => ({ kind: 'or', a, b }),
   not: (a) => ({ kind: 'not', a }),
@@ -130,13 +143,18 @@ export const A = {
   trainMix: (units = ['Soldier', 'Soldier', 'Archer']) => ({ kind: 'trainMix', units }),
   build: (building = 'Barracks', site = byDefault('site')) => ({ kind: 'build', building, site }),
   research: (upgrade = 'Weapons1') => ({ kind: 'research', upgrade }),
-  attack: (who = byDefault('who'), target = byDefault('target')) => ({ kind: 'attack', who, target }),
+  // percent: the share of them to send (all of them when left out).
+  attack: (who = byDefault('who'), target = byDefault('target'), percent = undefined) => ({ kind: 'attack', who, target, ...(percent ? { percent } : {}) }),
   defend: (who = byDefault('who')) => ({ kind: 'defend', who }),
   retreat: (who = byDefault('who')) => ({ kind: 'retreat', who }),
   scout: (target = byDefault('scoutTarget')) => ({ kind: 'scout', target }),
   expand: (building = byDefault('expandBuilding')) => ({ kind: 'expand', building }),
+  setSwitch: (name, on = true) => ({ kind: 'setSwitch', name, on }),
 };
 export const R = (when, ...actions) => ({ enabled: true, when, do: actions });
+
+/** How often a rule may run, for the code views' comments: "", " (only once)", " (at most every 30 s)". */
+export const repeatNote = (rule) => (rule.once ? ' (only once)' : rule.everySeconds ? ` (at most every ${rule.everySeconds} s)` : '');
 
 /** How deep the check at path sits: a rule's own check ('rules.3.when') is 1, each and/or/not inside it one more. */
 export const condDepth = (path) => path.split('.').length - 2;
@@ -209,13 +227,16 @@ export function setAt(obj, path, value) {
   parent[last] = value;
 }
 
-/** For comparing a program here with the one the server runs: no nulls, same key order. */
+/**
+ * For comparing a program here with the one the server runs: same key order, and no nulls or falses (the
+ * server sends every field, "once": false and all; a program here leaves out what's off).
+ */
 export function canon(x) {
   if (Array.isArray(x)) return x.map(canon);
   if (x && typeof x === 'object') {
     const out = {};
     for (const k of Object.keys(x).sort()) {
-      if (x[k] !== null && x[k] !== undefined) out[k] = canon(x[k]);
+      if (x[k] !== null && x[k] !== undefined && x[k] !== false) out[k] = canon(x[k]);
     }
     return out;
   }

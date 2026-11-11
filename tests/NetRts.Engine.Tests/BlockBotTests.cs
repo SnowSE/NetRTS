@@ -9,9 +9,9 @@ public class BlockBotTests
 {
     private static int Dist(int x1, int y1, int x2, int y2) => Math.Max(Math.Abs(x1 - x2), Math.Abs(y1 - y2));
 
-    private static BlockConditionDto Count(string what, string op, int value) => new() { Kind = "count", What = what, Op = op, Value = value };
+    internal static BlockConditionDto Count(string what, string op, int value) => new() { Kind = "count", What = what, Op = op, Value = value };
 
-    private static BlockRuleDto Rule(BlockConditionDto when, params BlockActionDto[] actions) => new() { When = when, Do = actions };
+    internal static BlockRuleDto Rule(BlockConditionDto when, params BlockActionDto[] actions) => new() { When = when, Do = actions };
 
     /// <summary>The prototype's "Honey Rush": defend, workers, two Housing, a mixed army, attack at eight.</summary>
     internal static BlockProgramDto Rush(int attackAt = 8, bool withAttack = true) => new()
@@ -29,7 +29,7 @@ public class BlockBotTests
         ],
     };
 
-    private static void Play(GameSimulation sim, IBotStrategy[] bots, Func<int, bool>? until = null, Action<int>? everyTick = null)
+    internal static void Play(GameSimulation sim, IBotStrategy[] bots, Func<int, bool>? until = null, Action<int>? everyTick = null)
     {
         var rules = GameRules.ToDto();
         var map = sim.Map.ToDto();
@@ -49,7 +49,7 @@ public class BlockBotTests
         }
     }
 
-    private static GameSimulation NewSim(int seed, int maxTicks = 1800) =>
+    internal static GameSimulation NewSim(int seed, int maxTicks = 1800) =>
         new(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks },
             [new PlayerSeat(Guid.NewGuid(), "blocks"), new PlayerSeat(Guid.NewGuid(), "sitter")]);
 
