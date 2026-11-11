@@ -1,30 +1,84 @@
 // Block Bot: what this browser keeps (strategies, preferences, which strategy played which match, and
-// the player's key) and the authorised API call.
+// the player's key) and the authorised API call. While someone is signed in to the website, sync.js
+// copies the strategies to and from their account; it reads and writes them here too.
 import { api, downloadJson } from '../util.js';
 import { load, save, forget } from '../storage.js';
 import { SNOW } from '../lore.js';
+import { LIMITS } from './program.js';
 
 const KEYS = {
   strategies: 'netrts.blocks.strategies',
   player: 'netrts.blocks.player',
   matches: 'netrts.blocks.matches',
   prefs: 'netrts.blocks.prefs',
+  sync: 'netrts.blocks.sync',
 };
 const LOCAL = 'localStorage';
 const SESSION = 'sessionStorage';
 
+// ------------------------------------------------------------------ strategies
+
+// { id: { id, program, createdAt, updatedAt, pulled? } }. pulled marks the account copy sync.js last
+// brought down over this one (from another computer), so a page still showing the older one can tell.
 export const strategies = () => load(LOCAL, KEYS.strategies, {});
 export const getStrategy = (id) => strategies()[id] ?? null;
+/** Every strategy at once (sync.js, after merging in the account's); false when they couldn't be kept. */
+export const keepStrategies = (all) => save(LOCAL, KEYS.strategies, all);
+
+/**
+ * Saves a page's strategy. If sync.js brought another computer's version down over it since the page read
+ * it (s.pulled differs), that version is kept as a copy rather than overwritten, and s is marked as up to
+ * date with it, so the page's next save goes straight through.
+ */
 export function putStrategy(s) {
   const all = strategies();
+  const kept = all[s.id];
+  if (kept && (kept.pulled ?? null) !== (s.pulled ?? null)) {
+    keepCopy(all, kept);
+    s.pulled = kept.pulled;
+  }
   all[s.id] = { ...s, updatedAt: new Date().toISOString() };
-  return save(LOCAL, KEYS.strategies, all);
+  const ok = keepStrategies(all);
+  if (ok) changed(s.id);
+  return ok;
 }
+
+/** Deletes a strategy here (and, when someone is signed in, sync.js deletes it from their account). */
 export function deleteStrategy(id) {
   const all = strategies();
+  const gone = all[id];
   delete all[id];
-  save(LOCAL, KEYS.strategies, all);
+  keepStrategies(all);
+  changed(id, gone);
 }
+
+const ACCOUNT_COPY = ' (from your account)';
+/** Adds s to all as a new strategy named "… (from your account)": the other side when both sides changed one. */
+export function keepCopy(all, s) {
+  const max = LIMITS().maxNameLength;
+  const name = `${(s.program.name || 'Strategy').slice(0, Math.max(1, max - ACCOUNT_COPY.length))}${ACCOUNT_COPY}`.slice(0, max);
+  const copy = { id: newId(), program: { ...clone(s.program), name }, createdAt: new Date().toISOString(), updatedAt: s.updatedAt };
+  all[copy.id] = copy;
+  return copy;
+}
+
+// What sync.js last agreed with each account, per account id: { known: { id: { version, at } }, deleted: { id: version } }.
+// known: the account's version and this browser's updatedAt when they last matched. deleted: deleted here,
+// not yet on the account.
+export const syncRecords = () => load(LOCAL, KEYS.sync, {});
+export const saveSyncRecords = (records) => save(LOCAL, KEYS.sync, records);
+
+// Pages' saves and deletes, for sync.js to send on.
+const listeners = new Set();
+/** Calls fn(id) after each putStrategy, fn(id, deleted) after each deleteStrategy; returns the unsubscribe. */
+export function onLocalChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+const changed = (id, deleted) => listeners.forEach((fn) => fn(id, deleted));
+
+// ------------------------------------------------------------------ preferences and matches
+
 export const prefs = () => load(LOCAL, KEYS.prefs, {});
 export const setPref = (k, v) => save(LOCAL, KEYS.prefs, { ...prefs(), [k]: v });
 export const matchRecords = () => load(LOCAL, KEYS.matches, {});

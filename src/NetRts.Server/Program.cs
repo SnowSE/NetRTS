@@ -119,6 +119,7 @@ app.MapPlayerEndpoints();
 app.MapMatchEndpoints();
 app.MapBlockEndpoints();
 app.MapAccountEndpoints();
+app.MapAccountStrategyEndpoints();
 app.MapAchievementEndpoints();
 app.MapPeopleEndpoints();
 app.MapRecapEndpoints();

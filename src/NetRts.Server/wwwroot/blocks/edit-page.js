@@ -4,6 +4,7 @@ import { getStrategy, putStrategy, setPref, matchRecords, player, authed, themed
 import { LIMITS } from './program.js';
 import { createEditor, restyle, markStyle } from './editors.js';
 import { ICON } from './icons.js';
+import { savedLabel, SYNC_EVENT } from './sync.js';
 
 export function mountEditor(main, id) {
   const s = getStrategy(id);
@@ -66,10 +67,15 @@ export function mountEditor(main, id) {
     },
   });
 
+  // Saved here, and how it's going on the account when someone is signed in (sync.js).
+  let savedHere = true;
+  const showSaved = () => setHtml(savedEl, savedHere ? savedLabel(strategy) : html`Couldn’t save here. Download a copy!`);
   function save() {
-    const ok = putStrategy(strategy);
-    setHtml(savedEl, ok ? html`${raw(ICON.check)} Saved in this browser` : html`Couldn’t save here. Download a copy!`);
+    savedHere = putStrategy(strategy);
+    showSaved();
   }
+  showSaved();
+  scope.on(window, SYNC_EVENT, showSaved);
 
   main.querySelector('#bb-sname').addEventListener('input', (e) => {
     strategy = { ...strategy, program: { ...strategy.program, name: e.target.value.slice(0, LIMITS().maxNameLength) } };

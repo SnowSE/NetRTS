@@ -1,7 +1,8 @@
 // #/blocks: Block Bot. Build a bot from rule cards, play it against the house bots or in a real match,
 // and change it while the match runs. The server plays the rules (BlockBot in NetRts.Bots), so a match
 // keeps going when the tab closes. Strategies live in this browser (localStorage, saved as you go) and
-// download as .json files. app.js loads this module only when a Block Bot page opens.
+// download as .json files; signed in to the website, they're saved to the account too (sync.js) and come
+// down on any computer. app.js loads this module only when a Block Bot page opens.
 //
 //   #/blocks                 the locker (locker.js): your strategies, and where to play
 //   #/blocks/edit/<id>       the rule editor (edit-page.js): cards (rule-editor.js) or drag-and-drop
@@ -12,6 +13,7 @@ import { html, setHtml } from '../util.js';
 import { loadVocabulary } from './program.js';
 import { mountLocker } from './locker.js';
 import { mountEditor } from './edit-page.js';
+import { holdSync } from './sync.js';
 import { mountCockpit } from './cockpit.js';
 
 // The drag-and-drop blocks' look, only on Block Bot pages (blocks.css, the rest of Block Bot's, is on every page).
@@ -28,10 +30,16 @@ function loadBlockStyles() {
 export function mountBlocks(main, route) {
   let alive = true;
   let teardown = null;
+  let sync = null;
   loadBlockStyles();
   // The pages draw on the server's vocabulary and the game's rules: fetched once, and again on the next visit if that failed.
+  // Then the account's strategies (when someone is signed in), so the page reads them merged in.
   setHtml(main, html`<section class="bb-page"><p class="muted">Loading Block Bot…</p></section>`);
   loadVocabulary().then(() => {
+    if (!alive) return null;
+    sync = holdSync();
+    return sync.ready;
+  }).then(() => {
     if (!alive) return;
     teardown = route?.page === 'edit' ? mountEditor(main, route.id)
       : route?.page === 'match' ? mountCockpit(main, route.id)
@@ -46,5 +54,5 @@ export function mountBlocks(main, route) {
       window.dispatchEvent(new HashChangeEvent('hashchange'));
     });
   });
-  return () => { alive = false; teardown?.(); };
+  return () => { alive = false; teardown?.(); sync?.release(); };
 }

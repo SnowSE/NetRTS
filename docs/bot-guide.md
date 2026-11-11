@@ -545,6 +545,18 @@ status (the last four) words its reasons in the Snow College theme, or with the 
 `?theme=classic`. A Block Bot match is a practice match: it counts toward your record but not your
 rating (see [Practice and league matches](#practice-and-league-matches)).
 
+**Strategies on your account.** Signed in to the website with Discord, the page saves every strategy to
+your account as well as the browser, and your account's strategies show up on any computer you sign in
+on. If one changed on two computers before they synced, both versions are kept (one as a copy named
+"… (from your account)"). These calls take the website's sign-in cookie, not an API key (`401
+NOT_SIGNED_IN` without it):
+
+| Call | What it does |
+|---|---|
+| `GET /api/v1/account/strategies` | Your saved strategies (`id`, `program`, `version`, `createdAt`, `updatedAt`), newest change first. |
+| `PUT /api/v1/account/strategies/{id}` | Saves one (`{ "program": ..., "baseVersion": 3 }`; `id` is 1–64 letters, digits, `-` or `_`). `baseVersion` is the version you last read, or `null` for a new one; if the account's copy has moved on (or was deleted) you get `409 STRATEGY_CHANGED` with it as `current`. The program is checked like `validate` (`400 INVALID_PROGRAM`); an account keeps at most 100 (`409 TOO_MANY_STRATEGIES`), each at most 64 KB. |
+| `DELETE /api/v1/account/strategies/{id}` | Deletes one; with `?version=N` only if it's still that version (else `409 STRATEGY_CHANGED`). |
+
 ## Reference bots
 
 - **C# starter, one file:** [`samples/csharp/StarterBot.cs`](../samples/csharp/StarterBot.cs). Save it and
