@@ -1,0 +1,611 @@
+#!/usr/bin/env python3
+"""{{STRATEGY}}: your Block Bot strategy, as a Python bot you can change any way you like.
+
+Your rules are in my_rules() just below, written as code. The Bot class under them does what each block
+did, much as the Block Bot does: close, though not move for move. Change the rules, add your own, or
+use anything in the game state: it's all yours now. Python 3.8 or newer, nothing to install.
+
+Run it (from the folder this file is in):
+    python3 {{FILE}} --name YourBotName              signs up, saves your key, plays the Sleepy Sitter
+    python3 {{FILE}} --name YourBotName --vs rusher  sitter, economist, balanced or rusher
+    python3 {{FILE}} --name YourBotName --on Attack! starts with that switch on
+
+The first run saves your secret API key in apikey-YourBotName.txt; keep it, it's how the server knows
+you. Already have a key (like your Block Bot one)? Save it in that file, or pass --key.
+Every command and field: https://github.com/SnowSE/NetRTS/blob/main/docs/bot-guide.md
+"""
+import argparse
+import json
+import os
+import sys
+import time
+import urllib.error
+import urllib.request
+
+SERVER = "{{SERVER}}"
+
+# Your switches. In the Block Bot you flipped them during a match; here, set them before you run
+# (or start one on with --on NAME), or flip them from your own code.
+SWITCHES = {{SWITCHES}}
+
+
+def my_rules(bot):
+    """Your rules, checked top to bottom every tick. A rule higher up gets first pick of grubs and fighters."""
+{{RULES}}
+
+
+# =========================================================================== the blocks, as code
+
+DEFENSE_RADIUS = 10   # an enemy this close to one of your buildings is "near your base"
+NEAR_BASE = 8         # grubs this close to your HQ or a Co-op Store (ResourceDepot) are "near your base"
+RETARGET_TICKS = 15   # how often units heading for a target that may have moved are re-aimed
+PENDING_TICKS = 40    # how long a building we ordered counts before it shows up
+
+
+def dist(ax, ay, bx, by):
+    """Distance in moves: a diagonal step counts as one, so it's the larger of the two gaps."""
+    return max(abs(ax - bx), abs(ay - by))
+
+
+def sign(n):
+    return (n > 0) - (n < 0)
+
+
+class Memory:
+    """What the bot remembers between ticks."""
+
+    def __init__(self):
+        self.deposits = {}      # pile id -> pile: piles never move, so we remember the ones out of sight
+        self.pending = {}       # (x, y) -> (building type, tick): buildings ordered that haven't appeared yet
+        self.seen = set()       # every tile we've ever seen
+        self.last_orders = {}   # unit id -> (command, x, y, tick), so the same order isn't sent every tick
+        self.mix = {}           # where each train_mix is up to
+        self.scout_turn = 0
+        self.explore_goal = None
+
+    def update(self, state):
+        visible = set()
+        for y, row in enumerate(state["visibility"]):
+            for x, ch in enumerate(row):
+                if ch == "1":
+                    visible.add((x, y))
+        self.seen |= visible
+        listed = set()
+        for d in state["resources"]:
+            self.deposits[d["id"]] = d
+            listed.add(d["id"])
+        for pile_id, d in list(self.deposits.items()):   # a pile we can see the tile of, but isn't listed: dug out
+            if pile_id not in listed and (d["x"], d["y"]) in visible:
+                del self.deposits[pile_id]
+        me = state["you"]["slot"]
+        standing = {(b["x"], b["y"]) for b in state["buildings"] if b["owner"] == me}
+        for site, (_, tick) in list(self.pending.items()):
+            if site in standing or state["tick"] - tick > PENDING_TICKS:
+                del self.pending[site]
+        if self.explore_goal in self.seen:
+            self.explore_goal = None
+
+
+class Bot:
+    """One tick of the game, with a method for each block. Made fresh every tick."""
+
+    def __init__(self, state, game_map, rules, memory):
+        self.state, self.map, self.rules, self.memory = state, game_map, rules, memory
+        self.tick = state["tick"]
+        self.me = state["you"]["slot"]
+        self.ore = state["you"]["resources"]   # grubs left to spend this tick
+        self.units_by_type = {u["type"]: u for u in rules["units"]}
+        self.buildings_by_type = {b["type"]: b for b in rules["buildings"]}
+        self.upgrades_by_type = {u["type"]: u for u in rules["upgrades"]}
+        self.my_units = [u for u in state["units"] if u["owner"] == self.me]
+        self.my_buildings = [b for b in state["buildings"] if b["owner"] == self.me]
+        self.enemy_units = [u for u in state["units"] if u["owner"] != self.me]
+        self.enemy_buildings = [b for b in state["buildings"] if b["owner"] != self.me]
+        self.workers = [u for u in self.my_units if u["type"] == "Worker"]
+        self.army = [u for u in self.my_units if u["type"] != "Worker"]
+        hqs = sorted((b for b in self.my_buildings if b["type"] == "CommandCenter"), key=lambda b: (not b["completed"], b["id"]))
+        self.hq = hqs[0] if hqs else None
+        self.commands = []
+        self.used = set()     # units given an order this tick: a rule further down picks others
+        self.queued = {}      # building id -> how many things we queued there this tick
+        self.notes = []       # why things didn't happen, for the log
+        self.blocked = {(b["x"], b["y"]) for b in state["buildings"]} | {(r["x"], r["y"]) for r in state["resources"]}
+
+    def fail(self, why):
+        self.notes.append(why)
+        return False
+
+    # ----------------------------------------------------------------- checks
+
+    def minute(self):
+        return self.tick // 60
+
+    def count(self, what):
+        """Units count with those being trained; buildings with those going up or just ordered."""
+        def queued(match):
+            return sum(1 for b in self.my_buildings for p in b["production"] if match(p["unitType"]))
+        if what == "grubs":
+            return self.ore
+        if what == "workers":
+            what = "Worker"
+        if what == "fighters":
+            return len(self.army) + queued(lambda t: t != "Worker")
+        if what in self.units_by_type:
+            return sum(1 for u in self.my_units if u["type"] == what) + queued(lambda t: t == what)
+        standing = {(b["x"], b["y"]) for b in self.my_buildings}
+        return (sum(1 for b in self.my_buildings if b["type"] == what)
+                + sum(1 for site, (kind, _) in self.memory.pending.items() if kind == what and site not in standing))
+
+    def threat(self):
+        """The enemy unit near one of our buildings that's closest to the HQ, or None."""
+        near = [e for e in self.enemy_units
+                if any(dist(b["x"], b["y"], e["x"], e["y"]) <= DEFENSE_RADIUS for b in self.my_buildings)]
+        return min(near, key=lambda e: dist(self.hq["x"], self.hq["y"], e["x"], e["y"]), default=None)
+
+    def enemies_near_base(self):
+        return self.threat() is not None
+
+    def can_see_enemy(self):
+        return bool(self.enemy_units or self.enemy_buildings)
+
+    def near_base(self, x, y):
+        drop_offs = [(b["x"], b["y"]) for b in self.my_buildings if b["type"] in ("CommandCenter", "ResourceDepot")]
+        drop_offs += [site for site, (kind, _) in self.memory.pending.items() if kind in ("CommandCenter", "ResourceDepot")]
+        return any(dist(bx, by, x, y) <= NEAR_BASE for bx, by in drop_offs)
+
+    def ore_left_near_base(self):
+        return sum(d["remaining"] for d in self.memory.deposits.values() if self.near_base(d["x"], d["y"]))
+
+    def switch(self, name):
+        return any(on for key, on in SWITCHES.items() if key.lower() == name.lower())
+
+    # ----------------------------------------------------------------- who and where
+
+    def group(self, who):
+        return [u for u in self.army if (who == "fighters" or u["type"] == who) and u["id"] not in self.used]
+
+    def fighters(self):
+        """Your fighters that a rule higher up hasn't already used this tick."""
+        return self.group("fighters")
+
+    def units(self, unit_type):
+        return self.group(unit_type)
+
+    def enemy_start(self, x, y):
+        rivals = [p for p in self.state["players"] if p["slot"] != self.me and not p["eliminated"]]
+        p = min(rivals, key=lambda p: (dist(p["startPosition"]["x"], p["startPosition"]["y"], x, y), p["slot"]), default=None)
+        return (p["startPosition"]["x"], p["startPosition"]["y"]) if p else None
+
+    def enemy_base(self):
+        """The nearest enemy building you can see, else where the nearest enemy started."""
+        b = min(self.enemy_buildings, key=lambda b: (dist(b["x"], b["y"], self.hq["x"], self.hq["y"]), b["id"]), default=None)
+        return (b["x"], b["y"]) if b else self.enemy_start(self.hq["x"], self.hq["y"])
+
+    def nearest_enemy(self):
+        """The enemy you can see that's nearest your army (or your HQ, with no army)."""
+        army = self.army or [self.hq]
+        cx = sum(u["x"] for u in army) // len(army)
+        cy = sum(u["y"] for u in army) // len(army)
+        spots = [(e["x"], e["y"]) for e in self.enemy_units + self.enemy_buildings]
+        return min(spots, key=lambda p: (dist(p[0], p[1], cx, cy), p), default=None)
+
+    def is_open(self, x, y):
+        return (0 <= x < self.map["width"] and 0 <= y < self.map["height"]
+                and self.map["terrain"][y][x] == "." and (x, y) not in self.blocked)
+
+    def toward_center(self):
+        return sign(self.map["width"] // 2 - self.hq["x"]), sign(self.map["height"] // 2 - self.hq["y"])
+
+    def rally_point(self):
+        """Where the army waits: a few tiles from the HQ toward the middle of the map."""
+        dx, dy = self.toward_center()
+        for d in range(5, 1, -1):
+            x, y = self.hq["x"] + dx * d, self.hq["y"] + dy * d
+            if self.is_open(x, y):
+                return x, y
+        return self.hq["x"], self.hq["y"]
+
+    # ----------------------------------------------------------------- spending
+
+    def spend(self, cost, what):
+        if self.ore < cost:
+            return self.fail(f"a {what} costs {cost} grubs and you have {self.ore}")
+        self.ore -= cost
+        return True
+
+    def train(self, unit):
+        """Trains a unit at the least busy building that makes it (two queued at most)."""
+        at = self.units_by_type[unit]["producedAt"]
+        max_queue = max(1, min(2, self.rules["economy"]["maxProductionQueue"]))
+        producers = [b for b in self.my_buildings if b["type"] == at and b["completed"]]
+        if not producers:
+            return self.fail(f"you need a {at} to train a {unit}")
+        load = lambda b: len(b["production"]) + self.queued.get(b["id"], 0)
+        free = [b for b in producers if load(b) < max_queue]
+        if not free:
+            return self.fail(f"your {at} is busy")
+        building = min(free, key=lambda b: (load(b), b["id"]))
+        if not self.spend(self.units_by_type[unit]["cost"], unit):
+            return False
+        command = {"type": "Produce", "buildingId": building["id"], "unitType": unit}
+        if unit != "Worker":   # fighters walk to the rally point
+            command["x"], command["y"] = self.rally_point()
+        self.commands.append(command)
+        self.queued[building["id"]] = self.queued.get(building["id"], 0) + 1
+        return True
+
+    def train_mix(self, units):
+        """Trains these in turn, one each time it can."""
+        key = tuple(units)
+        turn = self.memory.mix.get(key, 0)
+        if self.train(units[turn % len(units)]):
+            self.memory.mix[key] = turn + 1
+            return True
+        return False
+
+    def build(self, building, place="TowardCenter"):
+        """Builds one near your base (one of a kind at a time). place: TowardCenter, NearOre or TowardEnemy."""
+        stats = self.buildings_by_type[building]
+        for need in stats["requires"]:
+            if not any(b["type"] == need and b["completed"] for b in self.my_buildings):
+                return self.fail(f"a {building} needs a finished {need} first")
+        upgrade = stats.get("requiresUpgrade")
+        if upgrade and upgrade not in self.state["you"]["upgrades"]:
+            return self.fail(f"a {building} needs {upgrade} first")
+        going_up = any(b["type"] == building and not b["completed"] for b in self.my_buildings)
+        if going_up or any(kind == building for kind, _ in self.memory.pending.values()):
+            return self.fail(f"a {building} is already going up")
+        if self.ore < stats["cost"]:
+            return self.fail(f"a {building} costs {stats['cost']} grubs and you have {self.ore}")
+        site = self.find_site(place)
+        if site is None:
+            return self.fail(f"there's no room near your HQ for a {building}")
+        return self.place(building, site)
+
+    def place(self, building, site):
+        """Sends the nearest free worker to put a building on this tile."""
+        builder = self.pick_builder(site)
+        if builder is None:
+            return self.fail(f"there's no free worker to build a {building}")
+        self.commands.append({"type": "Build", "unitIds": [builder["id"]], "buildingType": building, "x": site[0], "y": site[1]})
+        self.used.add(builder["id"])
+        self.memory.pending[site] = (building, self.tick)
+        self.ore -= self.buildings_by_type[building]["cost"]
+        return True
+
+    def pick_builder(self, site):
+        ok = [w for w in self.workers if w["activity"] in ("Gathering", "Moving", "Idle")
+              and w["carrying"] < 6 and w["id"] not in self.used]
+        return min(ok, key=lambda w: (dist(w["x"], w["y"], site[0], site[1]), w["id"]), default=None)
+
+    def find_site(self, place):
+        """An open tile near the HQ, with a walkway around other buildings and off the digging lanes."""
+        hq, piles = self.hq, self.state["resources"]
+        reserved = set(self.memory.pending)
+        if place == "NearOre":
+            near = [r for r in piles if dist(r["x"], r["y"], hq["x"], hq["y"]) <= 10]
+            anchor = (round(sum(r["x"] for r in near) / len(near)), round(sum(r["y"] for r in near) / len(near))) if near else (hq["x"], hq["y"])
+        elif place == "TowardEnemy" and self.enemy_start(hq["x"], hq["y"]):
+            ex, ey = self.enemy_start(hq["x"], hq["y"])
+            anchor = (hq["x"] + sign(ex - hq["x"]) * 5, hq["y"] + sign(ey - hq["y"]) * 5)
+        else:
+            dx, dy = self.toward_center()
+            anchor = (hq["x"] + dx * 4, hq["y"] + dy * 4)
+        best = None
+        for y in range(hq["y"] - 8, hq["y"] + 9):
+            for x in range(hq["x"] - 8, hq["x"] + 9):
+                ring = dist(x, y, hq["x"], hq["y"])
+                if ring < 3 or not self.is_open(x, y) or (x, y) in reserved:
+                    continue
+                if any(dist(b["x"], b["y"], x, y) <= 1 for b in self.state["buildings"]) or any(dist(rx, ry, x, y) <= 1 for rx, ry in reserved):
+                    continue
+                if any(dist(r["x"], r["y"], x, y) <= (1 if place == "NearOre" else 2) for r in piles):
+                    continue
+                score = dist(x, y, anchor[0], anchor[1]) * 10 + ring
+                if best is None or score < best[0]:
+                    best = (score, x, y)
+        return (best[1], best[2]) if best else None
+
+    def research(self, upgrade):
+        """Starts learning an upgrade at a free Tech Lab."""
+        you = self.state["you"]
+        if upgrade in you["upgrades"]:
+            return self.fail(f"you already learned {upgrade}")
+        if any(r["upgrade"] == upgrade for r in you["researching"]):
+            return self.fail(f"{upgrade} is already being learned")
+        stats = self.upgrades_by_type[upgrade]
+        if stats.get("requires") and stats["requires"] not in you["upgrades"]:
+            return self.fail(f"{upgrade} needs {stats['requires']} first")
+        labs = [b for b in self.my_buildings if b["type"] == "TechLab" and b["completed"]]
+        if not labs:
+            return self.fail(f"you need a TechLab to learn {upgrade}")
+        lab = next((b for b in labs if b.get("research") is None and b["id"] not in self.queued), None)
+        if lab is None:
+            return self.fail("your TechLab is busy")
+        if not self.spend(stats["cost"], upgrade):
+            return False
+        self.commands.append({"type": "Research", "buildingId": lab["id"], "upgrade": upgrade})
+        self.queued[lab["id"]] = 1
+        return True
+
+    # ----------------------------------------------------------------- the army
+
+    def order(self, group, command, spot, retarget):
+        """Sends units somewhere, skipping those already on their way there (unless it's time to re-aim)."""
+        ids = []
+        for u in group:
+            self.used.add(u["id"])
+            last = self.memory.last_orders.get(u["id"])
+            fresh = (last is not None and last[:3] == (command, spot[0], spot[1]) and u["activity"] != "Idle"
+                     and (not retarget or self.tick - last[3] < RETARGET_TICKS))
+            if not fresh:
+                ids.append(u["id"])
+                self.memory.last_orders[u["id"]] = (command, spot[0], spot[1], self.tick)
+        if ids:
+            self.commands.append({"type": command, "unitIds": ids, "x": spot[0], "y": spot[1]})
+
+    def attack(self, spot, group):
+        if not group:
+            return self.fail("you have no fighters to send")
+        if spot is None:
+            return self.fail("there's no enemy to attack in sight")
+        self.order(group, "Attack", spot, retarget=True)
+        return True
+
+    def defend(self, group):
+        threat = self.threat()
+        if threat is None:
+            return self.fail("no enemies near your base")
+        if not group:
+            return self.fail("you have no fighters to defend with")
+        self.order(group, "Attack", (threat["x"], threat["y"]), retarget=False)
+        return True
+
+    def go_home(self, group):
+        if not group:
+            return self.fail("you have no fighters to bring home")
+        rally = self.rally_point()
+        for u in group:
+            self.used.add(u["id"])
+        away = [u for u in group if dist(u["x"], u["y"], rally[0], rally[1]) > 3]
+        if away:
+            self.order(away, "Move", rally, retarget=False)
+        return True
+
+    def free_scout(self):
+        """A scout, else any fighter, not used yet this tick."""
+        free = [u for u in self.army if u["id"] not in self.used]
+        scouts = [u for u in free if u["type"] == "Scout"]
+        return min(scouts or free, key=lambda u: u["id"], default=None)
+
+    def scout(self):
+        """Sends a scout to each enemy's starting base in turn."""
+        scout = self.free_scout()
+        if scout is None:
+            return self.fail("you have no scouts (or any fighters) to send")
+        starts = [p["startPosition"] for p in sorted(self.state["players"], key=lambda p: p["slot"])
+                  if p["slot"] != self.me and not p["eliminated"]]
+        if not starts:
+            return self.fail("there's nobody left to find")
+        goal = starts[self.memory.scout_turn % len(starts)]
+        if scout["activity"] == "Idle" and dist(scout["x"], scout["y"], goal["x"], goal["y"]) <= 3:
+            self.memory.scout_turn += 1
+            goal = starts[self.memory.scout_turn % len(starts)]
+        self.order([scout], "Move", (goal["x"], goal["y"]), retarget=False)
+        return True
+
+    def explore(self):
+        """Sends a scout to the nearest part of the map you haven't seen yet."""
+        scout = self.free_scout()
+        if scout is None:
+            return self.fail("you have no scouts (or any fighters) to send exploring")
+        goal = self.memory.explore_goal
+        last = self.memory.last_orders.get(scout["id"])
+        if goal and scout["activity"] == "Idle" and last and last[1:3] == goal and self.tick - last[3] > 5:
+            self.memory.seen.add(goal)   # it stopped short (walled in by rock): try somewhere else
+            goal = None
+        if goal is None:
+            unseen = [(x, y) for y, row in enumerate(self.map["terrain"]) for x, ch in enumerate(row)
+                      if ch == "." and (x, y) not in self.memory.seen]
+            goal = min(unseen, key=lambda p: dist(p[0], p[1], scout["x"], scout["y"]), default=None)
+            self.memory.explore_goal = goal
+        if goal is None:
+            return self.fail("you've already seen the whole map")
+        self.order([scout], "Move", goal, retarget=False)
+        return True
+
+    def expand(self, building="ResourceDepot"):
+        """Builds a Co-op Store (ResourceDepot) or an HQ by the nearest grubs that aren't near a base yet."""
+        drop_offs = ("CommandCenter", "ResourceDepot")
+        if any(kind in drop_offs for kind, _ in self.memory.pending.values()) or any(
+                b["type"] in drop_offs and not b["completed"] for b in self.my_buildings):
+            return self.fail("a new base is already going up")
+        hq = self.hq
+        far = [d for d in self.memory.deposits.values() if d["remaining"] > 0 and not self.near_base(d["x"], d["y"])]
+        target = min(far, key=lambda d: (dist(d["x"], d["y"], hq["x"], hq["y"]), d["id"]), default=None)
+        if target is None:
+            return self.explore()   # nowhere known yet: go and look
+        cost = self.buildings_by_type[building]["cost"]
+        if self.ore < cost:
+            return self.fail(f"a {building} costs {cost} grubs and you have {self.ore}")
+        piles = [(d["x"], d["y"]) for d in self.memory.deposits.values()]
+        best = None
+        for y in range(target["y"] - 3, target["y"] + 4):
+            for x in range(target["x"] - 3, target["x"] + 4):
+                if (dist(x, y, target["x"], target["y"]) < 2 or not self.is_open(x, y) or (x, y) in self.memory.pending
+                        or any(dist(px, py, x, y) <= 1 for px, py in piles)):
+                    continue
+                score = -10 * sum(1 for px, py in piles if dist(px, py, x, y) <= 3) + dist(x, y, hq["x"], hq["y"])
+                if best is None or score < best[0]:
+                    best = (score, x, y)
+        if best is None:
+            return self.fail(f"there's no room for a {building} next to those grubs")
+        return self.place(building, (best[1], best[2]))
+
+    # ----------------------------------------------------------------- what happens on its own
+
+    def finish_abandoned_sites(self):
+        """Sends a worker to every half-built building nobody is working on."""
+        for site in (b for b in self.my_buildings if not b["completed"]):
+            if any(w.get("targetId") == site["id"] or (w.get("destination") or {}) == {"x": site["x"], "y": site["y"]} for w in self.workers):
+                continue
+            builder = self.pick_builder((site["x"], site["y"]))
+            if builder:
+                self.used.add(builder["id"])
+                self.commands.append({"type": "Build", "unitIds": [builder["id"]], "buildingType": site["type"], "x": site["x"], "y": site["y"]})
+
+    def gather_idle_workers(self):
+        """Every idle worker digs, spread over the piles nearest a finished HQ or Co-op Store."""
+        drop_offs = [b for b in self.my_buildings if b["type"] in ("CommandCenter", "ResourceDepot") and b["completed"]]
+        piles = [d for d in self.memory.deposits.values() if d["remaining"] > 0]
+        if not drop_offs or not piles:
+            return
+        assigned = {}
+        for w in self.workers:
+            if w.get("targetId") is not None and w["activity"] != "Idle":
+                assigned[w["targetId"]] = assigned.get(w["targetId"], 0) + 1
+        haul = lambda d: min(dist(b["x"], b["y"], d["x"], d["y"]) for b in drop_offs)
+        for w in self.workers:
+            if w["activity"] != "Idle" or w["id"] in self.used:
+                continue
+            pile = min(piles, key=lambda d: (haul(d) + 3 * assigned.get(d["id"], 0), d["id"]))
+            self.commands.append({"type": "Gather", "unitIds": [w["id"]], "targetId": pile["id"]})
+            assigned[pile["id"]] = assigned.get(pile["id"], 0) + 1
+
+
+# =========================================================================== talking to the server
+
+class ApiError(Exception):
+    def __init__(self, status, code, message):
+        super().__init__(f"{status} {code}: {message}")
+        self.status, self.code, self.message = status, code, message
+
+
+class Api:
+    def __init__(self, server, api_key=None):
+        self.server = server.rstrip("/")
+        self.api_key = api_key
+
+    def call(self, method, path, body=None):
+        data = json.dumps(body).encode() if body is not None else None
+        req = urllib.request.Request(self.server + path, data=data, method=method)
+        req.add_header("Content-Type", "application/json")
+        if self.api_key:
+            req.add_header("Authorization", f"Bearer {self.api_key}")
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:   # waiting for a tick can take up to 30 s
+                raw = resp.read()
+                return json.loads(raw) if raw else None
+        except urllib.error.HTTPError as e:
+            try:
+                err = json.loads(e.read())
+            except ValueError:
+                err = {}
+            raise ApiError(e.code, err.get("code", "HTTP_ERROR"), err.get("message", e.reason)) from None
+
+
+def log(msg):
+    print(time.strftime("[%H:%M:%S] ") + msg, flush=True)
+
+
+def sign_up(api, name, key):
+    """Uses --key, else the key saved in apikey-NAME.txt, else signs up and saves the new key there."""
+    key_file = f"apikey-{name}.txt"
+    if not key and os.path.exists(key_file):
+        with open(key_file) as f:
+            key = f.read().strip()
+    if not key:
+        try:
+            player = api.call("POST", "/api/v1/players", {"name": name})
+        except ApiError as e:
+            if e.code == "NAME_TAKEN":
+                sys.exit(f"'{name}' is taken. If it's yours, save its key in {key_file} (or pass --key); else pick another --name.")
+            raise
+        key = player["apiKey"]
+        with open(key_file, "w") as f:
+            f.write(key)
+        log(f"Signed up as {name}; your key is saved in {key_file}")
+    api.api_key = key
+
+
+def get_into_match(api, args):
+    settings = {"tickIntervalMs": args.tick_ms}
+    if args.join:
+        match_id = args.join
+        if len(match_id) != 36:   # a name, not an id
+            waiting = api.call("GET", "/api/v1/matches?status=Waiting")
+            match = next((m for m in waiting if (m.get("name") or "").lower() == args.join.lower()), None)
+            if match is None:
+                sys.exit(f"No match named '{args.join}' is waiting for players.")
+            match_id = match["matchId"]
+        api.call("POST", f"/api/v1/matches/{match_id}/join")
+        return match_id
+    if args.create:
+        match = api.call("POST", "/api/v1/matches", {"name": args.create, "settings": settings})
+        log(f"Created {args.create}: a classmate can join it with --join {args.create}")
+    else:
+        match = api.call("POST", "/api/v1/matches", {"houseBots": [args.vs], "settings": settings})
+    return match["matchId"]
+
+
+def play(api, match_id):
+    log(f"Watch it at {api.server}/#/match/{match_id}")
+    while True:
+        try:
+            state = api.call("GET", f"/api/v1/matches/{match_id}/state?waitForTick=0")
+            break
+        except ApiError as e:
+            if e.code != "MATCH_NOT_STARTED":
+                raise
+            log("Waiting for the match to start...")
+    rules = api.call("GET", "/api/v1/rules")
+    game_map = api.call("GET", f"/api/v1/matches/{match_id}/map")
+    memory = Memory()
+    last_notes = None
+    while state["status"] != "Completed":
+        memory.update(state)
+        bot = Bot(state, game_map, rules, memory)
+        if bot.hq is not None:
+            my_rules(bot)
+            bot.finish_abandoned_sites()
+            bot.gather_idle_workers()
+        if bot.commands:
+            api.call("POST", f"/api/v1/matches/{match_id}/commands", {"commands": bot.commands})
+        if bot.notes != last_notes and bot.notes:
+            log(f"tick {state['tick']}: " + "; ".join(bot.notes))
+        last_notes = bot.notes
+        tick = state["tick"]
+        state = api.call("GET", f"/api/v1/matches/{match_id}/state?waitForTick={tick + 1}&sinceTick={tick}")
+    result = api.call("GET", f"/api/v1/matches/{match_id}/result")
+    for p in result["players"]:
+        log(f"{p['name']}: {p['score']['total']} points" + ("  <-- WINNER" if p["winner"] else ""))
+
+
+def main():
+    ap = argparse.ArgumentParser(description="{{STRATEGY}}, as a Python bot")
+    ap.add_argument("--name", required=True, help="your bot's name: 3-32 letters, digits, - or _")
+    ap.add_argument("--key", default=os.environ.get("NETRTS_API_KEY"), help="your API key (else it's read from apikey-NAME.txt)")
+    ap.add_argument("--server", default=os.environ.get("NETRTS_SERVER", SERVER))
+    mode = ap.add_mutually_exclusive_group()
+    mode.add_argument("--vs", default="sitter", help="the house bot to play: sitter, economist, balanced or rusher")
+    mode.add_argument("--create", metavar="NAME", help="start a match with this name for a classmate to join")
+    mode.add_argument("--join", metavar="NAME", help="join a waiting match, by its name or its id")
+    ap.add_argument("--tick-ms", type=int, default=1000, help="milliseconds per tick for a match you start (100-10000)")
+    ap.add_argument("--on", action="append", default=[], metavar="SWITCH", help="start with this switch on (repeatable)")
+    args = ap.parse_args()
+    for name in args.on:
+        SWITCHES[name] = True
+    api = Api(args.server)
+    try:
+        sign_up(api, args.name, args.key)
+        play(api, get_into_match(api, args))
+    except ApiError as e:
+        sys.exit(f"The server said no: {e.code}: {e.message}")
+    except urllib.error.URLError as e:
+        sys.exit(f"Can't reach {args.server}: {e.reason}")
+    except KeyboardInterrupt:
+        sys.exit("Stopped.")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,916 @@
+#:property Nullable=disable
+#:property PublishAot=false
+
+// {{STRATEGY}}: your Block Bot strategy, as a C# bot you can change any way you like.
+//
+// Your rules are in Strategy.MyRules, just below, written as code. The Bot class under them does what
+// each block did, much as the Block Bot does: close, though not move for move. Change the rules, add your
+// own, or use anything in the game state: it's all yours now. You need the .NET 10 SDK, nothing else.
+//
+// Run it (from the folder this file is in):
+//     dotnet run {{FILE}} --player-name YourBotName                      signs up, saves your key, plays the Sleepy Sitter
+//     dotnet run {{FILE}} --player-name YourBotName --opponent rusher    sitter, economist, balanced or rusher
+//     dotnet run {{FILE}} --player-name YourBotName --on Attack!         starts with that switch on
+//     dotnet run {{FILE}} --player-name Ann --create-match our-game      a match for a classmate to --join-match
+//
+// The first run saves your secret API key in apikey-YourBotName.txt; keep it, it's how the server knows
+// you. Already have a key (like your Block Bot one)? Save it in that file, or pass --key.
+// Every command and field: https://github.com/SnowSE/NetRTS/blob/main/docs/bot-guide.md
+
+using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+var options = Options.Parse(args);
+if (options == null)
+{
+    return;
+}
+
+foreach (var name in options.On)
+{
+    Strategy.Switches[name] = true;
+}
+
+var api = new Api(options.Server);
+if (await api.SignUp(options.PlayerName, options.Key))
+{
+    var matchId = await api.GetIntoMatch(options);
+    if (matchId != null)
+    {
+        await api.Play(matchId);
+    }
+}
+
+static class Strategy
+{
+    // Your switches. In the Block Bot you flipped them during a match; here, set them before you run
+    // (or start one on with --on NAME), or flip them from your own code.
+    public static readonly Dictionary<string, bool> Switches = new(StringComparer.OrdinalIgnoreCase)
+    {
+{{SWITCHES}}
+    };
+
+    // Your rules, checked top to bottom every tick. A rule higher up gets first pick of grubs and fighters.
+    public static void MyRules(Bot bot)
+    {
+{{RULES}}
+    }
+}
+
+// =========================================================================== the blocks, as code
+
+/// <summary>What the bot remembers between ticks.</summary>
+class Memory
+{
+    public const int PendingTicks = 40;   // how long a building we ordered counts before it shows up
+
+    public Dictionary<int, Pile> Deposits { get; } = [];                      // piles never move: we remember the ones out of sight
+    public Dictionary<(int X, int Y), (string Type, int Tick)> Pending { get; } = [];   // buildings ordered that haven't appeared yet
+    public HashSet<(int X, int Y)> Seen { get; } = [];                         // every tile we've ever seen
+    public Dictionary<int, (string Command, int X, int Y, int Tick)> LastOrders { get; } = [];  // so the same order isn't sent every tick
+    public Dictionary<string, int> Mix { get; } = [];                           // where each TrainMix is up to
+    public int ScoutTurn { get; set; }
+    public (int X, int Y)? ExploreGoal { get; set; }
+
+    public void Update(State state)
+    {
+        var visible = new HashSet<(int, int)>();
+        for (var y = 0; y < state.Visibility.Count; y++)
+        {
+            for (var x = 0; x < state.Visibility[y].Length; x++)
+            {
+                if (state.Visibility[y][x] == '1')
+                {
+                    visible.Add((x, y));
+                }
+            }
+        }
+
+        Seen.UnionWith(visible);
+        foreach (var d in state.Resources)
+        {
+            Deposits[d.Id] = d;
+        }
+
+        var listed = state.Resources.Select(d => d.Id).ToHashSet();
+        foreach (var d in Deposits.Values.Where(d => !listed.Contains(d.Id) && visible.Contains((d.X, d.Y))).ToList())
+        {
+            Deposits.Remove(d.Id);   // we can see where it was, and it's not there: dug out
+        }
+
+        var standing = state.Buildings.Where(b => b.Owner == state.You.Slot).Select(b => (b.X, b.Y)).ToHashSet();
+        foreach (var site in Pending.Where(p => standing.Contains(p.Key) || state.Tick - p.Value.Tick > PendingTicks).Select(p => p.Key).ToList())
+        {
+            Pending.Remove(site);
+        }
+
+        if (ExploreGoal is { } goal && Seen.Contains(goal))
+        {
+            ExploreGoal = null;
+        }
+    }
+}
+
+/// <summary>One tick of the game, with a method for each block. Made fresh every tick.</summary>
+class Bot
+{
+    const int DefenseRadius = 10;   // an enemy this close to one of your buildings is "near your base"
+    const int NearBase = 8;         // grubs this close to your HQ or a Co-op Store (ResourceDepot) are "near your base"
+    const int RetargetTicks = 15;   // how often units heading for a target that may have moved are re-aimed
+
+    readonly State _state;
+    readonly MapInfo _map;
+    readonly Rules _rules;
+    readonly Memory _memory;
+    readonly HashSet<(int X, int Y)> _blocked;
+    readonly HashSet<int> _used = [];              // units given an order this tick: a rule further down picks others
+    readonly Dictionary<int, int> _queued = [];    // building id -> how many things we queued there this tick
+
+    public Bot(State state, MapInfo map, Rules rules, Memory memory)
+    {
+        (_state, _map, _rules, _memory) = (state, map, rules, memory);
+        var me = state.You.Slot;
+        Ore = state.You.Resources;
+        MyUnits = state.Units.Where(u => u.Owner == me).ToList();
+        MyBuildings = state.Buildings.Where(b => b.Owner == me).ToList();
+        EnemyUnits = state.Units.Where(u => u.Owner != me).ToList();
+        EnemyBuildings = state.Buildings.Where(b => b.Owner != me).ToList();
+        Workers = MyUnits.Where(u => u.Type == "Worker").ToList();
+        Army = MyUnits.Where(u => u.Type != "Worker").ToList();
+        Hq = MyBuildings.Where(b => b.Type == "CommandCenter").OrderByDescending(b => b.Completed).ThenBy(b => b.Id).FirstOrDefault();
+        _blocked = state.Buildings.Select(b => (b.X, b.Y)).Concat(state.Resources.Select(r => (r.X, r.Y))).ToHashSet();
+    }
+
+    public int Tick => _state.Tick;
+    public int Ore { get; private set; }            // grubs left to spend this tick
+    public List<Unit> MyUnits { get; }
+    public List<Building> MyBuildings { get; }
+    public List<Unit> EnemyUnits { get; }
+    public List<Building> EnemyBuildings { get; }
+    public List<Unit> Workers { get; }
+    public List<Unit> Army { get; }
+    public Building Hq { get; }
+    public List<Command> Commands { get; } = [];
+    public List<string> Notes { get; } = [];        // why things didn't happen, for the log
+
+    public static int Dist(int ax, int ay, int bx, int by) => Math.Max(Math.Abs(ax - bx), Math.Abs(ay - by));
+
+    bool Fail(string why)
+    {
+        Notes.Add(why);
+        return false;
+    }
+
+    // ----------------------------------------------------------------- checks
+
+    public int Minute => Tick / 60;
+
+    /// <summary>Units count with those being trained; buildings with those going up or just ordered.</summary>
+    public int Count(string what)
+    {
+        int Queued(Func<string, bool> match) => MyBuildings.Sum(b => b.Production.Count(p => match(p.UnitType)));
+        switch (what)
+        {
+            case "grubs":
+                return Ore;
+            case "workers":
+                what = "Worker";
+                break;
+            case "fighters":
+                return Army.Count + Queued(t => t != "Worker");
+        }
+
+        if (_rules.Units.Any(u => u.Type == what))
+        {
+            return MyUnits.Count(u => u.Type == what) + Queued(t => t == what);
+        }
+
+        var standing = MyBuildings.Select(b => (b.X, b.Y)).ToHashSet();
+        return MyBuildings.Count(b => b.Type == what) + _memory.Pending.Count(p => p.Value.Type == what && !standing.Contains(p.Key));
+    }
+
+    /// <summary>The enemy unit near one of our buildings that's closest to the HQ, or null.</summary>
+    public Unit Threat() =>
+        EnemyUnits.Where(e => MyBuildings.Any(b => Dist(b.X, b.Y, e.X, e.Y) <= DefenseRadius))
+            .OrderBy(e => Dist(Hq.X, Hq.Y, e.X, e.Y)).FirstOrDefault();
+
+    public bool EnemiesNearBase() => Threat() != null;
+
+    public bool CanSeeEnemy() => EnemyUnits.Count + EnemyBuildings.Count > 0;
+
+    static bool IsDropOff(string type) => type is "CommandCenter" or "ResourceDepot";
+
+    bool IsNearBase(int x, int y) =>
+        MyBuildings.Where(b => IsDropOff(b.Type)).Select(b => (b.X, b.Y))
+            .Concat(_memory.Pending.Where(p => IsDropOff(p.Value.Type)).Select(p => p.Key))
+            .Any(d => Dist(d.Item1, d.Item2, x, y) <= NearBase);
+
+    public int OreLeftNearBase() => _memory.Deposits.Values.Where(d => IsNearBase(d.X, d.Y)).Sum(d => d.Remaining);
+
+    public bool Switch(string name) => Strategy.Switches.GetValueOrDefault(name);
+
+    // ----------------------------------------------------------------- who and where
+
+    List<Unit> Group(string who) => Army.Where(u => (who == "fighters" || u.Type == who) && !_used.Contains(u.Id)).ToList();
+
+    /// <summary>Your fighters that a rule higher up hasn't already used this tick.</summary>
+    public List<Unit> Fighters() => Group("fighters");
+
+    public List<Unit> Units(string type) => Group(type);
+
+    (int X, int Y)? EnemyStart(int x, int y) =>
+        _state.Players.Where(p => p.Slot != _state.You.Slot && !p.Eliminated)
+            .OrderBy(p => Dist(p.StartPosition.X, p.StartPosition.Y, x, y)).ThenBy(p => p.Slot)
+            .Select(p => ((int, int)?)(p.StartPosition.X, p.StartPosition.Y)).FirstOrDefault();
+
+    /// <summary>The nearest enemy building you can see, else where the nearest enemy started.</summary>
+    public (int X, int Y)? EnemyBase()
+    {
+        var b = EnemyBuildings.OrderBy(b => Dist(b.X, b.Y, Hq.X, Hq.Y)).ThenBy(b => b.Id).FirstOrDefault();
+        return b != null ? (b.X, b.Y) : EnemyStart(Hq.X, Hq.Y);
+    }
+
+    /// <summary>The enemy you can see that's nearest your army (or your HQ, with no army).</summary>
+    public (int X, int Y)? NearestEnemy()
+    {
+        var (cx, cy) = Army.Count > 0 ? ((int)Army.Average(u => u.X), (int)Army.Average(u => u.Y)) : (Hq.X, Hq.Y);
+        return EnemyUnits.Select(e => (e.X, e.Y)).Concat(EnemyBuildings.Select(e => (e.X, e.Y)))
+            .OrderBy(p => Dist(p.X, p.Y, cx, cy)).ThenBy(p => p.X).ThenBy(p => p.Y)
+            .Select(p => ((int, int)?)p).FirstOrDefault();
+    }
+
+    bool IsOpen(int x, int y) => x >= 0 && y >= 0 && x < _map.Width && y < _map.Height && _map.Terrain[y][x] == '.' && !_blocked.Contains((x, y));
+
+    (int Dx, int Dy) TowardCenter() => (Math.Sign(_map.Width / 2 - Hq.X), Math.Sign(_map.Height / 2 - Hq.Y));
+
+    /// <summary>Where the army waits: a few tiles from the HQ toward the middle of the map.</summary>
+    public (int X, int Y) RallyPoint()
+    {
+        var (dx, dy) = TowardCenter();
+        for (var d = 5; d >= 2; d--)
+        {
+            if (IsOpen(Hq.X + dx * d, Hq.Y + dy * d))
+            {
+                return (Hq.X + dx * d, Hq.Y + dy * d);
+            }
+        }
+
+        return (Hq.X, Hq.Y);
+    }
+
+    // ----------------------------------------------------------------- spending
+
+    bool Spend(int cost, string what)
+    {
+        if (Ore < cost)
+        {
+            return Fail($"a {what} costs {cost} grubs and you have {Ore}");
+        }
+
+        Ore -= cost;
+        return true;
+    }
+
+    /// <summary>Trains a unit at the least busy building that makes it (two queued at most).</summary>
+    public bool Train(string unit)
+    {
+        var stats = _rules.Units.First(u => u.Type == unit);
+        var maxQueue = Math.Max(1, Math.Min(2, _rules.Economy.MaxProductionQueue));
+        var producers = MyBuildings.Where(b => b.Type == stats.ProducedAt && b.Completed).ToList();
+        if (producers.Count == 0)
+        {
+            return Fail($"you need a {stats.ProducedAt} to train a {unit}");
+        }
+
+        int Load(Building b) => b.Production.Count + _queued.GetValueOrDefault(b.Id);
+        var building = producers.Where(b => Load(b) < maxQueue).OrderBy(Load).ThenBy(b => b.Id).FirstOrDefault();
+        if (building == null)
+        {
+            return Fail($"your {stats.ProducedAt} is busy");
+        }
+
+        if (!Spend(stats.Cost, unit))
+        {
+            return false;
+        }
+
+        var command = new Command("Produce") { BuildingId = building.Id, UnitType = unit };
+        if (unit != "Worker")   // fighters walk to the rally point
+        {
+            var (x, y) = RallyPoint();
+            command = command with { X = x, Y = y };
+        }
+
+        Commands.Add(command);
+        _queued[building.Id] = _queued.GetValueOrDefault(building.Id) + 1;
+        return true;
+    }
+
+    /// <summary>Trains these in turn, one each time it can.</summary>
+    public bool TrainMix(string[] units)
+    {
+        var key = string.Join(",", units);
+        var turn = _memory.Mix.GetValueOrDefault(key);
+        if (!Train(units[turn % units.Length]))
+        {
+            return false;
+        }
+
+        _memory.Mix[key] = turn + 1;
+        return true;
+    }
+
+    /// <summary>Builds one near your base (one of a kind at a time). place: TowardCenter, NearOre or TowardEnemy.</summary>
+    public bool Build(string building, string place = "TowardCenter")
+    {
+        var stats = _rules.Buildings.First(b => b.Type == building);
+        foreach (var need in stats.Requires.Where(r => !MyBuildings.Any(b => b.Type == r && b.Completed)))
+        {
+            return Fail($"a {building} needs a finished {need} first");
+        }
+
+        if (stats.RequiresUpgrade != null && !_state.You.Upgrades.Contains(stats.RequiresUpgrade))
+        {
+            return Fail($"a {building} needs {stats.RequiresUpgrade} first");
+        }
+
+        if (MyBuildings.Any(b => b.Type == building && !b.Completed) || _memory.Pending.Values.Any(p => p.Type == building))
+        {
+            return Fail($"a {building} is already going up");
+        }
+
+        if (Ore < stats.Cost)
+        {
+            return Fail($"a {building} costs {stats.Cost} grubs and you have {Ore}");
+        }
+
+        var site = FindSite(place);
+        return site == null ? Fail($"there's no room near your HQ for a {building}") : Place(building, site.Value);
+    }
+
+    /// <summary>Sends the nearest free worker to put a building on this tile.</summary>
+    public bool Place(string building, (int X, int Y) site)
+    {
+        var builder = PickBuilder(site);
+        if (builder == null)
+        {
+            return Fail($"there's no free worker to build a {building}");
+        }
+
+        Commands.Add(new Command("Build") { UnitIds = [builder.Id], BuildingType = building, X = site.X, Y = site.Y });
+        _used.Add(builder.Id);
+        _memory.Pending[site] = (building, Tick);
+        Ore -= _rules.Buildings.First(b => b.Type == building).Cost;
+        return true;
+    }
+
+    Unit PickBuilder((int X, int Y) site) =>
+        Workers.Where(w => w.Activity is "Gathering" or "Moving" or "Idle" && w.Carrying < 6 && !_used.Contains(w.Id))
+            .OrderBy(w => Dist(w.X, w.Y, site.X, site.Y)).ThenBy(w => w.Id).FirstOrDefault();
+
+    /// <summary>An open tile near the HQ, with a walkway around other buildings and off the digging lanes.</summary>
+    (int X, int Y)? FindSite(string place)
+    {
+        var piles = _state.Resources;
+        (int X, int Y) anchor;
+        var (dx, dy) = TowardCenter();
+        if (place == "NearOre")
+        {
+            var near = piles.Where(r => Dist(r.X, r.Y, Hq.X, Hq.Y) <= 10).ToList();
+            anchor = near.Count == 0 ? (Hq.X, Hq.Y) : ((int)Math.Round(near.Average(r => r.X)), (int)Math.Round(near.Average(r => r.Y)));
+        }
+        else if (place == "TowardEnemy" && EnemyStart(Hq.X, Hq.Y) is { } enemy)
+        {
+            anchor = (Hq.X + Math.Sign(enemy.X - Hq.X) * 5, Hq.Y + Math.Sign(enemy.Y - Hq.Y) * 5);
+        }
+        else
+        {
+            anchor = (Hq.X + dx * 4, Hq.Y + dy * 4);
+        }
+
+        (int X, int Y)? best = null;
+        var bestScore = int.MaxValue;
+        for (var y = Hq.Y - 8; y <= Hq.Y + 8; y++)
+        {
+            for (var x = Hq.X - 8; x <= Hq.X + 8; x++)
+            {
+                var ring = Dist(x, y, Hq.X, Hq.Y);
+                if (ring < 3 || !IsOpen(x, y) || _memory.Pending.ContainsKey((x, y))
+                    || _state.Buildings.Any(b => Dist(b.X, b.Y, x, y) <= 1)
+                    || _memory.Pending.Keys.Any(r => Dist(r.X, r.Y, x, y) <= 1)
+                    || piles.Any(r => Dist(r.X, r.Y, x, y) <= (place == "NearOre" ? 1 : 2)))
+                {
+                    continue;
+                }
+
+                var score = Dist(x, y, anchor.X, anchor.Y) * 10 + ring;
+                if (score < bestScore)
+                {
+                    (bestScore, best) = (score, (x, y));
+                }
+            }
+        }
+
+        return best;
+    }
+
+    /// <summary>Starts learning an upgrade at a free Tech Lab.</summary>
+    public bool Research(string upgrade)
+    {
+        var you = _state.You;
+        if (you.Upgrades.Contains(upgrade))
+        {
+            return Fail($"you already learned {upgrade}");
+        }
+
+        if (you.Researching.Any(r => r.Upgrade == upgrade))
+        {
+            return Fail($"{upgrade} is already being learned");
+        }
+
+        var stats = _rules.Upgrades.First(u => u.Type == upgrade);
+        if (stats.Requires != null && !you.Upgrades.Contains(stats.Requires))
+        {
+            return Fail($"{upgrade} needs {stats.Requires} first");
+        }
+
+        var labs = MyBuildings.Where(b => b.Type == "TechLab" && b.Completed).ToList();
+        if (labs.Count == 0)
+        {
+            return Fail($"you need a TechLab to learn {upgrade}");
+        }
+
+        var lab = labs.FirstOrDefault(b => b.Research == null && !_queued.ContainsKey(b.Id));
+        if (lab == null)
+        {
+            return Fail("your TechLab is busy");
+        }
+
+        if (!Spend(stats.Cost, upgrade))
+        {
+            return false;
+        }
+
+        Commands.Add(new Command("Research") { BuildingId = lab.Id, Upgrade = upgrade });
+        _queued[lab.Id] = 1;
+        return true;
+    }
+
+    // ----------------------------------------------------------------- the army
+
+    /// <summary>Sends units somewhere, skipping those already on their way there (unless it's time to re-aim).</summary>
+    void Order(List<Unit> group, string command, (int X, int Y) spot, bool retarget)
+    {
+        var ids = new List<int>();
+        foreach (var u in group)
+        {
+            _used.Add(u.Id);
+            var fresh = _memory.LastOrders.TryGetValue(u.Id, out var last)
+                        && last.Command == command && last.X == spot.X && last.Y == spot.Y && u.Activity != "Idle"
+                        && (!retarget || Tick - last.Tick < RetargetTicks);
+            if (!fresh)
+            {
+                ids.Add(u.Id);
+                _memory.LastOrders[u.Id] = (command, spot.X, spot.Y, Tick);
+            }
+        }
+
+        if (ids.Count > 0)
+        {
+            Commands.Add(new Command(command) { UnitIds = [.. ids], X = spot.X, Y = spot.Y });
+        }
+    }
+
+    public bool Attack((int X, int Y)? spot, List<Unit> group)
+    {
+        if (group.Count == 0)
+        {
+            return Fail("you have no fighters to send");
+        }
+
+        if (spot == null)
+        {
+            return Fail("there's no enemy to attack in sight");
+        }
+
+        Order(group, "Attack", spot.Value, retarget: true);
+        return true;
+    }
+
+    public bool Defend(List<Unit> group)
+    {
+        var threat = Threat();
+        if (threat == null)
+        {
+            return Fail("no enemies near your base");
+        }
+
+        if (group.Count == 0)
+        {
+            return Fail("you have no fighters to defend with");
+        }
+
+        Order(group, "Attack", (threat.X, threat.Y), retarget: false);
+        return true;
+    }
+
+    public bool GoHome(List<Unit> group)
+    {
+        if (group.Count == 0)
+        {
+            return Fail("you have no fighters to bring home");
+        }
+
+        var rally = RallyPoint();
+        _used.UnionWith(group.Select(u => u.Id));
+        var away = group.Where(u => Dist(u.X, u.Y, rally.X, rally.Y) > 3).ToList();
+        if (away.Count > 0)
+        {
+            Order(away, "Move", rally, retarget: false);
+        }
+
+        return true;
+    }
+
+    /// <summary>A scout, else any fighter, not used yet this tick.</summary>
+    Unit FreeScout()
+    {
+        var free = Army.Where(u => !_used.Contains(u.Id)).OrderBy(u => u.Id).ToList();
+        return free.FirstOrDefault(u => u.Type == "Scout") ?? free.FirstOrDefault();
+    }
+
+    /// <summary>Sends a scout to each enemy's starting base in turn.</summary>
+    public bool Scout()
+    {
+        var scout = FreeScout();
+        if (scout == null)
+        {
+            return Fail("you have no scouts (or any fighters) to send");
+        }
+
+        var starts = _state.Players.Where(p => p.Slot != _state.You.Slot && !p.Eliminated).OrderBy(p => p.Slot).Select(p => p.StartPosition).ToList();
+        if (starts.Count == 0)
+        {
+            return Fail("there's nobody left to find");
+        }
+
+        var goal = starts[_memory.ScoutTurn % starts.Count];
+        if (scout.Activity == "Idle" && Dist(scout.X, scout.Y, goal.X, goal.Y) <= 3)
+        {
+            _memory.ScoutTurn++;
+            goal = starts[_memory.ScoutTurn % starts.Count];
+        }
+
+        Order([scout], "Move", (goal.X, goal.Y), retarget: false);
+        return true;
+    }
+
+    /// <summary>Sends a scout to the nearest part of the map you haven't seen yet.</summary>
+    public bool Explore()
+    {
+        var scout = FreeScout();
+        if (scout == null)
+        {
+            return Fail("you have no scouts (or any fighters) to send exploring");
+        }
+
+        var goal = _memory.ExploreGoal;
+        if (goal is { } stuck && scout.Activity == "Idle" && _memory.LastOrders.TryGetValue(scout.Id, out var last)
+            && last.X == stuck.X && last.Y == stuck.Y && Tick - last.Tick > 5)
+        {
+            _memory.Seen.Add(stuck);   // it stopped short (walled in by rock): try somewhere else
+            goal = null;
+        }
+
+        if (goal == null)
+        {
+            var bestDist = int.MaxValue;
+            for (var y = 0; y < _map.Height; y++)
+            {
+                for (var x = 0; x < _map.Width; x++)
+                {
+                    if (_map.Terrain[y][x] == '.' && !_memory.Seen.Contains((x, y)) && Dist(x, y, scout.X, scout.Y) < bestDist)
+                    {
+                        (bestDist, goal) = (Dist(x, y, scout.X, scout.Y), (x, y));
+                    }
+                }
+            }
+
+            _memory.ExploreGoal = goal;
+        }
+
+        if (goal == null)
+        {
+            return Fail("you've already seen the whole map");
+        }
+
+        Order([scout], "Move", goal.Value, retarget: false);
+        return true;
+    }
+
+    /// <summary>Builds a Co-op Store (ResourceDepot) or an HQ by the nearest grubs that aren't near a base yet.</summary>
+    public bool Expand(string building = "ResourceDepot")
+    {
+        if (_memory.Pending.Values.Any(p => IsDropOff(p.Type)) || MyBuildings.Any(b => IsDropOff(b.Type) && !b.Completed))
+        {
+            return Fail("a new base is already going up");
+        }
+
+        var target = _memory.Deposits.Values.Where(d => d.Remaining > 0 && !IsNearBase(d.X, d.Y))
+            .OrderBy(d => Dist(d.X, d.Y, Hq.X, Hq.Y)).ThenBy(d => d.Id).FirstOrDefault();
+        if (target == null)
+        {
+            return Explore();   // nowhere known yet: go and look
+        }
+
+        var cost = _rules.Buildings.First(b => b.Type == building).Cost;
+        if (Ore < cost)
+        {
+            return Fail($"a {building} costs {cost} grubs and you have {Ore}");
+        }
+
+        var piles = _memory.Deposits.Values.ToList();
+        (int X, int Y)? best = null;
+        var bestScore = int.MaxValue;
+        for (var y = target.Y - 3; y <= target.Y + 3; y++)
+        {
+            for (var x = target.X - 3; x <= target.X + 3; x++)
+            {
+                if (Dist(x, y, target.X, target.Y) < 2 || !IsOpen(x, y) || _memory.Pending.ContainsKey((x, y)) || piles.Any(p => Dist(p.X, p.Y, x, y) <= 1))
+                {
+                    continue;
+                }
+
+                var score = -10 * piles.Count(p => Dist(p.X, p.Y, x, y) <= 3) + Dist(x, y, Hq.X, Hq.Y);
+                if (score < bestScore)
+                {
+                    (bestScore, best) = (score, (x, y));
+                }
+            }
+        }
+
+        return best == null ? Fail($"there's no room for a {building} next to those grubs") : Place(building, best.Value);
+    }
+
+    // ----------------------------------------------------------------- what happens on its own
+
+    /// <summary>Sends a worker to every half-built building nobody is working on.</summary>
+    public void FinishAbandonedSites()
+    {
+        foreach (var site in MyBuildings.Where(b => !b.Completed))
+        {
+            if (Workers.Any(w => w.TargetId == site.Id || (w.Destination != null && w.Destination.X == site.X && w.Destination.Y == site.Y)))
+            {
+                continue;
+            }
+
+            var builder = PickBuilder((site.X, site.Y));
+            if (builder != null)
+            {
+                _used.Add(builder.Id);
+                Commands.Add(new Command("Build") { UnitIds = [builder.Id], BuildingType = site.Type, X = site.X, Y = site.Y });
+            }
+        }
+    }
+
+    /// <summary>Every idle worker digs, spread over the piles nearest a finished HQ or Co-op Store.</summary>
+    public void GatherIdleWorkers()
+    {
+        var dropOffs = MyBuildings.Where(b => IsDropOff(b.Type) && b.Completed).ToList();
+        var piles = _memory.Deposits.Values.Where(d => d.Remaining > 0).ToList();
+        if (dropOffs.Count == 0 || piles.Count == 0)
+        {
+            return;
+        }
+
+        var assigned = Workers.Where(w => w.TargetId != null && w.Activity != "Idle")
+            .GroupBy(w => w.TargetId.Value).ToDictionary(g => g.Key, g => g.Count());
+        int Haul(Pile d) => dropOffs.Min(b => Dist(b.X, b.Y, d.X, d.Y));
+        foreach (var w in Workers.Where(w => w.Activity == "Idle" && !_used.Contains(w.Id)))
+        {
+            var pile = piles.OrderBy(d => Haul(d) + 3 * assigned.GetValueOrDefault(d.Id)).ThenBy(d => d.Id).First();
+            Commands.Add(new Command("Gather") { UnitIds = [w.Id], TargetId = pile.Id });
+            assigned[pile.Id] = assigned.GetValueOrDefault(pile.Id) + 1;
+        }
+    }
+}
+
+// =========================================================================== talking to the server
+
+class Api
+{
+    static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull };
+    readonly HttpClient _http;
+
+    public Api(string server) => _http = new HttpClient { BaseAddress = new Uri(server), Timeout = TimeSpan.FromMinutes(1) };
+
+    static void Log(string message) => Console.WriteLine($"[{DateTime.Now:HH:mm:ss}] {message}");
+
+    async Task<T> Get<T>(string path) => await _http.GetFromJsonAsync<T>(path, Json);
+
+    async Task<HttpResponseMessage> Post(string path, object body) => await _http.PostAsJsonAsync(path, body, Json);
+
+    /// <summary>Uses --key, else the key saved in apikey-NAME.txt, else signs up and saves the new key there.</summary>
+    public async Task<bool> SignUp(string name, string key)
+    {
+        var keyFile = $"apikey-{name}.txt";
+        if (key == null && File.Exists(keyFile))
+        {
+            key = File.ReadAllText(keyFile).Trim();
+        }
+
+        if (key == null)
+        {
+            var response = await Post("/api/v1/players", new { name });
+            if (!response.IsSuccessStatusCode)
+            {
+                Log($"Could not sign up as {name}: {await response.Content.ReadAsStringAsync()}");
+                Log($"If the name is yours, save its key in {keyFile} (or pass --key).");
+                return false;
+            }
+
+            key = (await response.Content.ReadFromJsonAsync<Player>(Json)).ApiKey;
+            File.WriteAllText(keyFile, key);
+            Log($"Signed up as {name}; your key is saved in {keyFile}");
+        }
+
+        _http.DefaultRequestHeaders.Add("Authorization", "Bearer " + key);
+        return true;
+    }
+
+    public async Task<string> GetIntoMatch(Options options)
+    {
+        var settings = new { tickIntervalMs = options.TickMs };
+        HttpResponseMessage response;
+        if (options.JoinMatch != null)
+        {
+            var matchId = options.JoinMatch;
+            if (!Guid.TryParse(matchId, out _))
+            {
+                var waiting = await Get<List<Match>>("/api/v1/matches?status=Waiting");
+                matchId = waiting.FirstOrDefault(m => string.Equals(m.Name, options.JoinMatch, StringComparison.OrdinalIgnoreCase))?.MatchId;
+                if (matchId == null)
+                {
+                    Log($"No match named '{options.JoinMatch}' is waiting for players.");
+                    return null;
+                }
+            }
+
+            response = await _http.PostAsync($"/api/v1/matches/{matchId}/join", null);
+            if (response.IsSuccessStatusCode)
+            {
+                return matchId;
+            }
+        }
+        else if (options.CreateMatch != null)
+        {
+            response = await Post("/api/v1/matches", new { name = options.CreateMatch, settings });
+        }
+        else
+        {
+            response = await Post("/api/v1/matches", new { houseBots = new[] { options.Opponent }, settings });
+        }
+
+        if (!response.IsSuccessStatusCode)
+        {
+            Log("Could not get into a match: " + await response.Content.ReadAsStringAsync());
+            return null;
+        }
+
+        return (await response.Content.ReadFromJsonAsync<Match>(Json)).MatchId;
+    }
+
+    public async Task Play(string matchId)
+    {
+        var url = $"/api/v1/matches/{matchId}";
+        Log($"Watch it at {_http.BaseAddress}#/match/{matchId}");
+        State state;
+        while (true)
+        {
+            var reply = await _http.GetAsync(url + "/state?waitForTick=0");   // the server holds this up to 30 s
+            if (reply.IsSuccessStatusCode)
+            {
+                state = await reply.Content.ReadFromJsonAsync<State>(Json);
+                break;
+            }
+
+            Log("Waiting for the match to start...");
+        }
+
+        var rules = await Get<Rules>("/api/v1/rules");
+        var map = await Get<MapInfo>(url + "/map");
+        var memory = new Memory();
+        var lastNotes = "";
+        while (state.Status != "Completed")
+        {
+            memory.Update(state);
+            var bot = new Bot(state, map, rules, memory);
+            if (bot.Hq != null)
+            {
+                Strategy.MyRules(bot);
+                bot.FinishAbandonedSites();
+                bot.GatherIdleWorkers();
+            }
+
+            if (bot.Commands.Count > 0)
+            {
+                await Post(url + "/commands", new { commands = bot.Commands });
+            }
+
+            var notes = string.Join("; ", bot.Notes);
+            if (notes != lastNotes && notes != "")
+            {
+                Log($"tick {state.Tick}: {notes}");
+            }
+
+            lastNotes = notes;
+            state = await Get<State>($"{url}/state?waitForTick={state.Tick + 1}&sinceTick={state.Tick}");
+        }
+
+        var result = await Get<Result>(url + "/result");
+        foreach (var p in result.Players)
+        {
+            Log($"{p.Name}: {p.Score.Total} points" + (p.Winner ? "  <-- WINNER" : ""));
+        }
+    }
+}
+
+class Options
+{
+    public string PlayerName { get; set; }
+    public string Key { get; set; } = Environment.GetEnvironmentVariable("NETRTS_API_KEY");
+    public string Opponent { get; set; } = "sitter";
+    public int TickMs { get; set; } = 1000;
+    public string Server { get; set; } = Environment.GetEnvironmentVariable("NETRTS_SERVER") ?? "{{SERVER}}";
+    public string CreateMatch { get; set; }
+    public string JoinMatch { get; set; }
+    public List<string> On { get; } = [];
+
+    public static Options Parse(string[] args)
+    {
+        var options = new Options();
+        for (var i = 0; i + 1 < args.Length; i += 2)
+        {
+            var value = args[i + 1];
+            switch (args[i])
+            {
+                case "--player-name": options.PlayerName = value; break;
+                case "--key": options.Key = value; break;
+                case "--opponent": options.Opponent = value; break;
+                case "--tick-ms": options.TickMs = int.Parse(value); break;
+                case "--server": options.Server = value; break;
+                case "--create-match": options.CreateMatch = value; break;
+                case "--join-match": options.JoinMatch = value; break;
+                case "--on": options.On.Add(value); break;
+                default:
+                    Console.WriteLine($"Unknown option {args[i]}. See the top of this file for how to run it.");
+                    return null;
+            }
+        }
+
+        if (options.PlayerName == null)
+        {
+            Console.WriteLine("Add --player-name YourBotName (3-32 letters, digits, - or _). See the top of this file for more.");
+            return null;
+        }
+
+        return options;
+    }
+}
+
+// The JSON the server sends, as records: only the fields this bot uses. The bot guide lists them all,
+// so add one here when you need it.
+record Command(string Type)
+{
+    public int[] UnitIds { get; init; }
+    public int? BuildingId { get; init; }
+    public string UnitType { get; init; }
+    public string BuildingType { get; init; }
+    public string Upgrade { get; init; }
+    public int? TargetId { get; init; }
+    public int? X { get; init; }
+    public int? Y { get; init; }
+}
+
+record Player(string ApiKey);
+record Match(string MatchId, string Name);
+record State(int Tick, string Status, Me You, List<PlayerInfo> Players, List<string> Visibility,
+             List<Unit> Units, List<Building> Buildings, List<Pile> Resources);
+record Me(int Slot, int Resources, List<string> Upgrades, List<Learning> Researching);
+record Learning(string Upgrade);
+record Unit(int Id, int Owner, string Type, int X, int Y, string Activity, int Carrying, int? TargetId, Spot Destination);
+record Building(int Id, int Owner, string Type, int X, int Y, bool Completed, List<Queued> Production, Learning Research);
+record Queued(string UnitType);
+record Pile(int Id, int X, int Y, int Remaining);
+record PlayerInfo(int Slot, string Name, bool Eliminated, Spot StartPosition);
+record Spot(int X, int Y);
+record MapInfo(int Width, int Height, List<string> Terrain);
+record Rules(List<UnitStats> Units, List<BuildingStats> Buildings, List<UpgradeStats> Upgrades, Economy Economy);
+record UnitStats(string Type, int Cost, string ProducedAt);
+record BuildingStats(string Type, int Cost, List<string> Requires, string RequiresUpgrade);
+record UpgradeStats(string Type, int Cost, string Requires);
+record Economy(int MaxProductionQueue);
+record Result(List<ResultPlayer> Players);
+record ResultPlayer(string Name, bool Winner, Score Score);
+record Score(int Total);

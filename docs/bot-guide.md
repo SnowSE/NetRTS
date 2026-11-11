@@ -516,7 +516,10 @@ Resource Depots; `expand` builds a Resource Depot (or Command Center) beside the
 bot has seen that isn't near one yet, and sends a scout exploring when it knows of none. The server plays the program, so the match keeps going when
 the page closes, and the player can swap in a new version or flip a switch while it runs. The shapes
 are in `src/NetRts.Protocol/Blocks.cs` (`BlockProgramDto`); the editor (rule cards, or drag-and-drop blocks, with a toggle between them) saves strategies in the browser
-and downloads them as `.json`.
+and downloads them as `.json`. The edit page also downloads a strategy as a whole bot in Python or C#
+(one file each, nothing to install beyond Python 3 or the .NET 10 SDK): the rules become ordinary code
+over a `Bot` class with a method per block, which plays close to the Block Bot, though not move for
+move, for players ready to go further than blocks can.
 
 | Call | What it does |
 |---|---|

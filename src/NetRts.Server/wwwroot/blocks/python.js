@@ -1,4 +1,5 @@
-// The Python view of a program: each rule as the code it stands for.
+// The Python view of a program: each rule as the code it stands for. The same code goes in the Python bot
+// the edit page downloads (export.js), whose Bot class (export/bot.py.txt) has a method for every call here.
 import { byDefault } from './program.js';
 
 const pyStr = (s) => JSON.stringify(String(s));
@@ -14,7 +15,7 @@ function pyCond(c) {
     case 'count': {
       const op = c.op === '=' ? '==' : c.op;
       const left = c.what === 'grubs' ? 'bot.ore' : c.what === 'workers' ? 'bot.count("Worker")'
-        : c.what === 'fighters' ? 'len(bot.fighters())' : `bot.count(${pyStr(c.what)})`;
+        : c.what === 'fighters' ? 'bot.count("fighters")' : `bot.count(${pyStr(c.what)})`;
       return `${left} ${op} ${c.value}`;
     }
     case 'minute': return `bot.minute() ${c.op === '=' ? '==' : c.op} ${c.value}`;
@@ -40,6 +41,9 @@ function pyAction(a) {
     default: return '?';
   }
 }
+/** The switches, as the Python bot's SWITCHES dictionary (all off to start). */
+export const pySwitches = (program) => `{${program.switches.map((s) => `${pyStr(s)}: False`).join(', ')}}`;
+
 export function pyRule(rule, i) {
   const body = rule.do?.length ? rule.do.map(pyAction) : ['pass'];
   let lines = rule.when?.kind === 'always' ? body : [`if ${pyCond(rule.when)}:`, ...body.map((l) => `    ${l}`)];

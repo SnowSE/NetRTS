@@ -63,6 +63,7 @@ Before adding a list, name table, constant or helper, find its owner here and us
 | Clock, progress bar, building details | `wwwroot/matchui.js` | |
 | Block Bot rule editing (sessions, saving, limits, moves, undo/redo) | `wwwroot/blocks/editor-core.js` `EditorCore` | the two styles extend it: cards `rule-editor.js`, drag-and-drop `block-editor.js`, picked in `editors.js` |
 | Block Bot block words, inputs and choices | `wwwroot/blocks/editor-parts.js` | both editor styles draw from it |
+| A strategy as code (the edit page's Python / C# download) | rules: `wwwroot/blocks/python.js`, `csharp.js`; bots: `wwwroot/blocks/export/*.txt` | `BlockExportTests`: every block kind has code, every call is on the bot, the bots parse/build |
 | Page lifetime (timers, listeners, late replies) | `util.js` `mountScope` | |
 | Browser storage | `wwwroot/storage.js` (API keys in sessionStorage unless the player opts in) | |
 | Player names, ranking, `fmt`, `downloadJson`, `botLabel` | `wwwroot/util.js` | |

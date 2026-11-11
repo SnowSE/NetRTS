@@ -285,9 +285,14 @@ export function rankPlayers(players, scoreOf = (p) => p.score) {
 
 /** Saves obj as a pretty-printed .json file through the browser's download. */
 export function downloadJson(fileName, obj) {
+  downloadText(fileName.endsWith('.json') ? fileName : `${fileName}.json`, JSON.stringify(obj, null, 2), 'application/json');
+}
+
+/** Saves text as a file through the browser's download. */
+export function downloadText(fileName, text, type = 'text/plain') {
   const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' }));
-  a.download = fileName.endsWith('.json') ? fileName : `${fileName}.json`;
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = fileName;
   document.body.append(a);
   a.click();
   a.remove();
