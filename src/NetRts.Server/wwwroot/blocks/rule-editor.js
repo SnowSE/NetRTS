@@ -3,6 +3,7 @@ import { at, setAt, R, C, A, canCombine } from './program.js';
 import { pyRule } from './python.js';
 import { ICON } from './icons.js';
 import { EditorCore } from './editor-core.js';
+import { pointerDrag, dropSpot, slotAmong } from './drag.js';
 import {
   fullRule, fullRules, why, ruleOf, select, condParts, actionParts, choiceGroups, choiceNode, canWrap, dataAttrs,
   waitAttr, ruleTools, ruleFooter, insertRuleHtml, canvasControlsHtml, repeatHtml, switchListHtml, newSwitchHtml, howRulesRun,
@@ -18,6 +19,16 @@ export class RuleEditor extends EditorCore {
     super(root, opts);
     this.picker = null;    // { type: 'cond' | 'action', path, mode: 'replace' | 'add' | 'insert', at }
     this.listen(root, 'keydown', (e) => {
+      // A rule's grip moves it up and down with the arrow keys, for keyboards (and where dragging doesn't work).
+      const ruleGrip = e.target.closest?.('[data-drag="rule"]');
+      if (ruleGrip && (e.key === 'ArrowUp' || e.key === 'ArrowDown')) {
+        e.preventDefault();
+        const i = Number(ruleGrip.dataset.i);
+        const to = i + (e.key === 'ArrowUp' ? -1 : 1);
+        this.moveRule(i, to);
+        this.root.querySelector(`[data-k="rulegrip|${Math.max(0, Math.min(to, this.program.rules.length - 1))}"]`)?.focus();
+        return;
+      }
       // A step's handle moves it with the arrow keys too, for keyboards (and where dragging doesn't work).
       const grip = e.target.closest?.('[data-drag-step]');
       if (grip && ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) {
@@ -28,11 +39,35 @@ export class RuleEditor extends EditorCore {
       }
     });
     this.dragSteps();
+    this.dragRules();
     this.render();
   }
 
   /**
-   * Dragging a step by its handle, within its rule (rules move with their Move Up and Move Down buttons):
+   * Dragging a rule by the grip at its left (as the blocks do; Move Up and Move Down still work): the whole
+   * card comes along, and a line shows where it will land among the rules.
+   */
+  dragRules() {
+    this.listeners.push(pointerDrag(this.root, {
+      pick: (el) => (el.dataset.drag === 'rule' && !this.session && !this.saving ? { index: Number(el.dataset.i) } : null),
+      carry: (el) => el.closest('.bb-row') ?? el,
+      layer: () => this.root,   // inside the page, where the card colours are set
+      over: (payload, x, y) => {
+        const list = dropSpot(x, y, '.bb-rules');
+        if (!list) return null;
+        const rows = [...list.querySelectorAll(':scope > .bb-row')];
+        const j = slotAmong(rows, y);
+        if (j === payload.index || j === payload.index + 1) return null;
+        return { el: rows[j] ?? list.querySelector('.bb-add-rule'), cls: 'drop-above', j };
+      },
+      drop: (payload, t) => this.moveRule(payload.index, t.j > payload.index ? t.j - 1 : t.j),
+      onStart: () => this.root.querySelector('.bb-editor')?.classList.add('is-dragging'),
+      onEnd: () => this.root.querySelector('.bb-editor')?.classList.remove('is-dragging'),
+    }));
+  }
+
+  /**
+   * Dragging a step by its handle, within its rule (rules move by their own grip, dragRules):
    * the step follows the pointer, the original fades, and a yellow line shows where it will land.
    */
   dragSteps() {
@@ -171,18 +206,14 @@ export class RuleEditor extends EditorCore {
   }
 
   ruleHtml(r, i) {
-    const n = this.program.rules.length;
     const off = r.enabled === false;
     const fullNote = fullRule(r) ? raw(`disabled title="${why.steps()}"`) : '';
     return html`
       <div class="bb-row">
         <div class="bb-rule-line">
-        <div class="bb-move" role="group" aria-label="Move rule ${i + 1}">
-          <button type="button" class="bb-move-btn" data-act="rule-up" data-i="${i}" data-k="up|${i}" aria-label="Move rule ${i + 1} up" ${i === 0 ? 'disabled' : waitAttr(this)}><span aria-hidden="true">↑</span> Move Up</button>
-          <button type="button" class="bb-move-btn" data-act="rule-down" data-i="${i}" data-k="down|${i}" aria-label="Move rule ${i + 1} down" ${i === n - 1 ? 'disabled' : waitAttr(this)}>Move Down <span aria-hidden="true">↓</span></button>
-        </div>
         <article class="bb-rule${off ? ' off' : ''}${this.session?.index === i ? ' editing-rule' : ''}" data-rule="${i}">
           <div class="bb-rule-main">
+            <button type="button" class="bb-grip bb-rule-grip" data-drag="rule" data-i="${i}" data-k="rulegrip|${i}" aria-label="Move rule ${i + 1}: drag it, or press the up or down arrow" title="Drag to move this rule (or press ↑ ↓)" ${waitAttr(this)}>${raw(ICON.grip)}</button>
             <span class="bb-num" aria-hidden="true">${i + 1}</span>
             <div class="bb-sentence">
               ${r.when?.kind === 'always' ? '' : html`<span class="bb-word">When</span>`}

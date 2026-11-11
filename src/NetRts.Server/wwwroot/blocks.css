@@ -224,11 +224,6 @@
 /* Move Up / Move Down, to the left of each rule card. */
 .bb-rule-line { flex: 1 1 560px; min-width: 0; display: flex; gap: 8px; align-items: center; }
 .bb-rule-line > .bb-rule { flex: 1 1 0; }
-.bb-move { flex: none; display: grid; gap: 14px; }
-.bb-move-btn { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; min-height: 52px; padding: 4px 10px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--panel); color: var(--ink); font: inherit; font-size: 0.85rem; font-weight: 600; white-space: nowrap; cursor: pointer; }
-.bb-move-btn span { font-size: 1.15rem; line-height: 1; }
-.bb-move-btn:hover:not(:disabled) { border-color: var(--ink); }
-.bb-move-btn:disabled { opacity: 0.35; cursor: default; }
 /* On / off: a switch, green and to the right when the rule plays. */
 .bb-switch-toggle { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 4px; background: none; border: 0; border-radius: var(--radius-m); color: var(--muted); font: inherit; font-weight: 700; cursor: pointer; }
 .bb-switch-track { position: relative; width: 42px; height: 24px; flex: none; border-radius: 999px; background: var(--line); transition: background 0.15s; }
@@ -380,8 +375,6 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-editor.compact .bb-switch-toggle[aria-checked="true"] .bb-switch-knob { left: 16px; }
 .bb-editor.compact .bb-tools .bb-icon { min-width: 26px; min-height: 26px; font-size: 0.9rem; padding: 0; }
 .bb-editor.compact .bb-rule-line { flex-basis: 100%; gap: 4px; }
-.bb-editor.compact .bb-move { gap: 8px; }
-.bb-editor.compact .bb-move-btn { min-height: 40px; padding: 2px 6px; font-size: 0.72rem; }
 .bb-editor.compact .bb-live { padding-left: 0; font-size: 0.82rem; gap: 6px; }
 .bb-editor.compact .bb-py { padding: 6px 10px; font-size: 0.78rem; }
 .bb-editor.compact .bb-add-rule { min-height: 40px; }
@@ -486,3 +479,13 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 /* How often a rule may run (every tick, only once, at most every N s), beside its on/off. */
 .bb-repeat { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .bb-repeat .bb-num-in { width: 4.5em; }
+
+/* Dragging a rule card by its grip: where it would land, and the insert lines out of the way meanwhile. */
+.bb-editor .bb-rule-grip { display: inline-flex; align-items: center; justify-content: center; align-self: stretch; min-width: 28px; padding: 0 4px; border: 0; border-radius: var(--radius-s); background: none; color: var(--muted); cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none; }
+.bb-editor .bb-rule-grip:focus-visible { outline: 2px solid var(--focus); }
+.bb-editor .bb-rule-grip:disabled { opacity: 0.35; cursor: default; }
+.bb-editor .bb-rule-grip:hover { color: var(--ink); }
+.bb-editor .bb-rule-grip svg { width: 10px; height: 18px; }
+.bb-editor .bb-row.drop-above { box-shadow: 0 -5px 0 var(--signal-bg); border-radius: 2px; }
+.bb-editor .bb-add-rule.drop-above { box-shadow: 0 -5px 0 var(--signal-bg); }
+.bb-editor.is-dragging .bb-insert { visibility: hidden; }

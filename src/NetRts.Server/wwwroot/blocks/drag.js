@@ -14,9 +14,10 @@ const CONTROLS = 'select, input, textarea, label, a, button';
  * @param covered()         where the page shows from, when something pinned covers its top (else 0)
  * @param layer()           the element the copy goes in: one inside the styles that colour the block
  *                          (in document.body, a block whose colours come from its editor shows blank)
+ * @param carry(el)         what's picked up when el is taken hold of (a whole card by its grip): el itself by default
  * Returns a function that stops it.
  */
-export function pointerDrag(root, { pick, over, drop, onStart, onEnd, covered = () => 0, layer = () => document.body, threshold = 5 }) {
+export function pointerDrag(root, { pick, over, drop, onStart, onEnd, covered = () => 0, layer = () => document.body, carry = (el) => el, threshold = 5 }) {
   let pending = null;    // { el, payload, x, y, id }
   let drag = null;       // { el, payload, ghost, dx, dy, target, x, y, frame }
   let suppressClick = false;
@@ -41,7 +42,8 @@ export function pointerDrag(root, { pick, over, drop, onStart, onEnd, covered = 
   };
 
   const begin = (e) => {
-    const { el, payload } = pending;
+    const { payload } = pending;
+    const el = carry(pending.el);
     const r = el.getBoundingClientRect();
     const ghost = el.cloneNode(true);
     ghost.classList.add('bb-ghost');
