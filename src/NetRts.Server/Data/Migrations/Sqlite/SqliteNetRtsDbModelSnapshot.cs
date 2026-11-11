@@ -15,7 +15,7 @@ namespace NetRts.Server.Data.Migrations.Sqlite
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
+            modelBuilder.HasAnnotation("ProductVersion", "10.0.14");
 
             modelBuilder.Entity("Microsoft.AspNetCore.DataProtection.EntityFrameworkCore.DataProtectionKey", b =>
                 {
@@ -102,6 +102,34 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                         .IsUnique();
 
                     b.ToTable("accounts", (string)null);
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.AccountStrategyRecord", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("StrategyId")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ProgramJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Version")
+                        .IsConcurrencyToken()
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("AccountId", "StrategyId");
+
+                    b.ToTable("account_strategies", (string)null);
                 });
 
             modelBuilder.Entity("NetRts.Server.Data.BotAchievementRecord", b =>
@@ -527,6 +555,15 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                 });
 
             modelBuilder.Entity("NetRts.Server.Data.AccountMilestoneRecord", b =>
+                {
+                    b.HasOne("NetRts.Server.Data.AccountRecord", null)
+                        .WithMany()
+                        .HasForeignKey("AccountId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("NetRts.Server.Data.AccountStrategyRecord", b =>
                 {
                     b.HasOne("NetRts.Server.Data.AccountRecord", null)
                         .WithMany()

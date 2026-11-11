@@ -7,6 +7,7 @@ import {
 } from './store.js';
 import { starters, LIMITS, describeRules, readStrategyFile } from './program.js';
 import { ICON } from './icons.js';
+import { syncing, SYNC_EVENT } from './sync.js';
 
 export function mountLocker(main) {
   // Listeners go at teardown, and a request that answers after it never reaches the page (scope.wait).
@@ -169,7 +170,9 @@ export function mountLocker(main) {
             </article>
           </div>
           <div class="bb-stage-foot">
-            <p class="small muted">Saved in this browser as you work. Download one to keep it safe or move it to another computer.</p>
+            <p class="small muted">${syncing()
+              ? 'Saved to your account as you work, so they’re here on any computer you sign in on.'
+              : 'Saved in this browser as you work. Download one to keep it safe or move it to another computer.'}</p>
             <label class="btn ghost small-btn bb-file">Open a strategy file<input type="file" accept=".json,application/json" id="bb-open"></label>
           </div>
         </section>
@@ -259,6 +262,8 @@ export function mountLocker(main) {
   scope.on(main, 'submit', onSubmit);
   scope.on(main, 'change', onChange);
   scope.on(main, 'input', onInput);
+  // Strategies that came down from (or went away on) the website account.
+  scope.on(window, SYNC_EVENT, (e) => { if (e.detail?.strategies) render(); });
 
   function onClick(e) {
     const t = e.target.closest('button');

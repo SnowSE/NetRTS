@@ -82,6 +82,24 @@ public sealed class AccountMilestoneRecord
     public DateTime ReachedAt { get; set; }
 }
 
+/// <summary>A Block Bot strategy saved to an account, so it follows the person to any computer they sign in on.</summary>
+public sealed class AccountStrategyRecord
+{
+    public Guid AccountId { get; set; }
+
+    /// <summary>The id the browser gave it (a UUID, usually).</summary>
+    public string StrategyId { get; set; } = "";
+
+    /// <summary>The program (BlockProgramDto) as JSON, validated before it's kept.</summary>
+    public string ProgramJson { get; set; } = "";
+
+    /// <summary>1, then one more with each save; a save names the version it replaces (a concurrency token).</summary>
+    public int Version { get; set; }
+
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
+}
+
 /// <summary>A player's rating and record in one category of one season; each is its own leaderboard.</summary>
 public sealed class PlayerStatsRecord
 {
@@ -321,6 +339,7 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
     public DbSet<MatchFramesRecord> MatchFrames => Set<MatchFramesRecord>();
     public DbSet<MatchFrameChunkRecord> MatchFrameChunks => Set<MatchFrameChunkRecord>();
     public DbSet<AccountMilestoneRecord> AccountMilestones => Set<AccountMilestoneRecord>();
+    public DbSet<AccountStrategyRecord> AccountStrategies => Set<AccountStrategyRecord>();
     public DbSet<MatchPlayerRecord> MatchPlayers => Set<MatchPlayerRecord>();
     public DbSet<BotAchievementRecord> BotAchievements => Set<BotAchievementRecord>();
     public DbSet<LadderSnapshotRecord> LadderSnapshots => Set<LadderSnapshotRecord>();
@@ -402,6 +421,15 @@ public abstract class NetRtsDb(DbContextOptions options) : DbContext(options), I
             e.Property(m => m.Kind).HasMaxLength(32);
             e.HasIndex(m => new { m.Kind, m.ReachedAt });
             e.HasOne<AccountRecord>().WithMany().HasForeignKey(m => m.AccountId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<AccountStrategyRecord>(e =>
+        {
+            e.ToTable("account_strategies");
+            e.HasKey(s => new { s.AccountId, s.StrategyId });
+            e.Property(s => s.StrategyId).HasMaxLength(64);
+            e.Property(s => s.Version).IsConcurrencyToken();
+            e.HasOne<AccountRecord>().WithMany().HasForeignKey(s => s.AccountId).OnDelete(DeleteBehavior.Cascade);
         });
 
         modelBuilder.Entity<MatchPlayerRecord>(e =>

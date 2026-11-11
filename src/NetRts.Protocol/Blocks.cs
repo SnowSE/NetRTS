@@ -206,3 +206,42 @@ public sealed record BlockDefaultsDto
     public string ScoutTarget { get; init; } = "enemyBase";
     public BuildingType ExpandBuilding { get; init; } = BuildingType.ResourceDepot;
 }
+
+/// <summary>
+/// A Block Bot strategy kept on a website account (GET /api/v1/account/strategies), so it follows its owner to
+/// any computer they sign in on. The browser keeps its own copy and saves changes here in the background.
+/// </summary>
+public sealed record AccountStrategyDto
+{
+    /// <summary>The id the browser gave the strategy: 1-64 letters, digits, '-' or '_'.</summary>
+    public string Id { get; init; } = "";
+    public BlockProgramDto Program { get; init; } = new();
+
+    /// <summary>Starts at 1 and goes up by one with each save. A save names the version it replaces.</summary>
+    public int Version { get; init; }
+    public DateTime CreatedAt { get; init; }
+    public DateTime UpdatedAt { get; init; }
+}
+
+/// <summary>PUT /api/v1/account/strategies/{id}: saves a strategy to the signed-in account.</summary>
+public sealed record SaveAccountStrategyRequest
+{
+    public BlockProgramDto? Program { get; init; }
+
+    /// <summary>
+    /// The version this save replaces (the one you last read), or null for a strategy the account doesn't have yet.
+    /// Anything else gets 409 STRATEGY_CHANGED with the account's copy, so two computers can't overwrite each other unseen.
+    /// </summary>
+    public int? BaseVersion { get; init; }
+
+    /// <summary>When the strategy was first made, kept on a new one (else now).</summary>
+    public DateTime? CreatedAt { get; init; }
+}
+
+/// <summary>409 STRATEGY_CHANGED: the usual error body, plus the account's copy now (null when it was deleted).</summary>
+public sealed record AccountStrategyConflictDto
+{
+    public string Code { get; init; } = "";
+    public string Message { get; init; } = "";
+    public AccountStrategyDto? Current { get; init; }
+}
