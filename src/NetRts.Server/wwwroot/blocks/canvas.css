@@ -103,10 +103,11 @@
 .bb-script[data-state="firing"] .bb-hat { box-shadow: inset 0 -4px 0 var(--ok); }
 .bb-script[data-state="waiting"] .bb-hat { box-shadow: inset 0 -4px 0 var(--signal-bg); }
 .bb-blocks.locked .bb-script:not(.editing-rule) { opacity: 0.45; pointer-events: none; }
-.bb-blocks.locked .bb-add-rule { visibility: hidden; pointer-events: none; }
+.bb-blocks.locked :is(.bb-add-rule, .bb-insert), .bb-blocks.is-dragging .bb-insert { visibility: hidden; pointer-events: none; }
 
 .bb-canvas { display: grid; gap: 12px; min-width: 0; }
-.bb-scripts { display: grid; gap: 18px; padding: 4px 2px; }
+.bb-scripts { display: grid; gap: 4px; padding: 4px 2px; }
+.bb-scripts > .bb-row + .bb-row { margin-top: 14px; }   /* no "+ rule" line between them (the rules are full) */
 .bb-rules-end { min-height: 8px; border-radius: 4px; }
 
 /* ---------------------------------------------------------------- the palette */

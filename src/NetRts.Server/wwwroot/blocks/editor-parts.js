@@ -158,6 +158,10 @@ export function ruleTools(ed, i, off) {
     <button type="button" class="bb-icon" data-act="rule-del" data-i="${i}" data-k="del|${i}" aria-label="Delete rule ${i + 1}" ${waitAttr(ed)}>×</button>`;
 }
 
+/** The "+ rule" line above rule i (above none once the rules are full): a new rule goes in there. */
+export const insertRuleHtml = (program, i) => (fullRules(program) ? '' : html`
+  <button type="button" class="bb-insert" data-act="insert-rule" data-i="${i}" data-k="insert|${i}" aria-label="Add a rule before rule ${i + 1}" title="Add a rule here"><span>+ rule</span></button>`);
+
 /** Under a rule: what its classes do, what it's doing in the match, and Save and Cancel while it's being edited. */
 export function ruleFooter(ed, r, i) {
   return html`

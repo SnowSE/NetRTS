@@ -5,7 +5,7 @@ import { ICON } from './icons.js';
 import { EditorCore } from './editor-core.js';
 import {
   fullRule, fullRules, why, ruleOf, select, condParts, actionParts, choiceGroups, choiceNode, canWrap, dataAttrs,
-  waitAttr, ruleTools, ruleFooter, switchListHtml, newSwitchHtml, howRulesRun,
+  waitAttr, ruleTools, ruleFooter, insertRuleHtml, switchListHtml, newSwitchHtml, howRulesRun,
 } from './editor-parts.js';
 
 /**
@@ -159,7 +159,7 @@ export class RuleEditor extends EditorCore {
         <div class="bb-rules">
           ${this.saveError && !this.session ? html`<p class="bb-error" role="alert">${this.saveError}</p>` : ''}
           ${p.rules.length ? '' : html`<p class="bb-empty">No rules yet. Add one, or start from one of the starter strategies in the locker.</p>`}
-          ${p.rules.map((r, i) => html`${full ? '' : html`<button type="button" class="bb-insert" data-act="insert-rule" data-i="${i}" data-k="insert|${i}" aria-label="Add a rule before rule ${i + 1}"><span>+ rule</span></button>`}${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
+          ${p.rules.map((r, i) => html`${insertRuleHtml(p, i)}${this.ruleHtml(r, i)}${pickerUnder(i)}`)}
           <button type="button" class="bb-add-rule" data-act="add-rule" data-k="add-rule" ${full ? html`disabled aria-describedby="bb-full-rules"` : ''}>+ Add a rule</button>
           ${full ? html`<p class="small muted" id="bb-full-rules">${why.rules()}</p>` : ''}
           ${howRulesRun()}
@@ -233,6 +233,7 @@ export class RuleEditor extends EditorCore {
         <p>Each rule says <b>when</b> and <b>what to do</b>. Every tick (about once a second) your bot checks the rules from the top.</p>
         <p>Click a <b>▾</b> to swap a piece for a different one. Change numbers and choices right in the sentence.</p>
         <p>Add a <b>switch</b> to flip during a match: a rule like "When the <i>Attack!</i> switch is on, attack" lets you send your army in whenever you want.</p>
+        <p>To add a rule above another one, use the <b>+ rule</b> line above it.</p>
         <p>To add a step between two others, use the <b>+</b> between them. Drag a step by its <b>⠿</b> handle to change the order (or focus the handle and press ← or →).</p>
         ${this.program.switches.length ? html`<h3>Your switches</h3>${switchListHtml(this.program)}` : ''}`;
   }

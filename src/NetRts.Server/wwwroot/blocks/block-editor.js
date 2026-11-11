@@ -6,7 +6,7 @@ import { EditorCore } from './editor-core.js';
 import { pointerDrag, dropSpot, slotAmong } from './drag.js';
 import {
   fullRule, fullRules, why, ruleOf, select, condParts, actionParts, choiceGroups, choiceNode, canWrap, fitsAt,
-  dataAttrs, waitAttr, ruleTools, ruleFooter, switchListHtml, newSwitchHtml, howRulesRun,
+  dataAttrs, waitAttr, ruleTools, ruleFooter, insertRuleHtml, switchListHtml, newSwitchHtml, howRulesRun,
 } from './editor-parts.js';
 
 /** The palette's tabs: the checks, then the action groups by name (as choiceGroups names them). */
@@ -150,6 +150,7 @@ export class BlockEditor extends EditorCore {
     switch (act) {
       case 'pal-tab': this.tab = b.dataset.tab; this.render(); this.root.querySelector(`[data-tab="${this.tab}"]`)?.focus(); return;
       case 'add-rule': this.addRule(); return;
+      case 'insert-rule': this.addRule(Number(b.dataset.i)); return;
       case 'palette': this.tap(this.payload(b)); return;
       default: super.act(act, b);
     }
@@ -194,7 +195,7 @@ export class BlockEditor extends EditorCore {
           ${this.saveError && !this.session ? html`<p class="bb-error" role="alert">${this.saveError}</p>` : ''}
           <div class="bb-scripts" data-drop-rules>
             ${p.rules.length ? '' : html`<p class="bb-empty">No rules yet. Drag a <b>when … do</b> block here to start one.</p>`}
-            ${p.rules.map((r, i) => this.ruleHtml(r, i))}
+            ${p.rules.map((r, i) => html`${insertRuleHtml(p, i)}${this.ruleHtml(r, i)}`)}
             <div class="bb-rules-end" aria-hidden="true"></div>
           </div>
           <button type="button" class="bb-add-rule" data-act="add-rule" data-k="add-rule" ${fullRules(p) ? html`disabled aria-describedby="bb-full-rules"` : ''}>+ Add a rule</button>
@@ -277,6 +278,7 @@ export class BlockEditor extends EditorCore {
       <h2>How blocks work</h2>
       <p>Each rule is a <b>when … do</b> block. Every tick (about once a second) your bot checks the rules from the top.</p>
       <p>Drag a <b>check</b> (green) onto a rule's <i>when</i> to swap it. <b>and</b>, <b>or</b> and <b>not</b> wrap the check you drop them on.</p>
+      <p>To start a rule somewhere other than the bottom, use a <b>+ rule</b> line, or drag the <b>when … do</b> block to that spot.</p>
       <p>Drag <b>actions</b> into the rule's mouth, in the order you want. Drag any block back onto the palette to remove it.</p>
       <p>No mouse? Tap a palette block to add it to the selected rule. A focused step moves with <b>↑ ↓</b> and goes with <b>Delete</b>.</p>
       ${this.program.switches.length ? html`<h3>Your switches</h3>${switchListHtml(this.program)}` : ''}`;
