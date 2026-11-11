@@ -4,6 +4,7 @@ import { api, html, raw, setHtml, displayName, outcomeText, mountScope, playerNa
 import { say } from '../lore.js';
 import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
+import { sidePanel } from './split.js';
 import { getStrategy, putStrategy, newStrategy, prefs, matchRecords, recordMatch, player, authed, themed, clone } from './store.js';
 import { RULES, LIMITS, sameProgram } from './program.js';
 import { createEditor, restyle, styleToggleHtml, markStyle } from './editors.js';
@@ -44,7 +45,7 @@ export function mountCockpit(main, matchId) {
   main.classList.add('wide', 'bb-full');
   setHtml(main, html`
     <section class="bb-cockpit" id="bb-cockpit">
-      <aside class="bb-left" aria-label="Your rules">
+      <aside class="bb-left" id="bb-left" aria-label="Your rules">
         <div class="bb-left-head">
           <div class="bb-bar">
             <a href="#/blocks" class="bb-back">← My strategies</a>
@@ -76,6 +77,11 @@ export function mountCockpit(main, matchId) {
           <ol class="bb-versions" id="bb-versions"></ol>
         </section>
       </aside>
+      <div class="bb-split">
+        <button type="button" class="bb-split-fold" id="bb-fold" aria-controls="bb-left">${raw(ICON.chevron)}</button>
+        <div class="bb-split-bar" id="bb-split-bar" role="separator" tabindex="0" aria-orientation="vertical" aria-controls="bb-left"
+          aria-label="Width of your rules" title="Drag to resize (or focus and press ← →). Double-click for the usual size."></div>
+      </div>
       <div class="bb-right">
         <div class="bb-3d-wrap">
           <div class="map3d bb-3d" id="bb-3d"></div>
@@ -102,6 +108,7 @@ export function mountCockpit(main, matchId) {
   const fitHeight = () => root.style.setProperty('--bb-top', `${Math.max(0, root.getBoundingClientRect().top + window.scrollY)}px`);
   fitHeight();
   scope.on(window, 'resize', fitHeight);
+  scope.cleanup(sidePanel(root, $('bb-split-bar'), $('bb-fold')));
   scope.cleanup(() => { feed?.close(); editor?.destroy(); main.classList.remove('wide', 'bb-full'); });
 
   // ---- the rules

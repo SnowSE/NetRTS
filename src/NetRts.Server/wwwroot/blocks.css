@@ -261,12 +261,33 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-cockpit {
   --bb-top: 80px;
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
-  gap: 12px;
+  /* The rules (a third, or the width the bar was dragged to), the bar, the match. */
+  grid-template-columns: var(--bb-left-w, minmax(0, 1fr)) 16px minmax(0, 2fr);
+  gap: 12px 0;
   height: calc(100dvh - var(--bb-top) - 8px);
   min-height: 480px;
 }
-.bb-left { min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.bb-left { grid-column: 1; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; padding-right: 4px; }
+.bb-right { grid-column: 3; }
+
+/* The bar between them (split.js): drag to resize; its button folds the rules away. */
+.bb-split { grid-column: 2; position: relative; display: flex; justify-content: center; min-height: 0; }
+.bb-split-bar { width: 100%; cursor: col-resize; touch-action: none; display: flex; justify-content: center; border-radius: 4px; }
+.bb-split-bar::before { content: ""; width: 3px; margin: 44px 0 8px; border-radius: 2px; background: var(--line); transition: background 0.15s; }
+.bb-split-bar:hover::before, .bb-split-bar:focus-visible::before, .bb-cockpit.resizing .bb-split-bar::before { background: var(--signal-bg); width: 4px; }
+.bb-split-bar:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.bb-split-fold {
+  position: absolute; top: 6px; left: 50%; transform: translateX(-50%); z-index: 2;
+  width: 28px; height: 28px; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 999px; background: var(--panel); color: var(--ink); cursor: pointer;
+}
+.bb-split-fold:hover { border-color: var(--ink); }
+.bb-split-fold svg { transform: rotate(90deg); transition: transform 0.15s; }   /* points left: fold away */
+.bb-cockpit.folded { grid-template-columns: 0 32px minmax(0, 1fr); }
+.bb-cockpit.folded .bb-left { display: none; }
+.bb-cockpit.folded .bb-split-fold svg { transform: rotate(-90deg); }
+.bb-cockpit.resizing { cursor: col-resize; user-select: none; -webkit-user-select: none; }
+@media (prefers-reduced-motion: reduce) { .bb-split-fold svg, .bb-split-bar::before { transition: none; } }
 .bb-left-head { display: grid; gap: 4px; }
 .bb-left-head .bb-bar { gap: 8px; }
 .bb-running { margin: 0; }
@@ -401,9 +422,11 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 
 /* Narrow screens: the match on top, the rules under it, one scrolling page. */
 @media (max-width: 900px) {
-  .bb-cockpit { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .bb-cockpit, .bb-cockpit.folded { grid-template-columns: minmax(0, 1fr); height: auto; }
   .bb-right { order: -1; height: 56vh; min-height: 300px; }
-  .bb-left { overflow: visible; }
+  .bb-left, .bb-cockpit.folded .bb-left { overflow: visible; display: flex; }
+  .bb-left, .bb-right { grid-column: auto; }
+  .bb-split { display: none; }   /* one column: nothing to resize or fold */
 }
 
 @media (max-width: 640px) {
