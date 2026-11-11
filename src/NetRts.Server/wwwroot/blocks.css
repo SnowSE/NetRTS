@@ -140,20 +140,23 @@
 .bb-menu-list .muted { font-size: 0.8rem; font-weight: 400; }
 @media (prefers-reduced-motion: reduce) { .bb-menu-caret { transition: none; } }
 
-/* ---------- the rules' surface, and the controls that float over it (both styles) ---------- */
+/* ---------- the rules' surface, and the toolbar docked along its top edge (both styles) ---------- */
 
 .bb-surface {
   border: 1px solid var(--line); border-radius: var(--radius-m); padding: 10px 14px 16px;
   background-color: var(--bg); background-image: radial-gradient(color-mix(in srgb, var(--ink) 16%, transparent) 1px, transparent 1px); background-size: 18px 18px;
 }
-/* Undo and redo on the left, how the rules look on the right; they stay put as the rules scroll under them. */
-.bb-float-row { position: sticky; top: 10px; z-index: 6; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 6px; pointer-events: none; }
-.bb-pill {
-  pointer-events: auto; display: inline-flex; align-items: center; gap: 2px; padding: 4px;
-  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+/* Undo and redo on the left, how the rules look on the right: a bar along the surface's top edge, pinned
+   there while the rules scroll under it (wide edit page). */
+.bb-float-row {
+  position: sticky; top: 0; z-index: 6; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px;
+  margin: -10px -14px 10px; padding: 6px 8px; background: var(--panel); border-bottom: 1px solid var(--line);
+  border-radius: calc(var(--radius-m) - 1px) calc(var(--radius-m) - 1px) 0 0;
 }
+.bb-pill { display: inline-flex; align-items: center; gap: 2px; }
+.bb-pill + .bb-pill { padding: 3px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }   /* Cards | Blocks | Python: one segmented control */
 .bb-pill-opt {
-  height: 40px; min-width: 40px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  height: 38px; min-width: 40px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
 }
 .bb-pill-opt.icon { padding: 0; }
@@ -162,9 +165,10 @@
 .bb-pill-opt:disabled { opacity: 0.35; cursor: default; }
 .bb-pill-opt:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
 .bb-pill-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--line); }
-/* The cockpit, and a narrow edit page: the palette or the top bar is pinned there already, so these stay in place. */
-.compact .bb-float-row { position: static; }
-@container (max-width: 879.98px) { .bb-float-row { position: static; } }
+/* The cockpit, and a narrow edit page: the palette or the top bar is pinned there already, so the bar
+   scrolls with the rules (and anything pinned is drawn over it). */
+.compact .bb-float-row { position: static; z-index: auto; }
+@container (max-width: 879.98px) { .bb-float-row { position: static; z-index: auto; } }
 
 /* ---------- rule cards ---------- */
 

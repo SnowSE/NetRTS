@@ -135,9 +135,9 @@
 }
 /* In one column (a phone, the match cockpit) it stays pinned over the top of the rules, shorter, and folds away. */
 @media (max-width: 700px) {
-  .bb-blocks .bb-palette { top: 0; z-index: 5; max-height: 42vh; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
+  .bb-blocks .bb-palette { top: 0; z-index: 6; max-height: 42vh; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
 }
-.bb-blocks.compact .bb-palette { top: 0; z-index: 5; max-height: 42vh; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
+.bb-blocks.compact .bb-palette { top: 0; z-index: 6; max-height: 42vh; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
 .bb-pal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .bb-pal-head h2 { margin: 0; font-size: 0.95rem; }
 /* Folding: where the rules are beside the palette (a wide edit page) it folds sideways into a strip and the
