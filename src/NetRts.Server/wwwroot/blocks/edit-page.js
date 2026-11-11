@@ -1,8 +1,8 @@
-// #/blocks/edit/<id>: one strategy in the rule-card editor, saved in this browser as you go.
+// #/blocks/edit/<id>: one strategy in the rule editor (cards or blocks, editors.js), saved in this browser as you go.
 import { html, raw, setHtml, mountScope } from '../util.js';
 import { getStrategy, putStrategy, prefs, setPref, matchRecords, player, authed, themed, nav, downloadStrategy } from './store.js';
 import { LIMITS } from './program.js';
-import { RuleEditor } from './rule-editor.js';
+import { createEditor, restyle, styleToggleHtml, markStyle } from './editors.js';
 import { ICON } from './icons.js';
 
 export function mountEditor(main, id) {
@@ -18,6 +18,7 @@ export function mountEditor(main, id) {
   // Python, Download and Play it: in the top bar on narrow screens (which sticks), at the top of the
   // side panel (which stays in view as the rules scroll) on wide ones.
   const actions = (code) => html`
+    ${styleToggleHtml()}
     <button type="button" class="btn ghost" data-ed="code" aria-pressed="${code}">${raw(ICON.code)} Python</button>
     <button type="button" class="btn ghost" data-ed="dl">${raw(ICON.download)} Download</button>
     <a class="btn start" href="#/blocks" data-ed="play">Play it</a>`;
@@ -37,7 +38,7 @@ export function mountEditor(main, id) {
     </section>`);
 
   const savedEl = main.querySelector('#bb-saved');
-  const editor = new RuleEditor(main.querySelector('#bb-editor'), {
+  let editor = createEditor(main.querySelector('#bb-editor'), {
     program: strategy.program,
     sideTop: (ed) => html`<div class="bb-edit-actions bb-side-actions">${actions(ed.code)}</div>`,
     onChange: (program) => {
@@ -57,6 +58,12 @@ export function mountEditor(main, id) {
     save();
   });
   const onAction = (e) => {
+    const styleBtn = e.target.closest('[data-editor-style]');
+    if (styleBtn) {
+      editor = restyle(editor, styleBtn.dataset.editorStyle);
+      markStyle(main);
+      return;
+    }
     const b = e.target.closest('[data-ed]');
     if (!b) return;
     if (b.dataset.ed === 'code') {
@@ -81,5 +88,5 @@ export function mountEditor(main, id) {
     setHtml(banner, html`This strategy is playing a match right now. <a href="#/blocks/match/${liveMatch.matchId}">Open the cockpit</a> to watch it and apply your changes.`);
   })();
 
-  return () => scope.dispose();
+  return () => { editor.destroy(); scope.dispose(); };
 }

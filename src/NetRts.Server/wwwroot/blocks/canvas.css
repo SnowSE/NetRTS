@@ -1,0 +1,177 @@
+/* Block Bot's drag-and-drop blocks (block-editor.js). Loaded by blocks/index.js on Block Bot pages only.
+   Each family of block has its own colour; white text on every one of them is at least 4.5:1. */
+
+.bb-blocks {
+  --blk-rule: #8f5500;      /* when … do */
+  --blk-cond: #1d7a4c;      /* checks */
+  --blk-combo: #145c38;     /* and, or, not */
+  --blk-switch: #0e6a75;
+  --blk-train: #b0501a;
+  --blk-build: #6747b0;
+  --blk-army: #a5302a;
+  --blk-text: #ffffff;
+  --blk-field: #ffffff;
+  --blk-field-ink: #15222a;
+  --blk-canvas: var(--bg);
+  --blk-tab: 18px;          /* the width of the tab under an action, and the socket over it */
+  display: grid;
+  grid-template-columns: minmax(200px, 250px) minmax(0, 1fr) minmax(220px, 300px);
+  gap: 16px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .bb-blocks { grid-template-columns: minmax(190px, 230px) minmax(0, 1fr); }
+  .bb-blocks > .bb-help { grid-column: 1 / -1; position: static; }
+}
+@media (max-width: 700px) {
+  .bb-blocks { grid-template-columns: minmax(0, 1fr); }
+  .bb-blocks .bb-palette { position: static; max-height: none; }   /* one column: it would cover the rules */
+}
+.bb-blocks.compact { grid-template-columns: minmax(0, 1fr); gap: 10px; }
+
+/* ---------------------------------------------------------------- a block */
+
+.bb-b {
+  --c: var(--blk-cond);
+  display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px 6px;
+  padding: 4px 8px; min-height: 34px;
+  background: var(--c); color: var(--blk-text);
+  border: 0; border-radius: 6px;
+  font: inherit; font-weight: 600; line-height: 1.2; text-align: left;
+  cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.bb-b:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.bb-b-label { white-space: nowrap; }
+
+/* Checks are round-ended; and/or/not hold other checks, each with a thin dark edge to tell them apart. */
+.bb-b.cond { border-radius: 999px; padding-inline: 6px 12px; }
+.bb-b.cond.switch { --c: var(--blk-switch); }
+.bb-b.cond.combo { --c: var(--blk-combo); padding: 4px 8px; }
+.bb-b.cond .bb-b.cond { box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.22); }
+
+/* Actions stack: a socket in the top edge, a tab below that fits the next one's socket. */
+.bb-b.act { display: flex; position: relative; border-radius: 6px; padding: 6px 8px 6px 4px; }
+.bb-b.act::before, .bb-b.act::after {
+  content: ""; position: absolute; left: 22px; width: var(--blk-tab); height: 6px; border-radius: 0 0 5px 5px;
+}
+.bb-b.act::before { top: 0; background: var(--blk-canvas); }
+.bb-b.act::after { bottom: -6px; background: var(--c); z-index: 1; }
+.bb-b.fam-train { --c: var(--blk-train); }
+.bb-b.fam-build { --c: var(--blk-build); }
+.bb-b.fam-army { --c: var(--blk-army); }
+.bb-grip { display: inline-flex; align-items: center; padding: 0 2px; opacity: 0.75; }
+
+/* What's on a block: white boxes with dark writing, as on paper. */
+.bb-b .bb-select, .bb-b .bb-num-in {
+  min-height: 28px; padding: 2px 8px; border: 0; border-radius: 999px;
+  background: var(--blk-field); color: var(--blk-field-ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+.bb-b .bb-num-in { width: 5em; cursor: text; }
+.bb-b .bb-icon { color: var(--blk-text); background: rgba(0, 0, 0, 0.2); border: 0; border-radius: 999px; min-width: 26px; min-height: 26px; }
+.bb-b .bb-icon:hover { background: rgba(0, 0, 0, 0.35); }
+.bb-b.act > .bb-icon:last-child { margin-left: auto; }
+
+/* ---------------------------------------------------------------- a rule: when ⟨check⟩ do [actions] */
+
+.bb-blocks .bb-row { display: grid; gap: 6px; }
+.bb-blocks .bb-rule.bb-script { background: none; border: 0; padding: 0; display: block; min-width: 0; box-shadow: none; }
+.bb-hat {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  padding: 8px 10px; background: var(--blk-rule); color: var(--blk-text);
+  border-radius: 14px 14px 4px 4px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.bb-hat .bb-word { font-weight: 700; }
+.bb-hat .bb-num { background: rgba(0, 0, 0, 0.25); color: var(--blk-text); }
+.bb-hat .bb-tools { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; }
+.bb-hat .bb-icon { color: var(--blk-text); background: rgba(0, 0, 0, 0.2); border: 0; border-radius: 999px; min-width: 28px; min-height: 28px; }
+.bb-hat .bb-icon:disabled { opacity: 0.4; }
+.bb-hat .bb-switch-toggle, .bb-hat .bb-switch-toggle[aria-checked="true"] { color: var(--blk-text); }
+.bb-mouth {
+  display: grid; gap: 2px; justify-items: start;
+  border-left: 16px solid var(--blk-rule); padding: 8px 0 10px 8px; min-height: 44px;
+}
+.bb-mouth > .bb-b.act { max-width: 100%; }
+.bb-mouth-end { min-height: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 2px 4px; border-radius: 4px; }
+.bb-cap { height: 14px; width: min(240px, 100%); background: var(--blk-rule); border-radius: 4px 4px 10px 10px; }
+.bb-script > .bb-note, .bb-script > .bb-live, .bb-script > .bb-save-row { padding-left: 0; margin-top: 6px; }
+.bb-script > .bb-live { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+
+.bb-script.selected .bb-hat { box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--focus); }
+.bb-script.off { opacity: 0.55; }
+.bb-script.editing-rule { border: 0; box-shadow: none; }
+.bb-script.editing-rule .bb-hat, .bb-script.editing-rule .bb-cap { box-shadow: 0 0 0 3px var(--signal-bg); }
+.bb-script[data-state="firing"] .bb-hat { box-shadow: inset 0 -4px 0 var(--ok); }
+.bb-script[data-state="waiting"] .bb-hat { box-shadow: inset 0 -4px 0 var(--signal-bg); }
+.bb-blocks.locked .bb-script:not(.editing-rule) { opacity: 0.45; pointer-events: none; }
+.bb-blocks.locked .bb-add-rule { visibility: hidden; pointer-events: none; }
+
+.bb-canvas { display: grid; gap: 12px; min-width: 0; }
+.bb-scripts { display: grid; gap: 18px; padding: 4px 2px; }
+.bb-rules-end { min-height: 8px; border-radius: 4px; }
+
+/* ---------------------------------------------------------------- the palette */
+
+.bb-palette {
+  display: grid; gap: 10px; align-content: start;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 12px;
+  position: sticky; top: 12px; max-height: calc(100vh - 24px); overflow: hidden auto;
+  grid-template-columns: minmax(0, 1fr); min-width: 0;
+}
+.bb-pal-hint { margin: 0; }
+.bb-b.pal { font-size: 0.92rem; min-height: 32px; }
+.bb-b.pal.hat { --c: var(--blk-rule); border-radius: 14px 14px 4px 4px; padding: 6px 12px; gap: 8px; }
+.bb-b.pal.hat .bb-b-gap { display: inline-block; width: 48px; height: 20px; border-radius: 999px; background: rgba(255, 255, 255, 0.3); }
+.bb-b.pal:disabled { opacity: 0.5; cursor: not-allowed; }
+.bb-pal-tabs { display: flex; flex-wrap: wrap; gap: 4px; }
+.bb-pal-tab {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; min-height: 32px;
+  border: 1px solid var(--line); border-radius: 999px; background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+.bb-pal-tab::before { content: ""; width: 10px; height: 10px; border-radius: 999px; background: var(--blk-cond); }
+.bb-pal-tab.tab-train::before { background: var(--blk-train); }
+.bb-pal-tab.tab-build::before { background: var(--blk-build); }
+.bb-pal-tab.tab-army::before { background: var(--blk-army); }
+.bb-pal-tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.bb-pal-body { display: grid; gap: 10px; }
+.bb-pal-group h3 { margin: 0 0 6px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+.bb-pal-items { display: flex; flex-wrap: wrap; gap: 8px; }
+.bb-pal-items .bb-new-switch { flex-basis: 100%; display: flex; gap: 6px; min-width: 0; }
+.bb-pal-items .bb-new-switch input { flex: 1 1 auto; min-width: 0; }
+.bb-b.pal { max-width: 100%; }
+.bb-trash { display: none; margin: 0; padding: 10px; border: 2px dashed var(--danger); border-radius: var(--radius-m); color: var(--danger); text-align: center; font-weight: 700; }
+.bb-blocks.is-dragging:is(.drag-step, .drag-cond, .drag-rule) .bb-trash { display: block; }
+
+.bb-blocks.compact .bb-palette { position: static; max-height: none; padding: 8px; gap: 8px; }
+.bb-blocks.compact .bb-pal-group { display: contents; }
+.bb-blocks.compact .bb-pal-group h3 { display: none; }
+.bb-blocks.compact .bb-pal-body { display: flex; flex-wrap: wrap; gap: 6px; }
+.bb-blocks.compact .bb-pal-items { display: contents; }
+.bb-blocks.compact .bb-b.pal { font-size: 0.85rem; min-height: 28px; padding: 3px 8px; }
+
+/* ---------------------------------------------------------------- dragging */
+
+.bb-ghost {
+  position: fixed; z-index: 1000; pointer-events: none; margin: 0;
+  opacity: 0.92; transform: rotate(-2deg); box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
+}
+.bb-drag-src { opacity: 0.35; }
+.bb-blocks .drop-above { box-shadow: 0 -5px 0 var(--signal-bg); }
+.bb-blocks .bb-row.drop-above { box-shadow: none; }
+.bb-blocks .bb-row.drop-above::before { content: ""; display: block; height: 5px; margin-bottom: 4px; border-radius: 3px; background: var(--signal-bg); }
+.bb-blocks .drop-into { outline: 3px dashed var(--signal-bg); outline-offset: 2px; }
+.bb-blocks .drop-no { outline: 3px dashed var(--danger); outline-offset: 2px; cursor: not-allowed; }
+.bb-palette.drop-trash { background: color-mix(in srgb, var(--danger) 16%, var(--panel)); }
+
+/* While dragging an action, every rule's mouth shows it can take one; a check, every check spot. */
+.bb-blocks.is-dragging:is(.drag-step, .drag-new-action) .bb-mouth { background: color-mix(in srgb, var(--blk-rule) 8%, transparent); }
+.bb-blocks.is-dragging:is(.drag-cond, .drag-new-cond) .bb-hat .bb-b.cond { box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.55); }
+
+@media (prefers-reduced-motion: reduce) { .bb-ghost { transform: none; } }
+
+/* ---------------------------------------------------------------- the style toggle */
+
+.bb-style-toggle { display: inline-flex; gap: 0; }
+.bb-style-toggle .btn { border-radius: 0; }
+.bb-style-toggle .btn:first-child { border-radius: var(--radius-m) 0 0 var(--radius-m); }
+.bb-style-toggle .btn:last-child { border-radius: 0 var(--radius-m) var(--radius-m) 0; margin-left: -1px; }
+.bb-style-toggle .btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }

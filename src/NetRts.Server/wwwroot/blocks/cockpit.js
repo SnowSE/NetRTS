@@ -6,7 +6,7 @@ import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
 import { getStrategy, putStrategy, newStrategy, prefs, matchRecords, recordMatch, player, authed, themed, clone } from './store.js';
 import { RULES, LIMITS, sameProgram } from './program.js';
-import { RuleEditor } from './rule-editor.js';
+import { createEditor, restyle, styleToggleHtml, markStyle } from './editors.js';
 import { ICON } from './icons.js';
 import { StatHistory, hudHtml, buildingCardHtml, qualityIcon, soundIcon } from './cockpit-hud.js';
 
@@ -67,6 +67,7 @@ export function mountCockpit(main, matchId) {
         <div class="bb-bar bb-edit-bar">
           <h2 class="bb-label" title="Point at a rule to make the ${say('units', 'badgers')} it’s moving pulse.">Your rules</h2>
           <span class="bb-spacer"></span>
+          ${styleToggleHtml()}
           <button type="button" class="btn ghost small-btn" id="bb-code" aria-pressed="${!!prefs().code}">${raw(ICON.code)} Python</button>
         </div>
         <div id="bb-editor"></div>
@@ -101,7 +102,7 @@ export function mountCockpit(main, matchId) {
   const fitHeight = () => root.style.setProperty('--bb-top', `${Math.max(0, root.getBoundingClientRect().top + window.scrollY)}px`);
   fitHeight();
   scope.on(window, 'resize', fitHeight);
-  scope.cleanup(() => { feed?.close(); main.classList.remove('wide', 'bb-full'); });
+  scope.cleanup(() => { feed?.close(); editor?.destroy(); main.classList.remove('wide', 'bb-full'); });
 
   // ---- the rules
 
@@ -113,7 +114,7 @@ export function mountCockpit(main, matchId) {
       strategy = newStrategy({ ...program, name: `${program.name || 'Strategy'} (from a match)`.slice(0, LIMITS().maxNameLength) });
       recordMatch(matchId, strategy.id);
     }
-    editor = new RuleEditor($('bb-editor'), {
+    editor = createEditor($('bb-editor'), {
       compact: true,
       program: strategy.program,
       // Each rule's Save (and each on/off, move or delete) sends the whole program in as a new version.
@@ -393,7 +394,10 @@ export function mountCockpit(main, matchId) {
   root.addEventListener('click', (e) => {
     const b = e.target.closest('button');
     if (!b) return;
-    if (b.id === 'bb-apply-btn') apply();
+    if (b.dataset.editorStyle) {
+      if (editor) editor = restyle(editor, b.dataset.editorStyle);
+      markStyle(root);
+    } else if (b.id === 'bb-apply-btn') apply();
     else if (b.id === 'bb-undo' && status?.program) {
       strategy = { ...strategy, program: { ...clone(status.program), name: strategy.program.name } };
       putStrategy(strategy);

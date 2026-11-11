@@ -515,7 +515,7 @@ their own. `grubsLeft` adds up the ore left in deposits within 8 tiles of your C
 Resource Depots; `expand` builds a Resource Depot (or Command Center) beside the nearest deposit the
 bot has seen that isn't near one yet, and sends a scout exploring when it knows of none. The server plays the program, so the match keeps going when
 the page closes, and the player can swap in a new version or flip a switch while it runs. The shapes
-are in `src/NetRts.Protocol/Blocks.cs` (`BlockProgramDto`); the editor saves strategies in the browser
+are in `src/NetRts.Protocol/Blocks.cs` (`BlockProgramDto`); the editor (rule cards, or drag-and-drop blocks, with a toggle between them) saves strategies in the browser
 and downloads them as `.json`.
 
 | Call | What it does |

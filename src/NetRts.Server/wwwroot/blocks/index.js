@@ -4,7 +4,8 @@
 // download as .json files. app.js loads this module only when a Block Bot page opens.
 //
 //   #/blocks                 the locker (locker.js): your strategies, and where to play
-//   #/blocks/edit/<id>       the rule-card editor (edit-page.js, rule-editor.js)
+//   #/blocks/edit/<id>       the rule editor (edit-page.js): cards (rule-editor.js) or drag-and-drop
+//                            blocks (block-editor.js), picked with a toggle (editors.js)
 //   #/blocks/match/<id>      the cockpit (cockpit.js): the match in the 3D view, the rules live, switches,
 //                            and each rule saved into the running match as you change it
 import { html, setHtml } from '../util.js';
@@ -13,10 +14,21 @@ import { mountLocker } from './locker.js';
 import { mountEditor } from './edit-page.js';
 import { mountCockpit } from './cockpit.js';
 
+// The drag-and-drop blocks' look, only on Block Bot pages (blocks.css, the rest of Block Bot's, is on every page).
+function loadBlockStyles() {
+  if (document.querySelector('link[data-bb-canvas]')) return;
+  const link = document.createElement('link');
+  link.rel = 'stylesheet';
+  link.href = new URL('./canvas.css', import.meta.url).href;
+  link.dataset.bbCanvas = '';
+  document.head.append(link);
+}
+
 /** Mounts the page for route ({ page: 'edit' | 'match', id } or null for the locker); returns its teardown. */
 export function mountBlocks(main, route) {
   let alive = true;
   let teardown = null;
+  loadBlockStyles();
   // The pages draw on the server's vocabulary and the game's rules: fetched once, and again on the next visit if that failed.
   setHtml(main, html`<section class="bb-page"><p class="muted">Loading Block Bot…</p></section>`);
   loadVocabulary().then(() => {
