@@ -447,7 +447,8 @@ public sealed partial class MatchManager(
     /// <summary>
     /// At most <see cref="NetRtsOptions.MaxRunningMatchesPerPlayer"/> running practice matches per creator. A bot
     /// that crashed or was stopped leaves its match running with nobody playing it: past the cap, those are
-    /// surrendered rather than turning the restarted bot away.
+    /// surrendered rather than turning the restarted bot away. Matches the server plays for the player (Block
+    /// Bots) count toward the cap but are never surrendered to make room.
     /// </summary>
     private void EnsureRunningCapacity(Guid creatorId)
     {
@@ -462,8 +463,9 @@ public sealed partial class MatchManager(
             return;
         }
 
+        // A seat the server plays for the player (a Block Bot) is never abandoned: it plays on with the page closed.
         var abandonedBefore = DateTime.UtcNow - TimeSpan.FromSeconds(_options.AbandonedMatchSeconds);
-        foreach (var host in running.Where(m => m.CreatorSeenAt < abandonedBefore))
+        foreach (var host in running.Where(m => m.CreatorSeenAt < abandonedBefore && m.BotFor(creatorId) is null))
         {
             if (host.Surrender(creatorId))
             {

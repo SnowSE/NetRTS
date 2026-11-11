@@ -1,4 +1,6 @@
 using System.Net;
+using System.Net.Http.Headers;
+using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using NetRts.Bots;
 using NetRts.Protocol;
@@ -100,5 +102,29 @@ public class AbandonedMatchTests(AbandonedMatchTests.Factory factory) : IClassFi
             Assert.Equal(MatchStatus.Completed, host.Status);
             Assert.False(host.IsPlaying(player.PlayerId));
         });
+    }
+
+    [Fact]
+    public async Task A_block_bot_match_plays_on_when_the_same_key_starts_coded_matches()
+    {
+        var (bot, player) = await factory.NewPlayerAsync();
+        var http = factory.CreateClient();
+        http.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", player.ApiKey);
+        var program = new BlockProgramDto { Rules = [new() { Do = [new() { Kind = "train", Unit = UnitType.Worker }] }] };
+        var start = await http.PostAsJsonAsync("/api/v1/blocks/matches",
+            new StartBlockMatchRequest { Program = program, Mode = BlockPlayMode.Sandbox }, NetRtsClient.JsonOptions, Ct);
+        var blocks = (await start.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+        var coded = new List<MatchSummaryDto>();
+        for (var i = 0; i < 2; i++)
+        {
+            coded.Add(await bot.CreateMatchAsync(new CreateMatchRequest { HouseBots = ["sitter"] }, Ct));
+        }
+
+        // At the cap, with every match "left" (this factory counts them as left at once): the coded ones make
+        // room, the Block Bot one keeps playing.
+        await bot.CreateMatchAsync(new CreateMatchRequest { HouseBots = ["sitter"] }, Ct);
+
+        Assert.Equal(MatchStatus.Active, factory.Matches.Get(blocks.MatchId)!.Status);
+        Assert.All(coded, m => Assert.Equal(MatchStatus.Completed, factory.Matches.Get(m.MatchId)!.Status));
     }
 }
