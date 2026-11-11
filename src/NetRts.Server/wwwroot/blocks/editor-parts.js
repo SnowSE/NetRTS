@@ -178,12 +178,23 @@ export function ruleTools(ed, i, off) {
     <button type="button" class="bb-icon" data-act="rule-del" data-i="${i}" data-k="del|${i}" aria-label="Delete rule ${i + 1}" ${waitAttr(ed)}>×</button>`;
 }
 
-/** Undo and redo (Ctrl+Z, Ctrl+Shift+Z): EditorCore keeps the history. */
-export const historyHtml = (ed) => html`
-  <span class="bb-history" role="group" aria-label="Undo and redo">
-    <button type="button" class="bb-icon bb-hist" data-act="undo" data-k="undo" aria-label="Undo" title="Undo (Ctrl+Z)" ${ed.canUndo ? '' : 'disabled'}>${raw(ICON.undo)}</button>
-    <button type="button" class="bb-icon bb-hist" data-act="redo" data-k="redo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" ${ed.canRedo ? '' : 'disabled'}>${raw(ICON.redo)}</button>
-  </span>`;
+/**
+ * The controls that float over the top of the rules, in both styles: undo and redo (EditorCore keeps the
+ * history; Ctrl+Z, Ctrl+Shift+Z) on the left; on the right how the rules look: the style (editors.js passes
+ * its Cards | Blocks buttons in as ed.styleToggle) and the Python beside each rule.
+ */
+export const canvasControlsHtml = (ed) => html`
+  <div class="bb-float-row">
+    <div class="bb-pill" role="group" aria-label="Undo and redo">
+      <button type="button" class="bb-pill-opt icon" data-act="undo" data-k="undo" aria-label="Undo" title="Undo (Ctrl+Z)" ${ed.canUndo ? '' : 'disabled'}>${raw(ICON.undo)}</button>
+      <button type="button" class="bb-pill-opt icon" data-act="redo" data-k="redo" aria-label="Redo" title="Redo (Ctrl+Shift+Z)" ${ed.canRedo ? '' : 'disabled'}>${raw(ICON.redo)}</button>
+    </div>
+    <div class="bb-pill" role="group" aria-label="How your rules look">
+      ${ed.styleToggle?.() ?? ''}
+      <span class="bb-pill-sep" aria-hidden="true"></span>
+      <button type="button" class="bb-pill-opt" data-act="code" data-k="code" aria-pressed="${String(ed.code)}" title="Show each rule as Python too">${raw(ICON.code)} Python</button>
+    </div>
+  </div>`;
 
 /** The "+ rule" line above rule i (above none once the rules are full): a new rule goes in there. */
 export const insertRuleHtml = (program, i) => (fullRules(program) ? '' : html`

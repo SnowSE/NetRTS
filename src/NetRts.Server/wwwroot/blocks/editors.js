@@ -15,7 +15,7 @@ export const editorStyle = () => (STYLES.some((s) => s.id === prefs().editorStyl
 /** An editor in the style the player last picked. Takes the options EditorCore does. */
 export function createEditor(root, opts) {
   const { Editor } = STYLES.find((s) => s.id === editorStyle());
-  const editor = new Editor(root, opts);
+  const editor = new Editor(root, { ...opts, styleToggle: styleToggleHtml });
   editor.opts = opts;
   return editor;
 }
@@ -37,11 +37,9 @@ export function restyle(editor, style) {
   return next;
 }
 
-/** The Cards | Blocks toggle; its buttons carry data-editor-style. */
+/** The Cards | Blocks buttons (in the editor's floating controls); each carries data-editor-style for the page to act on. */
 export const styleToggleHtml = () => html`
-  <div class="bb-style-toggle" role="group" aria-label="Rule editor style">
-    ${STYLES.map((s) => html`<button type="button" class="btn ghost small-btn" data-editor-style="${s.id}" aria-pressed="${String(editorStyle() === s.id)}" title="${s.title}">${s.label}</button>`)}
-  </div>`;
+  ${STYLES.map((s) => html`<button type="button" class="bb-pill-opt" data-editor-style="${s.id}" aria-pressed="${String(editorStyle() === s.id)}" title="${s.title}">${s.label}</button>`)}`;
 
 /** After a switch, every toggle on the page shows the new style. */
 export const markStyle = (root) => root.querySelectorAll('[data-editor-style]')

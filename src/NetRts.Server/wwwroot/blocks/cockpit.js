@@ -5,9 +5,9 @@ import { say } from '../lore.js';
 import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
 import { sidePanel } from './split.js';
-import { getStrategy, putStrategy, newStrategy, prefs, matchRecords, recordMatch, player, authed, themed, clone } from './store.js';
+import { getStrategy, putStrategy, newStrategy, matchRecords, recordMatch, player, authed, themed, clone } from './store.js';
 import { RULES, LIMITS, sameProgram } from './program.js';
-import { createEditor, restyle, styleToggleHtml, markStyle } from './editors.js';
+import { createEditor, restyle, markStyle } from './editors.js';
 import { ICON } from './icons.js';
 import { StatHistory, hudHtml, buildingCardHtml, qualityIcon, soundIcon } from './cockpit-hud.js';
 
@@ -67,9 +67,6 @@ export function mountCockpit(main, matchId) {
         </div>
         <div class="bb-bar bb-edit-bar">
           <h2 class="bb-label" title="Point at a rule to make the ${say('units', 'badgers')} it’s moving pulse.">Your rules</h2>
-          <span class="bb-spacer"></span>
-          ${styleToggleHtml()}
-          <button type="button" class="btn ghost small-btn" id="bb-code" aria-pressed="${!!prefs().code}">${raw(ICON.code)} Python</button>
         </div>
         <div id="bb-editor"></div>
         <section aria-labelledby="bb-ver-h" class="bb-ver">
@@ -424,10 +421,6 @@ export function mountCockpit(main, matchId) {
       audio.unlock();
       audio.set('muted', !audio.settings.muted);
       renderViewTools();
-    } else if (b.id === 'bb-code') {
-      const on = b.getAttribute('aria-pressed') !== 'true';
-      b.setAttribute('aria-pressed', String(on));
-      editor?.setCode(on);
     } else if (b.id === 'bb-surrender') {
       if (b.dataset.confirm !== 'yes') { b.dataset.confirm = 'yes'; b.textContent = 'Really give up?'; b.classList.add('danger'); return; }
       scope.wait(authed(`/api/v1/matches/${matchId}/surrender`, { method: 'POST' })).catch((ex) => setMsg(ex.message));

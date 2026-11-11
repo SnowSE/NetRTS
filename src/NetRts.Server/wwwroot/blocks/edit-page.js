@@ -1,8 +1,8 @@
 // #/blocks/edit/<id>: one strategy in the rule editor (cards or blocks, editors.js), saved in this browser as you go.
 import { html, raw, setHtml, mountScope } from '../util.js';
-import { getStrategy, putStrategy, prefs, setPref, matchRecords, player, authed, themed, nav, downloadStrategy } from './store.js';
+import { getStrategy, putStrategy, setPref, matchRecords, player, authed, themed, nav, downloadStrategy } from './store.js';
 import { LIMITS } from './program.js';
-import { createEditor, restyle, styleToggleHtml, markStyle } from './editors.js';
+import { createEditor, restyle, markStyle } from './editors.js';
 import { ICON } from './icons.js';
 
 export function mountEditor(main, id) {
@@ -15,13 +15,18 @@ export function mountEditor(main, id) {
   let liveMatch = null;
   const scope = mountScope();
 
-  // Python, Download and Play it: in the top bar on narrow screens (which sticks), at the top of the
-  // side panel (which stays in view as the rules scroll) on wide ones.
-  const actions = (code) => html`
-    ${styleToggleHtml()}
-    <button type="button" class="btn ghost" data-ed="code" aria-pressed="${code}">${raw(ICON.code)} Python</button>
-    <button type="button" class="btn ghost" data-ed="dl">${raw(ICON.download)} Download</button>
-    <a class="btn start" href="#/blocks" data-ed="play">Play it</a>`;
+  // What's done with the whole strategy sits by its name: Download (the strategy, or a bot in code) and
+  // Play it. How the rules look, and undo, float over the rules themselves (the editor draws those).
+  const actions = () => html`
+    <details class="bb-menu" id="bb-dl-menu">
+      <summary class="btn ghost">${raw(ICON.download)} Download <span class="bb-menu-caret" aria-hidden="true">${raw(ICON.chevron)}</span></summary>
+      <div class="bb-menu-list">
+        <button type="button" data-ed="dl">Strategy file <span class="muted">.json, to open again here</span></button>
+        <button type="button" data-ed="export" data-lang="python">Python bot <span class="muted">.py, runs on its own</span></button>
+        <button type="button" data-ed="export" data-lang="csharp">C# bot <span class="muted">.cs, runs on its own</span></button>
+      </div>
+    </details>
+    <a class="btn start" href="#/blocks" data-ed="play">${raw(ICON.play)} Play it</a>`;
 
   // The way on from blocks: this strategy as a whole bot in code (export.js, loaded when it's asked for).
   const codeCard = () => html`
@@ -45,7 +50,7 @@ export function mountEditor(main, id) {
         <input id="bb-sname" class="bb-title-in" maxlength="${LIMITS().maxNameLength}" value="${strategy.program.name}">
         <span class="bb-saved small muted" id="bb-saved">${raw(ICON.check)} Saved in this browser</span>
         <span class="bb-spacer"></span>
-        <div class="bb-edit-actions bb-top-actions">${actions(!!prefs().code)}</div>
+        <div class="bb-edit-actions">${actions()}</div>
       </div>
       <p class="bb-banner" id="bb-livebanner" hidden></p>
       <div id="bb-editor"></div>
@@ -54,7 +59,7 @@ export function mountEditor(main, id) {
   const savedEl = main.querySelector('#bb-saved');
   let editor = createEditor(main.querySelector('#bb-editor'), {
     program: strategy.program,
-    sideTop: (ed) => html`<div class="bb-edit-actions bb-side-actions">${actions(ed.code)}</div>${codeCard()}`,
+    sideTop: () => codeCard(),
     onChange: (program) => {
       strategy = { ...strategy, program: { ...program, name: strategy.program.name } };
       save();
@@ -80,17 +85,24 @@ export function mountEditor(main, id) {
     }
     const b = e.target.closest('[data-ed]');
     if (!b) return;
-    if (b.dataset.ed === 'code') {
-      editor.setCode(!editor.code);
-      main.querySelectorAll('[data-ed="code"]').forEach((x) => x.setAttribute('aria-pressed', String(editor.code)));
-    } else if (b.dataset.ed === 'dl') downloadStrategy(strategy);
+    if (b.closest('#bb-dl-menu')) menu.open = false;
+    if (b.dataset.ed === 'dl') downloadStrategy(strategy);
     else if (b.dataset.ed === 'play') { setPref('selected', strategy.id); nav.jumpToPlay = true; }
     else if (b.dataset.ed === 'export') exportCode(b);
   };
   scope.on(main, 'click', onAction);
 
+  // The Download menu closes on a click anywhere else, and on Escape (back to its button).
+  const menu = main.querySelector('#bb-dl-menu');
+  scope.on(document, 'click', (e) => { if (menu.open && !menu.contains(e.target)) menu.open = false; });
+  scope.on(menu, 'keydown', (e) => {
+    if (e.key !== 'Escape' || !menu.open) return;
+    menu.open = false;
+    menu.querySelector('summary').focus();
+  });
+
   async function exportCode(b) {
-    const error = b.closest('.bb-code-card')?.querySelector('[data-export-error]');
+    const error = main.querySelector('[data-export-error]');
     if (error) error.hidden = true;
     try {
       const { downloadCode } = await scope.wait(import('./export.js'));

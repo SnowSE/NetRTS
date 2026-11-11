@@ -113,7 +113,7 @@
 .bb-blocks.locked .bb-script:not(.editing-rule) { opacity: 0.45; pointer-events: none; }
 .bb-blocks.locked :is(.bb-add-rule, .bb-insert), .bb-blocks.is-dragging .bb-insert { visibility: hidden; pointer-events: none; }
 
-.bb-canvas { display: grid; gap: 12px; min-width: 0; }
+.bb-canvas { display: flex; flex-direction: column; gap: 12px; min-width: 0; }   /* not a grid: the floating controls' sticky would be stuck in their row */
 .bb-scripts { display: grid; gap: 4px; padding: 4px 2px; }
 .bb-scripts > .bb-row + .bb-row { margin-top: 14px; }   /* no "+ rule" line between them (the rules are full) */
 .bb-rules-end { min-height: 8px; border-radius: 4px; }
@@ -134,9 +134,19 @@
 .bb-blocks.compact .bb-palette { top: 0; z-index: 5; max-height: 42vh; box-shadow: 0 6px 14px rgba(0, 0, 0, 0.18); }
 .bb-pal-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-width: 0; }
 .bb-pal-head h2 { margin: 0; font-size: 0.95rem; }
-.bb-pal-head .bb-history { margin-left: auto; }
-.bb-pal-toggle svg { transition: transform 0.15s; }
-.bb-blocks.pal-closed .bb-pal-toggle svg { transform: rotate(-90deg); }
+/* Folding: where the rules are beside the palette (a wide edit page) it folds sideways into a strip and the
+   rules take the room; where they're below it (the cockpit, a phone) it rolls up. The chevron points the way. */
+.bb-pal-toggle svg { transition: transform 0.15s; transform: rotate(180deg); }
+.bb-blocks.pal-closed .bb-pal-toggle svg { transform: none; }
+@media (min-width: 701px) {
+  .bb-blocks:not(.compact) .bb-pal-toggle svg { transform: rotate(90deg); }
+  .bb-blocks.pal-closed:not(.compact) .bb-pal-toggle svg { transform: rotate(-90deg); }
+  .bb-blocks.pal-closed:not(.compact) .bb-palette { padding: 8px 4px; justify-items: center; }
+  .bb-blocks.pal-closed:not(.compact) .bb-pal-head { flex-direction: column; justify-content: flex-start; gap: 12px; }
+  .bb-blocks.pal-closed:not(.compact) .bb-pal-head h2 { writing-mode: vertical-rl; }
+  .bb-blocks.pal-closed:not(.compact) .bb-pal-toggle { order: -1; }
+  .bb-blocks.pal-closed:not(.compact) .bb-trash { writing-mode: vertical-rl; padding: 10px 4px; }
+}
 .bb-pal-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }   /* a plain grid column grows to its widest block and the palette clips it */
 .bb-pal-main[hidden] { display: none; }
 .bb-pal-hint { margin: 0; }

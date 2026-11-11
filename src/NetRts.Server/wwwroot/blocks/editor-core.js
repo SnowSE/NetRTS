@@ -17,10 +17,12 @@ export class EditorCore {
    * @param onHover   the rule under the pointer or focus (its index, or null)
    * @param compact   a narrow column (the cockpit)
    * @param sideTop   the edit page's buttons, for the top of the side panel
+   * @param styleToggle  the Cards | Blocks buttons for the floating controls (editors.js passes them)
    */
-  constructor(root, { program, onChange, onHover, onSave, compact = false, sideTop = null }) {
+  constructor(root, { program, onChange, onHover, onSave, compact = false, sideTop = null, styleToggle = null }) {
     this.root = root;
     this.sideTop = sideTop;
+    this.styleToggle = styleToggle;
     this.compact = compact;
     // With onSave, edits go into the running match one rule at a time: changing a rule starts a session
     // on it (a yellow border, Save and Cancel) and locks the others until it ends. One-click changes
@@ -89,17 +91,23 @@ export class EditorCore {
 
   /** Applies mutate to a copy of the program and draws it. (opts are for the editor style's own use.) */
   commit(mutate, opts) {
+    const p = clone(this.program);
+    mutate(p);
+    // A change that changes nothing (a box left with the value it had) isn't a step to undo.
+    if (JSON.stringify(p) === JSON.stringify(this.program)) {
+      this.render();
+      return false;
+    }
     this.past.push(clone(this.program));
     if (this.past.length > HISTORY) {
       this.past.shift();
       if (this.session) this.session.mark = Math.max(0, this.session.mark - 1);
     }
     this.future = [];
-    const p = clone(this.program);
-    mutate(p);
     this.program = p;
     this.render();
     if (!this.onSave) this.onChange?.(clone(p));
+    return true;
   }
 
   /** A change inside one rule. In save mode it opens (or continues) that rule's session; false if another rule's is open. */
@@ -117,8 +125,7 @@ export class EditorCore {
   async structural(mutate) {
     if (this.session || this.saving) return false;
     const before = clone(this.program);
-    this.commit(mutate);
-    if (!this.onSave) return true;
+    if (!this.commit(mutate) || !this.onSave) return true;
     if (!(await this.sendNow())) {
       this.program = before;
       this.past.pop();
@@ -287,6 +294,7 @@ export class EditorCore {
     switch (act) {
       case 'save-rule': return this.save();
       case 'cancel-rule': return this.cancel();
+      case 'code': return this.setCode(!this.code);
       case 'undo': return this.undo();
       case 'redo': return this.redo();
       case 'new-switch': {

@@ -114,33 +114,62 @@
 .bb-bar .btn[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .bb-banner { margin: 0; padding: 10px 14px; border: 1px solid var(--signal-bg); background: color-mix(in srgb, var(--signal-bg) 18%, var(--panel)); border-radius: var(--radius-m); }
 
-/* ---------- the edit page: Python, Download and Play it stay in view ---------- */
+/* ---------- the edit page: Download and Play it by the strategy's name ---------- */
 
 .bb-edit-page { container-type: inline-size; }
 .bb-edit-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-.bb-side-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; padding-bottom: 14px; border-bottom: 1px solid var(--line); }
-.bb-side-actions .start { grid-column: 1 / -1; min-height: 52px; font-size: 1.1rem; }
-.bb-side-actions .btn { padding-inline: 10px; }
+.bb-edit-actions .btn { height: 40px; min-height: 40px; box-sizing: border-box; display: inline-flex; align-items: center; gap: 8px; padding-block: 0; }
 .bb-edit-actions svg { flex: none; }
-.bb-edit-actions [aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-/* Wide: the side panel sits beside the rules and stays put, so the buttons live there. */
-@container (min-width: 880px) { .bb-top-actions { display: none; } }
-/* Narrow: the side panel drops under the rules, so the top bar keeps the buttons and sticks. */
+/* Narrow: the top bar sticks, so Download and Play it stay in reach. */
 @container (max-width: 879.98px) {
-  .bb-side-actions { display: none; }
-  .bb-edit-page > .bb-bar { position: sticky; top: 0; z-index: 3; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .bb-edit-page > .bb-bar { position: sticky; top: 0; z-index: 7; background: var(--bg); padding: 8px 0; border-bottom: 1px solid var(--line); }
 }
+
+/* Download ▾: the strategy file, or the strategy as a bot in code. */
+.bb-menu { position: relative; }
+.bb-menu > summary { list-style: none; cursor: pointer; }
+.bb-menu > summary::-webkit-details-marker { display: none; }
+.bb-menu-caret { display: inline-flex; transition: transform 0.15s; }
+.bb-menu[open] .bb-menu-caret { transform: rotate(180deg); }
+.bb-menu-list {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 260px; display: grid; padding: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
+}
+.bb-menu-list button { display: grid; gap: 1px; text-align: left; padding: 9px 12px; border: 0; border-radius: var(--radius-s); background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+.bb-menu-list button:hover, .bb-menu-list button:focus-visible { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.bb-menu-list .muted { font-size: 0.8rem; font-weight: 400; }
+@media (prefers-reduced-motion: reduce) { .bb-menu-caret { transition: none; } }
+
+/* ---------- the rules' surface, and the controls that float over it (both styles) ---------- */
+
+.bb-surface {
+  border: 1px solid var(--line); border-radius: var(--radius-m); padding: 10px 14px 16px;
+  background-color: var(--bg); background-image: radial-gradient(color-mix(in srgb, var(--ink) 16%, transparent) 1px, transparent 1px); background-size: 18px 18px;
+}
+/* Undo and redo on the left, how the rules look on the right; they stay put as the rules scroll under them. */
+.bb-float-row { position: sticky; top: 10px; z-index: 6; display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; margin-bottom: 6px; pointer-events: none; }
+.bb-pill {
+  pointer-events: auto; display: inline-flex; align-items: center; gap: 2px; padding: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
+}
+.bb-pill-opt {
+  height: 40px; min-width: 40px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  padding: 0 12px; border: 0; border-radius: 8px; background: none; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+.bb-pill-opt.icon { padding: 0; }
+.bb-pill-opt:hover:not(:disabled) { background: color-mix(in srgb, var(--ink) 8%, transparent); }
+.bb-pill-opt[aria-pressed="true"], .bb-pill-opt[aria-pressed="true"]:hover { background: var(--ink); color: var(--bg); }
+.bb-pill-opt:disabled { opacity: 0.35; cursor: default; }
+.bb-pill-opt:focus-visible { outline: 2px solid var(--focus); outline-offset: 1px; }
+.bb-pill-sep { width: 1px; height: 24px; margin: 0 4px; background: var(--line); }
+/* The cockpit, and a narrow edit page: the palette or the top bar is pinned there already, so these stay in place. */
+.compact .bb-float-row { position: static; }
+@container (max-width: 879.98px) { .bb-float-row { position: static; } }
 
 /* ---------- rule cards ---------- */
 
 .bb-editor { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
-.bb-rules { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; align-items: stretch; }   /* not a grid: the undo bar's sticky would be stuck in its row */
-/* Undo and redo: pinned at the top right of the rules as they scroll (the blocks keep them in the palette). */
-.bb-toolbar { position: sticky; top: 8px; z-index: 4; display: flex; justify-content: flex-end; margin-bottom: 4px; pointer-events: none; }
-.bb-toolbar .bb-history { pointer-events: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 999px; padding: 3px; box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12); }
-.bb-history { display: inline-flex; gap: 4px; }
-.bb-icon.bb-hist { min-width: 32px; min-height: 32px; display: inline-flex; align-items: center; justify-content: center; }
-.bb-icon.bb-hist:disabled { opacity: 0.35; cursor: default; }
+.bb-rules { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; align-items: stretch; }   /* not a grid: the floating controls' sticky would be stuck in their row */
 .bb-empty { margin: 0 0 6px; padding: 16px; border: 1px dashed var(--line); border-radius: var(--radius-m); color: var(--muted); }
 .bb-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: stretch; }
 .bb-rule { flex: 1 1 480px; min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-m); padding: 8px 10px; display: grid; gap: 4px; }
