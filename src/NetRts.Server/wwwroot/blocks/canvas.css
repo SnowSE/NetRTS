@@ -137,7 +137,7 @@
 .bb-pal-head .bb-history { margin-left: auto; }
 .bb-pal-toggle svg { transition: transform 0.15s; }
 .bb-blocks.pal-closed .bb-pal-toggle svg { transform: rotate(-90deg); }
-.bb-pal-main { display: grid; gap: 10px; min-width: 0; }
+.bb-pal-main { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; min-width: 0; }   /* a plain grid column grows to its widest block and the palette clips it */
 .bb-pal-main[hidden] { display: none; }
 .bb-pal-hint { margin: 0; }
 .bb-b.pal { font-size: 0.92rem; min-height: 32px; gap: 2px 4px; }
@@ -154,7 +154,7 @@
 .bb-pal-tab.tab-build::before { background: var(--blk-build); }
 .bb-pal-tab.tab-army::before { background: var(--blk-army); }
 .bb-pal-tab[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
-.bb-pal-body { display: grid; gap: 10px; }
+.bb-pal-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .bb-pal-group h3 { margin: 0 0 6px; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 .bb-pal-items { display: flex; flex-wrap: wrap; gap: 8px; }
 .bb-pal-items .bb-new-switch { flex-basis: 100%; display: flex; gap: 6px; min-width: 0; }
