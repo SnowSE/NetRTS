@@ -82,7 +82,7 @@
 .bb-hat {
   display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
   padding: 8px 10px; background: var(--blk-rule); color: var(--blk-text);
-  border-radius: 14px 14px 4px 4px; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+  border-radius: 14px 14px 4px 0; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
 }
 .bb-hat .bb-word { font-weight: 700; }
 .bb-hat .bb-num { background: rgba(0, 0, 0, 0.25); color: var(--blk-text); }
@@ -96,7 +96,8 @@
 }
 .bb-mouth > .bb-b.act { max-width: 100%; }
 .bb-mouth-end { min-height: 14px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 2px 4px; border-radius: 4px; }
-.bb-cap { height: 14px; width: min(240px, 100%); background: var(--blk-rule); border-radius: 4px 4px 10px 10px; }
+/* The top, the side and the cap are one shape: the corners where they meet are square, so no gap shows. */
+.bb-cap { height: 14px; width: min(240px, 100%); background: var(--blk-rule); border-radius: 0 4px 10px 10px; }
 .bb-script > .bb-note, .bb-script > .bb-live, .bb-script > .bb-save-row { padding-left: 0; margin-top: 6px; }
 .bb-script > .bb-live { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 
