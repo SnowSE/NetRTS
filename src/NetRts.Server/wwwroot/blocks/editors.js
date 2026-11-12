@@ -1,16 +1,17 @@
 // The two ways to edit rules, and the toggle between them: cards (sentences with dropdowns, rule-editor.js)
-// and blocks (drag-and-drop, block-editor.js). The choice is remembered in this browser.
+// and blocks (drag-and-drop, block-editor.js, the default). The choice is remembered in this browser.
 import { html } from '../util.js';
 import { prefs, setPref } from './store.js';
 import { RuleEditor } from './rule-editor.js';
 import { BlockEditor } from './block-editor.js';
 
+// The first is the default, for anyone who hasn't picked one.
 const STYLES = [
-  { id: 'cards', label: 'Cards', title: 'Rules as sentences you change with dropdowns', Editor: RuleEditor },
   { id: 'blocks', label: 'Blocks', title: 'Rules as blocks you drag and drop', Editor: BlockEditor },
+  { id: 'cards', label: 'Cards', title: 'Rules as sentences you change with dropdowns', Editor: RuleEditor },
 ];
 
-export const editorStyle = () => (STYLES.some((s) => s.id === prefs().editorStyle) ? prefs().editorStyle : 'cards');
+export const editorStyle = () => (STYLES.some((s) => s.id === prefs().editorStyle) ? prefs().editorStyle : STYLES[0].id);
 
 /** An editor in the style the player last picked. Takes the options EditorCore does. */
 export function createEditor(root, opts) {
