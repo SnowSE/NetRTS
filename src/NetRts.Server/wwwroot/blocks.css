@@ -489,3 +489,52 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-editor .bb-row.drop-above { box-shadow: 0 -5px 0 var(--signal-bg); border-radius: 2px; }
 .bb-editor .bb-add-rule.drop-above { box-shadow: 0 -5px 0 var(--signal-bg); }
 .bb-editor.is-dragging .bb-insert { visibility: hidden; }
+
+/* The first-visit welcome (intro.js): a dialog over the locker, so it sits outside .bb-page. */
+.bb-how { margin-top: 10px; }
+dialog.bb-intro { width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 32px); padding: 0; border: 0; border-top: 6px solid var(--signal-bg); border-radius: var(--radius-m); background: var(--panel); color: var(--ink); box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35); }
+dialog.bb-intro::backdrop { background: rgba(15, 29, 46, 0.55); }
+.bb-intro-body { display: grid; gap: 14px; padding: 28px 32px 24px; }
+.bb-intro-body > * { margin: 0; }
+.bb-intro-body .eyebrow { color: var(--signal); font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.8rem; }
+.bb-intro-body h2 { font-size: 2.2rem; line-height: 1.05; }
+.bb-intro-body .lede { font-size: 1.1rem; }
+.bb-intro-tiles { list-style: none; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.bb-intro-tiles li { display: grid; align-content: start; gap: 4px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius-m); background: var(--bg); }
+.bb-intro-tiles b { font-size: 1.05rem; }
+.bb-intro-tiles span { font-size: 0.92rem; color: var(--muted); }
+.bb-intro-plan { display: grid; gap: 6px; padding-left: 20px; }
+.bb-intro-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.bb-intro-body .bb-inline-form input { flex: 1 1 14em; }
+@media (max-width: 560px) {
+  .bb-intro-body { padding: 20px 16px; }
+  .bb-intro-body h2 { font-size: 1.7rem; }
+  .bb-intro-tiles { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* The coached first match (coach.js): a card over the match, and a ring on what it's talking about. */
+.bb-coach { position: absolute; top: 54px; right: 10px; z-index: 5; width: min(400px, calc(100% - 20px)); max-height: calc(100% - 70px); overflow: auto; box-sizing: border-box; display: grid; gap: 10px; padding: 18px 20px; background: var(--panel); color: var(--ink); border: 1px solid var(--line); border-top: 5px solid var(--signal-bg); border-radius: var(--radius-m); box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35); }
+.bb-coach[hidden] { display: none; }
+.bb-coach > *, .bb-coach-next > * { margin: 0; }
+.bb-coach h2 { font-size: 1.6rem; line-height: 1.1; }
+.bb-coach-kicker { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--signal); }
+.bb-coach-keys { list-style: none; padding: 0; display: grid; gap: 4px; }
+.bb-coach-keys li { display: flex; align-items: center; gap: 8px; }
+.bb-coach-dot { width: 10px; height: 10px; border-radius: 50%; background: var(--line); flex: none; }
+.bb-coach-dot.firing { background: var(--ok); }
+.bb-coach-dot.waiting { background: var(--signal-bg); }
+.bb-coach-steps { list-style: none; padding: 0; display: grid; gap: 6px; }
+.bb-coach-steps li { display: flex; gap: 8px; align-items: flex-start; }
+.bb-coach-steps li.done > span:last-child { color: var(--muted); text-decoration: line-through; }
+.bb-coach-mark { flex: none; display: inline-flex; align-items: center; justify-content: center; width: 20px; height: 20px; border: 2px solid var(--line); border-radius: 50%; font-size: 0.8rem; font-weight: 700; }
+.bb-coach-steps li.done .bb-coach-mark { background: var(--ok); border-color: var(--ok); color: #fff; }
+.bb-coach-ideas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.bb-coach-ideas > div { display: grid; align-content: start; gap: 4px; padding: 10px; border-radius: var(--radius-m); background: var(--bg); }
+.bb-coach-ideas span { font-size: 0.88rem; }
+.bb-coach-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.bb-coach-next { display: grid; gap: 8px; padding-top: 8px; border-top: 1px solid var(--line); }
+.bb-coach-spot { outline: 3px solid var(--signal-bg) !important; outline-offset: 2px; border-radius: var(--radius-m); animation: bb-coach-pulse 1.6s ease-in-out infinite; }
+@keyframes bb-coach-pulse { 50% { outline-color: color-mix(in srgb, var(--signal-bg) 35%, transparent); } }
+@media (prefers-reduced-motion: reduce) { .bb-coach-spot { animation: none; } }
+@media (max-width: 900px) { .bb-coach { top: auto; bottom: 10px; max-height: 70%; } }
+@media (max-width: 560px) { .bb-coach-ideas { grid-template-columns: minmax(0, 1fr); } }

@@ -27,6 +27,7 @@ public class BotCharacterizationTests
     [InlineData("balanced", "sitter", 2, "8E8FB53C5ABFB462")]
     [InlineData("balanced", "rusher", 3, "58E92A55DA4729E9")]
     [InlineData("sitter", "economist", 3, "38B785BE61937893")]
+    [InlineData("poky", "balanced", 1, "23A09C3B0088ADDB")]
     public void House_bots_play_the_same_commands(string bot0, string bot1, int seed, string expected)
     {
         var hash = PlayAndHash(seed, [HouseBots.Create(bot0), HouseBots.Create(bot1)], blocks: null);

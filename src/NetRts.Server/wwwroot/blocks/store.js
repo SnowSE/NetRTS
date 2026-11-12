@@ -12,6 +12,8 @@ const KEYS = {
   matches: 'netrts.blocks.matches',
   prefs: 'netrts.blocks.prefs',
   sync: 'netrts.blocks.sync',
+  intro: 'netrts.blocks.introSeen',
+  coach: 'netrts.blocks.coach',
 };
 const LOCAL = 'localStorage';
 const SESSION = 'sessionStorage';
@@ -140,6 +142,16 @@ export function downloadKey(me) {
   if (!me?.apiKey) return;
   downloadJson(`${me.name}-api-key`, { playerId: me.playerId, name: me.name, apiKey: me.apiKey });
 }
+
+// ------------------------------------------------------------------ first visit
+
+/** Whether the welcome (intro.js) has been closed in this browser, any way at all. */
+export const introSeen = () => load(LOCAL, KEYS.intro, false) === true;
+export const markIntroSeen = () => save(LOCAL, KEYS.intro, true);
+
+/** The coached first match (coach.js): { matchId, step } with step 1-3, or null. */
+export const coaching = () => load(LOCAL, KEYS.coach, null);
+export const setCoaching = (c) => (c ? save(LOCAL, KEYS.coach, c) : forget(LOCAL, KEYS.coach));
 
 /** Set by the editor's "Play it": the locker opens scrolled to step 3. */
 export const nav = { jumpToPlay: false };

@@ -61,7 +61,7 @@ public static class AchievementCatalog
         new("lab-coat", "Lab Coat", "Complete your first research.", FirstSteps, Bronze, c => c.Stats?.Upgrades.Count > 0, HouseBotsCount: true),
         new("training-wheels-off", "Training Wheels Off", "Beat a house bot.", FirstSteps, Bronze,
             c => c.Won && c.Others.Any(o => o.IsHouseBot), HouseBotsCount: true),
-        new("full-house", "Full House", "Beat every house bot (rusher, economist, balanced and sitter), over any number of matches.", FirstSteps, Silver,
+        new("full-house", "Full House", "Beat every house bot (rusher, economist, balanced, sitter and poky), over any number of matches.", FirstSteps, Silver,
             c => c.Won && c.HouseBotIds.Count > 0 && c.HouseBotIds.All(c.HasBeaten), HouseBotsCount: true),
         new("blue-check", "Blue Check", "Play a match after a Discord-verified owner claims your bot.", FirstSteps, Bronze, c => c.Verified, HouseBotsCount: true),
         new("worthy-opponent", "Worthy Opponent", "Play a match against another real bot.", FirstSteps, Bronze, _ => true),

@@ -60,6 +60,21 @@ public sealed class BalancedBot() : PlanBot("balanced", new BotPlan
     AllInTick = 1500,
 });
 
+/// <summary>
+/// A first opponent: digs with the five workers it starts with, builds one barracks, trains a soldier every
+/// 20 seconds, keeps three at home and walks the rest over three at a time. Slow enough to change rules
+/// against while it plays, and it fights back; the starter strategy beats it in about four minutes.
+/// </summary>
+public sealed class PokyBot() : PlanBot("poky", new BotPlan
+{
+    TargetWorkers = 5,
+    BuildOrder = [new(BuildingType.Barracks, 1, MinWorkers: 5)],
+    ArmyMix = [UnitType.Soldier],
+    AttackThreshold = 3,
+    HomeGuard = 3,
+    ArmyEveryTicks = 20,
+});
+
 /// <summary>Only mines and never builds an army. A target for testing a first bot.</summary>
 public sealed class SitterBot() : PlanBot("sitter", new BotPlan
 {

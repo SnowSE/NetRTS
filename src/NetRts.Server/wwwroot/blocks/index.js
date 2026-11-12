@@ -4,11 +4,13 @@
 // download as .json files; signed in to the website, they're saved to the account too (sync.js) and come
 // down on any computer. app.js loads this module only when a Block Bot page opens.
 //
-//   #/blocks                 the locker (locker.js): your strategies, and where to play
+//   #/blocks                 the locker (locker.js): your strategies, and where to play; on a first
+//                            visit, the welcome and "Start now" (intro.js)
 //   #/blocks/edit/<id>       the rule editor (edit-page.js): cards (rule-editor.js) or drag-and-drop
 //                            blocks (block-editor.js), picked with a toggle (editors.js)
 //   #/blocks/match/<id>      the cockpit (cockpit.js): the match in the 3D view, the rules live, switches,
-//                            and each rule saved into the running match as you change it
+//                            and each rule saved into the running match as you change it; for the
+//                            first match from "Start now", the coach's steps over it (coach.js)
 import { html, setHtml } from '../util.js';
 import { loadVocabulary } from './program.js';
 import { mountLocker } from './locker.js';

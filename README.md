@@ -147,16 +147,17 @@ Take the last enemy HQ, or have the higher score at the final whistle. Results b
 destruction, economy and survival, feed an Elo ladder of Top Badgers, and come with a full replay:
 the engine is deterministic, so a seed plus the command log reproduces any brawl exactly.
 
-## Four house badgers to scrimmage
+## Five house badgers to scrimmage
 
 | House badger | API name | Plays like |
 |---|---|---|
 | **Sleepy Sitter** | `sitter` | Digs grubs and never fights back. Your first win. |
+| **Poky Badger** | `poky` | Digs slowly, keeps a few soldiers home and walks the rest over three at a time. The first one that fights back. |
 | **Honey Badger** | `rusher` | Doesn't care. Races to two Snow Mobiles and rolls them at your campus ringed by soldiers. |
 | **Blue Badger** | `balanced` | Steady economy, mixed team, upgrades, attacks in waves. |
 | **Grub Hoarder** | `economist` | Out-digs everyone, hides behind bell towers, arrives late with an enormous clan. |
 
-Beat the Sleepy Sitter in your first hour. Beating the Grub Hoarder takes a real plan.
+Beat the Sleepy Sitter and the Poky Badger in your first hour. Beating the Grub Hoarder takes a real plan.
 
 ## An API that documents itself
 

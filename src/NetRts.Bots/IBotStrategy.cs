@@ -25,6 +25,7 @@ public static class HouseBots
             ["economist"] = ("The Grub Hoarder: booms to a big economy, techs up, turtles behind bell towers, then pushes late.", () => new EconomistBot()),
             ["balanced"] = ("The Blue Badger: steady economy, mixed soldiers and archers, Weapons/Armor upgrades, attacks in waves.", () => new BalancedBot()),
             ["sitter"] = ("The Sleepy Sitter: only mines. A friendly practice badger for testing your first bot.", () => new SitterBot()),
+            ["poky"] = ("The Poky Badger: digs slowly, keeps a few soldiers home and walks the rest over three at a time. A first opponent that fights back.", () => new PokyBot()),
         };
 
     public static IReadOnlyList<HouseBotDto> All =>

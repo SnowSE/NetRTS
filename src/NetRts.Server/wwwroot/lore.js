@@ -56,6 +56,7 @@ export const UPGRADE_NAME = {
 /** House bots keep their API names; these are their mascot-league nicknames. */
 export const BOT_NICKNAME = {
   sitter: 'Sleepy Sitter',
+  poky: 'Poky Badger',
   rusher: 'Honey Badger',
   balanced: 'Blue Badger',
   economist: 'Grub Hoarder',

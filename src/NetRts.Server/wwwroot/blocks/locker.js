@@ -8,6 +8,7 @@ import {
 import { starters, LIMITS, describeRules, readStrategyFile } from './program.js';
 import { ICON } from './icons.js';
 import { syncing, SYNC_EVENT } from './sync.js';
+import { openWelcome, shouldWelcome } from './intro.js';
 
 export function mountLocker(main) {
   // Listeners go at teardown, and a request that answers after it never reaches the page (scope.wait).
@@ -32,6 +33,7 @@ export function mountLocker(main) {
     error: '',
     fileError: '',
     account: null,   // GET /api/v1/account: { signedIn, bots } (the bots this Discord account owns), once it answers
+    welcomed: false, // the first-visit welcome (intro.js) was considered on this visit
   };
 
   function ensureStarter() {
@@ -50,6 +52,11 @@ export function mountLocker(main) {
       const me = player();
       if (me?.viaAccount && !mine().some((b) => b.playerId === me.playerId)) setPlayer(null);
     } catch { /* the account can't be reached: keep whoever is playing */ }
+    // A first visit: once it's known whether a Discord account here already has a bot.
+    if (!st.welcomed) {
+      st.welcomed = true;
+      if (shouldWelcome(st.account)) welcome();
+    }
     try {
       const waiting = await wait(api('/api/v1/matches?status=Waiting'));
       // Waiting practice matches, but not one I'm already in (one I created, say).
@@ -61,6 +68,8 @@ export function mountLocker(main) {
     }
     render();
   }
+
+  const welcome = () => openWelcome(scope, { account: st.account, keep: () => st.keep });
 
   /** The bots on the signed-in Discord account (none when nobody is signed in). */
   function mine() {
@@ -97,6 +106,7 @@ export function mountLocker(main) {
           <p class="eyebrow">${GAME}</p>
           <h1 class="headline">Block Bot</h1>
           <p class="lede">Build a bot out of rules, no typing code. The server plays it for you, and you can change the rules while it plays.</p>
+          <button type="button" class="btn ghost small-btn bb-how" data-intro="1">How it works</button>
         </header>
 
         ${st.live.length ? html`
@@ -295,7 +305,8 @@ export function mountLocker(main) {
     const t = e.target.closest('button');
     if (!t) return;
     const d = t.dataset;
-    if (d.switch) {
+    if (d.intro) welcome();
+    else if (d.switch) {
       st.switching = true;
       render();
       main.querySelector('#bb-name')?.focus();

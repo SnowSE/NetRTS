@@ -34,6 +34,12 @@ public sealed record BotPlan
     /// escorts them in a ring.
     /// </summary>
     public int SiegeCount { get; init; }
+
+    /// <summary>Fighters that never leave on an attack (the oldest ones): they stay home and defend.</summary>
+    public int HomeGuard { get; init; }
+
+    /// <summary>At most one fighter per this many ticks (0 = as fast as the barracks and grubs allow).</summary>
+    public int ArmyEveryTicks { get; init; }
 }
 
 /// <summary>
@@ -62,6 +68,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
     // Build orders are kept for their full 40 ticks, even once the building appears.
     private readonly BotMemory _memory = new(forgetSitesOnceBuilt: false);
     private int _armyCursor;
+    private int _lastArmyTick = int.MinValue / 2;
     private bool _attacking;
     private int _lastRetargetTick = -RetargetEveryTicks;
 
@@ -104,7 +111,8 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             return;
         }
 
-        var responders = view.Army.Where(u => u.Activity is UnitActivity.Idle or UnitActivity.Moving && !_attacking).Select(u => u.Id).ToArray();
+        var raiders = Raiders(view);
+        var responders = view.Army.Where(u => u.Activity is UnitActivity.Idle or UnitActivity.Moving && !(_attacking && raiders.Contains(u))).Select(u => u.Id).ToArray();
         if (responders.Length > 0)
         {
             turn.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = responders, X = threat.X, Y = threat.Y });
@@ -189,6 +197,12 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             return;
         }
 
+        var paced = Plan.ArmyEveryTicks > 0;
+        if (paced && view.State.Tick - _lastArmyTick < Plan.ArmyEveryTicks)
+        {
+            return;
+        }
+
         // New units walk straight to where the army gathers.
         foreach (var barracks in view.MyBuildings.Where(b => b.Type == BuildingType.Barracks && b.Completed && b.Production.Count < 2))
         {
@@ -198,6 +212,11 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             }
 
             _armyCursor++;
+            if (paced)
+            {
+                _lastArmyTick = view.State.Tick;
+                return;
+            }
         }
     }
 
@@ -209,7 +228,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             return;
         }
 
-        var army = view.Army;
+        var army = Raiders(view);
         var tick = view.State.Tick;
 
         if (!_attacking && Plan.AttackThreshold > 0 && (army.Count >= Plan.AttackThreshold || (tick >= Plan.AllInTick && army.Count > 0)))
@@ -242,16 +261,26 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
                 _lastRetargetTick = tick;
             }
 
+            // The home guard walks back after chasing something off.
+            if (Plan.HomeGuard > 0)
+            {
+                GatherAtRallyPoint(view, turn, view.Army.Except(army));
+            }
+
             return;
         }
 
         GatherAtRallyPoint(view, turn);
     }
 
+    /// <summary>The fighters that go on attacks: all of them, less the home guard.</summary>
+    private IReadOnlyList<UnitDto> Raiders(BotView view) =>
+        Plan.HomeGuard > 0 ? [.. view.Army.OrderBy(u => u.Id).Skip(Plan.HomeGuard)] : view.Army;
+
     /// <summary>Idle fighters that wandered off walk back to the rally point.</summary>
-    private static void GatherAtRallyPoint(BotView view, BotTurn turn)
+    private static void GatherAtRallyPoint(BotView view, BotTurn turn, IEnumerable<UnitDto>? fighters = null)
     {
-        var stragglers = view.AwayFromRally(view.Army.Where(u => u.Activity == UnitActivity.Idle)).Select(u => u.Id).ToArray();
+        var stragglers = view.AwayFromRally((fighters ?? view.Army).Where(u => u.Activity == UnitActivity.Idle)).Select(u => u.Id).ToArray();
         if (stragglers.Length > 0)
         {
             var rally = view.RallyPoint();

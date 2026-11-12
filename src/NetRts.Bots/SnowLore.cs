@@ -47,6 +47,7 @@ public static class SnowLore
     public static readonly IReadOnlyDictionary<string, string> BotNicknames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
     {
         ["sitter"] = "Sleepy Sitter",
+        ["poky"] = "Poky Badger",
         ["rusher"] = "Honey Badger",
         ["balanced"] = "Blue Badger",
         ["economist"] = "Grub Hoarder",

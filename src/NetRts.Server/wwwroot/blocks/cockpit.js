@@ -10,6 +10,7 @@ import { RULES, LIMITS, sameProgram } from './program.js';
 import { createEditor, restyle, markStyle } from './editors.js';
 import { ICON } from './icons.js';
 import { StatHistory, hudHtml, buildingCardHtml, qualityIcon, soundIcon } from './cockpit-hud.js';
+import { coachFor, mountCoach } from './coach.js';
 
 // Home: your base from above, a little zoomed out. The view starts there; the ⌂ button comes back.
 const HOME_VIEW = { dist: 16, pitch: 1.05 };
@@ -100,6 +101,8 @@ export function mountCockpit(main, matchId) {
     </section>`);
   const root = main.querySelector('#bb-cockpit');
   const $ = (id) => root.querySelector(`#${id}`);
+  // The first match from "Start now": the coach's steps over the match, and where to go next at the end.
+  const coach = coachFor(matchId) ? mountCoach(scope, root, matchId, () => ({ editor, status, summary })) : null;
 
   // The cockpit fills the window under the site's top bar: the rules scroll on the left, the view stays put.
   const fitHeight = () => root.style.setProperty('--bb-top', `${Math.max(0, root.getBoundingClientRect().top + window.scrollY)}px`);
@@ -208,6 +211,7 @@ export function mountCockpit(main, matchId) {
       setHtml(result, html`<h2>${won ? 'You won!' : summary.outcome?.winnerId ? 'Good game' : 'A draw'}</h2>
         <p>${outcomeText(summary.outcome, summary.players)}</p>
         <div class="bb-row-btns"><a class="btn start" href="#/blocks">Play again</a><a class="btn ghost" href="#/blocks/edit/${strategy?.id ?? ''}">Edit this strategy</a><a class="btn ghost" href="#/match/${matchId}">Watch the replay</a></div>`);
+      coach?.ended(result);
     }
     renderWaiting();
     if (summary.status === 'Waiting') {

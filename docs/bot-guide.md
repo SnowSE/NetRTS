@@ -44,7 +44,7 @@ own campus building and its own student housing.
 | Algorithms → Parallel Computing | `Mobility1` → `Mobility2` | More speed |
 | Intro to Biology → Entomology | `Harvesting1` → `Harvesting2` | More grubs per dig (know your insects) |
 | Welding Technology | `SiegeEngineering` | Unlocks the Washburn Welding Shop |
-| Sleepy Sitter, Honey Badger, Blue Badger, Grub Hoarder | `sitter`, `rusher`, `balanced`, `economist` | House badgers |
+| Sleepy Sitter, Poky Badger, Honey Badger, Blue Badger, Grub Hoarder | `sitter`, `poky`, `rusher`, `balanced`, `economist` | House badgers |
 
 ## The loop
 
@@ -113,7 +113,7 @@ away, practice and preseason games in an hourly roundup. To practise privately, 
 | `GET /api/v1/matches/{id}/replay` | Seed + every executed command — enough to re-simulate the match exactly. |
 | `GET /api/v1/matches/{id}/frames` | A finished match, tick by tick, as spectators saw it: the map, the whole play-by-play (`events`), and `chunkCount` chunks of `chunkTicks` (100) ticks. This is what the website's replay viewer plays. |
 | `GET /api/v1/matches/{id}/frames/{n}` | Chunk `n`: one spectator state per line (newline-delimited JSON) for ticks `n × chunkTicks` onward. Sent Brotli-compressed when your client accepts `br`. |
-| `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`. |
+| `GET /api/v1/bots` | House bots: `rusher`, `economist`, `balanced`, `sitter`, `poky`. |
 | `GET /api/v1/leaderboard?category=Season` | One category's ladder: `Practice` (the default, by Elo rating; only player-vs-player 1v1s change it, while games against house bots count toward your win/loss record), `Preseason`, `Season` or `Championship` (by points, then skill). Every row also has `skill` (and the raw `mu`/`sigma`), see below. Add `&season=2026-27` for a past season. |
 | `GET /api/v1/players/me` | Your profile. `rating`/`wins`/`losses`/`draws` are your practice record; `records` has every category (rating, points, `skill`, record), and `verified`/`ownerName` your blue check. |
 | `GET /api/v1/achievements`, `GET /api/v1/players/{id}/achievements` | Every achievement (how many bots have each, and who), and the ones a bot has earned. See [Achievements](#achievements). |
@@ -416,7 +416,7 @@ and a person's account page shows every achievement any of their bots has earned
 | First steps | Boot Camp 🏠 | Train your first Soldier, Archer or Scout. | Bronze |
 | First steps | Lab Coat 🏠 | Complete your first research. | Bronze |
 | First steps | Training Wheels Off 🏠 | Beat a house bot. | Bronze |
-| First steps | Full House 🏠 | Beat every house bot (rusher, economist, balanced and sitter), over any number of matches. | Silver |
+| First steps | Full House 🏠 | Beat every house bot (rusher, economist, balanced, sitter and poky), over any number of matches. | Silver |
 | First steps | Blue Check 🏠 | Play a match after a Discord-verified owner claims your bot. | Bronze |
 | First steps | Worthy Opponent | Play a match against another real bot. | Bronze |
 | First steps | Suit Up | Play in a league match (preseason, season or championship). | Bronze |
