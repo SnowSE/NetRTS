@@ -13,6 +13,12 @@ namespace NetRts.Server.Auth;
 public static class ApiKeys
 {
     public const string Scheme = "ApiKey";
+
+    /// <summary>
+    /// The website's way to act as one of the signed-in person's own bots without its key (Block Bot's "Play as
+    /// one of your bots"). A custom header, so another site's page can't send it without a CORS preflight.
+    /// </summary>
+    public const string PlayAsHeader = "X-Play-As";
     private const string Prefix = "nrts_";
 
     public static string Generate() =>
@@ -53,7 +59,10 @@ public sealed class ApiKeyCache
     }
 }
 
-/// <summary>Accepts "Authorization: Bearer &lt;key&gt;" or "X-Api-Key: &lt;key&gt;".</summary>
+/// <summary>
+/// Accepts "Authorization: Bearer &lt;key&gt;" or "X-Api-Key: &lt;key&gt;"; or, with no key, "X-Play-As: &lt;player id&gt;"
+/// from someone signed in to the website who owns that bot.
+/// </summary>
 public sealed class ApiKeyAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
@@ -78,7 +87,9 @@ public sealed class ApiKeyAuthenticationHandler(
 
         if (string.IsNullOrEmpty(key))
         {
-            return AuthenticateResult.NoResult();
+            return Request.Headers.TryGetValue(ApiKeys.PlayAsHeader, out var playAs)
+                ? await PlayAsAsync(playAs.ToString().Trim())
+                : AuthenticateResult.NoResult();
         }
 
         var hash = ApiKeys.Hash(key);
@@ -97,9 +108,37 @@ public sealed class ApiKeyAuthenticationHandler(
             cache.Set(hash, record.Id, record.Name);
         }
 
-        presence.Touch(player.Id);
+        return Success(player.Id, player.Name);
+    }
+
+    /// <summary>The bot with this id, when the website account signed in on this request owns it.</summary>
+    private async Task<AuthenticateResult> PlayAsAsync(string value)
+    {
+        if (!Guid.TryParse(value, out var playerId))
+        {
+            return AuthenticateResult.Fail($"{ApiKeys.PlayAsHeader} must be a bot's player id.");
+        }
+
+        var signedIn = await Context.AuthenticateAsync(Accounts.CookieScheme);
+        if (signedIn.Principal?.TryGetAccountId(out var accountId) != true)
+        {
+            return AuthenticateResult.Fail("Sign in with Discord to play as one of your bots.");
+        }
+
+        var record = await db.Players.AsNoTracking()
+            .Where(p => p.Id == playerId && p.OwnerAccountId == accountId && !p.IsHouseBot)
+            .Select(p => new { p.Id, p.Name })
+            .FirstOrDefaultAsync(Context.RequestAborted);
+        return record is null
+            ? AuthenticateResult.Fail("That bot doesn't belong to the account signed in.")
+            : Success(record.Id, record.Name);
+    }
+
+    private AuthenticateResult Success(Guid playerId, string name)
+    {
+        presence.Touch(playerId);
         var identity = new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, player.Id.ToString()), new Claim(ClaimTypes.Name, player.Name)],
+            [new Claim(ClaimTypes.NameIdentifier, playerId.ToString()), new Claim(ClaimTypes.Name, name)],
             ApiKeys.Scheme);
         return AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), ApiKeys.Scheme));
     }

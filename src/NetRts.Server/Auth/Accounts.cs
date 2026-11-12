@@ -88,6 +88,10 @@ public static class Accounts
     public static Guid AccountId(this ClaimsPrincipal user) =>
         Guid.Parse(user.FindFirstValue(AccountIdClaim) ?? throw new InvalidOperationException("Not signed in."));
 
+    /// <summary>The website account signed in, if any.</summary>
+    public static bool TryGetAccountId(this ClaimsPrincipal user, out Guid accountId) =>
+        Guid.TryParse(user.FindFirstValue(AccountIdClaim), out accountId);
+
     public static void AddNetRtsAccounts(this IServiceCollection services, AuthenticationBuilder auth, DiscordOptions discord)
     {
         services.AddDataProtection().SetApplicationName("NetRts").PersistKeysToDbContext<NetRtsDb>();

@@ -31,6 +31,7 @@ export function mountLocker(main) {
     keep: keptSignedIn(),   // "Keep me signed in on this computer"; otherwise the key is forgotten when the tab closes
     error: '',
     fileError: '',
+    account: null,   // GET /api/v1/account: { signedIn, bots } (the bots this Discord account owns), once it answers
   };
 
   function ensureStarter() {
@@ -44,6 +45,12 @@ export function mountLocker(main) {
   async function refresh() {
     try { st.bots = await wait(api('/api/v1/bots')); } catch { st.bots = []; }
     try {
+      st.account = await wait(api('/api/v1/account'));
+      // Picked from a Discord account that's signed out now, or that let the bot go: pick again.
+      const me = player();
+      if (me?.viaAccount && !mine().some((b) => b.playerId === me.playerId)) setPlayer(null);
+    } catch { /* the account can't be reached: keep whoever is playing */ }
+    try {
       const waiting = await wait(api('/api/v1/matches?status=Waiting'));
       // Waiting practice matches, but not one I'm already in (one I created, say).
       const meId = player()?.playerId;
@@ -53,6 +60,11 @@ export function mountLocker(main) {
       try { st.live = (await wait(authed(themed('/api/v1/blocks/matches')))).filter((m) => m.matchStatus !== 'Completed'); } catch { st.live = []; }
     }
     render();
+  }
+
+  /** The bots on the signed-in Discord account (none when nobody is signed in). */
+  function mine() {
+    return st.account?.signedIn ? st.account.bots ?? [] : [];
   }
 
   function sorted() {
@@ -100,26 +112,40 @@ export function mountLocker(main) {
             <div class="bb-stage-head">
               <span class="bb-stage-num done" aria-hidden="true">${raw(ICON.check)}</span>
               <h2 id="bb-s1-h">Playing as ${me.name}</h2>
+              ${me.viaAccount ? html`<span class="small muted">from your Discord account</span>` : ''}
               <button type="button" class="btn ghost small-btn" data-switch="1">Change</button>
             </div>
           </section>` : html`
           <section class="bb-card bb-stage bb-signup" aria-labelledby="bb-s1-h">
             <div class="bb-stage-head">
               <span class="bb-stage-num hot" aria-hidden="true">1</span>
-              <h2 id="bb-s1-h">${me ? 'Play as someone else' : `Name your ${say('bot', 'badger')}`}</h2>
+              <h2 id="bb-s1-h">${me ? 'Play as someone else' : mine().length ? `Pick your ${say('bot', 'badger')}` : `Name your ${say('bot', 'badger')}`}</h2>
             </div>
+            ${mine().length ? html`
+              <fieldset class="bb-mine">
+                <legend class="bb-legend">Play as one of your ${say('bots', 'badgers')}</legend>
+                <div class="bb-bots">
+                  ${mine().map((b) => {
+                    const on = me?.playerId === b.playerId;
+                    return html`<button type="button" class="bb-bot" data-playas="${b.playerId}" aria-pressed="${on}"><span class="bb-mark" aria-hidden="true">${on ? '✓' : ''}</span><span><b>${b.name}</b><span class="small muted">On your Discord account, so no key needed</span></span></button>`;
+                  })}
+                </div>
+              </fieldset>
+              <p class="muted">Or make a new one. It goes on your account too.</p>` : ''}
             ${me ? html`
               <div class="bb-switching">
-                <p>You’re playing as <b>${me.name}</b>. ${keptSignedIn()
-                  ? 'Its key is kept in this browser on this computer'
-                  : 'Its key is kept in this tab only, until you close it'}, so download it if you want to come back to it.</p>
+                <p>You’re playing as <b>${me.name}</b>. ${me.viaAccount
+                  ? 'It’s on your Discord account, so you can play as it on any computer you sign in on.'
+                  : `${keptSignedIn()
+                    ? 'Its key is kept in this browser on this computer'
+                    : 'Its key is kept in this tab only, until you close it'}, so download it if you want to come back to it.`}</p>
                 <div class="bb-actions">
-                  <button type="button" class="btn ghost small-btn" data-dlkey="1">${raw(ICON.download)} Download ${me.name}’s key</button>
+                  ${me.viaAccount ? '' : html`<button type="button" class="btn ghost small-btn" data-dlkey="1">${raw(ICON.download)} Download ${me.name}’s key</button>`}
                   <button type="button" class="btn ghost small-btn" data-switch-cancel="1">Keep playing as ${me.name}</button>
                   <button type="button" class="btn ghost small-btn" data-signout="1">Sign out</button>
                 </div>
               </div>
-              <p class="muted">Pick a new name, or load a key you already have.</p>` : html`
+              <p class="muted">${mine().length ? 'Pick one above, make a new one, or load a key you already have.' : 'Pick a new name, or load a key you already have.'}</p>` : mine().length ? '' : html`
               <p class="muted">This is the name other players see on the scoreboard. Letters, numbers, - and _, 3 to 32 of them.</p>`}
             <form id="bb-signup" class="bb-inline-form bb-signup-form">
               <label class="visually-hidden" for="bb-name">Name</label>
@@ -276,6 +302,10 @@ export function mountLocker(main) {
     } else if (d.switchCancel) { st.switching = false; render(); }
     else if (d.signout) { setPlayer(null); st.switching = false; st.live = []; render(); main.querySelector('#bb-name')?.focus(); }
     else if (d.dlkey) downloadKey(player());
+    else if (d.playas) {
+      const b = mine().find((x) => x.playerId === d.playas);
+      if (b) { setPlayer({ playerId: b.playerId, name: b.name, viaAccount: true }, { keep: st.keep }); signedIn(); }
+    }
     else if (d.pick) { st.selected = d.pick; setPref('selected', d.pick); render(); }
     else if (d.download) downloadStrategy(getStrategy(d.download));
     else if (d.copy) {
@@ -310,7 +340,8 @@ export function mountLocker(main) {
     if (e.target.id === 'bb-signup') {
       const name = e.target.name.value.trim();
       try {
-        const res = await wait(api('/api/v1/players', { method: 'POST', body: { name } }));
+        // Signed in with Discord: the new one goes on the account, so it can be picked on any computer.
+        const res = await wait(api(st.account?.signedIn ? '/api/v1/account/bots' : '/api/v1/players', { method: 'POST', body: { name } }));
         setPlayer({ playerId: res.playerId, name: res.name, apiKey: res.apiKey }, { keep: st.keep });
         signedIn();
       } catch (ex) { if (err) err.textContent = ex.message; }
@@ -413,8 +444,11 @@ export function mountLocker(main) {
     } catch (ex) {
       st.busy = false;
       if (ex.status === 401) {
+        const was = player();
         setPlayer(null);
-        st.error = `This server doesn’t know your ${say('bot', 'badger')} yet. Pick a name above and try again.`;
+        st.error = was?.viaAccount
+          ? `To play as ${was.name}, sign in with Discord again (or pick another ${say('bot', 'badger')} above).`
+          : `This server doesn’t know your ${say('bot', 'badger')} yet. Pick a name above and try again.`;
         render();
         return;
       }

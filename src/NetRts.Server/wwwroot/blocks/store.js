@@ -107,7 +107,8 @@ export function downloadStrategy(strategy) {
 
 // ------------------------------------------------------------------ who's playing
 
-// The player's key lives in sessionStorage, so a shared lab computer forgets it when the tab closes (as the
+// The player: { playerId, name, apiKey }, or { playerId, name, viaAccount: true } for one of the bots on the
+// signed-in Discord account, which needs no key. The player's key lives in sessionStorage, so a shared lab computer forgets it when the tab closes (as the
 // API page does with its key), unless they tick "Keep me signed in on this computer": then localStorage.
 export const player = () => load(SESSION, KEYS.player, null) ?? load(LOCAL, KEYS.player, null);
 /** Whether the key is kept on this computer (past this tab). */
@@ -124,9 +125,14 @@ const THEME = SNOW ? 'snow' : 'classic';
 /** A Block Bot call that returns its status (the rules' "why" lines): the server words it in the site's theme. */
 export const themed = (path) => `${path}${path.includes('?') ? '&' : '?'}theme=${THEME}`;
 
+/**
+ * A call as the player: with its key, or, for one of the bots on the signed-in Discord account (picked
+ * without a key, viaAccount), with the website sign-in and the bot's id.
+ */
 export function authed(path, options = {}) {
   const p = player();
-  return api(path, { ...options, headers: { ...(options.headers || {}), authorization: `Bearer ${p?.apiKey ?? ''}` } });
+  const who = p?.viaAccount ? { 'x-play-as': p.playerId } : { authorization: `Bearer ${p?.apiKey ?? ''}` };
+  return api(path, { ...options, headers: { ...(options.headers || {}), ...who } });
 }
 
 /** The key file the locker's "Browse for a key file" reads back. */
