@@ -57,6 +57,8 @@ public sealed class MatchHost
     private DateTime? _pausedAt;
     private DateTime? _creatorSeenAt;
     private PeriodicTimer? _timer;
+    private bool _autoTick;
+    private DateTime _lastTickAt; // or when ticking (re)starts: the start delay's end, a pause's end
 
     public MatchHost(Guid id, string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition, DateTime createdAt, ILogger logger, MatchMetrics metrics,
         MatchCategory category = MatchCategory.Practice)
@@ -178,6 +180,11 @@ public sealed class MatchHost
 
             if (paused is { } pause)
             {
+                if (!pause && _pausedAt is not null)
+                {
+                    _lastTickAt = now;
+                }
+
                 _pausedAt = pause ? _pausedAt ?? now : null;
             }
         }
@@ -215,6 +222,18 @@ public sealed class MatchHost
             {
                 return _sim?.Status ?? MatchStatus.Waiting;
             }
+        }
+    }
+
+    /// <summary>
+    /// How long since the tick loop last ran this match, while it should be running it (started with
+    /// auto-tick, still active, not paused); else null. A crashed tick loop leaves a match here, frozen.
+    /// </summary>
+    public TimeSpan? SinceLastTick(DateTime now)
+    {
+        lock (_gate)
+        {
+            return _autoTick && _sim?.Status == MatchStatus.Active && _pausedAt is null ? now - _lastTickAt : null;
         }
     }
 
@@ -335,6 +354,8 @@ public sealed class MatchHost
             _map = _sim.Map.ToDto();
             _frameRecorder = new ReplayFrameRecorder();
             RecordFrame();
+            _autoTick = autoTick;
+            _lastTickAt = DateTime.UtcNow + startDelay;
         }
 
         var seats = Seats;
@@ -367,6 +388,7 @@ public sealed class MatchHost
                 RunServerBots();
                 _sim.Step();
                 RecordFrame();
+                _lastTickAt = DateTime.UtcNow;
                 _metrics.TickRan(Stopwatch.GetElapsedTime(started), _tickIntervalMs);
                 if (_sim.Status == MatchStatus.Completed)
                 {
@@ -714,6 +736,7 @@ public sealed class MatchHost
             if (_pausedAt is { } since && now - since > MaxPause)
             {
                 _pausedAt = null;
+                _lastTickAt = now;
             }
 
             return _pausedAt is not null;

@@ -52,6 +52,7 @@ jobs:
         dotnet publish src/NetRts.Server --configuration Release -t:PublishContainer
         -p:ContainerRegistry=docker.io
         -p:ContainerRepository=snowcollege/netrts
+        -p:SourceRevisionId=${{ github.sha }}
       env:
         ContainerImageTags: latest;sha-${{ github.sha }}
 
@@ -79,6 +80,27 @@ jobs:
       with:
         app-name: netrts-jallen
         images: docker.io/snowcollege/netrts:sha-${{ github.sha }}
+
+    - name: Wait for the new version to report healthy
+      # The step above returns once App Service has the image, not once it runs. /health names the commit
+      # it's running (the build's SourceRevisionId); wait for this one, healthy or degraded. Unhealthy, or
+      # still the old commit after 10 minutes, fails the run: https://netrts.snowse.io/health says why.
+      run: |
+        for attempt in $(seq 1 40); do
+          body=$(curl -sS --max-time 15 https://netrts.snowse.io/health || true)
+          commit=$(jq -r '.commit // empty' <<< "$body" 2>/dev/null || true)
+          status=$(jq -r '.status // empty' <<< "$body" 2>/dev/null || true)
+          if [ "$commit" = "$GITHUB_SHA" ] && { [ "$status" = "Healthy" ] || [ "$status" = "Degraded" ]; }; then
+            echo "Running $commit: $status"
+            jq . <<< "$body"
+            exit 0
+          fi
+          echo "Waiting ($attempt/40): running ${commit:-?}, ${status:-no answer}"
+          sleep 15
+        done
+        echo "::error::netrts.snowse.io isn't running $GITHUB_SHA healthily after 10 minutes"
+        echo "$body"
+        exit 1
 
     - name: Build the nightly recap job's image and point the job at it
       # In the job's own registry (az acr build: no Docker needed). Skipped until the recap

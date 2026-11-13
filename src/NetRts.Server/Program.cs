@@ -8,6 +8,7 @@ using NetRts.Server.Achievements;
 using NetRts.Server.Auth;
 using NetRts.Server.Data;
 using NetRts.Server.Endpoints;
+using NetRts.Server.Health;
 using NetRts.Server.Matches;
 using NetRts.Server.Recaps;
 
@@ -22,7 +23,8 @@ builder.Services.Configure<NetRtsOptions>(builder.Configuration.GetSection(NetRt
 // Microsoft Entra ID via the app's managed identity when it doesn't (Azure Database for PostgreSQL).
 if (!string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("netrtsdb")))
 {
-    builder.AddAzureNpgsqlDbContext<PostgresNetRtsDb>("netrtsdb");
+    // Its own health check is off: /health has one database check for both databases (Health/).
+    builder.AddAzureNpgsqlDbContext<PostgresNetRtsDb>("netrtsdb", settings => settings.DisableHealthChecks = true);
     builder.Services.AddScoped<NetRtsDb>(sp => sp.GetRequiredService<PostgresNetRtsDb>());
 }
 else
@@ -66,6 +68,7 @@ builder.Services.AddSingleton<LeagueFinalizer>();
 builder.Services.AddSingleton<ReplayFrameStore>();
 builder.Services.AddSingleton<Presence>();
 builder.Services.AddHostedService<MatchHousekeeper>();
+builder.Services.AddNetRtsHealthChecks();
 
 // Bots authenticate with API keys (the default scheme); people sign in to the website with Discord.
 var discord = builder.Configuration.GetSection(DiscordOptions.Section).Get<DiscordOptions>() ?? new DiscordOptions();

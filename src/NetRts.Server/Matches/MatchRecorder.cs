@@ -21,6 +21,18 @@ public sealed class MatchRecorder(
 
     public void Enqueue(MatchHost host) => _queue.Writer.TryWrite(host);
 
+    /// <summary>Finished matches waiting to be saved (lost if the server restarts).</summary>
+    public int Backlog => _queue.Reader.Count;
+
+    /// <summary>When a finished match was last saved, and when saving one last failed (UTC; null: not yet).</summary>
+    public (DateTime? Saved, DateTime? Failed) LastSaves => (At(ref _savedTicks), At(ref _failedTicks));
+
+    // DateTime ticks (UTC), 0 for never: read by the health check while the loop writes them.
+    private long _savedTicks;
+    private long _failedTicks;
+
+    private static DateTime? At(ref long ticks) => Interlocked.Read(ref ticks) is var t and > 0 ? new DateTime(t, DateTimeKind.Utc) : null;
+
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         await foreach (var host in _queue.Reader.ReadAllAsync(stoppingToken))
@@ -34,12 +46,14 @@ public sealed class MatchRecorder(
                 host.Recorded = true;
                 achievements.MatchRecorded(host.Id, host.HostAccountId);
                 metrics.MatchRecorded(Stopwatch.GetElapsedTime(started));
+                Interlocked.Exchange(ref _savedTicks, DateTime.UtcNow.Ticks);
                 announcer.MatchRecorded(host);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
                 logger.LogError(ex, "Failed to record match {MatchId}", host.Id);
                 metrics.MatchRecordFailed();
+                Interlocked.Exchange(ref _failedTicks, DateTime.UtcNow.Ticks);
                 activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             }
         }

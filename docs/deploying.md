@@ -361,3 +361,28 @@ account page once two app settings are set on the web app:
 
 Per-tick requests (state long-polls, command submissions, spectator polls and streams) and health
 probes are left out of traces to keep volume down; the standard HTTP request metrics still count them.
+
+### Health and uptime alerts
+
+`/health` answers JSON: an overall `status`, the `commit` that's running, and each check
+(`src/NetRts.Server/Health/`). Healthy and Degraded answer 200; Unhealthy answers 503.
+
+| Check | Unhealthy / Degraded when |
+|---|---|
+| `database` | Unhealthy: the database can't be reached (sign-ins, registering and saving matches fail). |
+| `matches` | Unhealthy: a running, unpaused match hasn't ticked in 10 tick intervals (30 s at least). A crashed tick loop only logs, and the frozen match stays in memory, so this stays unhealthy until the match is surrendered or the site restarts. |
+| `saving-matches` | Degraded: saving a finished match failed in the last hour with none saved since, or more than 20 are waiting. Anything waiting is lost on a restart. |
+| `self` | Never: the server answers. `/health/live` runs only this one. |
+
+App Service's own health check stays **off**: on one instance it can restart the site, and that ends
+every match in progress. Instead:
+
+- **Uptime alert.** An Application Insights standard test (`netrts-health`) fetches `/health` every
+  5 minutes from 3 US regions and fails on anything but a 200, or a certificate with under 7 days left.
+  When 2 regions fail together, the `netrts-down` alert emails the `netrts-alerts` action group, and
+  emails again when it's resolved. About $13 a month ($0.0005 a run, per region). Create or update it
+  with `ALERT_EMAIL=<address> deploy/monitoring/setup.sh`; the address isn't kept in the repo. Results
+  are under `netrts-insights` → **Availability**.
+- **After each deploy.** The `deploy` job waits up to 10 minutes for `/health` to report the commit it
+  deployed as Healthy or Degraded, and fails otherwise. The image is built with
+  `-p:SourceRevisionId=<commit>`, which is where `commit` comes from.

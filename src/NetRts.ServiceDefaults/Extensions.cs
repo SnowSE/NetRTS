@@ -94,10 +94,49 @@ public static class Extensions
         return builder;
     }
 
+    /// <summary>
+    /// <c>/health</c>: every check, as JSON (healthy and degraded answer 200, unhealthy 503), with the commit
+    /// that's running so a deploy can wait for its own version. <c>/health/live</c>: just "the server answers".
+    /// </summary>
     public static WebApplication MapDefaultEndpoints(this WebApplication app)
     {
-        app.MapHealthChecks("/health");
+        app.MapHealthChecks("/health", new HealthCheckOptions { ResponseWriter = WriteReport });
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
         return app;
+    }
+
+    /// <summary>The commit this build was made from ("1.0.0+&lt;sha&gt;" -> "&lt;sha&gt;"), or the version without one.</summary>
+    public static readonly string Commit = Version();
+
+    private static string Version()
+    {
+        var version = System.Reflection.Assembly.GetEntryAssembly()?
+            .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+            .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion ?? "";
+        return version.Contains('+') ? version[(version.IndexOf('+') + 1)..] : version;
+    }
+
+    private static Task WriteReport(HttpContext context, HealthReport report)
+    {
+        context.Response.Headers.CacheControl = "no-store";
+        var checks = new System.Text.Json.Nodes.JsonObject();
+        foreach (var (name, entry) in report.Entries)
+        {
+            checks[name] = new System.Text.Json.Nodes.JsonObject
+            {
+                ["status"] = entry.Status.ToString(),
+                ["description"] = entry.Description,
+                ["ms"] = (int)entry.Duration.TotalMilliseconds,
+            };
+        }
+
+        var body = new System.Text.Json.Nodes.JsonObject
+        {
+            ["status"] = report.Status.ToString(),
+            ["commit"] = Commit,
+            ["checks"] = checks,
+        };
+        context.Response.ContentType = "application/json; charset=utf-8";
+        return context.Response.WriteAsync(body.ToJsonString());
     }
 }
