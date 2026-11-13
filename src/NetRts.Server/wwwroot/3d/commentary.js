@@ -175,7 +175,8 @@ export class Commentary {
       if (bldgs.has(b.id)) continue;
       say(b.owner, 'lost_building');
       const shot = shellOn(b);
-      const by = shot != null && shot !== b.owner ? shot : attackersOf(prev.units, b.id).find((a) => a.owner !== b.owner)?.owner;
+      const by = shot != null && shot !== b.owner ? shot
+        : attackersOf(prev.units, b.id).find((a) => a.owner !== b.owner)?.owner ?? s.towerShots?.find((t) => t.targetId === b.id)?.owner;
       if (by != null) say(by, 'destroyed_building');
     }
     // Research finished, players knocked out, armies on the move, and workers early on.

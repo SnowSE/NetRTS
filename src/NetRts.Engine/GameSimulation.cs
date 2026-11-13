@@ -213,7 +213,7 @@ public sealed partial class GameSimulation
     /// Bump when a change to the simulation would make an old replay play out differently, even if no
     /// number in <see cref="GameRules"/> changed. Part of <see cref="GameRules.Version"/>.
     /// </summary>
-    public const int Revision = 1;
+    public const int Revision = 2;
 
     /// <summary>Re-simulates a recorded match from its replay.</summary>
     /// <param name="replay">The match to re-simulate.</param>

@@ -55,7 +55,7 @@ public sealed partial class GameSimulation
                 tower.Cooldown--;
             }
 
-            var target = FindEnemy(tower.Owner, tower.Position, tower.Stats.Range, unitsOnly: true);
+            var target = FindEnemy(tower.Owner, tower.Position, tower.Stats.Range);
             if (target is not null && tower.Cooldown == 0)
             {
                 attacks.Add(new Attack(tower, tower.Owner, target, DamageAgainst(tower, target)));
@@ -382,12 +382,12 @@ public sealed partial class GameSimulation
         var visibility = VisibilityFor(unit.Owner);
         bool InReach(Entity e) => InStrikeZone(unit, e.Position) && IsVisible(visibility, e.Position);
         if (unit.Stats.ShotTicks > 0
-            && ClosestEnemy(unit.Owner, unit.Position, e => InReach(e) && !IsMoving(e), unitsOnly: false) is { } still)
+            && ClosestEnemy(unit.Owner, unit.Position, e => InReach(e) && !IsMoving(e)) is { } still)
         {
             return still;
         }
 
-        return ClosestEnemy(unit.Owner, unit.Position, InReach, unitsOnly: false);
+        return ClosestEnemy(unit.Owner, unit.Position, InReach);
     }
 
     private static bool InStrikeZone(UnitEntity unit, Point target) =>
@@ -412,11 +412,11 @@ public sealed partial class GameSimulation
         return Math.Max(1, damage - armor);
     }
 
-    /// <summary>Closest enemy within Chebyshev <paramref name="range"/>; units are preferred over buildings.</summary>
-    private Entity? FindEnemy(int owner, Point from, int range, bool unitsOnly)
+    /// <summary>Closest enemy within Chebyshev <paramref name="range"/> (a guard tower's target); units are preferred over buildings.</summary>
+    private Entity? FindEnemy(int owner, Point from, int range)
     {
         var visibility = VisibilityFor(owner);
-        return ClosestEnemy(owner, from, e => from.Chebyshev(e.Position) <= range && IsVisible(visibility, e.Position), unitsOnly);
+        return ClosestEnemy(owner, from, e => from.Chebyshev(e.Position) <= range && IsVisible(visibility, e.Position));
     }
 
     /// <summary>Closest enemy inside this unit's own sight radius and outside its minimum range (used by attack-move).</summary>
@@ -424,21 +424,16 @@ public sealed partial class GameSimulation
     {
         var r2 = unit.Stats.Vision * unit.Stats.Vision;
         return ClosestEnemy(unit.Owner, unit.Position,
-            e => unit.Position.DistanceSquared(e.Position) <= r2 && unit.Position.Chebyshev(e.Position) >= unit.Stats.MinRange,
-            unitsOnly: false);
+            e => unit.Position.DistanceSquared(e.Position) <= r2 && unit.Position.Chebyshev(e.Position) >= unit.Stats.MinRange);
     }
 
     /// <summary>
     /// The living enemy of <paramref name="owner"/> that <paramref name="inReach"/> accepts and is nearest
     /// <paramref name="from"/>: units before buildings, then the weakest, then the lowest id.
     /// </summary>
-    private Entity? ClosestEnemy(int owner, Point from, Func<Entity, bool> inReach, bool unitsOnly)
-    {
-        Entity? best = Closest(_units.Where(u => u.Owner != owner && !u.Dead && inReach(u)), from);
-        return best is null && !unitsOnly
-            ? Closest(_buildings.Where(b => b.Owner != owner && !b.Dead && inReach(b)), from)
-            : best;
-    }
+    private Entity? ClosestEnemy(int owner, Point from, Func<Entity, bool> inReach) =>
+        (Entity?)Closest(_units.Where(u => u.Owner != owner && !u.Dead && inReach(u)), from)
+        ?? Closest(_buildings.Where(b => b.Owner != owner && !b.Dead && inReach(b)), from);
 
     private static T? Closest<T>(IEnumerable<T> candidates, Point from)
         where T : Entity =>

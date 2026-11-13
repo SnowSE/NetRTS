@@ -100,6 +100,35 @@ public class CombatAndVictoryTests
     }
 
     [Fact]
+    public void Guard_towers_shoot_enemy_buildings_in_range_when_no_unit_is()
+    {
+        var sim = TestGames.New();
+        var tower = sim.SpawnBuilding(0, BuildingType.GuardTower, 12, 12);
+        var barracks = sim.SpawnBuilding(1, BuildingType.Barracks, 16, 12);
+
+        sim.Step();
+
+        var stats = GameRules.Buildings[BuildingType.Barracks];
+        Assert.Equal(stats.MaxHp - (10 - stats.Armor), sim.Find(barracks)!.Value.Hp);
+        var shot = Assert.Single(sim.GetSpectatorView().TowerShots);
+        Assert.Equal((tower, barracks), (shot.TowerId, shot.TargetId));
+    }
+
+    [Fact]
+    public void Guard_towers_shoot_an_enemy_unit_before_a_nearer_enemy_building()
+    {
+        var sim = TestGames.New();
+        sim.SpawnBuilding(0, BuildingType.GuardTower, 12, 12);
+        var barracks = sim.SpawnBuilding(1, BuildingType.Barracks, 13, 12);
+        var scout = sim.SpawnUnit(1, UnitType.Scout, 16, 12);
+
+        sim.Step();
+
+        Assert.Equal(GameRules.Units[UnitType.Scout].MaxHp - 10, sim.Find(scout)!.Value.Hp);
+        Assert.Equal(GameRules.Buildings[BuildingType.Barracks].MaxHp, sim.Find(barracks)!.Value.Hp);
+    }
+
+    [Fact]
     public void Each_tower_shot_is_in_the_views_even_one_that_killed_its_target()
     {
         var sim = TestGames.New();

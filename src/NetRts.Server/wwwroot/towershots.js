@@ -1,6 +1,7 @@
 // Guard tower fire, for the match views (2D map, 3D view and its commentary). Frames list each tower shot
-// (towerShots); replays recorded before they did only show a unit losing health, so for those a shot is
-// guessed: a unit hurt with nothing attacking it and no shell landing on it, from an enemy tower in reach.
+// (towerShots), at a unit or (when no unit is in reach) a building; replays recorded before they did only
+// show a unit losing health, so for those a shot is guessed: a unit hurt with nothing attacking it and no
+// shell landing on it, from an enemy tower in reach. Towers didn't shoot buildings then.
 
 /** GameRules: guard towers reach 5 tiles in every direction, diagonals included. */
 export const TOWER_RANGE = 5;

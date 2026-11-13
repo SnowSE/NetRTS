@@ -262,7 +262,7 @@ every start position.
   whatever enemy of its owner is on tile `(x, y)` when `landsTick` ends, so get off that tile.
 - `towerShots` are the guard tower shots of the last tick: your towers', plus any where you can see
   the tower or its target. A tower hits at once (no dodging), so the damage is already in `hp`; a
-  shot that killed its target names a unit that's no longer listed.
+  shot that killed its target names a unit or building that's no longer listed.
 - `you.incomePerMinute` is the ore you banked in the last 60 ticks (a minute at normal speed).
 - Every unit, building and deposit shares one id space, so an id is unambiguous.
 - Event kinds: `CommandFailed` (carries `commandId`), `UnitProduced`, `UnitLost`, `UnitKilled`,
@@ -358,7 +358,7 @@ unit it can only target what you can see, so pair it with spotters and an escort
 | Barracks | 150 | 40 | 700 | 1 | 6 | Trains soldiers, archers, scouts. |
 | ResourceDepot | 100 | 25 | 450 | 1 | 6 | Ore drop-off. +750 storage. |
 | TechLab | 150 | 40 | 550 | 1 | 6 | Researches upgrades. Requires a Barracks. |
-| GuardTower | 125 | 35 | 500 | 2 | 7 | Shoots enemy units: 10 damage, range 5. Requires a Barracks. |
+| GuardTower | 125 | 35 | 500 | 2 | 7 | Shoots the nearest enemy unit in range, or the nearest enemy building (construction sites too) when no unit is: 10 damage, range 5. Requires a Barracks. |
 | SiegeWorkshop | 250 | 60 | 650 | 1 | 6 | Trains trebuchets. Requires a TechLab and the SiegeEngineering upgrade (`requiresUpgrade` in the rules). |
 
 Build work is in worker-ticks: two workers finish a Barracks in 20 ticks. Sites start at 10% HP and
