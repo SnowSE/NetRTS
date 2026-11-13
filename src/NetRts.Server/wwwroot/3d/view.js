@@ -18,6 +18,8 @@ import { clamp } from './noise.js';
 import { hqName, unitName, upgradeName } from '../lore.js';
 import { loadText, saveText } from '../storage.js';
 import { Commentary } from './commentary.js';
+import { drawTowerShot } from './towers.js';
+import { TOWER_RANGE, towerShotsOf } from '../towershots.js';
 
 /** Bright, colour-blind-friendly player colours (the site's dark palette): they read well in daylight. */
 const TEAM = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
@@ -36,7 +38,6 @@ const QUALITY_KEY = 'netrts.3d.quality';
 const SUN_DIR = new THREE.Vector3().setFromSphericalCoords(1, THREE.MathUtils.degToRad(90 - 32), THREE.MathUtils.degToRad(215));
 const NO_CUT = 99;
 const SHIELD_BLUE = new THREE.Color('#2f6bff');
-const TOWER_RANGE = 5;   // GameRules: guard towers reach 5 tiles in every direction, diagonals included
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smooth = (t) => t * t * (3 - 2 * t);
 // Siege engines (models.js): the trebuchet's arm swings this far over (radians) to let its stone go, from
@@ -583,7 +584,7 @@ export class View3D {
       shelled.add(r.sh.y * 4096 + r.sh.x);
     }
 
-    // Who hit whom: archers loose arrows, melee units strike, towers fire on what nothing else is hitting.
+    // Who hit whom: archers loose arrows, melee units strike; towers fire too (towerShotsOf, below).
     const attackers = new Map();
     for (const u of s.units) {
       if (u.activity !== 'Attacking' || u.targetId == null) continue;
@@ -635,9 +636,8 @@ export class View3D {
       const archer = this.anyArcher(attackers.get(u.id));
       a.hitT = now + lag + (archer ? 140 + flight * 1000 : 150);
       a.hitFrom = attackers.get(u.id)?.[0];
-      const tp = this.ground(a.tx, a.tz);
-      if (!strike(u.id, tp, 0.45)) this.towerFire(s, u, tp, q);
     }
+    for (const shot of towerShotsOf(prev, s)) drawTowerShot(this, shot, q);
 
     // Buildings: rise, finish, take hits, burn, explode.
     const bSeen = new Set();
@@ -711,19 +711,6 @@ export class View3D {
   }
 
   anyArcher(list) { return (list || []).some((u) => u.type === 'Archer'); }
-
-  /** Guard towers: the frames don't say what a tower shot, so fire at a hurt enemy in range. */
-  towerFire(s, u, tp, q) {
-    let best = null, bd = 1e9;
-    for (const b of s.buildings) {
-      if (b.type !== 'GuardTower' || !b.completed || b.owner === u.owner) continue;
-      const d = Math.max(Math.abs(b.x - u.x), Math.abs(b.y - u.y));
-      if (d <= TOWER_RANGE && d < bd) { best = b; bd = d; }
-    }
-    if (!best) return;
-    const top = this.ground(best.x + 0.5, best.y + 0.5).add(new THREE.Vector3(0, this.models.building('GuardTower', best.owner).height * this.buildingScale - 0.1, 0));
-    q(() => this.effects.bolt(top, tp.clone().add(new THREE.Vector3(0, 0.25, 0)), Math.min(0.45, this.interval * 0.0007 + 0.1)));
-  }
 
   ground(x, z) { return new THREE.Vector3(x, this.terrain.heightAt(x, z), z); }
 

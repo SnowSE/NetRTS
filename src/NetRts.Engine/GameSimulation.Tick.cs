@@ -47,6 +47,7 @@ public sealed partial class GameSimulation
             UpdateUnit(unit, attacks);
         }
 
+        _towerShots.Clear();
         foreach (var tower in _buildings.Where(b => b.Completed && b.Stats.Damage > 0).ToList())
         {
             if (tower.Cooldown > 0)
@@ -59,6 +60,7 @@ public sealed partial class GameSimulation
             {
                 attacks.Add(new Attack(tower, tower.Owner, target, DamageAgainst(tower, target)));
                 tower.Cooldown = tower.Stats.AttackCooldown;
+                _towerShots.Add(new TowerShot(tower.Id, tower.Owner, tower.Position, target.Id, target.Position));
             }
         }
 

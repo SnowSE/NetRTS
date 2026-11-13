@@ -264,6 +264,9 @@ public sealed record SpectatorStateDto
     public IReadOnlyList<BuildingDto> Buildings { get; init; } = [];
     public IReadOnlyList<ResourceDepositDto> Resources { get; init; } = [];
     public IReadOnlyList<ShellDto> Shells { get; init; } = [];
+
+    /// <summary>Every guard tower shot on the last tick (see <see cref="TowerShotDto"/>).</summary>
+    public IReadOnlyList<TowerShotDto> TowerShots { get; init; } = [];
     public IReadOnlyList<GameEventDto> Events { get; init; } = [];
     public MatchOutcomeDto? Outcome { get; init; }
 }

@@ -37,6 +37,7 @@ public sealed partial class GameSimulation
     private readonly List<BuildingEntity> _buildings = [];
     private readonly List<DepositEntity> _deposits = [];
     private readonly List<Shell> _shells = [];
+    private readonly List<TowerShot> _towerShots = [];   // this tick's: what the views can't work out on their own
     private readonly Dictionary<int, Entity> _entities = [];
     private readonly int[] _buildingAt;
     private readonly int[] _depositAt;

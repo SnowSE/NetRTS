@@ -9,6 +9,7 @@
 //   Te >= 56  labels: unit ids and building names
 import { playerColours, cssVar } from './util.js';
 import { SNOW, buildingName } from './lore.js';
+import { towerShotsOf } from './towershots.js';
 
 const CLASSIC_GLYPH = { CommandCenter: 'C', Barracks: 'B', ResourceDepot: 'D', TechLab: 'T', GuardTower: 'G', SiegeWorkshop: 'S' };
 // Snow College letters: HQs and housing by the first letter of their campus name, then Co-op Store,
@@ -339,28 +340,13 @@ export class MapView {
     return { x: a.fx + (a.tx - a.fx) * t, y: a.fy + (a.ty - a.fy) * t };
   }
 
-  /**
-   * Guard towers: the frames don't say what a tower shot, so when a unit loses hit points with no
-   * unit attacking it, a fireball comes from the nearest enemy tower in range.
-   */
+  /** Guard tower fireballs: each shot this tick (towerShotsOf), from the tower to the target. */
   towerShots(prev, s, now, tickMs) {
     if (!prev || s.tick !== prev.tick + 1 || reducedMotion()) { this.shots.length = 0; return; }
     this.shots = this.shots.filter((f) => now - f.t0 < f.dur + SHOT_BURST);
-    const before = new Map(prev.units.map((u) => [u.id, u.hp]));
-    const targeted = new Set(s.units.filter((u) => u.activity === 'Attacking').map((u) => u.targetId));
-    const shelled = new Set((prev.shells || []).filter((sh) => sh.landsTick === s.tick).map((sh) => sh.y * 4096 + sh.x));
-    const towers = s.buildings.filter((b) => b.type === 'GuardTower' && b.completed);
-    for (const u of s.units) {
-      if (!(u.hp < (before.get(u.id) ?? 0)) || targeted.has(u.id) || shelled.has(u.y * 4096 + u.x)) continue;
-      let best = null, bd = Infinity;
-      for (const b of towers) {
-        if (b.owner === u.owner) continue;
-        const d = Math.max(Math.abs(b.x - u.x), Math.abs(b.y - u.y));
-        if (d <= 5 && d < bd) { best = b; bd = d; }
-      }
-      if (!best) continue;
-      const a = this.anim.get(u.id);
-      this.shots.push({ fx: best.x + 0.5, fy: best.y + 0.2, id: u.id, tx: a?.tx ?? u.x + 0.5, ty: a?.ty ?? u.y + 0.5,
+    for (const t of towerShotsOf(prev, s)) {
+      const a = this.anim.get(t.targetId);
+      this.shots.push({ fx: t.fromX + 0.5, fy: t.fromY + 0.2, id: t.targetId, tx: a?.tx ?? t.x + 0.5, ty: a?.ty ?? t.y + 0.5,
         t0: now, dur: Math.min(400, Math.max(120, tickMs * 0.5)) });
     }
   }

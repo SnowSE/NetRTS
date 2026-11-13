@@ -244,6 +244,7 @@ every start position.
                              "hp": 700, "maxHp": 700, "completed": true, "lastSeenTick": 31 }, … ],
   "shells":    [ { "owner": 1, "attackerId": 240, "fromX": 40, "fromY": 12, "x": 34, "y": 12,
                    "firedTick": 41, "landsTick": 44 }, … ],
+  "towerShots": [ { "towerId": 77, "owner": 0, "fromX": 9, "fromY": 6, "targetId": 240, "x": 13, "y": 8 }, … ],
   "events":    [ { "tick": 42, "kind": "UnitProduced", "message": "Worker 88 ready at (8,8)", "entityId": 88 }, … ],
   "outcome": null
 }
@@ -259,6 +260,9 @@ every start position.
   attack-move to its position.
 - `shells` are siege shots in flight: yours, plus any landing on a tile you can see. A shell hits
   whatever enemy of its owner is on tile `(x, y)` when `landsTick` ends, so get off that tile.
+- `towerShots` are the guard tower shots of the last tick: your towers', plus any where you can see
+  the tower or its target. A tower hits at once (no dodging), so the damage is already in `hp`; a
+  shot that killed its target names a unit that's no longer listed.
 - `you.incomePerMinute` is the ore you banked in the last 60 ticks (a minute at normal speed).
 - Every unit, building and deposit shares one id space, so an id is unambiguous.
 - Event kinds: `CommandFailed` (carries `commandId`), `UnitProduced`, `UnitLost`, `UnitKilled`,

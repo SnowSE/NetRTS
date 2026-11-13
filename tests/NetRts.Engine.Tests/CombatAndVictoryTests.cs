@@ -100,6 +100,27 @@ public class CombatAndVictoryTests
     }
 
     [Fact]
+    public void Each_tower_shot_is_in_the_views_even_one_that_killed_its_target()
+    {
+        var sim = TestGames.New();
+        var tower = sim.SpawnBuilding(0, BuildingType.GuardTower, 12, 12);
+        var scout = sim.SpawnUnit(1, UnitType.Scout, 16, 12);
+        sim.SetHp(scout, 5);   // the shot kills it: gone from the units, still in the shots
+
+        sim.Step();
+
+        Assert.Null(sim.Find(scout));
+        var shot = Assert.Single(sim.GetSpectatorView().TowerShots);
+        Assert.Equal((tower, 0, 12, 12, scout, 16, 12), (shot.TowerId, shot.Owner, shot.FromX, shot.FromY, shot.TargetId, shot.X, shot.Y));
+        Assert.Equal(shot, Assert.Single(sim.GetPlayerView(0).TowerShots));   // the tower's owner
+        Assert.DoesNotContain(sim.GetSpectatorView().Units, u => u.Id == scout);
+
+        // Only this tick's: nothing in range now, so no shots.
+        sim.Step();
+        Assert.Empty(sim.GetSpectatorView().TowerShots);
+    }
+
+    [Fact]
     public void Destroying_the_last_command_center_eliminates_the_player_and_ends_the_match()
     {
         var sim = TestGames.New();

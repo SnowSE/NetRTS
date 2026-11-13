@@ -3,7 +3,7 @@
 // end of the match), and trade taunts when it's quiet. The lines and recordings come from
 // tools/voices (audio/voices.json). Only one player talks at a time, and nobody talks too often.
 
-const TOWER_RANGE = 5;
+import { towerInReach, towerShotsOf } from '../towershots.js';
 
 // How keen a player is to comment on each kind of event (a chance), and how long they then keep
 // quiet about it (seconds of match time). Bigger moments jump the queue.
@@ -159,17 +159,11 @@ export class Commentary {
       say(u.owner, 'lost_unit');
       const shot = shellOn(u);
       const killer = shot != null && shot !== u.owner ? shot
-        : attackersOf(prev.units, u.id).find((a) => a.owner !== u.owner)?.owner ?? this.towerNear(prev, u);
+        : attackersOf(prev.units, u.id).find((a) => a.owner !== u.owner)?.owner ?? this.towerShot(s, prev, u);
       if (killer != null) say(killer, 'kill');
     }
-    // Hurt by a tower (nobody else was hitting it).
-    for (const u of s.units) {
-      const before = prevUnits.get(u.id);
-      if (before && u.hp < before.hp && !attackersOf(s.units, u.id).length && shellOn(u) == null) {
-        const tower = this.towerNear(s, u);
-        if (tower != null) say(tower, 'tower');
-      }
-    }
+    // Towers firing.
+    for (const owner of new Set(towerShotsOf(prev, s).map((t) => t.owner))) say(owner, 'tower');
     // Buildings started, finished, hit and destroyed.
     for (const b of s.buildings) {
       const before = prev.buildings.find((x) => x.id === b.id);
@@ -198,13 +192,9 @@ export class Commentary {
     }
   }
 
-  /** The owner of an enemy guard tower within reach of u, if there is one. */
-  towerNear(s, u) {
-    for (const b of s.buildings) {
-      if (b.type === 'GuardTower' && b.completed && b.owner !== u.owner
-        && Math.max(Math.abs(b.x - u.x), Math.abs(b.y - u.y)) <= TOWER_RANGE) return b.owner;
-    }
-    return null;
+  /** Whose tower shot u in frame s (its towerShots), or, in a frame without them, an enemy tower in reach in prev. */
+  towerShot(s, prev, u) {
+    return s.towerShots ? s.towerShots.find((t) => t.targetId === u.id)?.owner ?? null : towerInReach(prev, u)?.owner ?? null;
   }
 
   consider({ slot, cat, sub }, now, later) {

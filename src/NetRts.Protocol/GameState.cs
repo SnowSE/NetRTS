@@ -41,6 +41,9 @@ public sealed record GameStateDto
     /// <summary>Siege shots in flight that you fired, or that will land on a tile you can see.</summary>
     public IReadOnlyList<ShellDto> Shells { get; init; } = [];
 
+    /// <summary>Guard tower shots this tick: your towers', and any you can see the tower or the target of.</summary>
+    public IReadOnlyList<TowerShotDto> TowerShots { get; init; } = [];
+
     /// <summary>Your recent events (command failures, completions, losses...), newest last.</summary>
     public IReadOnlyList<GameEventDto> Events { get; init; } = [];
 
@@ -64,6 +67,21 @@ public sealed record ShellDto
     public int Y { get; init; }
     public int FiredTick { get; init; }
     public int LandsTick { get; init; }
+}
+
+/// <summary>
+/// A guard tower's shot on the last tick. Towers hit at once, so the damage is already done and the target
+/// (<see cref="TargetId"/>, at tile x, y when hit) may be gone from the same state if the shot killed it.
+/// </summary>
+public sealed record TowerShotDto
+{
+    public int TowerId { get; init; }
+    public int Owner { get; init; }
+    public int FromX { get; init; }
+    public int FromY { get; init; }
+    public int TargetId { get; init; }
+    public int X { get; init; }
+    public int Y { get; init; }
 }
 
 public sealed record SelfDto

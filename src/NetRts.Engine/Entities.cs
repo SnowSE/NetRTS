@@ -205,6 +205,9 @@ internal sealed class BuildingEntity : Entity
 /// <summary>A siege shot in flight: it lands on <see cref="Target"/> at the end of <see cref="LandsTick"/>.</summary>
 internal sealed record Shell(UnitEntity Attacker, Point From, Point Target, int FiredTick, int LandsTick);
 
+/// <summary>A guard tower's shot this tick: it hits at once, so the target may be gone from the same frame.</summary>
+internal readonly record struct TowerShot(int TowerId, int Owner, Point From, int TargetId, Point At);
+
 internal sealed class ProductionItem(UnitType type)
 {
     public UnitType Type { get; } = type;
