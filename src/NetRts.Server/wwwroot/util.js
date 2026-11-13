@@ -112,6 +112,9 @@ export const displayName = (name) => {
   return [nickname(bot) ?? bot, copy].filter(Boolean).join(' ');
 };
 
+/** The tab's title: the parts, most specific first, then the game ("Alice vs Bob · Block Bot · Badger Brawl"). */
+export const setTitle = (...parts) => { document.title = [...parts, GAME].filter(Boolean).join(' · '); };
+
 /**
  * A match's heading: "Alice vs Honey Badger", or past four seats "16-player brawl" (the scoreboard lists
  * everyone). players: the summary's or state's; seats: how many it holds (defaults to how many are in).

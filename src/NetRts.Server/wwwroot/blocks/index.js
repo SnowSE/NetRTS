@@ -11,7 +11,7 @@
 //   #/blocks/match/<id>      the cockpit (cockpit.js): the match in the 3D view, the rules live, switches,
 //                            and each rule saved into the running match as you change it; for the
 //                            first match from "Start now", the coach's steps over it (coach.js)
-import { html, setHtml } from '../util.js';
+import { html, setHtml, setTitle } from '../util.js';
 import { loadVocabulary } from './program.js';
 import { mountLocker } from './locker.js';
 import { mountEditor } from './edit-page.js';
@@ -34,6 +34,8 @@ export function mountBlocks(main, route) {
   let teardown = null;
   let sync = null;
   loadBlockStyles();
+  // The editor and the cockpit put their strategy or match in front once they know it.
+  setTitle('Block Bot');
   // The pages draw on the server's vocabulary and the game's rules: fetched once, and again on the next visit if that failed.
   // Then the account's strategies (when someone is signed in), so the page reads them merged in.
   setHtml(main, html`<section class="bb-page"><p class="muted">Loading Block Bot…</p></section>`);

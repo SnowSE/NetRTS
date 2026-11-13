@@ -1,6 +1,6 @@
 // #/blocks/match/<id>: the cockpit. The match in the 3D view, your rules lighting up as they fire,
 // switches to flip, and each rule saved into the running match as you change it.
-import { api, html, raw, setHtml, patchHtml, displayName, outcomeText, mountScope, playerNames, matchup } from '../util.js';
+import { api, html, raw, setHtml, patchHtml, displayName, outcomeText, mountScope, playerNames, matchup, setTitle } from '../util.js';
 import { say } from '../lore.js';
 import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
@@ -200,6 +200,7 @@ export function mountCockpit(main, matchId) {
   function renderSummary() {
     if (!summary) return;
     $('bb-title').textContent = summary.players.length ? matchup(summary.players, summary.maxPlayers) : 'Match';
+    setTitle($('bb-title').textContent, 'Block Bot');
     const pill = $('bb-pill');
     pill.textContent = summary.status === 'Active' ? 'LIVE' : summary.status === 'Waiting' ? 'WAITING' : 'FINISHED';
     pill.dataset.state = summary.status;

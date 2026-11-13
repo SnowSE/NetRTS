@@ -1,6 +1,6 @@
 // #/blocks/edit/<id>: one strategy in the rule editor (cards or blocks, editors.js), saved in this browser as you go
 // (and to the account when someone is signed in: sync.js).
-import { html, raw, setHtml, mountScope } from '../util.js';
+import { html, raw, setHtml, mountScope, setTitle } from '../util.js';
 import { getStrategy, putStrategy, setPref, matchRecords, player, authed, themed, nav, downloadStrategy } from './store.js';
 import { LIMITS } from './program.js';
 import { createEditor, restyle, markStyle } from './editors.js';
@@ -74,7 +74,9 @@ export function mountEditor(main, id) {
   function save() {
     savedHere = putStrategy(strategy);
     showSaved();
+    setTitle(strategy.program.name || 'Strategy', 'Block Bot');
   }
+  setTitle(strategy.program.name || 'Strategy', 'Block Bot');
   showSaved();
   scope.on(window, SYNC_EVENT, showSaved);
 
