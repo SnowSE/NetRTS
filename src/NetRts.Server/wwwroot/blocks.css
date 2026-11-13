@@ -94,6 +94,13 @@
 .bb-mark { width: 24px; height: 24px; flex: none; display: flex; align-items: center; justify-content: center; border: 2px solid var(--ink); border-radius: 999px; font-weight: 700; }
 .bb-bot.multi .bb-mark { border-radius: var(--radius-s); }
 .bb-bot[aria-pressed="true"] .bb-mark { background: var(--ink); color: var(--bg); }
+/* Free-for-all: a picked house bot's card carries how many copies come, at its right. */
+.bb-bots-help { margin: -4px 0 8px; }
+.bb-bot-many { position: relative; display: grid; }
+.bb-bot-many > .bb-bot { padding-right: 132px; }
+.bb-count { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 4px; }
+.bb-count .small-btn { min-width: 36px; min-height: 36px; padding: 0; font-size: 1.15rem; line-height: 1; }
+.bb-count output { min-width: 1.6em; text-align: center; font-weight: 700; font-variant-numeric: tabular-nums; }
 .bb-seg { display: inline-flex; border: 1px solid var(--line); border-radius: var(--radius-m); overflow: hidden; }
 .bb-seg button { min-height: 44px; padding: 0 16px; background: var(--bg); border: 0; cursor: pointer; font-weight: 600; }
 .bb-seg button + button { border-left: 1px solid var(--line); }

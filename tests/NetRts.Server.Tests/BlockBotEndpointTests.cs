@@ -154,6 +154,23 @@ public class BlockBotEndpointTests(TickingServerFactory factory) : IClassFixture
     }
 
     [Fact]
+    public async Task A_free_for_all_can_have_several_of_the_same_house_bot()
+    {
+        var http = await PlayerAsync();
+        var start = await http.PostAsJsonAsync("/api/v1/blocks/matches",
+            new StartBlockMatchRequest { Program = Program, Mode = BlockPlayMode.FreeForAll, Opponents = ["rusher", "rusher", "sitter"], TickIntervalMs = 50 }, NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(HttpStatusCode.Created, start.StatusCode);
+        var match = (await start.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+
+        var house = match.Players.Where(p => p.IsHouseBot).ToList();
+        var names = house.Select(p => p.Name).Order(StringComparer.Ordinal).ToList();
+        Assert.Equal(["house-rusher", "house-rusher 2", "house-sitter"], names);
+        Assert.Equal(3, house.Select(p => p.PlayerId).Distinct().Count());
+        Assert.Equal(4, match.Players.Count);
+        await http.PostAsync($"/api/v1/matches/{match.MatchId}/surrender", null, Ct);
+    }
+
+    [Fact]
     public async Task Bad_programs_and_other_players_are_turned_away()
     {
         var http = await PlayerAsync();
