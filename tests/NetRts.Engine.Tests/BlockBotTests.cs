@@ -88,6 +88,30 @@ public class BlockBotTests
     }
 
     [Fact]
+    public void A_count_says_how_much_of_it_is_still_on_the_way()
+    {
+        // "Fewer than 2 HQs: build one" orders one on tick 1. From then on the count is 2, so it doesn't
+        // order another every tick, but only 1 is standing: the why says the other is on the way.
+        var program = new BlockProgramDto
+        {
+            Name = "Second HQ",
+            Rules =
+            [
+                Rule(Count("CommandCenter", "<", 2), new BlockActionDto { Kind = "build", Building = BuildingType.CommandCenter }),
+                Rule(Count("workers", "<", 1), new BlockActionDto { Kind = "train", Unit = UnitType.Worker }),
+            ],
+        };
+        var sim = NewSim(1);
+        var bot = new BlockBot("blocks", program);
+        Play(sim, [bot, HouseBots.Create("sitter")], until: t => t >= 3);
+
+        var why = bot.Status(Guid.Empty, sim.Status, 0, BlockWords.Classic).Rules;
+        Assert.Equal("idle", why[0].State);
+        Assert.Contains("is 2, 1 of them not finished yet (needs fewer than 2)", why[0].Why);
+        Assert.Matches(@"workers is \d+ \(needs fewer than 1\)", why[1].Why);
+    }
+
+    [Fact]
     public void The_same_tick_is_explained_in_whichever_theme_the_page_asks_for()
     {
         var sim = NewSim(3);
@@ -218,6 +242,48 @@ public class BlockBotTests
         var outpost = Outpost();
         Assert.NotNull(outpost);
         Assert.Contains(sim.Map.Deposits, d => Dist(d.Position.X, d.Position.Y, outpost.X, outpost.Y) <= 3);
+    }
+
+    [Fact]
+    public void Expand_keeps_the_grubs_for_a_far_coop_while_its_builder_walks_there()
+    {
+        // A program that spends everything: the game only takes a building's cost when the builder breaks
+        // ground, so before, three Barracks of soldiers spent it on the way, the builder got there broke, and
+        // the Co-op was ordered again and again (8 times on this map) while the diggers carried every load home.
+        var program = new BlockProgramDto
+        {
+            Name = "Hungry",
+            Rules =
+            [
+                Rule(Count("workers", "<", 16), new BlockActionDto { Kind = "train", Unit = UnitType.Worker }),
+                Rule(Count("Barracks", "<", 1), new BlockActionDto { Kind = "build", Building = BuildingType.Barracks }),
+                Rule(Count("Scout", "<", 1), new BlockActionDto { Kind = "train", Unit = UnitType.Scout }),
+                Rule(new() { Kind = "grubsLeft", Op = "<=", Value = 300 }, new BlockActionDto { Kind = "expand", Building = BuildingType.ResourceDepot }),
+                Rule(Count("Barracks", "<", 3), new BlockActionDto { Kind = "build", Building = BuildingType.Barracks }),
+                Rule(new() { Kind = "always" }, new BlockActionDto { Kind = "trainMix", Units = [UnitType.Soldier, UnitType.Archer] }),
+            ],
+        };
+        var sim = NewSim(3);
+        var cc = sim.Find(sim.CommandCenterId(0))!.Value;
+        var bot = new BlockBot("blocks", program);
+        var orders = new HashSet<int>();
+        var saved = false;
+        BuildingDto? Outpost() => sim.GetPlayerView(0).Buildings.FirstOrDefault(b =>
+            b.Owner == 0 && b.Type == BuildingType.ResourceDepot && Dist(b.X, b.Y, cc.X, cc.Y) > 8);
+        Play(sim, [bot, HouseBots.Create("sitter")], until: t => t >= 1000 || Outpost() is { Completed: true }, everyTick: t =>
+        {
+            var rules = bot.Status(Guid.Empty, sim.Status, 0).Rules;
+            if (rules.ElementAtOrDefault(3)?.Why.Contains("building a Co-op Store") == true)
+            {
+                orders.Add(t);
+            }
+
+            saved |= rules.Any(r => r.Why.Contains("saved for a building on the way"));
+        });
+
+        Assert.True(Outpost() is { Completed: true }, "the far Co-op Store is up by minute 16");
+        Assert.Single(orders);
+        Assert.True(saved, "while the builder walks, the other rules say its grubs are saved");
     }
 
     [Fact]

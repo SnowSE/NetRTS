@@ -36,11 +36,11 @@ public class BotCharacterizationTests
 
     public static TheoryData<string, string, int, string> BlockPrograms => new()
     {
-        { "rush", "sitter", 1, "234F60BC51C8CA60" },
-        { "rush", "balanced", 2, "05D90A3130DD0C82" },
-        { "kitchen", "sitter", 3, "C3F97956D087AE83" },
-        { "kitchen", "rusher", 1, "D1CCF6E978F79824" },
-        { "expander", "sitter", 7, "B1AD719F022BE1D2" },
+        { "rush", "sitter", 1, "EC3C9BFB3D226A7F" },
+        { "rush", "balanced", 2, "83B6FAA002CF667E" },
+        { "kitchen", "sitter", 3, "9A0E7458776C95B4" },
+        { "kitchen", "rusher", 1, "B9B135FABFCF19D7" },
+        { "expander", "sitter", 7, "EA50B7C6433B2BB7" },
     };
 
     [Theory]

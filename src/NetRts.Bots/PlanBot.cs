@@ -66,7 +66,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
     ];
 
     // Build orders are kept for their full 40 ticks, even once the building appears.
-    private readonly BotMemory _memory = new(forgetSitesOnceBuilt: false);
+    private readonly BotMemory _memory = new(trackBuilders: false);
     private int _armyCursor;
     private int _lastArmyTick = int.MinValue / 2;
     private bool _attacking;

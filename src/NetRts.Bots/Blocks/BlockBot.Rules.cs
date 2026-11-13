@@ -80,7 +80,8 @@ public sealed partial class BlockBot
                     var seen = view.EnemyUnits.Count + view.EnemyBuildings.Count > 0;
                     return new Check(seen, _ => seen ? "you can see an enemy" : "you can't see any enemies");
                 case "count":
-                    return Compare(w => w.What(c.What!), Count(c.What!), c.Op!, c.Value ?? 0);
+                    var (total, detail) = Count(c.What!);
+                    return Compare(w => w.What(c.What!), total, c.Op!, c.Value ?? 0, detail);
                 case "minute":
                     return Compare(_ => "minute", Tick / TicksPerMinute, c.Op!, c.Value ?? 0);
                 case "grubsLeft":
@@ -127,7 +128,7 @@ public sealed partial class BlockBot
 
         private static int? Max(int? a, int? b) => a is null ? b : b is null ? a : Math.Max(a.Value, b.Value);
 
-        private static Check Compare(Phrase label, int actual, string op, int value)
+        private static Check Compare(Phrase label, int actual, string op, int value, string detail = "")
         {
             var result = op switch
             {
@@ -139,37 +140,53 @@ public sealed partial class BlockBot
                 _ => throw new InvalidOperationException($"Unknown comparison '{op}'."),
             };
             int? progress = op is ">=" or ">" && value > 0 ? Math.Clamp(actual * 100 / value, 0, 100) : null;
-            return new Check(result, w => $"{label(w)} is {actual} (needs {BlockWords.Op(op)} {value})", progress);
+            return new Check(result, w => $"{label(w)} is {actual}{detail} (needs {BlockWords.Op(op)} {value})", progress);
         }
 
-        /// <summary>Units count with those in production; buildings with those going up or ordered.</summary>
-        private int Count(string what)
+        /// <summary>
+        /// Units count with those in production; buildings with those ordered or going up (so "fewer than 2
+        /// Barracks: build one" orders one, not one a tick); grubs are those left to spend. Detail: what of the
+        /// total isn't here yet (or, for grubs, what's saved), for the why.
+        /// </summary>
+        private (int Total, string Detail) Count(string what)
         {
             int Queued(Func<UnitType, bool> match) =>
                 view.MyBuildings.Sum(b => b.Production.Count(p => match(p.UnitType)));
 
+            static (int, string) Coming(int total, int coming, string doing) => (total, coming > 0 ? $", {coming} of them {doing}" : "");
+            static (int, string) Units(int have, int queued) => Coming(have + queued, queued, "still training");
+
             switch (what.ToLowerInvariant())
             {
                 case "grubs":
-                    return turn.Budget;
+                    return (turn.Budget, Saved);
                 case "workers":
-                    return view.Workers.Count + Queued(t => t == UnitType.Worker);
+                    return Units(view.Workers.Count, Queued(t => t == UnitType.Worker));
                 case "fighters":
-                    return view.Army.Count + Queued(t => t != UnitType.Worker);
+                    return Units(view.Army.Count, Queued(t => t != UnitType.Worker));
             }
 
             if (Enum.TryParse<UnitType>(what, true, out var unit))
             {
-                return view.MyUnits.Count(u => u.Type == unit) + Queued(t => t == unit);
+                return Units(view.MyUnits.Count(u => u.Type == unit), Queued(t => t == unit));
             }
 
             if (Enum.TryParse<BuildingType>(what, true, out var building))
             {
-                return view.MyBuildings.Count(b => b.Type == building) + bot._memory.PendingCount(view, building);
+                var pending = bot._memory.PendingCount(view, building);
+                var mine = view.MyBuildings.Where(b => b.Type == building).ToList();
+                return Coming(mine.Count + pending, pending + mine.Count(b => !b.Completed), "not finished yet");
             }
 
             throw new InvalidOperationException($"Can't count '{what}'.");
         }
+
+        /// <summary>", with 150 more saved for a building on the way" when the turn has grubs set aside, else "".</summary>
+        private string Saved => turn.SetAside > 0 ? $", with {turn.SetAside} more saved for a building on the way" : "";
+
+        /// <summary>"... costs 150 grubs and you have 50", saying why when some are saved for a building on the way.</summary>
+        private Outcome CantAfford(Phrase what, int cost, int have) =>
+            Outcome.Fail(w => $"{what(w)} costs {cost} {w.Ore} and you have {have}{Saved}.");
 
         /// <summary>The enemies you can see: fighters, workers, buildings, or one type of unit or building.</summary>
         private int EnemyCount(string what) => what.ToLowerInvariant() switch
@@ -206,7 +223,7 @@ public sealed partial class BlockBot
             Attempt.Done => new Outcome(true, w => $"training a {w.Unit(type)}", []),
             Attempt.NeedsBuilding(var at) => Outcome.Fail(w => $"you need a {w.Building(at)} to train a {w.Unit(type)}."),
             Attempt.Busy(var at) => Outcome.Fail(w => $"your {w.Building(at)} is busy."),
-            Attempt.TooExpensive(var cost, var have) => Outcome.Fail(w => $"a {w.Unit(type)} costs {cost} {w.Ore} and you have {have}."),
+            Attempt.TooExpensive(var cost, var have) => CantAfford(w => $"a {w.Unit(type)}", cost, have),
             var other => throw Unexpected(other),
         };
 
@@ -232,7 +249,7 @@ public sealed partial class BlockBot
                 Attempt.NeedsBuilding(var required) => Outcome.Fail(w => $"a {name(w)} needs a finished {w.Building(required)} first."),
                 Attempt.NeedsUpgrade(var upgrade) => Outcome.Fail(w => $"a {name(w)} needs {w.Upgrade(upgrade)} first."),
                 Attempt.AlreadyGoingUp => Outcome.Fail(w => $"a {name(w)} is already going up."),
-                Attempt.TooExpensive(var cost, var have) => Outcome.Fail(w => $"a {name(w)} costs {cost} {w.Ore} and you have {have}."),
+                Attempt.TooExpensive(var cost, var have) => CantAfford(w => $"a {name(w)}", cost, have),
                 Attempt.NoSite => Outcome.Fail(w => $"there's no room near your HQ for a {name(w)}."),
                 Attempt.NoBuilder => Outcome.Fail(w => $"there's no free worker to build a {name(w)}."),
                 var other => throw Unexpected(other),
@@ -250,7 +267,7 @@ public sealed partial class BlockBot
                 Attempt.NeedsUpgrade(var req) => Outcome.Fail(w => $"{name(w)} needs {w.Upgrade(req)} first."),
                 Attempt.NeedsBuilding(var lab) => Outcome.Fail(w => $"you need a {w.Building(lab)} to learn {name(w)}."),
                 Attempt.Busy(var lab) => Outcome.Fail(w => $"your {w.Building(lab)} is busy."),
-                Attempt.TooExpensive(var cost, var have) => Outcome.Fail(w => $"{name(w)} costs {cost} {w.Ore} and you have {have}."),
+                Attempt.TooExpensive(var cost, var have) => CantAfford(name, cost, have),
                 var other => throw Unexpected(other),
             };
         }
@@ -410,7 +427,7 @@ public sealed partial class BlockBot
 
             if (turn.CheckBudget(view.Rules.Buildings.First(b => b.Type == type).Cost) is Attempt.TooExpensive(var cost, var have))
             {
-                return Outcome.Fail(w => $"a {name(w)} costs {cost} {w.Ore} and you have {have}.");
+                return CantAfford(w => $"a {name(w)}", cost, have);
             }
 
             var site = SiteNear(target.Value);

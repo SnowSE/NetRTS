@@ -37,8 +37,11 @@ public sealed class BotTurn(BotView view, BotMemory memory, bool reserveUnits = 
 
     public BotMemory Memory { get; } = memory;
 
-    /// <summary>Grubs left to spend this tick.</summary>
-    public int Budget { get; private set; } = view.State.You.Resources;
+    /// <summary>Grubs in the bank but kept for buildings whose builders are on the way (see <see cref="BotMemory.SetAside"/>).</summary>
+    public int SetAside { get; } = Math.Min(view.State.You.Resources, memory.SetAside(view));
+
+    /// <summary>Grubs left to spend this tick: those in the bank, less <see cref="SetAside"/>.</summary>
+    public int Budget { get; private set; } = view.State.You.Resources - Math.Min(view.State.You.Resources, memory.SetAside(view));
 
     public IReadOnlyList<CommandRequest> Commands => _commands;
 
@@ -150,13 +153,13 @@ public sealed class BotTurn(BotView view, BotMemory memory, bool reserveUnits = 
 
         Add(new CommandRequest { Type = CommandType.Build, UnitIds = [builder.Id], BuildingType = type, X = site.X, Y = site.Y });
         Claim(builder.Id);
-        Memory.AddPendingSite(site, type, Tick);
+        Memory.AddPendingSite(site, type, Tick, builder.Id);
         Budget -= View.Rules.Buildings.First(b => b.Type == type).Cost;
         return new Attempt.Done(builder.Id);
     }
 
-    /// <summary><see cref="BotView.PickBuilder"/>, skipping workers already used this tick.</summary>
-    public UnitDto? PickBuilder((int X, int Y) site) => View.PickBuilder(site, IsClaimed);
+    /// <summary><see cref="BotView.PickBuilder"/>, skipping workers already used this tick or on their way to build something else.</summary>
+    public UnitDto? PickBuilder((int X, int Y) site) => View.PickBuilder(site, id => IsClaimed(id) || Memory.IsBuilder(id));
 
     /// <summary>Sends a worker to every half-built building nobody is working on.</summary>
     public void FinishAbandonedSites()
@@ -271,13 +274,18 @@ public sealed class BotTurn(BotView view, BotMemory memory, bool reserveUnits = 
         }
         else
         {
-            // The engine takes orders for piles in the fog, so remembered ones count too.
-            var dropOffs = View.MyBuildings.Where(b => b.Type is BuildingType.CommandCenter or BuildingType.ResourceDepot && b.Completed).ToList();
-            if (dropOffs.Count == 0)
+            // The engine takes orders for piles in the fog, so remembered ones count too. A drop-off going up (or
+            // ordered) counts as one: the diggers sent to its piles get there about when it's done, rather than
+            // digging a far pile and carrying each load home across the map.
+            static bool IsDropOff(BuildingType type) => type is BuildingType.CommandCenter or BuildingType.ResourceDepot;
+            if (!View.MyBuildings.Any(b => IsDropOff(b.Type) && b.Completed))
             {
                 return;
             }
 
+            var dropOffs = View.MyBuildings.Where(b => IsDropOff(b.Type)).Select(b => (b.X, b.Y))
+                .Concat(Memory.PendingSites.Where(kv => IsDropOff(kv.Value.Type)).Select(kv => kv.Key))
+                .ToList();
             piles = Memory.Deposits.Where(d => d.Remaining > 0).ToList();
             haul = d => dropOffs.Min(b => BotView.Dist(b.X, b.Y, d.X, d.Y));
         }
