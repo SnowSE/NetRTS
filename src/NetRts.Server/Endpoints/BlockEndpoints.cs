@@ -117,9 +117,9 @@ public static class BlockEndpoints
             BlockPlayMode.Sandbox => ["sitter"],
             BlockPlayMode.Create => [],
             BlockPlayMode.HouseBot when opponents.Count == 1 => opponents,
-            BlockPlayMode.FreeForAll when opponents.Count is >= 2 and <= 3 => opponents,
+            BlockPlayMode.FreeForAll when opponents.Count >= 2 && opponents.Count <= BlockProgramValidator.MaxOpponents => opponents,
             BlockPlayMode.HouseBot => throw new MatchException(400, "INVALID_SETTINGS", "Pick one house bot to play."),
-            _ => throw new MatchException(400, "INVALID_SETTINGS", "Pick two or three house bots for a free-for-all."),
+            _ => throw new MatchException(400, "INVALID_SETTINGS", $"Pick 2 to {BlockProgramValidator.MaxOpponents} house bots for a free-for-all."),
         };
 
         var seat = await Accounts.SeatForAsync(db, discord.Value, user, ct) with { IsBlockBot = true };

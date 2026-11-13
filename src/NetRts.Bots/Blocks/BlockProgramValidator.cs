@@ -18,6 +18,9 @@ public static class BlockProgramValidator
     public const int MaxMixUnits = 8;
     public const int MaxEverySeconds = 3600;
 
+    /// <summary>The most house bots a free-for-all takes: the biggest map (16 players) less you.</summary>
+    public const int MaxOpponents = 15;
+
     public static readonly IReadOnlyList<string> Ops = ["<", "<=", ">", ">=", "="];
     public static readonly IReadOnlyList<string> ConditionKinds = ["always", "enemyNearBase", "seeEnemy", "enemies", "underAttack", "hqHealth", "count", "grubsLeft", "minute", "switch", "and", "or", "not"];
     public static readonly IReadOnlyList<string> ActionKinds = ["train", "trainMix", "build", "research", "attack", "defend", "retreat", "scout", "expand", "setSwitch"];
@@ -59,6 +62,7 @@ public static class BlockProgramValidator
             MaxNumber = MaxNumber,
             MaxMixUnits = MaxMixUnits,
             MaxEverySeconds = MaxEverySeconds,
+            MaxOpponents = MaxOpponents,
         },
         Defaults = new BlockDefaultsDto(),
     };

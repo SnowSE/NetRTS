@@ -95,7 +95,7 @@ public sealed record StartBlockMatchRequest
     public required BlockProgramDto Program { get; init; }
     public BlockPlayMode Mode { get; init; } = BlockPlayMode.HouseBot;
 
-    /// <summary>House bots to play (one for HouseBot, two or three for FreeForAll; ignored for Sandbox).</summary>
+    /// <summary>House bots to play (one for HouseBot, 2 to 15 for FreeForAll, repeats allowed; ignored for Sandbox).</summary>
     public IReadOnlyList<string> Opponents { get; init; } = [];
 
     /// <summary>Milliseconds per tick; null for the server's default.</summary>
@@ -216,6 +216,9 @@ public sealed record BlockLimitsDto
     public int MaxSwitches { get; init; }
     public int MaxNameLength { get; init; }
     public int MaxSwitchNameLength { get; init; }
+
+    /// <summary>The most house bots a free-for-all takes (the fewest is 2).</summary>
+    public int MaxOpponents { get; init; }
 
     /// <summary>The largest number a condition may compare with (the smallest is 0).</summary>
     public int MaxNumber { get; init; }

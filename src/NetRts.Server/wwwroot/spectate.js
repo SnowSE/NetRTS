@@ -1,5 +1,5 @@
 // Spectate view: #/match/{id} or #/match/{name}
-import { api, html, setHtml, esc, slotVar, displayName, playerLabel, fmt, outcomeText, mountScope, playerNames, totalOf, rankPlayers } from './util.js';
+import { api, html, setHtml, esc, slotVar, displayName, playerLabel, fmt, outcomeText, mountScope, playerNames, totalOf, rankPlayers, matchup } from './util.js';
 import { GAME, SNOW, say, ORE, unitName, upgradeName, badgerize, hqName, housingName } from './lore.js';
 import { MapView, unitPath } from './mapview.js';
 import { loadText, saveText } from './storage.js';
@@ -502,21 +502,19 @@ export function mountSpectate(root, matchKey) {
   function renderHeader() {
     const players = [...(state?.players || summary?.players || [])].sort((a, b) => a.slot - b.slot);
     const seats = summary?.maxPlayers ?? players.length;
-    const matchup = !players.length ? say('Waiting for players', 'Waiting for badgers')
-      : seats > 4 ? `${seats}-player ${say('match', 'brawl')}`   // the scoreboard lists everyone
-        : players.map((p) => displayName(p.name)).join(' vs ');
+    const vs = matchup(players, seats);
     // A heat links back to its league match, where every heat's scoreboard is.
     if (summary?.parentMatchId) {
       $('back-link').href = `#/match/${summary.parentMatchId}`;
       $('back-link').textContent = `${(summary.name || '').replace(/-h\d+$/, '')}: all heats`;
     }
     // A named match shows its name, with the matchup beside it.
-    const title = summary?.name || matchup;
+    const title = summary?.name || vs;
     $('title').textContent = title;
-    $('matchup').textContent = summary?.name ? matchup : '';
+    $('matchup').textContent = summary?.name ? vs : '';
     $('matchup').hidden = !summary?.name;
     $('fs-title').textContent = title;
-    $('fs-matchup').textContent = summary?.name ? matchup : '';
+    $('fs-matchup').textContent = summary?.name ? vs : '';
     document.title = `${title} – ${GAME}`;
     if (summary) {
       $('subtitle').textContent = `${summary.mapWidth} × ${summary.mapHeight} map, seed ${summary.seed}, ${state?.tickIntervalMs || summary.tickIntervalMs} ms per tick, ${say('match', 'brawl')} ${summary.matchId.slice(0, 8)}`;

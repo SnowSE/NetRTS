@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using NetRts.Bots;
+using NetRts.Bots.Blocks;
 using NetRts.Protocol;
 
 namespace NetRts.Server.Tests;
@@ -168,6 +169,33 @@ public class BlockBotEndpointTests(TickingServerFactory factory) : IClassFixture
         Assert.Equal(3, house.Select(p => p.PlayerId).Distinct().Count());
         Assert.Equal(4, match.Players.Count);
         await http.PostAsync($"/api/v1/matches/{match.MatchId}/surrender", null, Ct);
+    }
+
+    [Fact]
+    public async Task A_free_for_all_fills_the_biggest_map_and_no_more()
+    {
+        Assert.Equal(NetRts.Engine.MapGenerator.MaxPlayers - 1, BlockProgramValidator.MaxOpponents);
+        var vocabulary = await factory.CreateClient().GetFromJsonAsync<BlockVocabularyDto>("/api/v1/blocks/vocabulary", NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(BlockProgramValidator.MaxOpponents, vocabulary!.Limits.MaxOpponents);
+
+        var http = await PlayerAsync();
+        string[] bots = ["sitter", "rusher", "economist", "balanced", "poky"];
+        StartBlockMatchRequest Ffa(int n) => new()
+        {
+            Program = Program, Mode = BlockPlayMode.FreeForAll, TickIntervalMs = 200,
+            Opponents = [.. Enumerable.Range(0, n).Select(i => bots[i % bots.Length])],
+        };
+
+        var full = await http.PostAsJsonAsync("/api/v1/blocks/matches", Ffa(15), NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(HttpStatusCode.Created, full.StatusCode);
+        var match = (await full.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+        Assert.Equal(16, match.Players.Count);
+        Assert.Equal(16, match.Players.Select(p => p.PlayerId).Distinct().Count());
+        await factory.Matches.Get(match.MatchId)!.WaitForTickAsync(2, TimeSpan.FromSeconds(20), Ct);
+        await http.PostAsync($"/api/v1/matches/{match.MatchId}/surrender", null, Ct);
+
+        var tooMany = await http.PostAsJsonAsync("/api/v1/blocks/matches", Ffa(16), NetRtsClient.JsonOptions, Ct);
+        Assert.Equal(HttpStatusCode.BadRequest, tooMany.StatusCode);
     }
 
     [Fact]

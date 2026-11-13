@@ -10,8 +10,8 @@ import { ICON } from './icons.js';
 import { syncing, SYNC_EVENT } from './sync.js';
 import { openWelcome, shouldWelcome } from './intro.js';
 
-/** A free-for-all's house bots, counting repeats: the map has room for four players. */
-const MAX_OPPONENTS = 3;
+/** The most house bots a free-for-all takes, counting repeats (the server's limit: a 16-player map less you). */
+const maxOpponents = () => LIMITS().maxOpponents;
 
 export function mountLocker(main) {
   // Listeners go at teardown, and a request that answers after it never reaches the page (scope.wait).
@@ -92,10 +92,10 @@ export function mountLocker(main) {
     const startLabel = {
       Sandbox: 'Start the sandbox',
       HouseBot: `Play vs ${botLabel(st.one)}`,
-      FreeForAll: st.many.length >= 2 ? `Start a free-for-all (${st.many.length} bots)` : 'Pick 2 or 3 bots',
+      FreeForAll: st.many.length >= 2 ? `Start a free-for-all (${st.many.length} bots)` : 'Pick at least 2 bots',
       Real: st.real === 'create' ? `Create a match for ${st.seats} players` : st.joinMatch ? 'Join the match' : 'Pick a match',
     }[st.mode];
-    const canStart = me && picked && !st.busy && !(multi && (st.many.length < 2 || st.many.length > MAX_OPPONENTS)) && !(st.mode === 'Real' && st.real === 'join' && !st.joinMatch);
+    const canStart = me && picked && !st.busy && !(multi && (st.many.length < 2 || st.many.length > maxOpponents())) && !(st.mode === 'Real' && st.real === 'join' && !st.joinMatch);
 
     // One column, three steps: name your badger, pick a strategy, pick who to play.
     // Until the badger exists, steps 2 and 3 are dimmed and inert so the name is the only thing to do.
@@ -227,7 +227,7 @@ export function mountLocker(main) {
             <div class="bb-modes">
               ${[['Sandbox', 'Sandbox', `Try a build against the ${botLabel('sitter')}, who only digs.`],
                  ['HouseBot', 'Vs a house bot', 'One opponent, any time.'],
-                 ['FreeForAll', 'Free-for-all', 'You vs 2 or 3 house bots.'],
+                 ['FreeForAll', 'Free-for-all', `You vs 2 to ${maxOpponents()} house bots.`],
                  ['Real', 'Real match', 'Join or create a match with other players.']]
                 .map(([id, name, desc]) => html`<button type="button" class="bb-mode" data-mode="${id}" aria-pressed="${st.mode === id}"><b>${name}</b><span class="small muted">${desc}</span></button>`)}
             </div>
@@ -235,7 +235,7 @@ export function mountLocker(main) {
 
           ${st.mode === 'HouseBot' || st.mode === 'FreeForAll' ? html`
             <fieldset>
-              <legend class="bb-legend">${multi ? 'Pick 2 or 3 opponents' : 'Pick an opponent'}</legend>
+              <legend class="bb-legend">${multi ? `Pick 2 to ${maxOpponents()} opponents` : 'Pick an opponent'}</legend>
               ${multi ? html`<p class="small muted bb-bots-help">The same one can come more than once: pick it, then press +.</p>` : ''}
               <div class="bb-bots">
                 ${st.bots.map((b) => {
@@ -247,7 +247,7 @@ export function mountLocker(main) {
                   return html`<div class="bb-bot-many">${card}<div class="bb-count" role="group" aria-label="How many ${name}">
                     <button type="button" class="btn ghost small-btn" data-fewer="${b.name}" aria-label="One fewer ${name}">−</button>
                     <output aria-live="polite">${copies}</output>
-                    <button type="button" class="btn ghost small-btn" data-more="${b.name}" aria-label="One more ${name}" ${st.many.length >= MAX_OPPONENTS ? 'disabled' : ''}>+</button>
+                    <button type="button" class="btn ghost small-btn" data-more="${b.name}" aria-label="One more ${name}" ${st.many.length >= maxOpponents() ? 'disabled' : ''}>+</button>
                   </div></div>`;
                 })}
               </div>
@@ -346,13 +346,13 @@ export function mountLocker(main) {
     } else if (d.mode) { st.mode = d.mode; setPref('mode', d.mode); st.error = ''; render(); }
     else if (d.bot) {
       if (st.mode === 'FreeForAll') {
-        st.many = st.many.includes(d.bot) ? st.many.filter((x) => x !== d.bot) : [...st.many, d.bot].slice(-MAX_OPPONENTS);
+        st.many = st.many.includes(d.bot) ? st.many.filter((x) => x !== d.bot) : [...st.many, d.bot].slice(-maxOpponents());
         setPref('many', st.many);
       } else { st.one = d.bot; setPref('one', d.bot); }
       render();
     } else if (d.more || d.fewer) {
       // Another copy of a picked house bot, or one fewer (the last one unpicks it).
-      if (d.more && st.many.length < MAX_OPPONENTS) st.many = [...st.many, d.more];
+      if (d.more && st.many.length < maxOpponents()) st.many = [...st.many, d.more];
       if (d.fewer) st.many = st.many.filter((x, i) => x !== d.fewer || i !== st.many.lastIndexOf(d.fewer));
       setPref('many', st.many);
       render();

@@ -112,6 +112,15 @@ export const displayName = (name) => {
   return [nickname(bot) ?? bot, copy].filter(Boolean).join(' ');
 };
 
+/**
+ * A match's heading: "Alice vs Honey Badger", or past four seats "16-player brawl" (the scoreboard lists
+ * everyone). players: the summary's or state's; seats: how many it holds (defaults to how many are in).
+ */
+export function matchup(players, seats = players?.length ?? 0) {
+  if (!players?.length) return say('Waiting for players', 'Waiting for badgers');
+  return seats > 4 ? `${seats}-player ${say('match', 'brawl')}` : players.map((p) => displayName(p.name)).join(' vs ');
+}
+
 /** The blue check beside a bot claimed by a Discord-verified person; hover shows who. */
 export function verifiedBadge(p) {
   if (!p?.verified) return '';
