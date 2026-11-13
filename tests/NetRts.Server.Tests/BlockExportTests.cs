@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using System.Text.RegularExpressions;
 using NetRts.Bots.Blocks;
 
@@ -57,7 +56,7 @@ public partial class BlockExportTests
     public void The_python_bot_parses()
     {
         var file = Fill("bot.py.txt", rules: "    pass", switches: "{\"Attack!\": False}");
-        var (exit, output) = Run("python3", $"-c \"import ast, sys; ast.parse(open(sys.argv[1]).read())\" \"{file}\"");
+        var (exit, output) = Repo.Run("python3", "-c", "import ast, sys; ast.parse(open(sys.argv[1]).read())", file);
         Assert.True(exit == 0, output);
     }
 
@@ -65,7 +64,7 @@ public partial class BlockExportTests
     public void The_csharp_bot_builds()
     {
         var file = Fill("Bot.cs.txt", rules: "        bot.Train(\"Worker\");", switches: "        [\"Attack!\"] = false,", name: "Bot.cs");
-        var (exit, output) = Run("dotnet", $"build \"{file}\" --nologo -v q");
+        var (exit, output) = Repo.Run("dotnet", "build", file, "--nologo", "-v", "q");
         Assert.True(exit == 0, output);
     }
 
@@ -83,20 +82,6 @@ public partial class BlockExportTests
         var path = Path.Combine(dir.FullName, name);
         File.WriteAllText(path, text);
         return path;
-    }
-
-    private static (int Exit, string Output) Run(string program, string arguments)
-    {
-        using var process = Process.Start(new ProcessStartInfo(program, arguments)
-        {
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
-            UseShellExecute = false,
-        })!;
-        var output = process.StandardOutput.ReadToEndAsync();
-        var error = process.StandardError.ReadToEndAsync();
-        Assert.True(process.WaitForExit(TimeSpan.FromMinutes(3)), $"{program} took too long");
-        return (process.ExitCode, output.Result + error.Result);
     }
 
     [GeneratedRegex(@"\bbot\.([a-z_]+)\b(?!\.)")]   // not bot.py.txt, a file name

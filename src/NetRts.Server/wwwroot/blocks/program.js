@@ -227,22 +227,8 @@ export function setAt(obj, path, value) {
   parent[last] = value;
 }
 
-/**
- * For comparing a program here with the one the server runs: same key order, and no nulls or falses (the
- * server sends every field, "once": false and all; a program here leaves out what's off).
- */
-export function canon(x) {
-  if (Array.isArray(x)) return x.map(canon);
-  if (x && typeof x === 'object') {
-    const out = {};
-    for (const k of Object.keys(x).sort()) {
-      if (x[k] !== null && x[k] !== undefined && x[k] !== false) out[k] = canon(x[k]);
-    }
-    return out;
-  }
-  return x;
-}
-export const sameProgram = (a, b) => JSON.stringify(canon(a)) === JSON.stringify(canon(b));
+// canon / sameProgram live in canon.js (no imports, so a test runs them under node).
+export { canon, sameProgram } from './canon.js';
 
 /** Reads a downloaded strategy file; returns the program or throws with a message a kid can read. */
 export async function readStrategyFile(file) {

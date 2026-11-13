@@ -249,9 +249,14 @@ async function reconcile() {
     const local = all[r.id];
     const known = mine.known[r.id];
     if (!local) { take(r); continue; }
-    const here = dirty(local, known);
-    const there = !known || known.version !== r.version;
-    if (!here && !there) continue;
+    let here = dirty(local, known);
+    let there = !known || known.version !== r.version;
+    if (!here && !there) {
+      if (sameProgram(local.program, r.program)) continue;
+      // Marked in sync, yet different: pages before canon.js kept "off" dropped a rule's or a switch's
+      // off (here, or in what came down from the account). Which is right can't be known: keep both.
+      here = there = true;
+    }
     if (sameProgram(local.program, r.program)) { mine.known[r.id] = { version: r.version, at: local.updatedAt }; continue; }
     if (!here) { take(r); continue; }
     if (there) {
