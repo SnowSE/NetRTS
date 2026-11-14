@@ -44,12 +44,13 @@ export const BUILDING_NAME = {
 /** Units keep their API names, except the siege unit: Snow College's old Snap-on tool truck, now with a cannon on the roof. */
 export const UNIT_NAME = { Trebuchet: 'Snow Mobile' };
 
-/** Upgrades are coursework: tier 1 is the intro class, tier 2 the upper-division one. */
+/** Upgrades are coursework: tier 1 is the intro class, tier 2 the upper-division one, tier 3 the capstone. */
 export const UPGRADE_NAME = {
   Weapons1: 'Intro to Chemistry', Weapons2: 'Organic Chemistry',
-  Armor1: 'Unit Testing', Armor2: 'Code Review',
+  Armor1: 'Unit Testing', Armor2: 'Code Review', Armor3: 'Software Quality Assurance',
   Mobility1: 'Algorithms', Mobility2: 'Parallel Computing',
   Harvesting1: 'Intro to Biology', Harvesting2: 'Entomology',
+  Fortify1: 'Intro to Construction', Fortify2: 'Structural Engineering',
   SiegeEngineering: 'Welding Technology',
 };
 
@@ -106,7 +107,7 @@ export function badgerize(text) {
   return String(text ?? '')
     .replace(/\bhouse-(\w+)/g, (m, bot) => BOT_NICKNAME[bot] ?? m)
     .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower|SiegeWorkshop)\b/g, (m) => BUILDING_NAME[m])
-    .replace(/\b((?:Weapons|Armor|Mobility|Harvesting)[12]|SiegeEngineering)\b/g, (m) => UPGRADE_NAME[m])
+    .replace(/\b((?:Weapons|Mobility|Harvesting|Fortify)[12]|Armor[123]|SiegeEngineering)\b/g, (m) => UPGRADE_NAME[m])
     .replace(/\bTrebuchet\b/g, UNIT_NAME.Trebuchet)
     .replace(/\bDeposit\b/g, 'Grub patch')
     .replace(/\bKilled enemy\b/g, 'Bowled over enemy')

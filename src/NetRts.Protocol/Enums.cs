@@ -35,6 +35,9 @@ public enum UpgradeType
     Harvesting1,
     Harvesting2,
     SiegeEngineering,
+    Fortify1,
+    Fortify2,
+    Armor3,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<CommandType>))]

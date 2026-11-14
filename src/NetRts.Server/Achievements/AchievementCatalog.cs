@@ -123,6 +123,9 @@ public static class AchievementCatalog
         new("fully-loaded", "Fully Loaded", "Research all 8 upgrades in one match.", Combat, Gold,
             // The eight weapon/armor/mobility/harvesting tiers; SiegeEngineering came later and isn't required.
             c => c.Stats?.Upgrades.Count(u => u != UpgradeType.SiegeEngineering) >= 8),
+        new("valedictorian", "Valedictorian", "Research all 11 upgrades in one match.", Combat, Platinum,
+            // Every weapon, armor, mobility, harvesting and fortify tier; SiegeEngineering isn't required.
+            c => c.Stats?.Upgrades.Count(u => u != UpgradeType.SiegeEngineering) >= 11),
         new("super-soldier", "Super Soldier", "Take the serum.", Combat, Gold, c => c.Stats?.SerumTaken == true, Hidden: true),
         new("not-a-perfect-soldier", "Not a Perfect Soldier", "Kill 10 enemy units in one match with serum-boosted Soldiers.", Combat, Platinum,
             c => c.Stats?.SerumKills >= 10, Hidden: true),

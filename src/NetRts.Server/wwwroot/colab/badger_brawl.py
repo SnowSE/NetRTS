@@ -606,7 +606,7 @@ play(decide, vs="balanced", speed=10)
 #
 # **Upgrades** need a Makerspace (`TechLab`, 150 grubs):
 # ```python
-# research(techlab, "Weapons1")   # +2 damage. Also: Armor1, Mobility1, then Weapons2, Armor2 ...
+# research(techlab, "Weapons1")   # +2 damage. Also: Armor1, Mobility1, Fortify1, then Weapons2, Armor2 ...
 # ```
 #
 # **Don't charge in one at a time.** Wait for a bigger army, or `move` everyone to a meeting spot first.

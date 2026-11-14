@@ -406,7 +406,7 @@ public sealed partial class GameSimulation
         var armor = target switch
         {
             UnitEntity u => u.Stats.Armor + _players[u.Owner].ArmorBonus,
-            BuildingEntity { Completed: true } b => b.Stats.Armor,
+            BuildingEntity { Completed: true } b => b.Stats.Armor + _players[b.Owner].FortifyBonus,
             _ => 0,
         };
         return Math.Max(1, damage - armor);

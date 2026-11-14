@@ -50,6 +50,7 @@ public static class GameRules
 
     public const int WeaponsBonusPerTier = 2;
     public const int ArmorBonusPerTier = 1;
+    public const int FortifyBonusPerTier = 1;
     public const int MobilityBonusPerTier = 2;
     public const int HarvestingBonusPerTier = 1;
 
@@ -91,10 +92,13 @@ public static class GameRules
         [UpgradeType.Weapons2] = new(250, 60, UpgradeType.Weapons1, $"+{WeaponsBonusPerTier} more damage"),
         [UpgradeType.Armor1] = new(150, 40, null, $"+{ArmorBonusPerTier} armor for all units"),
         [UpgradeType.Armor2] = new(250, 60, UpgradeType.Armor1, $"+{ArmorBonusPerTier} more armor"),
+        [UpgradeType.Armor3] = new(350, 80, UpgradeType.Armor2, $"+{ArmorBonusPerTier} more armor"),
         [UpgradeType.Mobility1] = new(100, 30, null, $"+{MobilityBonusPerTier} speed (tenths of a tile per tick) for all units"),
         [UpgradeType.Mobility2] = new(200, 45, UpgradeType.Mobility1, $"+{MobilityBonusPerTier} more speed"),
         [UpgradeType.Harvesting1] = new(100, 30, null, $"+{HarvestingBonusPerTier} ore gathered per mining tick"),
         [UpgradeType.Harvesting2] = new(200, 45, UpgradeType.Harvesting1, $"+{HarvestingBonusPerTier} more ore per mining tick"),
+        [UpgradeType.Fortify1] = new(150, 40, null, $"+{FortifyBonusPerTier} armor for all completed buildings"),
+        [UpgradeType.Fortify2] = new(250, 60, UpgradeType.Fortify1, $"+{FortifyBonusPerTier} more building armor"),
         [UpgradeType.SiegeEngineering] = new(200, 60, null, "Unlocks the SiegeWorkshop, which builds Trebuchets"),
     };
 

@@ -543,7 +543,7 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
         var rules = await http.GetFromJsonAsync<RulesDto>("/api/v1/rules", NetRtsClient.JsonOptions, Ct);
         Assert.Equal(5, rules!.Units.Count);
         Assert.Equal(6, rules.Buildings.Count);
-        Assert.Equal(9, rules.Upgrades.Count);
+        Assert.Equal(12, rules.Upgrades.Count);
         var trebuchet = rules.Units.Single(u => u.Type == UnitType.Trebuchet);
         Assert.Equal((3, 3), (trebuchet.MinRange, trebuchet.ShotTicks));
         Assert.Equal(UpgradeType.SiegeEngineering, rules.Buildings.Single(b => b.Type == BuildingType.SiegeWorkshop).RequiresUpgrade);

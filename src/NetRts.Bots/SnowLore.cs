@@ -29,18 +29,21 @@ public static class SnowLore
         [UnitType.Trebuchet] = "Snow Mobile",
     };
 
-    /// <summary>Upgrades are coursework: tier 1 is the intro class, tier 2 the upper-division one.</summary>
+    /// <summary>Upgrades are coursework: tier 1 is the intro class, tier 2 the upper-division one, tier 3 the capstone.</summary>
     public static readonly IReadOnlyDictionary<UpgradeType, string> Upgrades = new Dictionary<UpgradeType, string>
     {
         [UpgradeType.Weapons1] = "Intro to Chemistry",
         [UpgradeType.Weapons2] = "Organic Chemistry",
         [UpgradeType.Armor1] = "Unit Testing",
         [UpgradeType.Armor2] = "Code Review",
+        [UpgradeType.Armor3] = "Software Quality Assurance",
         [UpgradeType.Mobility1] = "Algorithms",
         [UpgradeType.Mobility2] = "Parallel Computing",
         [UpgradeType.Harvesting1] = "Intro to Biology",
         [UpgradeType.Harvesting2] = "Entomology",
         [UpgradeType.SiegeEngineering] = "Welding Technology",
+        [UpgradeType.Fortify1] = "Intro to Construction",
+        [UpgradeType.Fortify2] = "Structural Engineering",
     };
 
     /// <summary>House bots keep their API names; these are their mascot-league nicknames.</summary>

@@ -115,6 +115,46 @@ public class CombatAndVictoryTests
     }
 
     [Fact]
+    public void Fortify_adds_armor_to_completed_buildings_but_not_to_construction_sites()
+    {
+        var sim = TestGames.New();
+        sim.SpawnBuilding(0, BuildingType.GuardTower, 12, 12);
+        var barracks = sim.SpawnBuilding(1, BuildingType.Barracks, 16, 12);
+        var site = sim.SpawnBuilding(1, BuildingType.Barracks, 17, 12, completed: false);
+        sim.SetHp(site, 100);
+        sim.GrantUpgrade(1, UpgradeType.Fortify1);
+        sim.GrantUpgrade(1, UpgradeType.Fortify2);
+
+        sim.Step();
+
+        var stats = GameRules.Buildings[BuildingType.Barracks];
+        Assert.Equal(stats.MaxHp - (10 - stats.Armor - 2), sim.Find(barracks)!.Value.Hp);
+
+        sim.RemoveEntity(barracks);
+        var before = sim.Find(site)!.Value.Hp;
+        sim.Step();
+        Assert.Equal(before - 10, sim.Find(site)!.Value.Hp);
+    }
+
+    [Fact]
+    public void Armor3_is_a_third_point_of_unit_armor()
+    {
+        var sim = TestGames.New();
+        sim.SpawnBuilding(0, BuildingType.GuardTower, 12, 12);
+        var scout = sim.SpawnUnit(1, UnitType.Scout, 16, 12);
+        sim.SetHp(scout, 1000);
+        foreach (var armor in new[] { UpgradeType.Armor1, UpgradeType.Armor2, UpgradeType.Armor3 })
+        {
+            sim.GrantUpgrade(1, armor);
+        }
+
+        sim.Step();
+
+        Assert.Equal(1000 - (10 - GameRules.Units[UnitType.Scout].Armor - 3), sim.Find(scout)!.Value.Hp);
+        Assert.Equal(UpgradeType.Armor2, GameRules.Upgrades[UpgradeType.Armor3].Requires);
+    }
+
+    [Fact]
     public void Guard_towers_shoot_an_enemy_unit_before_a_nearer_enemy_building()
     {
         var sim = TestGames.New();

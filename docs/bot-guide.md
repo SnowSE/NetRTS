@@ -40,9 +40,10 @@ own campus building and its own student housing.
 | Washburn Welding Shop (Richfield campus) | `SiegeWorkshop` | Builds Snow Mobiles |
 | Grubs, dug from grub patches | ore (`resources`, `Gather`) | What everything costs |
 | Intro to Chemistry → Organic Chemistry | `Weapons1` → `Weapons2` | More damage |
-| Unit Testing → Code Review | `Armor1` → `Armor2` | More armor |
+| Unit Testing → Code Review → Software Quality Assurance | `Armor1` → `Armor2` → `Armor3` | More armor |
 | Algorithms → Parallel Computing | `Mobility1` → `Mobility2` | More speed |
 | Intro to Biology → Entomology | `Harvesting1` → `Harvesting2` | More grubs per dig (know your insects) |
+| Intro to Construction → Structural Engineering | `Fortify1` → `Fortify2` | Sturdier buildings |
 | Welding Technology | `SiegeEngineering` | Unlocks the Washburn Welding Shop |
 | Sleepy Sitter, Poky Badger, Honey Badger, Blue Badger, Grub Hoarder | `sitter`, `poky`, `rusher`, `balanced`, `economist` | House badgers |
 
@@ -364,17 +365,18 @@ unit it can only target what you can see, so pair it with spotters and an escort
 Build work is in worker-ticks: two workers finish a Barracks in 20 ticks. Sites start at 10% HP and
 gain the rest as they're built.
 
-**Upgrades** (TechLab; each tier 2 needs its tier 1)
+**Upgrades** (TechLab; each tier needs the one before it)
 
 | Upgrade | Cost | Ticks | Effect |
 |---|---|---|---|
 | Weapons1 / Weapons2 | 150 / 250 | 40 / 60 | +2 damage each, all units and towers |
-| Armor1 / Armor2 | 150 / 250 | 40 / 60 | +1 armor each, all units |
+| Armor1 / Armor2 / Armor3 | 150 / 250 / 350 | 40 / 60 / 80 | +1 armor each, all units |
 | Mobility1 / Mobility2 | 100 / 200 | 30 / 45 | +2 speed each, all units |
 | Harvesting1 / Harvesting2 | 100 / 200 | 30 / 45 | +1 ore per mining tick each |
+| Fortify1 / Fortify2 | 150 / 250 | 40 / 60 | +1 armor each, all completed buildings (guard towers too) |
 | SiegeEngineering | 200 | 60 | Unlocks the SiegeWorkshop |
 
-Upgrades apply instantly to existing and future units.
+Upgrades apply instantly to existing and future units and buildings.
 
 **Economy** — workers mine 2 ore per tick (carrying up to 10), then walk it to the nearest
 drop-off. Ore beyond your storage capacity is lost.
@@ -460,6 +462,7 @@ and a person's account page shows every achievement any of their bots has earned
 | Combat | Worker Uprising | Win without ever building a Barracks. | Platinum |
 | Combat | Arms Race | Research Weapons 2 and Armor 2 in the same match. | Silver |
 | Combat | Fully Loaded | Research all 8 upgrades in one match. | Gold |
+| Combat | Valedictorian | Research all 11 upgrades in one match. | Platinum |
 | Combat | ??? | A secret, until someone earns it. | Gold |
 | Combat | ??? | A secret, until someone earns it. | Platinum |
 | Speed and precision | Quick Draw | Complete a Barracks before tick 60. | Silver |

@@ -60,11 +60,11 @@ internal sealed class PlayerState(Guid id, int slot, string name)
     public int LongestWorkerIdleTicks { get; set; }
     public int LowestScoreSharePercent { get; set; } = 100;
 
-    public int Tier(UpgradeType tier1, UpgradeType tier2) =>
-        (Upgrades.Contains(tier1) ? 1 : 0) + (Upgrades.Contains(tier2) ? 1 : 0);
+    public int Tier(params UpgradeType[] tiers) => tiers.Count(Upgrades.Contains);
 
     public int WeaponsBonus => Tier(UpgradeType.Weapons1, UpgradeType.Weapons2) * GameRules.WeaponsBonusPerTier;
-    public int ArmorBonus => Tier(UpgradeType.Armor1, UpgradeType.Armor2) * GameRules.ArmorBonusPerTier;
+    public int ArmorBonus => Tier(UpgradeType.Armor1, UpgradeType.Armor2, UpgradeType.Armor3) * GameRules.ArmorBonusPerTier;
+    public int FortifyBonus => Tier(UpgradeType.Fortify1, UpgradeType.Fortify2) * GameRules.FortifyBonusPerTier;
     public int MobilityBonus => Tier(UpgradeType.Mobility1, UpgradeType.Mobility2) * GameRules.MobilityBonusPerTier;
     public int HarvestingBonus => Tier(UpgradeType.Harvesting1, UpgradeType.Harvesting2) * GameRules.HarvestingBonusPerTier;
 }
