@@ -89,6 +89,9 @@ public sealed record PickupMeDto
     public Guid? MatchId { get; init; }
     public bool Champion { get; init; }
     public int Wins { get; init; }
+
+    /// <summary>Not ready yet: keeps your place in line while the people behind you go ahead.</summary>
+    public bool Holding { get; init; }
     public int Step { get; init; }
     public int Steps { get; init; }
     public IReadOnlyList<PickupPlayerDto> Players { get; init; } = [];
@@ -113,3 +116,5 @@ public sealed record PickupTokenRequest(string? Token);
 public sealed record PickupPlanRequest(string Token, PickupPlanDto Plan);
 
 public sealed record PickupOrderRequest(string Token, string Order);
+
+public sealed record PickupHoldRequest(string Token, bool Hold);

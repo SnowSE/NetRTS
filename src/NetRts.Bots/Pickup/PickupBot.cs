@@ -11,6 +11,7 @@ namespace NetRts.Bots.Pickup;
 /// </summary>
 public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, int tickMs = 100) : IBotStrategy
 {
+    private PickupPlanDto _plan = plan;
     private const int DefenseRadius = 10;
     private const int ForeverRecheckTicks = 50;
     private const int MaxWorkers = 30;
@@ -78,6 +79,27 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
         }
     }
 
+    /// <summary>
+    /// A new plan from the phone while the match runs. Steps already done stay done (the step being worked on
+    /// carries on, by its place in the list), new steps join the queue, the Forever cards start over and the
+    /// attack follows the new settings. The start pile is ignored: it was spent at tick 0.
+    /// </summary>
+    public void Apply(PickupPlanDto next)
+    {
+        ArgumentNullException.ThrowIfNull(next);
+        lock (_lock)
+        {
+            _plan = next;
+            _step = Math.Min(_step, next.Steps.Count);
+            _stepBase = -1;
+            _kept.Clear();
+            _kept.AddRange(next.Steps.Take(_step).Where(s => s.Keep && s.Kind is "train" or "workers"));
+            _forever = 0;
+            _foreverBase = -1;
+            _foreverSkipped = 0;
+        }
+    }
+
     /// <summary>Bring the fighters home; the automatic attack waits 15 seconds before it can fire again.</summary>
     public void PullBack()
     {
@@ -113,7 +135,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
                 RunSteps(view, turn);
             }
 
-            if (!refilling && _step >= plan.Steps.Count)
+            if (!refilling && _step >= _plan.Steps.Count)
             {
                 RunForever(view, turn);
             }
@@ -130,7 +152,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
     {
         var army = view.Army.ToList();
         var treaty = _tick <= treatyTicks;
-        var attack = plan.Attack;
+        var attack = _plan.Attack;
         if (!_attacking && !treaty && _tick >= _holdUntil)
         {
             _attacking = _attackNow || (attack.Trigger == "time"
@@ -175,7 +197,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
 
     private (int X, int Y)? Target(BotView view, IReadOnlyList<UnitDto> army)
     {
-        if (plan.Attack.Target != "nearest")
+        if (_plan.Attack.Target != "nearest")
         {
             return view.AttackTarget();
         }
@@ -210,9 +232,9 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
 
     private void RunSteps(BotView view, BotTurn turn)
     {
-        while (_step < plan.Steps.Count)
+        while (_step < _plan.Steps.Count)
         {
-            var step = plan.Steps[_step];
+            var step = _plan.Steps[_step];
             if (!Done(view, step))
             {
                 Work(view, turn, step);
@@ -271,7 +293,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
     /// <summary>The Forever cards in order: one unit, one building or one class each, round and round.</summary>
     private void RunForever(BotView view, BotTurn turn)
     {
-        var cards = plan.Forever;
+        var cards = _plan.Forever;
         if (cards.Count == 0)
         {
             return;

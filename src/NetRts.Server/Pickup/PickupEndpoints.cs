@@ -41,6 +41,12 @@ public static class PickupEndpoints
             .ProducesErrors()
             .WithSummary("After your match: back in line.");
 
+        pickup.MapPost("/hold", (PickupHoldRequest request, PickupHill hill, TimeProvider time) =>
+                Guarded(() => Results.Ok(hill.Hold(request.Token, request.Hold, Now(time)))))
+            .Produces<PickupMeDto>()
+            .ProducesErrors()
+            .WithSummary("Not ready yet (hold: true) keeps your place while the next ready player goes ahead; hold: false when you're ready.");
+
         pickup.MapPost("/order", (PickupOrderRequest request, PickupHill hill) => Guarded(() =>
             {
                 hill.Order(request.Token, request.Order);

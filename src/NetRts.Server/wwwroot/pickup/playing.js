@@ -63,7 +63,8 @@ export function mountPlaying(el, { plan, token, matchId }) {
     <div class="np-steps" id="np-steps"></div>
     <div class="hudp hud-dark"><div class="hud" id="np-hud"></div><div class="score" id="np-score"></div></div>
     <p class="np-flash" id="np-flash" role="status"></p>
-    <div class="acts"><button type="button" class="atk" data-order="attack">Attack now!</button><button type="button" class="pull" data-order="pullback">Pull back</button></div>`;
+    <div class="acts"><button type="button" class="atk" data-order="attack">Attack now!</button><button type="button" class="pull" data-order="pullback">Pull back</button></div>
+    <button type="button" class="edit-live" data-a="edit-live">Change my plan <small>while it plays</small></button>`;
   const $ = (id) => el.querySelector(`#${id}`);
 
   if (matchId) {
@@ -117,5 +118,8 @@ export function mountPlaying(el, { plan, token, matchId }) {
     $('np-score').innerHTML = players.length ? playersTable(players) : '';
   }
 
-  return { update, dispose: () => { scope.dispose(); el.hidden = true; el.innerHTML = ''; } };
+  /** The plan changed during the match (Change my plan): the steps shown follow the new one. */
+  const setPlan = (p) => { plan = p; };
+
+  return { update, setPlan, dispose: () => { scope.dispose(); el.hidden = true; el.innerHTML = ''; } };
 }

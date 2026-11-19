@@ -98,4 +98,42 @@ public class PickupBotTests
 
     private static int Dist((int X, int Y, int Hp) a, (BuildingType Type, int X, int Y, bool Completed) b) =>
         Math.Max(Math.Abs(a.X - b.X), Math.Abs(a.Y - b.Y));
+
+    [Fact]
+    public void A_plan_changed_mid_match_keeps_the_steps_already_done_and_plays_the_new_ones()
+    {
+        var first = new PickupPlanDto { Steps = [new() { Kind = "train", Item = "Soldier", Count = 3 }], Forever = ["Worker"], Attack = new() { Army = 60 } };
+        var (sim, bots) = Setup(first, new StartKit(1500, [], [BuildingType.Barracks]), Sitter, Bare);
+        Run(sim, bots, 250);
+        Assert.Equal(1, bots[0].CurrentStep);
+
+        bots[0].Apply(first with
+        {
+            Steps = [first.Steps[0], new() { Kind = "train", Item = "Archer", Count = 2 }],
+        });
+        Run(sim, bots, 250);
+
+        Assert.Equal(2, bots[0].CurrentStep);
+        Assert.True(sim.UnitIds(0, UnitType.Archer).Count() >= 2);
+    }
+
+    [Fact]
+    public void A_shorter_plan_mid_match_moves_on_to_its_forever_cards()
+    {
+        var plan = new PickupPlanDto
+        {
+            Steps = [new() { Kind = "research", Item = "Weapons1" }, new() { Kind = "workers", Count = 20 }],
+            Forever = ["Worker"],
+            Attack = new() { Army = 60 },
+        };
+        var (sim, bots) = Setup(plan, Bare, Sitter, Bare);
+        Run(sim, bots, 20);
+        Assert.Equal(0, bots[0].CurrentStep);   // stuck: no Makerspace
+
+        bots[0].Apply(plan with { Steps = [], Forever = ["Soldier"] });
+        Run(sim, bots, 300);
+
+        Assert.Equal(0, bots[0].CurrentStep);
+        Assert.NotEmpty(sim.UnitIds(0, UnitType.Soldier));
+    }
 }

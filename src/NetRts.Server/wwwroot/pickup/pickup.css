@@ -286,3 +286,15 @@ html.pk-full .topbar, html.pk-full .foot, html.pk-full .skip { display: none; }
 .pks-clock small { font-size: clamp(13px, 1vw, 17px); color: #c9d8ea; }
 .pks-bar { display: block; height: 6px; border-radius: 3px; background: rgba(255, 255, 255, .2); overflow: hidden; margin-top: 4px; }
 .pks-bar span { display: block; height: 100%; background: #d4661b; }
+
+/* Changing the plan while the match plays, and holding a place in line. */
+.pk .edit-live { display: block; width: 100%; margin-top: 10px; padding: 13px; border-radius: 12px; border: 2px solid var(--blue); background: #fff; color: var(--blue);
+  font: 800 16px var(--pk-font); cursor: pointer; }
+.pk .edit-live small { display: block; font-weight: 600; font-size: 12px; color: var(--sub); }
+.p-cards .cd-hold { font: 700 13px var(--pk-font); padding: 7px 12px; border-radius: 6px; border: 1.5px solid currentColor; background: transparent; color: inherit; cursor: pointer;
+  margin: 6px 0 0 8px; vertical-align: middle; }
+.p-cards .cd-head:not(.go-time):not(.next-time) .cd-hold { display: block; margin: 6px 0 0; color: var(--blue); }
+.p-cards .live-note { margin: 0 0 10px; padding: 8px 10px; border-radius: 6px; background: #fff1e6; color: #8a3f0c; font-size: 13px; }
+.p-cards .slot.done { opacity: .55; }
+.p-cards .slot.done .no { color: #067647; font-weight: 800; }
+.p-cards .slot.now { outline: 3px solid var(--hl); outline-offset: -1px; }

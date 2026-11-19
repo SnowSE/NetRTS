@@ -207,4 +207,43 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
         Assert.Equal(HttpStatusCode.BadRequest, badPlan.StatusCode);
     }
+
+    [Fact]
+    public void A_player_who_is_not_ready_keeps_their_place_and_lets_the_next_go_ahead()
+    {
+        var hill = NewHill(SitterDeck);
+        var a = hill.Join(null, At(0));
+        var b = hill.Join(null, At(0));
+
+        hill.Hold(a.Token, true, At(1));
+        hill.StartNow(b.Token, At(1));
+        hill.Update(At(1));
+
+        var held = hill.Me(a.Token, At(2));
+        Assert.Equal("line", held.Phase);
+        Assert.True(held.Holding);
+        Assert.Equal(1, held.Place);
+        Assert.Equal("countdown", hill.Me(b.Token, At(2)).Phase);
+
+        hill.Hold(a.Token, false, At(3));
+        Assert.False(hill.Me(a.Token, At(3)).Holding);
+    }
+
+    [Fact]
+    public void A_plan_saved_while_playing_reaches_the_bot()
+    {
+        var hill = NewHill(SitterDeck);
+        var a = hill.Join(null, At(0));
+        hill.StartNow(a.Token, At(0));
+        hill.Update(At(0));
+        hill.Update(At(10));
+        var host = factory.Matches.Get(hill.Me(a.Token, At(10)).MatchId!.Value)!;
+
+        var changed = PickupPlans.Decks[2].Plan with { Start = [] };
+        Assert.Null(hill.SetPlan(a.Token, changed));
+
+        Assert.Equal(changed, hill.Me(a.Token, At(11)).Plan);
+        Assert.Equal(changed.Steps.Count, hill.Me(a.Token, At(11)).Steps);
+        host.Stop();
+    }
 }

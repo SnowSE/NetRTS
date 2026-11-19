@@ -47,6 +47,8 @@ export function mountPickup(main) {
   let playing = null;     // the now-playing overlay, while a match plays
   let playedPlan = null;  // the plan as it stood when the match started (what played)
   let overFor = null;     // the match whose match-over screen is showing
+  let liveEdit = false;   // changing the plan while the match plays (Change my plan)
+  let liveStep = -1;      // the step the deck last showed as "now"
 
   const sheets = createSheets($('pk-sheet'), $('pk-toast'), scope);
   const deck = createDeck({
@@ -55,6 +57,7 @@ export function mountPickup(main) {
     changed: () => changed(),
     redraw: () => draw(),
     decks: () => decks,
+    live: () => (liveEdit && me?.phase === 'playing' ? { step: me.step ?? 0 } : null),
     sheets,
   });
   const eatClick = dragToReorder(root, scope, (kind, from, to) => deck.move(kind, from, to));
@@ -77,6 +80,11 @@ export function mountPickup(main) {
   }
 
   function changed() {
+    if (playing) {
+      // During the match the server hands each saved plan to the bot; now playing shows the new steps.
+      playedPlan = normalize(plan);
+      playing.setPlan(playedPlan);
+    }
     draw();
     scope.clear(saveT);
     saveT = later(saveNow, SAVE_MS);
@@ -128,9 +136,12 @@ export function mountPickup(main) {
         playing = { matchId: me.matchId, ...mountPlaying($('pk-ov'), { plan: playedPlan, token: token(), matchId: me.matchId }) };
       }
       playing.update(me);
+      $('pk-ov').hidden = liveEdit;
+      if (liveEdit && me.step !== liveStep) { liveStep = me.step; draw(); }
       return;
     }
     const was = playing;
+    if (liveEdit) { liveEdit = false; draw(); }
     if (playing) { playing.dispose(); playing = null; }
     if (me.phase === 'over' && me.result) {
       if (overFor !== (me.matchId ?? 'last')) showOver();
@@ -171,6 +182,28 @@ export function mountPickup(main) {
     }
   }
 
+  /** Not ready yet (keep my place, let the next player go) or ready again. */
+  async function hold(on, btn) {
+    btn.disabled = true;
+    try {
+      if (saveT) await saveNow();
+      me = await scope.wait(api('/api/v1/pickup/hold', { method: 'POST', body: { token: token(), hold: on } }));
+      follow();
+    } catch (e) {
+      btn.disabled = false;
+      sheets.toast(e.message);
+    }
+  }
+
+  function editLive(on) {
+    liveEdit = on && me?.phase === 'playing';
+    liveStep = me?.step ?? -1;
+    sheets.close();
+    $('pk-ov').hidden = liveEdit;
+    draw();
+    window.scrollTo(0, 0);
+  }
+
   async function startNow(btn) {
     btn.disabled = true;
     try {
@@ -193,20 +226,27 @@ export function mountPickup(main) {
     if (me?.phase === 'countdown') {
       return `<div class="cd-count"><small>You're up!</small><b>Starting in ${me.secondsLeft ?? 0}…</b><small>Your plan at zero is the one that plays.</small></div>${coin}`;
     }
+    if (me?.phase === 'playing' && liveEdit) {
+      return `<div class="cd-count"><small>Your match is on the big screen</small><b>Changes reach your bot right away</b><button type="button" class="cd-start" data-a="back-to-match">Back to the match</button></div>${coin}`;
+    }
     if (me?.phase === 'next') {
-      return `<div class="cd-count"><small>You're next, ${name}!</small><b>Starts in ${clock(me.secondsLeft ?? 0)}</b><button type="button" class="cd-start" data-a="start-now">Start now</button></div>${coin}`;
+      return `<div class="cd-count"><small>You're next, ${name}!</small><b>Starts in ${clock(me.secondsLeft ?? 0)}</b><button type="button" class="cd-start" data-a="start-now">Start now</button><button type="button" class="cd-hold" data-a="hold" data-v="1">Need more time</button></div>${coin}`;
+    }
+    if (me?.holding && me.place) {
+      return `<div class="cd-count"><small>${name} · ${ordinal(me.place)} in line, holding your place</small><b>Not ready yet</b><button type="button" class="cd-start" data-a="hold" data-v="0">I'm ready</button><small>The next player goes ahead until you're ready.</small></div>${coin}`;
     }
     const where = me?.champion && me.place == null
       ? `<span class="crown">♛</span> You hold the hill · ${me.wins} win${me.wins === 1 ? '' : 's'}`
       : me?.place ? `${ordinal(me.place)} in line · about ${waitMinutes(me.place)} min` : 'In line';
-    return `<div><b>${name}</b><small>${where}</small></div>${coin}`;
+    const notReady = me?.place && me.phase === 'line' ? '<button type="button" class="cd-hold" data-a="hold" data-v="1">Not ready yet</button>' : '';
+    return `<div><b>${name}</b><small>${where}</small>${notReady}</div>${coin}`;
   }
 
   function paintHead() {
     const h = $('pk-head');
     if (!h) return;
-    h.classList.toggle('go-time', me?.phase === 'countdown');
-    h.classList.toggle('next-time', me?.phase === 'next');
+    h.classList.toggle('go-time', me?.phase === 'countdown' || (me?.phase === 'playing' && liveEdit));
+    h.classList.toggle('next-time', me?.phase === 'next' || (me?.phase === 'line' && !!me?.holding));
     const next = headHTML();
     if (h.innerHTML !== next) h.innerHTML = next;
   }
@@ -230,6 +270,9 @@ export function mountPickup(main) {
     ...sheets.actions,
     ...deck.actions,
     'start-now': (v, el) => startNow(el),
+    hold: (v, el) => hold(v === '1', el),
+    'edit-live': () => editLive(true),
+    'back-to-match': () => editLive(false),
     rejoin: (v, el) => rejoin(el),
   };
   scope.on(root, 'click', (e) => {

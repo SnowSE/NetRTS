@@ -110,21 +110,24 @@ export function createDeck(ctx) {
   // ---- drawing
 
   function startZone(plan) {
-    const zone = `<div class="minis"><span class="mini t-building fixed">${icon(FREE_BUILDING, 16)} ${esc(nameOf(FREE_BUILDING))} <span class="ct">free</span></span>${plan.start.map((x) => `<button type="button" class="mini t-${tcls(x.item)}" data-a="start-dec" data-v="${x.item}" aria-label="Take back one ${esc(nameOf(x.item))}">${icon(x.item, 16)} ${esc(nameOf(x.item))} <span class="ct">×${x.count}</span></button>`).join('')}</div>
+    const live = ctx.live?.();
+    const zone = `${live ? '<p class="live-note">Your match started with this pile. Changes here are for your next match.</p>' : ''}<div class="minis"><span class="mini t-building fixed">${icon(FREE_BUILDING, 16)} ${esc(nameOf(FREE_BUILDING))} <span class="ct">free</span></span>${plan.start.map((x) => `<button type="button" class="mini t-${tcls(x.item)}" data-a="start-dec" data-v="${x.item}" aria-label="Take back one ${esc(nameOf(x.item))}">${icon(x.item, 16)} ${esc(nameOf(x.item))} <span class="ct">×${x.count}</span></button>`).join('')}</div>
       <p class="hint">${plan.start.length ? 'Tap a card here to take one back.' : 'Play cards from your hand. Each one costs grubs.'}</p>`;
     const hand = `<p class="hand-h">Your hand · tap to buy</p><div class="hand">${START_ITEMS.map((id) => { const why = startBlock(plan, id); return card(id, !!why, why); }).join('')}</div>`;
     return [zone, hand];
   }
 
   function thenZone(plan) {
+    const live = ctx.live?.();
     const o = owned(plan, plan.steps.length), full = plan.steps.length >= MAX_STEPS;
     const zone = `<ol class="slots" data-drag="steps">${Array.from({ length: MAX_STEPS }, (_, i) => {
       const s = plan.steps[i];
       if (!s) return `<li class="slot empty"><span class="no">${i + 1}</span><span>${i === plan.steps.length ? 'Play a card from your hand' : ''}</span></li>`;
       const e = issue(plan, i), counts = s.kind === 'train' || s.kind === 'workers';
-      return `<li class="slot t-${tcls(stepItem(s))}" data-di="${i}"><span class="grip" data-grip title="Drag to reorder" aria-hidden="true">⠿</span><span class="no">${i + 1}</span><button type="button" class="sl-main" data-a="step-edit" data-v="${i}"><span class="sl-ic">${icon(stepItem(s), 26)}</span><span><b>${esc(stepText(s))}</b><small class="${e ? 'bad' : ''}">${esc(e || stepSub(s))}</small></span></button>${counts ? `<span class="sl-n"><button type="button" data-a="step-dec" data-v="${i}" aria-label="Fewer">−</button><button type="button" data-a="step-inc" data-v="${i}" aria-label="More">+</button></span>` : ''}</li>`;
+      const state = live ? (i < live.step ? 'done' : i === live.step ? 'now' : '') : '';
+      return `<li class="slot t-${tcls(stepItem(s))} ${state}" data-di="${i}"><span class="grip" data-grip title="Drag to reorder" aria-hidden="true">⠿</span><span class="no">${state === 'done' ? '✓' : i + 1}</span><button type="button" class="sl-main" data-a="step-edit" data-v="${i}"><span class="sl-ic">${icon(stepItem(s), 26)}</span><span><b>${esc(stepText(s))}</b><small class="${e ? 'bad' : ''}">${state === 'done' ? 'Done' : state === 'now' ? 'Your bot is on this step now' : esc(e || stepSub(s))}</small></span></button>${counts ? `<span class="sl-n"><button type="button" data-a="step-dec" data-v="${i}" aria-label="Fewer">−</button><button type="button" data-a="step-inc" data-v="${i}" aria-label="More">+</button></span>` : ''}</li>`;
     }).join('')}</ol>
-    <p class="hint">Each step runs once, top to bottom. Drag ⠿ to change the order. Then the Forever cards take over.</p>`;
+    <p class="hint">${live ? 'Steps already done stay done. Changes reach your bot right away.' : 'Each step runs once, top to bottom. Drag ⠿ to change the order. Then the Forever cards take over.'}</p>`;
     const hand = `<p class="hand-h">${full ? 'Six steps is the most' : 'Your hand · tap to add a step'}</p><div class="hand">${ALL_ITEMS.map((id) => {
       const it = item(id), m = missing(id, o), taken = it.type === 'research' && o.has(id);
       return card(id, full || m.length > 0 || taken, taken ? 'Already taken' : m.length ? `Needs ${m.join(' + ')}` : '');

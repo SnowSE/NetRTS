@@ -46,6 +46,9 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
         public DateTime SeenAt { get; set; } = now;
         public PickupResultDto? Result { get; set; }
         public DateTime OverAt { get; set; }
+
+        /// <summary>Not ready yet: keeps the place in line, but the next ready player goes ahead.</summary>
+        public bool Holding { get; set; }
     }
 
     /// <summary>Who plays a seat in a round: a student, or the house with a deck.</summary>
@@ -125,8 +128,34 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
 
         lock (_gate)
         {
-            Find(token).Plan = plan;
+            var entry = Find(token);
+            entry.Plan = plan;
+            if (entry.Phase == Phase.Playing && _round?.Host is not null)
+            {
+                // Playing: the bot takes the new plan from its next tick.
+                foreach (var (player, bot) in _round.Seats.Values.Where(s => s.Player.Student == entry))
+                {
+                    bot.Apply(plan);
+                }
+            }
+
             return null;
+        }
+    }
+
+    /// <summary>Not ready yet (or ready again): the place in line stays; while holding, the next ready player goes ahead.</summary>
+    public PickupMeDto Hold(string token, bool hold, DateTime now)
+    {
+        lock (_gate)
+        {
+            var entry = Find(token);
+            entry.Holding = hold;
+            if (!hold && entry.ReadyAt > now)
+            {
+                entry.ReadyAt = now;
+            }
+
+            return MeLocked(entry, now);
         }
     }
 
@@ -155,6 +184,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             {
                 entry.Phase = Phase.Line;
                 entry.Result = null;
+                entry.Holding = false;
                 if (entry != _champion && !_line.Contains(entry))
                 {
                     entry.ReadyAt = now + AgainPlanning;
@@ -273,7 +303,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
     /// <summary>The ready students at the front of the line: none unless the very first one is ready.</summary>
     private List<Entry> ReadyChallengers(DateTime now)
     {
-        var line = _line.Where(e => e != _champion && e.Phase == Phase.Line).ToList();
+        var line = _line.Where(e => e != _champion && e.Phase == Phase.Line && !e.Holding).ToList();
         return line.Count == 0 || line[0].ReadyAt > now ? [] : line.Where(e => e.ReadyAt <= now).Take(MaxChallengers).ToList();
     }
 
@@ -474,7 +504,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             Phase.Countdown => "countdown",
             Phase.Playing => "playing",
             Phase.Over => "over",
-            _ when place == 0 && entry.ReadyAt > now => "next",
+            _ when place == FrontPlace(entry) && !entry.Holding && entry.ReadyAt > now => "next",
             _ => "line",
         };
         var round = _round is not null && _round.Players.Any(p => p.Student == entry) ? _round : null;
@@ -494,6 +524,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             MatchId = round?.Host?.Id,
             Champion = entry == _champion,
             Wins = entry == _champion ? _championWins : 0,
+            Holding = entry.Holding,
             Step = bot?.CurrentStep ?? 0,
             Steps = entry.Plan.Steps.Count,
             Players = phase == "playing" && round?.Host is { } host ? PlayersOf(round, host, entry) : [],
@@ -501,6 +532,9 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             Plan = entry.Plan,
         };
     }
+
+    /// <summary>Where the front of the line is for this entry: 0, or later when everyone ahead is holding.</summary>
+    private int FrontPlace(Entry entry) => _line.FindIndex(e => e == entry || !e.Holding);
 
     private Entry Find(string token) =>
         _entries.TryGetValue(token, out var entry) ? entry : throw new MatchException(404, "UNKNOWN_TOKEN", "That phone isn't in the pick-up game; join again.");
