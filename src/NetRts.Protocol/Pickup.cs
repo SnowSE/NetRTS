@@ -41,6 +41,13 @@ public sealed record PickupPlanDto
     public PickupAttackDto Attack { get; init; } = new();
 }
 
+/// <summary>
+/// Why the step being worked on hasn't happened yet. Reason: building (needs Item built first), class (needs
+/// the upgrade Item first), grubs (saving up: Have of Cost), busy (every Item is busy), going-up (an Item is
+/// being built), site (no room to build), builder (no free worker).
+/// </summary>
+public sealed record PickupWaitDto(string Reason, string? Item = null, int Have = 0, int Cost = 0);
+
 /// <summary>A ready-made plan: what the house plays, and what a phone loads with one tap.</summary>
 public sealed record PickupDeckDto(string Id, string Name, string HouseName, PickupPlanDto Plan);
 
@@ -94,6 +101,9 @@ public sealed record PickupMeDto
     public bool Holding { get; init; }
     public int Step { get; init; }
     public int Steps { get; init; }
+
+    /// <summary>While playing: why the current step is waiting (null when it's going ahead).</summary>
+    public PickupWaitDto? Waiting { get; init; }
     public IReadOnlyList<PickupPlayerDto> Players { get; init; } = [];
     public PickupResultDto? Result { get; init; }
     public PickupPlanDto Plan { get; init; } = new();

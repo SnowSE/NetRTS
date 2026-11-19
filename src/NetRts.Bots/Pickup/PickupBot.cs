@@ -31,6 +31,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
     private bool _attackNow;
     private int _holdUntil;
     private int _tick;
+    private PickupWaitDto? _waiting;
 
     public string Name { get; } = name;
 
@@ -42,6 +43,18 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
             lock (_lock)
             {
                 return _step;
+            }
+        }
+    }
+
+    /// <summary>Why the current step is waiting, or null when it's going ahead.</summary>
+    public PickupWaitDto? Waiting
+    {
+        get
+        {
+            lock (_lock)
+            {
+                return _waiting;
             }
         }
     }
@@ -237,7 +250,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
             var step = _plan.Steps[_step];
             if (!Done(view, step))
             {
-                Work(view, turn, step);
+                _waiting = WaitOf(Work(view, turn, step));
                 return;
             }
 
@@ -249,7 +262,23 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
             _step++;
             _stepBase = -1;
         }
+
+        _waiting = null;
     }
+
+    /// <summary>What the phone shows under the step being worked on.</summary>
+    private static PickupWaitDto? WaitOf(Attempt attempt) => attempt switch
+    {
+        Attempt.NeedsBuilding n => new("building", n.Type.ToString()),
+        Attempt.NeedsUpgrade u => new("class", u.Upgrade.ToString()),
+        Attempt.TooExpensive t => new("grubs", null, t.Have, t.Cost),
+        Attempt.Busy b => new("busy", b.Type.ToString()),
+        Attempt.AlreadyGoingUp g => new("going-up", g.Type.ToString()),
+        Attempt.InProgress => null,
+        Attempt.NoSite => new("site"),
+        Attempt.NoBuilder => new("builder"),
+        _ => null,
+    };
 
     private bool Done(BotView view, PickupStepDto step)
     {
@@ -259,36 +288,28 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
             case "train":
                 return Count(view, UnitOf(step)) >= step.Count;
             case "build":
+                // Done when a new one is finished (not when it starts going up), so the phone matches the map.
                 var type = Enum.Parse<BuildingType>(step.Item!);
+                var finished = view.MyBuildings.Count(b => b.Type == type && b.Completed);
                 if (_stepBase < 0)
                 {
-                    _stepBase = Buildings(view, type);
+                    _stepBase = finished;
                     return false;
                 }
 
-                return Buildings(view, type) > _stepBase;
+                return finished > _stepBase;
             default:
                 var upgrade = Enum.Parse<UpgradeType>(step.Item!);
                 return view.State.You.Upgrades.Contains(upgrade) || view.State.You.Researching.Any(r => r.Upgrade == upgrade);
         }
     }
 
-    private void Work(BotView view, BotTurn turn, PickupStepDto step)
+    private Attempt Work(BotView view, BotTurn turn, PickupStepDto step) => step.Kind switch
     {
-        switch (step.Kind)
-        {
-            case "workers":
-            case "train":
-                turn.TryTrain(UnitOf(step));
-                break;
-            case "build":
-                Build(turn, Enum.Parse<BuildingType>(step.Item!));
-                break;
-            default:
-                turn.TryResearch(Enum.Parse<UpgradeType>(step.Item!));
-                break;
-        }
-    }
+        "workers" or "train" => turn.TryTrain(UnitOf(step)),
+        "build" => Build(turn, Enum.Parse<BuildingType>(step.Item!)),
+        _ => turn.TryResearch(Enum.Parse<UpgradeType>(step.Item!)),
+    };
 
     /// <summary>The Forever cards in order: one unit, one building or one class each, round and round.</summary>
     private void RunForever(BotView view, BotTurn turn)

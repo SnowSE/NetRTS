@@ -21,11 +21,17 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
 
     private static DateTime At(double seconds) => T0.AddSeconds(seconds);
 
-    /// <summary>Lets the match that's on now play to its end, then lets the hill see it.</summary>
-    private void Finish(PickupHill hill, DateTime now)
+    /// <summary>Lets the match that's on now play to its end, then lets the hill see it. phones: tokens that check in
+    /// first, as a real phone does every second (a champion whose phone goes quiet loses the hill).</summary>
+    private void Finish(PickupHill hill, DateTime now, params string[] phones)
     {
         var host = factory.Matches.Get(hill.Hill(now).MatchId!.Value)!;
         host.Advance(MatchManager.PickupMaxTicks);
+        foreach (var t in phones)
+        {
+            hill.Me(t, now);
+        }
+
         hill.Update(now);
     }
 
@@ -114,7 +120,7 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         hill.StartNow(champ.Token, At(0));
         hill.Update(At(0));
         hill.Update(At(10));
-        Finish(hill, At(100));
+        Finish(hill, At(100), champ.Token);
         var crowned = hill.Me(champ.Token, At(100));
         Assert.True(crowned.Result!.Won);
         Assert.True(crowned.Champion);
@@ -125,7 +131,7 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         hill.Hill(At(130));
         hill.Update(At(130));
         hill.Update(At(140));
-        Finish(hill, At(150));
+        Finish(hill, At(150), champ.Token);
         Assert.Equal(2, hill.Me(champ.Token, At(150)).Wins);
 
         var now = 150.0;
@@ -137,7 +143,7 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
             hill.Update(At(now));
             hill.Update(At(now + 10));
             Assert.Equal("playing", hill.Me(challenger.Token, At(now + 10)).Phase);
-            Finish(hill, At(now + 20));
+            Finish(hill, At(now + 20), champ.Token);
             now += 30;
         }
 
@@ -311,5 +317,41 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         hill.Update(At(0));
 
         Assert.True(hill.Hill(At(1)).Warmup);
+    }
+
+    [Fact]
+    public void A_champion_whose_phone_went_quiet_loses_the_hill_to_the_house()
+    {
+        var hill = NewHill(SitterDeck);
+        var champ = hill.Join(null, At(0));
+        hill.StartNow(champ.Token, At(0));
+        hill.Update(At(0));
+        hill.Update(At(10));
+        Finish(hill, At(100), champ.Token);
+        Assert.True(hill.Me(champ.Token, At(100)).Champion);
+
+        hill.Hill(At(100 + 45));   // the big screen is watching; the champion's phone hasn't checked in for 45 s
+        hill.Update(At(100 + 45));
+
+        Assert.True(hill.Hill(At(146)).Champion!.House);
+    }
+
+    [Fact]
+    public void A_connected_champion_plays_the_next_match_without_tapping_anything()
+    {
+        var hill = NewHill(SitterDeck);
+        var champ = hill.Join(null, At(0));
+        hill.StartNow(champ.Token, At(0));
+        hill.Update(At(0));
+        hill.Update(At(10));
+        Finish(hill, At(100), champ.Token);
+
+        var challenger = hill.Join(null, At(101));
+        hill.SetPlan(challenger.Token, Sitter);
+        hill.StartNow(challenger.Token, At(101));
+        hill.Me(champ.Token, At(101));
+        hill.Update(At(101));
+
+        Assert.Equal("countdown", hill.Me(champ.Token, At(102)).Phase);
     }
 }

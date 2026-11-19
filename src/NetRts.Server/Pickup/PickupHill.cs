@@ -19,6 +19,9 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
     public static readonly TimeSpan Unseen = TimeSpan.FromMinutes(3);   // a phone that sleeps a while keeps its place
     public static readonly TimeSpan Watched = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan Forgotten = TimeSpan.FromMinutes(15);
+
+    /// <summary>A champion whose phone hasn't checked in for this long has walked away: the house takes the hill.</summary>
+    public static readonly TimeSpan ChampionAway = TimeSpan.FromSeconds(30);
     public const int RetireAfter = 5;
     public const int MaxChallengers = 3;
     /// <summary>Phones the hill keeps at once (the line, the champion, and recent results); past it, joins wait.</summary>
@@ -286,6 +289,17 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
                 }
             }
 
+            if (_round is null && _champion is { } champ && now - champ.SeenAt > ChampionAway)
+            {
+                logger.LogInformation("Pick-up: {Name} walked away; the house takes the hill", champ.Name);
+                if (champ.Phase != Phase.Over)
+                {
+                    champ.Phase = Phase.Over;
+                }
+
+                Crown(null, deck: _nextDeck++);
+            }
+
             if (_round is null)
             {
                 Next(now);
@@ -534,6 +548,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             Wins = entry == _champion ? _championWins : 0,
             Holding = entry.Holding,
             Step = bot?.CurrentStep ?? 0,
+            Waiting = phase == "playing" ? bot?.Waiting : null,
             Steps = entry.Plan.Steps.Count,
             Players = phase == "playing" && round?.Host is { } host ? PlayersOf(round, host, entry) : [],
             Result = entry.Result,

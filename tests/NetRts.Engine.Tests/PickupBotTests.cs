@@ -136,4 +136,38 @@ public class PickupBotTests
         Assert.Equal(0, bots[0].CurrentStep);
         Assert.NotEmpty(sim.UnitIds(0, UnitType.Soldier));
     }
+
+    [Fact]
+    public void A_build_step_finishes_when_the_building_is_finished_not_when_it_starts()
+    {
+        var plan = new PickupPlanDto { Steps = [new() { Kind = "build", Item = "TechLab" }, new() { Kind = "workers", Count = 30 }], Forever = ["Worker"], Attack = new() { Army = 60 } };
+        var (sim, bots) = Setup(plan, new StartKit(1500, [], [BuildingType.Barracks]), Sitter, Bare);
+
+        var sawGoingUp = false;
+        for (var t = 0; t < 300 && bots[0].CurrentStep == 0; t++)
+        {
+            Run(sim, bots, 1);
+            var labs = sim.BuildingsOf(0).Where(b => b.Type == BuildingType.TechLab).ToList();
+            if (labs.Count > 0 && !labs[0].Completed)
+            {
+                sawGoingUp = true;
+                Assert.Equal(0, bots[0].CurrentStep);   // still on "Build a Makerspace" while it goes up
+            }
+        }
+
+        Assert.True(sawGoingUp);
+        Assert.Equal(1, bots[0].CurrentStep);
+        Assert.Contains(sim.BuildingsOf(0), b => b.Type == BuildingType.TechLab && b.Completed);
+    }
+
+    [Fact]
+    public void A_waiting_step_says_what_it_is_waiting_for()
+    {
+        var plan = new PickupPlanDto { Steps = [new() { Kind = "research", Item = "Weapons1" }], Forever = ["Worker"], Attack = new() { Army = 60 } };
+        var (sim, bots) = Setup(plan, Bare, Sitter, Bare);
+
+        Run(sim, bots, 5);
+
+        Assert.Equal(new PickupWaitDto("building", "TechLab"), bots[0].Waiting);
+    }
 }

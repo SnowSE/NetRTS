@@ -3,7 +3,7 @@
 // polls of `me`), every player in the match, and Attack now! / Pull back.
 import { api, esc, mountScope, slotVar } from '../util.js';
 import { icon } from './cards.js';
-import { stepText, stepItem, foreverText } from './items.js';
+import { stepText, stepItem, foreverText, nameOf } from './items.js';
 
 /** The pick-up treaty, in seconds (MatchManager.PickupTreatyTicks at PickupTickMs). */
 export const TREATY_S = 30;
@@ -90,12 +90,28 @@ export function mountPlaying(el, { plan, token, matchId }) {
     } catch (ex) { flash(ex.message); }
   });
 
-  function stepsHTML(ni) {
+  /** Why the step on now is waiting, in words (me.waiting from the server). */
+  function waitText(w) {
+    if (!w) return '';
+    const it = w.item ? nameOf(w.item) : '';
+    return {
+      building: `Waiting: needs a ${it} first`,
+      class: `Waiting: needs ${it} first`,
+      grubs: `Saving up: ${fmtN(w.have)} of ${fmtN(w.cost)} grubs`,
+      busy: `Waiting for a free ${it}`,
+      'going-up': `${it} is going up`,
+      site: 'Looking for room to build',
+      builder: 'Waiting for a free worker',
+    }[w.reason] ?? '';
+  }
+
+  function stepsHTML(ni, waiting) {
     const n = plan.steps.length;
     const label = (i) => (i < 0 ? 'Starting army is out' : i < n ? stepText(plan.steps[i]) : i === n ? `Forever: ${foreverText(plan)}` : '');
     const tag = (i) => (i < 0 ? 'Start' : i < n ? `Step ${i + 1} of ${n}` : 'After the steps');
     const ic = (i) => (i >= 0 && i < n ? icon(stepItem(plan.steps[i]), 28) : i === n && plan.forever[0] ? icon(plan.forever[0], 28) : '');
-    const row = (i, cls) => (label(i) ? `<div class="ps ${cls}">${ic(i)}<span><small>${tag(i)}${cls === 'cur' ? ' · now' : ''}</small><b>${esc(label(i))}</b></span></div>` : '');
+    const why = waitText(waiting);
+    const row = (i, cls) => (label(i) ? `<div class="ps ${cls}">${ic(i)}<span><small>${tag(i)}${cls === 'cur' ? ' · now' : ''}</small><b>${esc(label(i))}</b>${cls === 'cur' && why ? `<em class="ps-why">${esc(why)}</em>` : ''}</span></div>` : '');
     return row(ni - 1, 'prev') + row(ni, 'cur') + row(ni + 1, 'next');
   }
 
@@ -113,7 +129,7 @@ export function mountPlaying(el, { plan, token, matchId }) {
       ? `<span class="np-badge" style="--pc:${slotVar(you.slot)}">${esc(me.name)}</span><span class="np-look">Look for your color on the big screen</span>`
       : `<span class="np-badge">${esc(me.name)}</span>`;
     $('np-who').textContent = players.length > 1 ? `vs ${othersText(players)}` : '';
-    $('np-steps').innerHTML = stepsHTML(Math.min(me.step ?? 0, plan.steps.length));
+    $('np-steps').innerHTML = stepsHTML(Math.min(me.step ?? 0, plan.steps.length), me.waiting);
     $('np-hud').innerHTML = TILES.map(([l, k, c]) => trendTile(l, hist[k], you[k], c)).join('');
     $('np-score').innerHTML = players.length ? playersTable(players) : '';
   }

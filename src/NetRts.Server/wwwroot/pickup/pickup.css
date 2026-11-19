@@ -299,3 +299,6 @@ html.pk-full .topbar, html.pk-full .foot, html.pk-full .skip { display: none; }
 .p-cards .slot.done { opacity: .55; }
 .p-cards .slot.done .no { color: #067647; font-weight: 800; }
 .p-cards .slot.now { outline: 3px solid var(--hl); outline-offset: -1px; }
+
+/* Why the step on now is waiting (needs a building, saving up, ...). */
+.pk .ps-why { display: block; font-style: normal; font-size: 13px; font-weight: 600; color: var(--hl); margin-top: 2px; }

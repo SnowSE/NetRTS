@@ -54,7 +54,7 @@ export function overHTML(me, plan) {
     <section class="over-body">
       <h3>What your bot did</h3>
       <ul class="did">${did.map(([v, l]) => `<li><b>${typeof v === 'number' ? fmtN(v) : esc(v ?? '–')}</b>${l}</li>`).join('')}</ul>
-      <button type="button" class="big-btn" data-a="rejoin">${r.won && me.champion ? 'Defend the hill: tweak your plan' : 'Tweak your plan and get back in line'}</button>
+      <button type="button" class="big-btn" data-a="rejoin">${r.won && me.champion ? 'Tweak your plan (you defend the hill automatically)' : 'Tweak your plan and get back in line'}</button>
       <p class="pk-error" id="pk-over-err" role="alert" hidden></p>
       <div class="snow">
         <p class="snow-k">You just programmed a bot</p>
