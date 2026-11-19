@@ -14,7 +14,7 @@
 
 - Nothing about pick-up players is saved: no DB rows, no `MatchRecorder`, no achievements, no announcer, no replay frames kept.
 - Normal matches, Block Bot and house bots behave exactly as before: `BotCharacterizationTests` hashes unchanged, replay determinism test passes.
-- Start pile 1,500 grubs; one free Housing (`Barracks`); max 3 of each building in the pile; 6 steps; 1–3 Forever cards; treaty 30 s; match 150 s; tick 100 ms (so treaty 300 ticks, `MaxTicks` 1500).
+- Start pile 1,500 grubs; one free Housing (`Barracks`); max 3 of each building in the pile; 6 steps; 1–3 Forever cards; treaty 30 s; match 150 s; tick 250 ms (so treaty 120 ticks, `MaxTicks` 600).
 - Item ids on the wire are API names (`Soldier`, `Trebuchet`, `Barracks`, `ResourceDepot`, `TechLab`, `GuardTower`, `SiegeWorkshop`, `Weapons1`…); pages turn them into Snow names with `lore.js`.
 - Costs and stats come from `GameRules` (server) and `GET /api/v1/rules` (pages). No second copy.
 - `dotnet build` (warnings are errors) and `dotnet test` green after every task; `DuplicationTests` passes.

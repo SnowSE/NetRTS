@@ -68,7 +68,7 @@ Unspent grubs are in the bank. Up to 3 of each building can be bought.
 server enforces it.
 
 **Length.** About 2:30: the 30-second treaty and 2 minutes of fighting, on a small map with fast ticks
-(target 100 ms). At the time limit the highest score wins; equal scores keep the champion. A player who
+(250 ms; 100 ms let the economy deck win every time). At the time limit the highest score wins; equal scores keep the champion. A player who
 loses every building is out at once; the last one standing wins early.
 
 **Score (pick-up only; decided):** a **combat score**: points for damage dealt and for enemy units and
@@ -177,7 +177,7 @@ itself.
   pick-up matches skip `MatchRecorder`, achievements and the announcer.
 - Engine changes for the start pile, the free Housing and the treaty, as new per-match settings
   (deterministic; normal matches unchanged); spawn placement for bought buildings and units.
-- Map size and tick speed for 2 to 4 players, tuned so fighting starts soon after the treaty.
+- Map size for 2 to 4 players.
 - How the phone hears about its turn (polling or the existing match stream).
 - Card art: render with the existing 3D models in the page, or ship renders made by a script; keep one
   owner for the look.
