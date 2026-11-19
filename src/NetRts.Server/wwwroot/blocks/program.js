@@ -235,10 +235,18 @@ export async function readStrategyFile(file) {
   const text = await file.text();
   let data;
   try { data = JSON.parse(text); } catch { throw new Error('That file isn’t a strategy file.'); }
+  return checkProgram(data, file.name.replace(/\.json$/i, ''), 'That file');
+}
+
+/**
+ * A program from outside (a strategy file, a link), made whole (switches, a name: fallbackName when it has
+ * none) and checked by the server; throws with a message a kid can read. what: "That file", "That link".
+ */
+export async function checkProgram(data, fallbackName, what) {
   const program = data?.program ?? data;
-  if (!program || !Array.isArray(program.rules)) throw new Error('That file has no rules in it.');
+  if (!program || !Array.isArray(program.rules)) throw new Error(`${what} has no rules in it.`);
   program.switches = Array.isArray(program.switches) ? program.switches : [];
-  program.name = String(program.name || file.name.replace(/\.json$/i, '')).slice(0, LIMITS().maxNameLength);
+  program.name = String(program.name || fallbackName).slice(0, LIMITS().maxNameLength);
   await api('/api/v1/blocks/validate', { method: 'POST', body: program });
   return program;
 }
