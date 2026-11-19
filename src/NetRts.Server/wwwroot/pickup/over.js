@@ -4,12 +4,9 @@ import { esc } from '../util.js';
 import { ordinal } from './items.js';
 import { takeHomeLink } from './convert.js';
 
-const LINKS = {
-  program: 'https://engineering.snow.edu',
-  cost: 'https://engineering.snow.edu/CostCalculator',
-  degree: 'https://engineering.snow.edu/DegreeBuilder',
-  blocks: '/#/blocks',
-};
+// Through the server, which counts each click for the booth (netrts.pickup.link_clicks) and sends you on.
+const GO = '/api/v1/pickup/go/';
+const LINKS = { program: `${GO}program`, cost: `${GO}cost`, degree: `${GO}degree`, blocks: `${GO}blocks` };
 const fmtN = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : '–');
 const nameOf = (x) => (x.you ? 'You' : x.name);
 

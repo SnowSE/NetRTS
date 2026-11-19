@@ -23,6 +23,9 @@ public sealed class MatchMetrics
     private readonly Counter<long> _houseBotFailures;
     private readonly Histogram<double> _recordDuration;
     private readonly Counter<long> _recordFailures;
+    private readonly Counter<long> _pickupJoins;
+    private readonly Counter<long> _pickupMatches;
+    private readonly Counter<long> _pickupLinks;
 
     public MatchMetrics(IMeterFactory meterFactory)
     {
@@ -34,6 +37,9 @@ public sealed class MatchMetrics
         _matchesStarted = meter.CreateCounter<long>("netrts.matches.started", "{match}");
         _matchesCompleted = meter.CreateCounter<long>("netrts.matches.completed", "{match}");
         _matchTicks = meter.CreateHistogram<int>("netrts.match.ticks", "{tick}", "How many ticks finished matches lasted.");
+        _pickupJoins = meter.CreateCounter<long>("netrts.pickup.joins", "{player}", "Phones that joined the pick-up line (new players, not returns).");
+        _pickupMatches = meter.CreateCounter<long>("netrts.pickup.matches", "{match}", "Pick-up matches started with students in them.");
+        _pickupLinks = meter.CreateCounter<long>("netrts.pickup.link_clicks", "{click}", "Match-over links followed, by netrts.pickup.link.");
         _houseBotFailures = meter.CreateCounter<long>("netrts.house_bot.failures", "{failure}",
             "House bot turns that threw; the bot skips that tick.");
         _recordDuration = meter.CreateHistogram<double>("netrts.recorder.duration", "ms", "Time to save one finished match.");
@@ -88,6 +94,15 @@ public sealed class MatchMetrics
     public void MatchRecorded(TimeSpan elapsed) => _recordDuration.Record(elapsed.TotalMilliseconds);
 
     public void MatchRecordFailed() => _recordFailures.Add(1);
+
+    /// <summary>The booth's day: a new player in the pick-up line.</summary>
+    public void PickupJoined() => _pickupJoins.Add(1);
+
+    /// <summary>A pick-up match started with this many students in it (house-only warm-ups aren't counted).</summary>
+    public void PickupMatchStarted(int students) => _pickupMatches.Add(1, new KeyValuePair<string, object?>("netrts.pickup.students", students));
+
+    /// <summary>A match-over link followed: program, cost, degree, takehome or blocks.</summary>
+    public void PickupLinkClicked(string link) => _pickupLinks.Add(1, new KeyValuePair<string, object?>("netrts.pickup.link", link));
 
     private static KeyValuePair<string, object?> Status(string status) => new("netrts.match.status", status);
 

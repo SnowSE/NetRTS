@@ -59,12 +59,45 @@ public static class PickupEndpoints
             .Produces<PickupHillDto>()
             .WithSummary("The big screen: the match on now, the champion, who's playing and who's in line.");
 
+        pickup.MapGet("/go/{link}", (string link, string? program, MatchMetrics metrics) =>
+            {
+                // The match-over page's links come through here so the booth can count them, then go on.
+                if (link == "takehome")
+                {
+                    if (program is null || program.Length > 16_000 || !program.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_'))
+                    {
+                        return ApiErrors.Error(400, "INVALID_PROGRAM", "That take-home link is broken.");
+                    }
+
+                    metrics.PickupLinkClicked(link);
+                    return Results.Redirect($"/#/blocks/import?program={program}");
+                }
+
+                if (!GoLinks.TryGetValue(link, out var to))
+                {
+                    return ApiErrors.Error(404, "NOT_FOUND", "No such link.");
+                }
+
+                metrics.PickupLinkClicked(link);
+                return Results.Redirect(to);
+            })
+            .ExcludeFromDescription();
+
         pickup.MapGet("/decks", () => Results.Ok(PickupPlans.Decks))
             .Produces<IReadOnlyList<PickupDeckDto>>()
             .WithSummary("The ready-made plans (the house plays these).");
     }
 
     private static DateTime Now(TimeProvider time) => time.GetUtcNow().UtcDateTime;
+
+    /// <summary>Where the match-over links go (takehome carries the plan as a Block Bot program).</summary>
+    private static readonly Dictionary<string, string> GoLinks = new()
+    {
+        ["program"] = "https://engineering.snow.edu",
+        ["cost"] = "https://engineering.snow.edu/CostCalculator",
+        ["degree"] = "https://engineering.snow.edu/DegreeBuilder",
+        ["blocks"] = "/#/blocks",
+    };
 
     private static IResult Guarded(Func<IResult> action)
     {

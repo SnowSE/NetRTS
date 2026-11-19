@@ -98,6 +98,24 @@ public static class TelemetryLinks
                 | project timestamp, name, value
                 | render timechart
                 """),
+            Query("Booth: the day so far", "Pick-up players, matches and match-over link clicks, totals for the last day.",
+                """
+                customMetrics
+                | where name in ("netrts.pickup.joins", "netrts.pickup.matches", "netrts.pickup.link_clicks")
+                | extend what = iff(name == "netrts.pickup.link_clicks", strcat("clicked: ", tostring(customDimensions["netrts.pickup.link"])),
+                    iff(name == "netrts.pickup.joins", "players joined", "matches played"))
+                | summarize count = sum(valueSum) by what
+                | order by what asc
+                """),
+            Query("Booth: by hour", "Pick-up players, matches and link clicks per hour.",
+                """
+                customMetrics
+                | where name in ("netrts.pickup.joins", "netrts.pickup.matches", "netrts.pickup.link_clicks")
+                | extend what = iff(name == "netrts.pickup.link_clicks", strcat("clicked: ", tostring(customDimensions["netrts.pickup.link"])),
+                    iff(name == "netrts.pickup.joins", "players joined", "matches played"))
+                | summarize count = sum(valueSum) by what, bin(timestamp, 1h)
+                | render columnchart
+                """),
         ];
     }
 

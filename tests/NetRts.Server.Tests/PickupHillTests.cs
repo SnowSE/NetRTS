@@ -354,4 +354,22 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
 
         Assert.Equal("countdown", hill.Me(champ.Token, At(102)).Phase);
     }
+
+    [Fact]
+    public async Task Match_over_links_are_counted_and_sent_on()
+    {
+        var client = factory.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        var ct = TestContext.Current.CancellationToken;
+
+        var cost = await client.GetAsync("/api/v1/pickup/go/cost", ct);
+        var home = await client.GetAsync("/api/v1/pickup/go/takehome?program=eyJuYW1lIjoiYSJ9", ct);
+        var bad = await client.GetAsync("/api/v1/pickup/go/takehome?program=%3Cscript%3E", ct);
+        var unknown = await client.GetAsync("/api/v1/pickup/go/evil.example", ct);
+
+        Assert.Equal(HttpStatusCode.Redirect, cost.StatusCode);
+        Assert.Equal("https://engineering.snow.edu/CostCalculator", cost.Headers.Location!.ToString());
+        Assert.Equal("/#/blocks/import?program=eyJuYW1lIjoiYSJ9", home.Headers.Location!.ToString());
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
+    }
 }

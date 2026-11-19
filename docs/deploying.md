@@ -349,6 +349,7 @@ In the portal, open `netrts-insights` for **Live metrics**, **Failures**, **Perf
 | `netrts.matches.started` / `netrts.matches.completed` (by kind, end reason), `netrts.match.ticks` | Match volume and how matches end. |
 | `netrts.house_bot.failures` (by bot) | House bot turns that threw. |
 | `netrts.recorder.queue`, `netrts.recorder.failures`, `netrts.recorder.duration` | Finished matches not yet saved are lost on restart; alert on failures. |
+| `netrts.pickup.joins`, `netrts.pickup.matches`, `netrts.pickup.link_clicks` (by `netrts.pickup.link`: program, cost, degree, takehome, blocks) | The booth's day: new players, matches with students, and which match-over links they followed. The admin Telemetry section has *Booth: the day so far* and *Booth: by hour*. |
 
 Admins get links to these portal pages, plus saved Logs queries (exceptions, warnings and errors,
 failed requests, slowest endpoints, game metrics, tick health), in a **Telemetry** section on their

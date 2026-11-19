@@ -11,7 +11,7 @@ namespace NetRts.Server.Pickup;
 /// someone is watching, and that match gives way the moment a student is ready. Everything lives in memory:
 /// names, plans and results are gone when the server stops, and the matches are never recorded.
 /// </summary>
-public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger, IReadOnlyList<PickupDeckDto>? houseDecks = null)
+public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger, IReadOnlyList<PickupDeckDto>? houseDecks = null, MatchMetrics? metrics = null)
 {
     public static readonly TimeSpan FirstPlanning = TimeSpan.FromSeconds(60);
     public static readonly TimeSpan AgainPlanning = TimeSpan.FromSeconds(20);
@@ -114,6 +114,10 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             _entries[entry.Token] = entry;
             _line.Add(entry);
             logger.LogInformation("Pick-up: {Name} joined the line ({Count} in line)", entry.Name, _line.Count);
+            if (entry.Token != token)
+            {
+                metrics?.PickupJoined();   // a phone coming back after a restart isn't a new player
+            }
             return MeLocked(entry, now);
         }
     }
@@ -394,6 +398,10 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
         try
         {
             round.Host = matches.CreatePickup(seats);
+            if (round.Players.Count(p => p.Student is not null) is > 0 and var students)
+            {
+                metrics?.PickupMatchStarted(students);
+            }
             logger.LogInformation("Pick-up match {MatchId}: {Players}", round.Host.Id, string.Join(" vs ", round.Players.Select(p => p.Name)));
         }
         catch (Exception ex)

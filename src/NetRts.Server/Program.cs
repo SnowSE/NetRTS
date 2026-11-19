@@ -68,7 +68,7 @@ builder.Services.AddSingleton<LeagueFinalizer>();
 builder.Services.AddSingleton<ReplayFrameStore>();
 builder.Services.AddSingleton<Presence>();
 builder.Services.AddHostedService<MatchHousekeeper>();
-builder.Services.AddSingleton(sp => new NetRts.Server.Pickup.PickupHill(sp.GetRequiredService<MatchManager>(), sp.GetRequiredService<ILogger<NetRts.Server.Pickup.PickupHill>>()));
+builder.Services.AddSingleton(sp => new NetRts.Server.Pickup.PickupHill(sp.GetRequiredService<MatchManager>(), sp.GetRequiredService<ILogger<NetRts.Server.Pickup.PickupHill>>(), metrics: sp.GetRequiredService<MatchMetrics>()));
 builder.Services.AddHostedService<NetRts.Server.Pickup.PickupHillLoop>();
 builder.Services.AddNetRtsHealthChecks();
 

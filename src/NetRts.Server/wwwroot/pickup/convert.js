@@ -59,4 +59,5 @@ export function decodeProgram(text) {
 }
 
 /** The "Take your bot home" link for a plan. */
-export const takeHomeLink = (plan, name) => `/#/blocks/import?program=${encodeProgram(toBlockProgram(plan, name))}`;
+/** The take-home link, through the server (which counts it for the booth) to Block Bot's import page. */
+export const takeHomeLink = (plan, name) => `/api/v1/pickup/go/takehome?program=${encodeProgram(toBlockProgram(plan, name))}`;
