@@ -55,7 +55,7 @@ public sealed partial class GameSimulation
                 tower.Cooldown--;
             }
 
-            var target = FindEnemy(tower.Owner, tower.Position, tower.Stats.Range);
+            var target = InTreaty ? null : FindEnemy(tower.Owner, tower.Position, tower.Stats.Range);
             if (target is not null && tower.Cooldown == 0)
             {
                 attacks.Add(new Attack(tower, tower.Owner, target, DamageAgainst(tower, target)));
@@ -69,7 +69,18 @@ public sealed partial class GameSimulation
         var killers = new Dictionary<int, Attack>();
         foreach (var attack in attacks)
         {
+            var crossFire = attack.Target.Owner >= 0 && attack.Target.Owner != attack.AttackerOwner;
+            if (crossFire && InTreaty)
+            {
+                continue;
+            }
+
             var wasAlive = !attack.Target.Dead;
+            if (crossFire && wasAlive)
+            {
+                _players[attack.AttackerOwner].DamageDealt += Math.Min(attack.Damage, attack.Target.Hp);
+            }
+
             attack.Target.Hp -= attack.Damage;
             if (wasAlive && attack.Target.Dead)
             {

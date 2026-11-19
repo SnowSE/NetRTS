@@ -30,6 +30,9 @@ internal sealed class PlayerState(Guid id, int slot, string name)
     public List<GameEventDto> Events { get; } = [];
 
     public int Destruction { get; set; }
+
+    /// <summary>Damage done to other players' units and buildings (the pick-up game's combat score).</summary>
+    public int DamageDealt { get; set; }
     public int Gathered { get; set; }
     public int UnitsProduced { get; set; }
     public int UnitsLost { get; set; }

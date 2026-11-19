@@ -57,6 +57,9 @@ public sealed partial class GameSimulation
     internal IEnumerable<int> UnitIds(int slot, UnitType? type = null) =>
         _units.Where(u => u.Owner == slot && (type is null || u.Type == type)).Select(u => u.Id);
 
+    internal IEnumerable<(BuildingType Type, int X, int Y, bool Completed)> BuildingsOf(int slot) =>
+        _buildings.Where(b => b.Owner == slot).Select(b => (b.Type, b.Position.X, b.Position.Y, b.Completed));
+
     internal int CommandCenterId(int slot) =>
         _buildings.First(b => b.Owner == slot && b.Type == BuildingType.CommandCenter).Id;
 

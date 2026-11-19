@@ -22,9 +22,27 @@ public sealed class GameConfig
 
     /// <summary>How many recent events are kept per player.</summary>
     public int EventHistory { get; init; } = 200;
+
+    /// <summary>
+    /// The pick-up game's treaty: until this tick no player can damage another (units and towers hold
+    /// fire). 0, the default, means no treaty.
+    /// </summary>
+    public int TreatyTicks { get; init; }
+
+    /// <summary>
+    /// The pick-up game's score: damage dealt to other players plus the value of what you destroyed. Banked
+    /// grubs and what you own don't count, so a big start kit isn't worth points by itself.
+    /// </summary>
+    public bool CombatScore { get; init; }
 }
 
-public sealed record PlayerSeat(Guid Id, string Name);
+/// <summary>
+/// What a player starts with instead of the usual bank (the pick-up game): grubs in the bank, and units
+/// and completed buildings placed around the HQ at tick 0. The usual workers come as well.
+/// </summary>
+public sealed record StartKit(int Resources, IReadOnlyList<UnitType> Units, IReadOnlyList<BuildingType> Buildings);
+
+public sealed record PlayerSeat(Guid Id, string Name, StartKit? Kit = null);
 
 /// <summary>
 /// One match. Pure and deterministic: given the same config, seats and command stream it always
@@ -95,8 +113,64 @@ public sealed partial class GameSimulation
                 var spot = FindFreeTileNear(start) ?? start;
                 AddUnit(slot, UnitType.Worker, spot);
             }
+
+            if (seats[slot].Kit is { } kit)
+            {
+                GiveKit(slot, start, kit);
+            }
         }
     }
+
+    /// <summary>A start kit's bank, buildings (completed, spaced out around the HQ) and units.</summary>
+    private void GiveKit(int slot, Point start, StartKit kit)
+    {
+        _players[slot].Resources = kit.Resources;
+        foreach (var type in kit.Buildings)
+        {
+            if (KitSite(start) is { } site)
+            {
+                AddBuilding(slot, type, site, completed: true);
+            }
+        }
+
+        foreach (var type in kit.Units)
+        {
+            AddUnit(slot, type, FindFreeTileNear(start) ?? start);
+        }
+    }
+
+    /// <summary>A tile two or more steps from the HQ with nothing built, dug or standing next to it, so paths stay open.</summary>
+    private Point? KitSite(Point start)
+    {
+        foreach (var p in RingTiles(start, 7))
+        {
+            if (Math.Max(Math.Abs(p.X - start.X), Math.Abs(p.Y - start.Y)) < 2 || !Passable(p) || _units.Any(u => u.Position == p))
+            {
+                continue;
+            }
+
+            var crowded = false;
+            for (var dy = -1; dy <= 1 && !crowded; dy++)
+            {
+                for (var dx = -1; dx <= 1 && !crowded; dx++)
+                {
+                    var x = p.X + dx;
+                    var y = p.Y + dy;
+                    crowded = Map.InBounds(x, y) && (_buildingAt[(y * Map.Width) + x] != 0 || _depositAt[(y * Map.Width) + x] != 0);
+                }
+            }
+
+            if (!crowded)
+            {
+                return p;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether the treaty still holds this tick (no damage between players).</summary>
+    private bool InTreaty => Tick <= Config.TreatyTicks;
 
     public Guid MatchId { get; }
     public GameConfig Config { get; }
@@ -381,7 +455,9 @@ public sealed partial class GameSimulation
     private int StorageCapacity(int slot) =>
         _buildings.Where(b => b.Owner == slot && b.Completed).Sum(b => b.Stats.StorageBonus);
 
-    private ScoreDto ScoreOf(PlayerState p) => new()
+    private ScoreDto ScoreOf(PlayerState p) => Config.CombatScore
+        ? new() { Destruction = p.Destruction + p.DamageDealt }
+        : new()
     {
         Destruction = p.Destruction,
         Economy = p.Gathered,
