@@ -5,7 +5,8 @@ import { api, esc, mountScope, slotVar } from '../util.js';
 import { icon } from './cards.js';
 import { stepText, stepItem, foreverText } from './items.js';
 
-const TREATY_S = 30;
+/** The pick-up treaty, in seconds (MatchManager.PickupTreatyTicks at PickupTickMs). */
+export const TREATY_S = 30;
 const KEEP_S = 60;   // the trend tiles show the last minute
 const TILES = [['Grubs', 'grubs', 'var(--hud-accent, #f2c14e)'], ['Workers', 'workers', 'var(--hud-workers, #7cc7f0)'],
   ['Fighters', 'fighters', 'var(--hud-fighters, #ff8a7a)'], ['Buildings', 'buildings', 'var(--hud-buildings, #c7b2f0)']];

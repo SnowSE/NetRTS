@@ -383,8 +383,29 @@ function depot(badger) {
   return b.build();
 }
 
-function makerspace() {
-  // Tech lab / GRSC Makerspace: concrete drum, glass band, a glowing dome and an antenna.
+/**
+ * The Snow College Engineering block "S" (engineering.snow.edu's logo mark) on a white sign, standing on a post
+ * at y: two oranges like the logo's bevel, the letter on both faces (mirrored behind, so it reads from either side).
+ */
+function engineeringS(b, y) {
+  const W = 0.17, H = 0.25, t = 0.055, plate = 0.014, d = 0.01;
+  const light = col('#f7a53b'), dark = col('#e8771f');
+  const mid = y + 0.015 + H / 2 + 0.02;
+  b.add(cyl(0.008, 0.008, 0.05, 6), K.steel, { at: [0, y + 0.02, 0] })
+    .add(box(W + 0.05, H + 0.05, plate), K.white, { at: [0, mid, 0] });
+  const legH = (H - 3 * t) / 2;
+  for (const side of [1, -1]) {
+    const z = side * (plate / 2 + d / 2);
+    const x = (v) => v * side;   // the back face is the mirror image, so it reads as an S from behind too
+    for (const yy of [mid + H / 2 - t / 2, mid, mid - H / 2 + t / 2]) b.add(box(W, t, d), light, { glow: 0.15, at: [0, yy, z] });
+    b.add(box(t, legH + 0.002, d), dark, { glow: 0.15, at: [x(-(W - t) / 2), mid + t / 2 + legH / 2, z] })
+      .add(box(t, legH + 0.002, d), dark, { glow: 0.15, at: [x((W - t) / 2), mid - t / 2 - legH / 2, z] });
+  }
+}
+
+function makerspace(badger) {
+  // Tech lab / GRSC Makerspace: concrete drum, glass band, a glowing dome and an antenna; in the Snow College
+  // theme the Engineering "S" stands on top of the dome.
   const b = new Builder();
   foundation(b);
   b.add(cyl(0.38, 0.4, 0.22, 8), K.stone, { at: [0, 0.18, 0] })
@@ -397,6 +418,7 @@ function makerspace() {
     b.add(cyl(0.07, 0.07, 0.24, 8), K.team, { team: 1, at: [Math.cos(a) * 0.36, 0.19, Math.sin(a) * 0.36] })
       .add(dome(0.07, 8, 4), K.steel, { at: [Math.cos(a) * 0.36, 0.31, Math.sin(a) * 0.36] });
   }
+  if (badger) engineeringS(b, 0.72);
   return b.build();
 }
 
@@ -629,7 +651,7 @@ export function buildModels(badger) {
     CommandCenter: badger ? campusHall : keep,
     Barracks: badger ? dorm : hall,
     ResourceDepot: () => depot(badger),
-    TechLab: makerspace,
+    TechLab: () => makerspace(badger),
     GuardTower: badger ? bellTower : watchTower,
     SiegeWorkshop: badger ? washburn : siegeShed,
   };

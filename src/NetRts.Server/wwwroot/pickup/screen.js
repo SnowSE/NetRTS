@@ -6,7 +6,8 @@ import { openMatchFeed } from '../matchfeed.js';
 import { mount3d } from '../3d/mount.js';
 import qrcode from '../vendor/qrcode/qrcode.js';
 import { takePage } from './page.js';
-import { playersTable } from './playing.js';
+import { playersTable, TREATY_S } from './playing.js';
+import { matchClock, clockText } from '../matchui.js';
 
 const POLL_MS = 1000;
 const LINE_SHOWN = 6;
@@ -33,6 +34,7 @@ export function mountScreen(main) {
         <div class="map3d pks-3d" id="pks-3d"></div>
         <div class="pks-msg" id="pks-msg"><p>Waiting for the first match…</p></div>
         <div class="pks-banner" id="pks-banner" hidden></div>
+        <div class="pks-clock" id="pks-clock" hidden></div>
       </div>
       <aside class="pks-side">
         <section class="pks-got">
@@ -61,6 +63,20 @@ export function mountScreen(main) {
     shown?.feed?.close();
     shown?.view?.dispose();
     shown = null;
+    $('pks-clock').hidden = true;
+  }
+
+  /** How long the match on screen has left (it can end sooner, when a base falls), and the treaty while it holds. */
+  function paintClock(state) {
+    const el = $('pks-clock');
+    if (!state) { el.hidden = true; return; }
+    const { pct, msLeft, tick } = matchClock({ state });
+    const treatyLeft = TREATY_S * 1000 - tick * (state.tickIntervalMs || 250);
+    el.hidden = false;
+    el.innerHTML = state.outcome
+      ? '<b>Final</b><small>the next match starts soon</small>'
+      : `<b>${clockText(msLeft)}</b><small>${treatyLeft > 0 ? `left · fighting starts in ${clockText(treatyLeft)}` : 'left in this match'}</small>
+         <span class="pks-bar"><span style="width:${pct.toFixed(1)}%"></span></span>`;
   }
   scope.cleanup(drop);
 
@@ -89,7 +105,7 @@ export function mountScreen(main) {
       shown = cur;
       cur.feed = openMatchFeed(matchId, {
         onMap: (map) => v.view3d.setMap(map),
-        onState: (s) => { cur.state = s; v.view3d.setState(s); },
+        onState: (s) => { cur.state = s; v.view3d.setState(s); if (shown === cur) paintClock(s); },
         onGone: () => { if (shown === cur) setMsg('That match is over. The next one starts soon.'); },
       });
     } catch (e) {
