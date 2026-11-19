@@ -21,6 +21,7 @@ import { Commentary } from './commentary.js';
 import { drawTowerShot } from './towers.js';
 import { TOWER_RANGE, towerShotsOf } from '../towershots.js';
 import { fortifyLevels, footprint, pushFortify } from './fortify.js';
+import { winnerSlot, dance } from './celebrate.js';
 
 /** Bright, color-blind-friendly player colors (the site's dark palette): they read well in daylight. */
 const TEAM = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
@@ -859,6 +860,7 @@ export class View3D {
     const k = 1 - Math.exp(-12 * dt);
     const rt = now - this.lag;   // the moment the picture is showing
     const positions = new Map();
+    const winner = winnerSlot(this.state);
     for (const [id, a] of this.units) {
       // A unit missing from the newest frame falls once the picture reaches that frame.
       if (a.deathT != null && rt >= a.deathT) {
@@ -1037,6 +1039,15 @@ export class View3D {
         squash = 1 + Math.sin(phase * 2.4) * 0.015;   // breathing
       }
 
+      // The match is won: the winner's side dances (celebrate.js).
+      const dancing = winner != null && u.owner === winner;
+      if (dancing) {
+        const d = dance(now, a.id);
+        y += d.hop * 0.12 * this.unitScale;
+        pitch = 0;
+        if (!vehicle) { chop = d.arms; legGoal = 0; }
+      }
+
       // Taking a hit: a flash and a stagger away from whoever landed it.
       const sinceHit = now - a.hitT;
       if (sinceHit >= 0 && sinceHit < 220) {
@@ -1067,7 +1078,7 @@ export class View3D {
       const draw = u.type === 'Archer' ? [a.raise ?? 0, pull] : vehicle ? this.siegePose(a, now) : null;
       if (chop >= 0) {
         a.arm = 0;
-        const reachUp = u.type === 'Archer' ? -1.45 : -2.1;   // arms out level to aim, or overhead to chop
+        const reachUp = u.type === 'Archer' && !dancing ? -1.45 : -2.1;   // arms out level to aim, or overhead to chop (or cheer)
         L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [Math.asin(clamp(chop * 2 - 1, -1, 1)), a.leg, reachUp], draw);
       } else {
         a.arm = (a.arm ?? 0) + (armGoal - (a.arm ?? 0)) * k;
