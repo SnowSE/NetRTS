@@ -108,9 +108,11 @@ public sealed partial class MatchManager(
         return host;
     }
 
-    public const int PickupTickMs = 100;
-    public const int PickupMaxTicks = 1500;
-    public const int PickupTreatyTicks = 300;
+    // 250 ms a tick: 2.5 minutes is 600 ticks and the 30-second treaty 120. Faster ticks give the economy so long
+    // before the first fight that the economy deck always wins (see the pick-up deck tests).
+    public const int PickupTickMs = 250;
+    public const int PickupMaxTicks = 600;
+    public const int PickupTreatyTicks = 120;
 
     /// <summary>
     /// A practice match; the creator takes slot 0. <paramref name="creatorBot"/> plays the creator's seat on the

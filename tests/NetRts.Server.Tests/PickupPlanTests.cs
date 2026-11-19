@@ -52,13 +52,13 @@ public class PickupPlanTests
     }
 
     [Fact]
-    public void The_rush_kit_spends_everything_and_adds_the_free_housing()
+    public void The_rush_kit_keeps_the_change_and_adds_the_free_housing()
     {
         var kit = PickupPlans.KitFor(PickupPlans.Decks.Single(d => d.Id == "rush").Plan);
 
-        Assert.Equal(0, kit.Resources);
-        Assert.Equal(10, kit.Units.Count(u => u == UnitType.Soldier));
-        Assert.Equal(4, kit.Units.Count(u => u == UnitType.Archer));
+        Assert.Equal(75, kit.Resources);
+        Assert.Equal(8, kit.Units.Count(u => u == UnitType.Soldier));
+        Assert.Equal(5, kit.Units.Count(u => u == UnitType.Archer));
         Assert.Equal([BuildingType.Barracks], kit.Buildings);
     }
 }

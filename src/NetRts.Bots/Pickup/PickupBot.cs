@@ -9,14 +9,13 @@ namespace NetRts.Bots.Pickup;
 /// and Pull back buttons override it. Like Block Bot, it stands on <see cref="BotView"/>, <see cref="BotMemory"/>
 /// and <see cref="BotTurn"/>, and idle workers dig and half-built buildings get finished on their own.
 /// </summary>
-public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks) : IBotStrategy
+public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, int tickMs = 100) : IBotStrategy
 {
-    private const int TicksPerSecond = 10;
     private const int DefenseRadius = 10;
-    private const int PullBackHoldTicks = 15 * TicksPerSecond;
     private const int ForeverRecheckTicks = 50;
     private const int MaxWorkers = 30;
 
+    private readonly int _ticksPerSecond = Math.Max(1, 1000 / tickMs);
     private readonly object _lock = new();
     private readonly BotMemory _memory = new();
     private readonly List<PickupStepDto> _kept = [];
@@ -86,7 +85,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks) 
         {
             _attacking = false;
             _attackNow = false;
-            _holdUntil = _tick + PullBackHoldTicks;
+            _holdUntil = _tick + (15 * _ticksPerSecond);
         }
     }
 
@@ -135,7 +134,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks) 
         if (!_attacking && !treaty && _tick >= _holdUntil)
         {
             _attacking = _attackNow || (attack.Trigger == "time"
-                ? _tick >= attack.AtSecond * TicksPerSecond
+                ? _tick >= attack.AtSecond * _ticksPerSecond
                 : army.Count >= attack.Army);
             _attackNow &= !_attacking;
         }
@@ -145,7 +144,7 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks) 
             return;
         }
 
-        if (!treaty && attack.Defend && view.Threat(DefenseRadius) is { } threat)
+        if (!treaty && attack.Defend && Threat(view) is { } threat)
         {
             turn.Order(army, CommandType.Attack, (threat.X, threat.Y), retarget: false);
             return;
@@ -166,6 +165,13 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks) 
             }
         }
     }
+
+    /// <summary>Enemy fighters (not workers out digging) near one of our buildings, nearest the HQ first.</summary>
+    private static UnitDto? Threat(BotView view) =>
+        view.EnemyUnits
+            .Where(e => e.Type != UnitType.Worker && view.MyBuildings.Any(b => BotView.Dist(b.X, b.Y, e.X, e.Y) <= DefenseRadius))
+            .OrderBy(e => BotView.Dist(view.CommandCenter!.X, view.CommandCenter.Y, e.X, e.Y)).ThenBy(e => e.Id)
+            .FirstOrDefault();
 
     private (int X, int Y)? Target(BotView view, IReadOnlyList<UnitDto> army)
     {

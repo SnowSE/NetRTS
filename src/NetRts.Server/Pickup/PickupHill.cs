@@ -320,7 +320,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
         {
             var plan = PickupPlans.Validate(p.Plan) is null ? p.Plan : PickupPlans.Decks[0].Plan;
             var seat = new Seat(Guid.NewGuid(), p.Name, IsHouseBot: p.Student is null, IsBlockBot: p.Student is not null);
-            var bot = new PickupBot(p.Name, plan, MatchManager.PickupTreatyTicks);
+            var bot = new PickupBot(p.Name, plan, MatchManager.PickupTreatyTicks, MatchManager.PickupTickMs);
             round.Seats[seat.PlayerId] = (p, bot);
             seats.Add((seat, bot, PickupPlans.KitFor(plan)));
             if (p.Student is not null)

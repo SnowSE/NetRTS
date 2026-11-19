@@ -27,7 +27,7 @@ public static class PickupPlans
     [
         new("rush", "Honey Rush", "Honey Badger", new PickupPlanDto
         {
-            Start = [new("Soldier", 10), new("Archer", 4)],
+            Start = [new("Soldier", 8), new("Archer", 5)],
             Steps =
             [
                 new() { Kind = "workers", Count = 8 },
@@ -39,25 +39,26 @@ public static class PickupPlans
         }),
         new("turtle", "Turtle Town", "Blue Badger", new PickupPlanDto
         {
-            Start = [new("GuardTower", 2), new("TechLab", 1), new("Soldier", 4), new("Archer", 4)],
+            Start = [new("GuardTower", 3), new("Soldier", 6), new("Archer", 4)],
             Steps =
             [
+                new() { Kind = "train", Item = "Archer", Count = 8, Keep = true },
+                new() { Kind = "build", Item = "TechLab" },
                 new() { Kind = "research", Item = "Armor1" },
-                new() { Kind = "research", Item = "Fortify1" },
                 new() { Kind = "build", Item = "GuardTower" },
-                new() { Kind = "train", Item = "Archer", Count = 12, Keep = true },
                 new() { Kind = "research", Item = "Weapons1" },
             ],
             Forever = ["Archer", "Soldier"],
-            Attack = new() { Trigger = "army", Army = 20, Target = "nearest" },
+            Attack = new() { Trigger = "army", Army = 22, Target = "nearest" },
         }),
         new("boom", "Grub Boom", "Grub Hoarder", new PickupPlanDto
         {
-            Start = [new("Worker", 6), new("ResourceDepot", 1), new("TechLab", 1), new("Barracks", 1), new("Soldier", 5)],
+            Start = [new("Worker", 10), new("ResourceDepot", 1), new("TechLab", 1), new("Soldier", 2)],
             Steps =
             [
                 new() { Kind = "research", Item = "Harvesting1" },
-                new() { Kind = "workers", Count = 20 },
+                new() { Kind = "workers", Count = 24 },
+                new() { Kind = "build", Item = "Barracks" },
                 new() { Kind = "train", Item = "Archer", Count = 10 },
                 new() { Kind = "research", Item = "Weapons1" },
                 new() { Kind = "train", Item = "Soldier", Count = 15 },

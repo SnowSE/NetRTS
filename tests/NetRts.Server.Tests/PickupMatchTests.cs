@@ -28,13 +28,13 @@ public class PickupMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
 
         Assert.True(host.IsPickup);
         Assert.Equal(MatchStatus.Active, host.Status);
-        Assert.Equal(100, host.TickIntervalMs);
+        Assert.Equal(MatchManager.PickupTickMs, host.TickIntervalMs);
         var client = factory.CreateClient();
         var listed = await client.GetFromJsonAsync<List<MatchSummaryDto>>("/api/v1/matches", Ct);
         Assert.DoesNotContain(listed!, m => m.MatchId == host.Id);
         Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/v1/matches/{host.Id}", Ct)).StatusCode);
 
-        host.Advance(1500);
+        host.Advance(MatchManager.PickupMaxTicks);
         Assert.Equal(MatchStatus.Completed, host.Status);
         await Task.Delay(300, Ct);
         await using (var scope = factory.Services.CreateAsyncScope())

@@ -139,10 +139,19 @@ public sealed partial class GameSimulation
         }
     }
 
-    /// <summary>A tile two or more steps from the HQ with nothing built, dug or standing next to it, so paths stay open.</summary>
+    /// <summary>
+    /// A tile two or more steps from the HQ with nothing built, dug or standing next to it, so paths stay open;
+    /// the nearest ring first and, within a ring, toward the middle of the map, so every corner gets the same layout.
+    /// </summary>
     private Point? KitSite(Point start)
     {
-        foreach (var p in RingTiles(start, 7))
+        var cx = Map.Width / 2;
+        var cy = Map.Height / 2;
+        var candidates = RingTiles(start, 7)
+            .OrderBy(p => Math.Max(Math.Abs(p.X - start.X), Math.Abs(p.Y - start.Y)))
+            .ThenBy(p => Math.Abs(p.X - cx) + Math.Abs(p.Y - cy))
+            .ThenBy(p => p.Y).ThenBy(p => p.X);
+        foreach (var p in candidates)
         {
             if (Math.Max(Math.Abs(p.X - start.X), Math.Abs(p.Y - start.Y)) < 2 || !Passable(p) || _units.Any(u => u.Position == p))
             {
