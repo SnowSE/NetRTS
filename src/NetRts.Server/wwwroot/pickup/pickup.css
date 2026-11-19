@@ -235,6 +235,8 @@ main.pk-main { max-width: none; padding: 0; }
 .pk .snow .snow-k { font: 800 18px var(--pk-font); color: var(--pull); }
 .pk .snow-a { display: block; text-align: center; padding: 12px; border-radius: 8px; border: 1.5px solid var(--pull); color: var(--pull); font-weight: 700; text-decoration: none; }
 .pk .snow-a.pri { background: var(--pull); color: var(--pull-ink); }
+.pk .snow-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.pk .snow-pair .snow-a { font-size: 14px; padding: 10px 8px; }
 .pk .snow .snow-note { font-size: 12.5px; color: var(--sub); }
 .pk .snow-note a { color: var(--pull); font-weight: 600; }
 .pk .over-body .pk-error { border-radius: 6px; }

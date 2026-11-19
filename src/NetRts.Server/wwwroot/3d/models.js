@@ -384,28 +384,44 @@ function depot(badger) {
 }
 
 /**
- * The Snow College Engineering block "S" (engineering.snow.edu's logo mark) on a white sign, standing on a post
- * at y: two oranges like the logo's bevel, the letter on both faces (mirrored behind, so it reads from either side).
+ * The GRSC Makerspace logo on a post at y: a navy hexagon frame, white, an orange hexagon, a white gear and the
+ * Snow block "S" (two oranges, outlined in navy). Faces front and back; the S is mirrored behind so it reads
+ * from either side.
  */
-function engineeringS(b, y) {
-  const W = 0.17, H = 0.25, t = 0.055, plate = 0.014, d = 0.01;
-  const light = col('#f7a53b'), dark = col('#e8771f');
-  const mid = y + 0.015 + H / 2 + 0.02;
-  b.add(cyl(0.008, 0.008, 0.05, 6), K.steel, { at: [0, y + 0.02, 0] })
-    .add(box(W + 0.05, H + 0.05, plate), K.white, { at: [0, mid, 0] });
-  const legH = (H - 3 * t) / 2;
+function makerspaceLogo(b, y) {
+  const navy = col('#1f3570'), orange = col('#ec7a26'), light = col('#f9a63a'), dark = col('#e46f1c');
+  const R = 0.15;                       // the frame's corner radius (pointed left and right, flat top and bottom)
+  const cy = y + 0.04 + R * 0.866;
+  const face = [Math.PI / 2, 0, 0];     // a cylinder's axis along z: the shape stands in the xy plane
+  const hex = (r, d, colour) => b.add(new THREE.CylinderGeometry(r, r, d, 6, 1, false, Math.PI / 6), colour, { at: [0, cy, 0], rot: face });
+  b.add(cyl(0.01, 0.01, 0.06, 6), K.steel, { at: [0, y + 0.03, 0] });
+  hex(R, 0.012, navy);
+  hex(R * 0.86, 0.014, K.white);
+  hex(R * 0.76, 0.016, orange);
+  // The gear: a disc with teeth round it.
+  const g = R * 0.4, teeth = 14;
+  b.add(cyl(g, g, 0.018, 20), K.white, { at: [0, cy, 0], rot: face });
+  for (let i = 0; i < teeth; i++) {
+    const a = (i / teeth) * Math.PI * 2;
+    b.add(box(0.016, R * 0.1, 0.018), K.white, { at: [Math.sin(a) * g * 1.08, cy + Math.cos(a) * g * 1.08, 0], rot: [0, 0, -a] });
+  }
+  // The S: navy bars a little bigger behind orange ones, on each face.
+  const W = R * 0.42, H = R * 0.66, t = H * 0.24, legH = (H - 3 * t) / 2, o = 0.005;
   for (const side of [1, -1]) {
-    const z = side * (plate / 2 + d / 2);
-    const x = (v) => v * side;   // the back face is the mirror image, so it reads as an S from behind too
-    for (const yy of [mid + H / 2 - t / 2, mid, mid - H / 2 + t / 2]) b.add(box(W, t, d), light, { glow: 0.15, at: [0, yy, z] });
-    b.add(box(t, legH + 0.002, d), dark, { glow: 0.15, at: [x(-(W - t) / 2), mid + t / 2 + legH / 2, z] })
-      .add(box(t, legH + 0.002, d), dark, { glow: 0.15, at: [x((W - t) / 2), mid - t / 2 - legH / 2, z] });
+    const x = (v) => v * side;
+    const bars = (grow, z, flat, upright) => {
+      for (const yy of [cy + H / 2 - t / 2, cy, cy - H / 2 + t / 2]) b.add(box(W + grow, t + grow, 0.004), flat, { at: [0, yy, z] });
+      b.add(box(t + grow, legH + grow, 0.004), upright, { at: [x(-(W - t) / 2), cy + t / 2 + legH / 2, z] })
+        .add(box(t + grow, legH + grow, 0.004), upright, { at: [x((W - t) / 2), cy - t / 2 - legH / 2, z] });
+    };
+    bars(o * 2, side * 0.011, navy, navy);
+    bars(0, side * 0.013, light, dark);
   }
 }
 
 function makerspace(badger) {
   // Tech lab / GRSC Makerspace: concrete drum, glass band, a glowing dome and an antenna; in the Snow College
-  // theme the Engineering "S" stands on top of the dome.
+  // theme the Makerspace's own logo stands on top of the dome.
   const b = new Builder();
   foundation(b);
   b.add(cyl(0.38, 0.4, 0.22, 8), K.stone, { at: [0, 0.18, 0] })
@@ -418,7 +434,7 @@ function makerspace(badger) {
     b.add(cyl(0.07, 0.07, 0.24, 8), K.team, { team: 1, at: [Math.cos(a) * 0.36, 0.19, Math.sin(a) * 0.36] })
       .add(dome(0.07, 8, 4), K.steel, { at: [Math.cos(a) * 0.36, 0.31, Math.sin(a) * 0.36] });
   }
-  if (badger) engineeringS(b, 0.72);
+  if (badger) makerspaceLogo(b, 0.72);
   return b.build();
 }
 

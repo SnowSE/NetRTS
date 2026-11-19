@@ -4,7 +4,12 @@ import { esc } from '../util.js';
 import { ordinal } from './items.js';
 import { takeHomeLink } from './convert.js';
 
-const LINKS = { program: 'https://engineering.snow.edu', blocks: '/#/blocks' };
+const LINKS = {
+  program: 'https://engineering.snow.edu',
+  cost: 'https://engineering.snow.edu/CostCalculator',
+  degree: 'https://engineering.snow.edu/DegreeBuilder',
+  blocks: '/#/blocks',
+};
 const fmtN = (n) => (typeof n === 'number' ? n.toLocaleString('en-US') : '–');
 const nameOf = (x) => (x.you ? 'You' : x.name);
 
@@ -55,6 +60,10 @@ export function overHTML(me, plan) {
         <p class="snow-k">You just programmed a bot</p>
         <p>A plan the computer follows step by step is a program. Snow College students build all sorts of cool software (like this game) in the Software Engineering program.</p>
         <a class="snow-a pri" href="${LINKS.program}" target="_blank" rel="noopener">Software Engineering at Snow College</a>
+        <div class="snow-pair">
+          <a class="snow-a" href="${LINKS.cost}" target="_blank" rel="noopener">What would my degree cost?</a>
+          <a class="snow-a" href="${LINKS.degree}" target="_blank" rel="noopener">Build your degree schedule</a>
+        </div>
         <a class="snow-a" href="${esc(takeHomeLink(plan, me.name))}" target="_blank" rel="noopener">Take your bot home</a>
         <p class="snow-note">Opens Block Bot with your plan turned into rules you can keep changing. Or <a href="${LINKS.blocks}" target="_blank" rel="noopener">start fresh in Block Bot</a>.</p>
       </div>
