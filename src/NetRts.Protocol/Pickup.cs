@@ -109,6 +109,9 @@ public sealed record PickupHillDto
     public IReadOnlyList<PickupPlayerDto> Playing { get; init; } = [];
     public IReadOnlyList<string> Line { get; init; } = [];
     public int? SecondsLeft { get; init; }
+
+    /// <summary>The match on now is the house keeping the screen busy: it stops as soon as a player is ready.</summary>
+    public bool Warmup { get; init; }
 }
 
 /// <summary>Name: the name this phone had, so it keeps it if the server restarted (only one of the game's own names is accepted).</summary>

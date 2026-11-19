@@ -294,6 +294,7 @@ html.pk-full .topbar, html.pk-full .foot, html.pk-full .skip { display: none; }
 .p-cards .cd-hold { font: 700 13px var(--pk-font); padding: 7px 12px; border-radius: 6px; border: 1.5px solid currentColor; background: transparent; color: inherit; cursor: pointer;
   margin: 6px 0 0 8px; vertical-align: middle; }
 .p-cards .cd-head:not(.go-time):not(.next-time) .cd-hold { display: block; margin: 6px 0 0; color: var(--blue); }
+.p-cards .cd-head.next-time .cd-hold, .p-cards .cd-head.go-time .cd-hold { color: #fff; border-color: rgba(255, 255, 255, .8); }
 .p-cards .live-note { margin: 0 0 10px; padding: 8px 10px; border-radius: 6px; background: #fff1e6; color: #8a3f0c; font-size: 13px; }
 .p-cards .slot.done { opacity: .55; }
 .p-cards .slot.done .no { color: #067647; font-weight: 800; }

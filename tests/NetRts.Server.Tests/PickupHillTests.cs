@@ -56,7 +56,7 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         var me = hill.Me(a.Token, At(5));
 
         Assert.Equal("next", me.Phase);
-        Assert.Equal(55, me.SecondsLeft);
+        Assert.Equal(55 + 10, me.SecondsLeft);   // the planning time left, then the 10-second countdown
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
 
         var back = hill.Rejoin(a.Token, At(201));
         Assert.Equal("next", back.Phase);
-        Assert.Equal(20, back.SecondsLeft);
+        Assert.Equal(20 + 10, back.SecondsLeft);   // planning, then the countdown
     }
 
     [Fact]
@@ -280,5 +280,36 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         Assert.Matches("^[A-Z][a-z]+-[A-Z][a-z]+$", made_up.Name);
         Assert.NotEqual(first.Name, taken.Name);
         Assert.NotEqual("not a token", junk_token.Token);
+    }
+
+    [Fact]
+    public void The_next_player_waits_for_the_student_match_on_now()
+    {
+        var hill = NewHill(SitterDeck);
+        var a = hill.Join(null, At(0));
+        hill.StartNow(a.Token, At(0));
+        hill.Update(At(0));
+        hill.Update(At(10));
+        Assert.Equal("playing", hill.Me(a.Token, At(10)).Phase);
+
+        var b = hill.Join(null, At(10));
+        hill.StartNow(b.Token, At(10));
+        hill.Update(At(10));
+        var next = hill.Me(b.Token, At(10));
+
+        Assert.Equal("next", next.Phase);
+        var matchSeconds = MatchManager.PickupMaxTicks * MatchManager.PickupTickMs / 1000;
+        Assert.InRange(next.SecondsLeft!.Value, matchSeconds + 10 - 1, matchSeconds + 10 + 1);
+        Assert.False(hill.Hill(At(10)).Warmup);
+    }
+
+    [Fact]
+    public void A_house_match_is_a_warm_up()
+    {
+        var hill = NewHill(SitterDeck, PickupPlans.Decks[1]);
+        hill.Hill(At(0));
+        hill.Update(At(0));
+
+        Assert.True(hill.Hill(At(1)).Warmup);
     }
 }

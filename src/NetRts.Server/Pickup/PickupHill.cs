@@ -249,6 +249,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
                 Playing = playing,
                 Line = _line.Where(e => e != _champion).Take(10).Select(e => e.Name).ToList(),
                 SecondsLeft = round is { Host: null } ? Seconds(round.StartsAt - now) : null,
+                Warmup = round is { ForStudents: false },
             };
         }
     }
@@ -510,7 +511,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             Phase.Countdown => "countdown",
             Phase.Playing => "playing",
             Phase.Over => "over",
-            _ when place == FrontPlace(entry) && !entry.Holding && entry.ReadyAt > now => "next",
+            _ when place == FrontPlace(entry) && !entry.Holding && (entry.ReadyAt > now || Busy(now) > TimeSpan.Zero) => "next",
             _ => "line",
         };
         var round = _round is not null && _round.Players.Any(p => p.Student == entry) ? _round : null;
@@ -523,7 +524,8 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             Place = place >= 0 && entry != _champion ? place + 1 : null,
             SecondsLeft = phase switch
             {
-                "next" => Seconds(entry.ReadyAt - now),
+                // When the match really starts: the planning time left, or the student match on now, then the countdown.
+                "next" => Seconds(Max(entry.ReadyAt - now, Busy(now)) + Countdown),
                 "countdown" when round is not null => Seconds(round.StartsAt - now),
                 _ => null,
             },
@@ -538,6 +540,29 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             Plan = entry.Plan,
         };
     }
+
+    /// <summary>
+    /// How long until the hill is free for the next round: the students' round on now (its countdown and what's
+    /// left of its match). A house round doesn't count: it gives way to a ready player.
+    /// </summary>
+    private TimeSpan Busy(DateTime now)
+    {
+        if (_round is not { ForStudents: true } round)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var match = TimeSpan.FromMilliseconds((double)MatchManager.PickupMaxTicks * MatchManager.PickupTickMs);
+        if (round.Host is not { } host)
+        {
+            return round.StartsAt - now + match;
+        }
+
+        var left = Math.Max(0, host.Settings.MaxTicks - host.ToSummary().Tick);
+        return host.Status == MatchStatus.Completed ? TimeSpan.Zero : TimeSpan.FromMilliseconds((double)left * host.TickIntervalMs);
+    }
+
+    private static TimeSpan Max(TimeSpan a, TimeSpan b) => a > b ? a : b;
 
     /// <summary>Where the front of the line is for this entry: 0, or later when everyone ahead is holding.</summary>
     private int FrontPlace(Entry entry) => _line.FindIndex(e => e == entry || !e.Holding);

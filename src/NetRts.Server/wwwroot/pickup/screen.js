@@ -75,6 +75,8 @@ export function mountScreen(main) {
     el.hidden = false;
     el.innerHTML = state.outcome
       ? '<b>Final</b><small>the next match starts soon</small>'
+      : hill?.warmup
+        ? '<b>Warm-up</b><small>the house plays until someone is ready · scan to play</small>'
       : `<b>${clockText(msLeft)}</b><small>${treatyLeft > 0 ? `left · fighting starts in ${clockText(treatyLeft)}` : 'left in this match'}</small>
          <span class="pks-bar"><span style="width:${pct.toFixed(1)}%"></span></span>`;
   }
