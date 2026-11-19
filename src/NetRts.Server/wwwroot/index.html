@@ -10,8 +10,9 @@
   <script>
     // Colour theme and brand (original NetRTS or the Snow College theme, the default) before first paint.
     try { const t = localStorage.getItem('netrts-theme'); if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t; } catch {}
-    let brand = 'snow';
-    try { if (localStorage.getItem('netrts-brand') === 'classic') brand = 'classic'; } catch {}
+    // The brand toggle is off the top bar for now (room for the Pick-up Game), so everyone gets the Snow
+    // College theme; a saved 'classic' choice would otherwise leave someone stuck with no way back.
+    const brand = 'snow';
     document.documentElement.dataset.brand = brand;
     if (brand === 'snow') {
       document.title = 'Badger Brawl';
