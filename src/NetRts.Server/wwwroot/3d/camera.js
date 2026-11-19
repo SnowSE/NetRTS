@@ -369,7 +369,8 @@ export class CameraRig {
         }
         d.spot = { x: spot.x, z: spot.z };
       }
-      this.goal.dist = clamp(d.near - 1 + Math.sqrt(spot.size || 1) * d.spread, d.near, d.far);
+      // A spot can say how far back to sit (a page framing a whole area); otherwise the fight's size decides.
+      this.goal.dist = spot.dist ?? clamp(d.near - 1 + Math.sqrt(spot.size || 1) * d.spread, d.near, d.far);
     } else if (!d.spot) {
       d.spot = { x: this.terrain.W / 2, z: this.terrain.H / 2 };
       this.goal.dist = Math.max(this.terrain.W, this.terrain.H) * 0.6;

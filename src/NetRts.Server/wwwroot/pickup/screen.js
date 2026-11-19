@@ -23,6 +23,19 @@ export function qrSvg(text) {
   return `<svg viewBox="0 0 ${n + pad * 2} ${n + pad * 2}" shape-rendering="crispEdges" role="img" aria-label="QR code for ${esc(text)}"><rect width="100%" height="100%" fill="#fff"/><path d="${d}" fill="#0f1d2e"/></svg>`;
 }
 
+/** Where to look and how far back to sit so every unit and building on the map is in the picture. */
+function frameEveryone(state) {
+  const things = [...(state?.units || []), ...(state?.buildings || [])];
+  if (!things.length) return null;
+  let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+  for (const t of things) {
+    x0 = Math.min(x0, t.x); x1 = Math.max(x1, t.x);
+    z0 = Math.min(z0, t.y); z1 = Math.max(z1, t.y);
+  }
+  const span = Math.max(x1 - x0, z1 - z0) + 6;   // a few tiles of margin round the edges
+  return { x: (x0 + x1) / 2 + 0.5, z: (z0 + z1) / 2 + 0.5, size: 1, dist: Math.min(40, Math.max(9, span * 1.15)) };
+}
+
 export function mountScreen(main) {
   const scope = mountScope();
   const { later } = scope;
@@ -96,11 +109,11 @@ export function mountScreen(main) {
         names: () => playerNames(null, cur.state),
         onReady: () => {
           setMsg('');
-          // Farther out and slower than the match page's director, so the whole fight (and both bases on a
-          // small pick-up map) stays in view from across the booth.
           const view = $('pks-3d').view3d;   // mount3d puts it on its box; v may not be set yet
-          Object.assign(view.rig.director, { near: 13, far: 20, spread: 1.6, pitch: 0.7, pitchSpan: 0.2, yawSpeed: 0.035, cutEvery: 12 });
+          // Everyone in view: the camera frames all the players' units and buildings, turning slowly.
+          Object.assign(view.rig.director, { pitch: 0.78, pitchSpan: 0.12, yawSpeed: 0.02, cutEvery: 15 });
           view.setMode('director');
+          view.rig.directorFn = () => frameEveryone(view.state);
         },
       });
       if (starting !== matchId) { v.dispose(); return; }
