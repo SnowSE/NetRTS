@@ -636,6 +636,40 @@ function nugget(badger) {
   return b.build();
 }
 
+/**
+ * Intro to Construction (Fortify 1) on show: a dressed-stone plinth wall around a building's base, with heavier
+ * corner blocks, as if its footings had been rebuilt. Fits a 0.94 square; the view scales it to the building.
+ */
+function fortifyStone() {
+  const b = new Builder();
+  const stone = col('#c9c0ae'), dark = col('#9b927f'), cap = col('#e2dccd');
+  const E = 0.47, H = 0.09, T = 0.045;
+  for (const [x, z, w, d] of [[0, -E, 2 * E, T], [0, E, 2 * E, T], [-E, 0, T, 2 * E], [E, 0, T, 2 * E]]) {
+    b.add(box(w, H, d), stone, { at: [x, H / 2, z] })
+      .add(box(w + 0.01, 0.015, d + 0.01), cap, { at: [x, H + 0.007, z] });
+  }
+  for (const x of [-E, E]) for (const z of [-E, E]) b.add(box(0.1, 0.15, 0.1), dark, { at: [x, 0.075, z] }).add(box(0.11, 0.02, 0.11), cap, { at: [x, 0.16, z] });
+  return b.build();
+}
+
+/**
+ * Structural Engineering (Fortify 2) on show: stepped stone buttresses braced against each corner, capped in
+ * bronze. One unit tall (the buttresses reach a third of it): the view stretches it to the building's height.
+ */
+function fortifyButtresses() {
+  const b = new Builder();
+  const stone = col('#a89f8c'), bronze = col('#b5852f');
+  const E = 0.47;
+  for (const sx of [-1, 1]) for (const sz of [-1, 1]) {
+    // Three steps, each narrower and set further in, so the buttress leans into the corner.
+    for (const [w, h, y, inset] of [[0.16, 0.14, 0.07, 0], [0.12, 0.12, 0.2, 0.02], [0.08, 0.1, 0.31, 0.035]]) {
+      b.add(box(w, h, w), stone, { at: [sx * (E - inset), y, sz * (E - inset)] });
+    }
+    b.add(box(0.1, 0.025, 0.1), bronze, { glow: 0.12, at: [sx * (E - 0.035), 0.375, sz * (E - 0.035)] });
+  }
+  return b.build();
+}
+
 /** Wooden scaffold put up around a building site. */
 function scaffold() {
   const b = new Builder();
@@ -700,6 +734,7 @@ export function buildModels(badger) {
     nugget: nugget(badger),
     shield: roundShield(),
     scaffold: scaffold(),
+    fortify: { stone: fortifyStone(), buttresses: fortifyButtresses() },
     shell: shell(badger),
   };
 }

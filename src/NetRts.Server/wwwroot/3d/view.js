@@ -20,6 +20,7 @@ import { loadText, saveText } from '../storage.js';
 import { Commentary } from './commentary.js';
 import { drawTowerShot } from './towers.js';
 import { TOWER_RANGE, towerShotsOf } from '../towershots.js';
+import { fortifyLevels, footprint, pushFortify } from './fortify.js';
 
 /** Bright, color-blind-friendly player colors (the site's dark palette): they read well in daylight. */
 const TEAM = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
@@ -348,6 +349,8 @@ export class View3D {
     L.nugget = new Instances(this.scene, this.models.nugget, this.mat, this.depthMat, 32);
     L.shield = new Instances(this.scene, this.models.shield, this.mat, this.depthMat, 16);
     L.scaffold = new Instances(this.scene, this.models.scaffold, this.mat, this.depthMat, 8);
+    L.fortStone = new Instances(this.scene, this.models.fortify.stone, this.mat, this.depthMat, 16);
+    L.fortButtress = new Instances(this.scene, this.models.fortify.buttresses, this.mat, this.depthMat, 16);
     L.shell = new Instances(this.scene, this.models.shell, this.mat, this.depthMat, 16);
     for (const k of ['nugget', 'deposit']) L[k].mesh.castShadow = k === 'deposit';
     this.layers = L;
@@ -1232,6 +1235,9 @@ export class View3D {
     for (const l of this.bLayers.values()) l.begin();
     L.deposit.begin();
     L.scaffold.begin();
+    L.fortStone.begin();
+    L.fortButtress.begin();
+    const fortify = fortifyLevels(this.state);
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), sc = new THREE.Vector3(1, 1, 1);
     const white = new THREE.Color('#ffffff');
     const bars = this.bars;
@@ -1272,6 +1278,7 @@ export class View3D {
         this.effects.spark(new THREE.Vector3(x + lx * c + lz * sn, y + 0.14 * this.buildingScale, z - lx * sn + lz * c), 4, [2.4, 2.3, 2.1], 0.45);
       }
       if (!b.completed) L.scaffold.push(m, white);
+      else if (fortify.get(b.owner)) pushFortify(L, fortify.get(b.owner), v.set(x, y, z), q, this.buildingScale, footprint(def.geo), def.height);
       if (b.completed && b.hp < b.maxHp) {
         const hurt = 1 - b.hp / b.maxHp;
         if (hurt > 0.35) this.effects.burning(v.set(x, y + def.height * this.buildingScale * 0.4, z), clamp((hurt - 0.35) / 0.5, 0, 1), dt);
@@ -1296,6 +1303,8 @@ export class View3D {
     for (const l of this.bLayers.values()) l.end();
     L.deposit.end();
     L.scaffold.end();
+    L.fortStone.end();
+    L.fortButtress.end();
     bars.mesh.geometry.instanceCount = bars.n;
     bars.pos.needsUpdate = true;
     bars.data.needsUpdate = true;
