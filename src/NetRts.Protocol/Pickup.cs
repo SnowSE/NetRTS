@@ -48,6 +48,9 @@ public sealed record PickupDeckDto(string Id, string Name, string HouseName, Pic
 public sealed record PickupPlayerDto
 {
     public string Name { get; init; } = "";
+
+    /// <summary>The player's slot in the match (their colour on the map), once the match has started.</summary>
+    public int? Slot { get; init; }
     public bool You { get; init; }
     public bool Champion { get; init; }
     public bool House { get; init; }

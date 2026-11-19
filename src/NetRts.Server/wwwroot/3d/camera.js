@@ -30,7 +30,9 @@ export class CameraRig {
     this.keys = new Set();
     this.followFn = null;       // () => Vector3 | null
     this.directorFn = null;     // () => {x, z, size} | null
-    this.director = { yawSpeed: 0.07, lastCut: 0, spot: null };
+    // Framing (a page can change it): distance near..far growing with the fight's size, a pitch from
+    // pitch to pitch + pitchSpan, and a cut to a new fight at most every cutEvery seconds.
+    this.director = { yawSpeed: 0.07, lastCut: 0, spot: null, near: 4.5, far: 12, spread: 1.25, pitch: 0.32, pitchSpan: 0.3, cutEvery: 5 };
     this.onModeChange = null;   // (mode) => void
     this.onPick = null;         // (clientX, clientY) => void
     this.onHover = null;        // (clientX, clientY) | null => void
@@ -357,17 +359,17 @@ export class CameraRig {
     if (spot) {
       const far = !d.spot || Math.hypot(spot.x - d.spot.x, spot.z - d.spot.z) > 9;
       const drift = d.spot && Math.hypot(spot.x - d.spot.x, spot.z - d.spot.z) > 2.5;
-      if ((far && now - d.lastCut > 5) || (!far && drift)) {
+      if ((far && now - d.lastCut > d.cutEvery) || (!far && drift)) {
         if (far) {
           d.lastCut = now;
           // A new scene: vary the angle and framing.
           this.goal.yaw = this.cur.yaw + (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.9);
-          this.goal.pitch = 0.32 + Math.random() * 0.3;
+          this.goal.pitch = d.pitch + Math.random() * d.pitchSpan;
           this.rate = 1.6;
         }
         d.spot = { x: spot.x, z: spot.z };
       }
-      this.goal.dist = clamp(3.5 + Math.sqrt(spot.size || 1) * 1.25, 4.5, 12);
+      this.goal.dist = clamp(d.near - 1 + Math.sqrt(spot.size || 1) * d.spread, d.near, d.far);
     } else if (!d.spot) {
       d.spot = { x: this.terrain.W / 2, z: this.terrain.H / 2 };
       this.goal.dist = Math.max(this.terrain.W, this.terrain.H) * 0.6;

@@ -451,6 +451,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             return new PickupPlayerDto
             {
                 Name = player.Name,
+                Slot = p.Slot,
                 You = you is not null && player.Student == you,
                 Champion = player == round.Players[0],
                 House = player.Student is null,

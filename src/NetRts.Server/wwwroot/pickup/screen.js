@@ -75,7 +75,14 @@ export function mountScreen(main) {
       v = await mount3d($('pks-3d'), {
         scope,
         names: () => playerNames(null, cur.state),
-        onReady: () => { setMsg(''); v?.view3d.setMode('director'); },
+        onReady: () => {
+          setMsg('');
+          // Farther out and slower than the match page's director, so the whole fight (and both bases on a
+          // small pick-up map) stays in view from across the booth.
+          const view = $('pks-3d').view3d;   // mount3d puts it on its box; v may not be set yet
+          Object.assign(view.rig.director, { near: 13, far: 20, spread: 1.6, pitch: 0.7, pitchSpan: 0.2, yawSpeed: 0.035, cutEvery: 12 });
+          view.setMode('director');
+        },
       });
       if (starting !== matchId) { v.dispose(); return; }
       cur.view = v;

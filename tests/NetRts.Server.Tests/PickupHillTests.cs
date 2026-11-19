@@ -80,6 +80,7 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         Assert.Equal(2, playing.Players.Count);
         Assert.Contains(playing.Players, p => p.You && p.Name == a.Name);
         Assert.Contains(playing.Players, p => p.House && p.Champion);
+        Assert.Equal([0, 1], playing.Players.Select(p => p.Slot ?? -1).Order());
     }
 
     [Fact]
