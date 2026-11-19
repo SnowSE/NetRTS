@@ -564,6 +564,28 @@ NOT_SIGNED_IN` without it):
 | `PUT /api/v1/account/strategies/{id}` | Saves one (`{ "program": ..., "baseVersion": 3 }`; `id` is 1–64 letters, digits, `-` or `_`). `baseVersion` is the version you last read, or `null` for a new one; if the account's copy has moved on (or was deleted) you get `409 STRATEGY_CHANGED` with it as `current`. The program is checked like `validate` (`400 INVALID_PROGRAM`); an account keeps at most 100 (`409 TOO_MANY_STRATEGIES`), each at most 64 KB. |
 | `DELETE /api/v1/account/strategies/{id}` | Deletes one; with `?version=N` only if it's still that version (else `409 STRATEGY_CHANGED`). |
 
+## Pick-up Game (walk-up king of the hill)
+
+`#/pickup` is a walk-up mode for events: phones join a line, build a plan from cards, and the server
+plays it on the big screen (`#/pickup/screen`) against whoever holds the hill. Nothing is saved: no
+accounts, no names you type, no recorded matches, no ladder. Its matches use their own rules, which
+no other match uses:
+
+- **Start pile.** Each player starts with the usual HQ and workers, one free Barracks (Housing), and
+  whatever they bought from 1,500 ore (`Soldier`, `Archer`, `Scout`, `Worker`, `Barracks`,
+  `ResourceDepot`, `TechLab`, `GuardTower`; at most 3 of each building). Bought units and completed
+  buildings exist at tick 0; unspent ore is in the bank.
+- **Treaty.** For the first 300 ticks (30 seconds at 100 ms a tick) no player can damage another.
+- **Combat score.** A match lasts 1,500 ticks; at the limit the highest score wins, and the score is
+  damage dealt to other players plus the value of what you destroyed (ore and what you own don't count).
+- **The plan** (`PickupPlanDto`): up to 6 steps run once, in order (`workers` / `train` "up to N",
+  optionally kept at that level; `build`; `research`), then 1–3 Forever cards repeated in order, and an
+  attack rule (`army` size or a `time`, against the nearest `base` or the `nearest` enemies, with or
+  without defending). During the match the phone can send `attack` (attack now) or `pullback`.
+- **The hill.** The champion takes on up to 3 challengers from the front of the line; winner stays on;
+  a champion retires after 5 wins against students. With nobody ready the house plays one of the three
+  decks (`GET /api/v1/pickup/decks`). The phone API is under `/api/v1/pickup` (see `/scalar`).
+
 ## Reference bots
 
 - **C# starter, one file:** [`samples/csharp/StarterBot.cs`](../samples/csharp/StarterBot.cs). Save it and
