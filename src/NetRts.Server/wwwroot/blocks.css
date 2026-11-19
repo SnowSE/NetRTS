@@ -397,7 +397,7 @@ main.bb-full { padding: 8px clamp(8px, 1.5vw, 16px); }
 .bb-view-left, .bb-view-right { top: 10px; gap: 4px; }
 .bb-view-left { left: 10px; }
 .bb-view-right { right: 10px; }
-/* The sound button says on or muted with its icon, not with the toolbar's pressed colour. */
+/* The sound button says on or muted with its icon, not with the toolbar's pressed color. */
 .bb-view-right button[aria-pressed="true"] { background: var(--panel-2); border-color: var(--line); color: var(--ink); font-weight: 700; }
 
 /* The stats rail down the left of the view: the clock, a trend line per stat, then the scoreboard. */

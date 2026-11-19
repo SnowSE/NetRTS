@@ -106,7 +106,7 @@ public sealed class PlayerStatsRecord
     public Guid PlayerId { get; set; }
     public MatchCategory Category { get; set; }
 
-    /// <summary>"" for the current season; past seasons are labelled by hand (see docs/deploying.md).</summary>
+    /// <summary>"" for the current season; past seasons are labeled by hand (see docs/deploying.md).</summary>
     public string Season { get; set; } = Seasons.Current;
     public int Rating { get; set; } = Elo.InitialRating;
     public int Wins { get; set; }
@@ -144,7 +144,7 @@ public sealed class MatchRecord
     public bool Rated { get; set; }
     public MatchCategory Category { get; set; }
 
-    /// <summary>"" for the current season; past seasons are labelled by hand.</summary>
+    /// <summary>"" for the current season; past seasons are labeled by hand.</summary>
     public string Season { get; set; } = Seasons.Current;
 
     /// <summary>Serialized MatchSummaryDto (players, settings, outcome).</summary>

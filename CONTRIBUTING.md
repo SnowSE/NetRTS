@@ -2,7 +2,7 @@
 
 ## Ground rules
 
-- **Game behaviour lives in `NetRts.Engine` and must stay deterministic.** No clocks, no
+- **Game behavior lives in `NetRts.Engine` and must stay deterministic.** No clocks, no
   `System.Random`, no iteration over unordered collections, explicit tie-breaks. If you add state,
   include it in `StateHash()` so the replay test keeps you honest.
 - **Balance numbers live in `GameRules`** and reach bots through `GET /api/v1/rules`. Update
@@ -18,7 +18,7 @@ Write the test first where you can.
 
 - Rules and mechanics → `tests/NetRts.Engine.Tests`. Use `TestGames.New()` and the internal hooks in
   `GameSimulation.Testing.cs` to stage exact scenarios.
-- API behaviour → `tests/NetRts.Server.Tests` (real HTTP pipeline, isolated SQLite file, manual
+- API behavior → `tests/NetRts.Server.Tests` (real HTTP pipeline, isolated SQLite file, manual
   ticks via `MatchHost.Advance`).
 - If you change the house bots or balance, run `FullMatchTests` and make sure matches still end
   decisively.

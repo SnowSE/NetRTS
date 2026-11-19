@@ -1,7 +1,7 @@
 // 3D match view: low-poly models built in code, so there are no art files to load. Every model is one
-// merged geometry with per-vertex colour plus two extra attributes: `team` (1 where the player's colour
+// merged geometry with per-vertex color plus two extra attributes: `team` (1 where the player's color
 // shows through) and `glow` (self-lit windows, crystals, lanterns). Units and buildings are drawn as
-// instanced meshes with per-instance team colour, hit flash and construction height.
+// instanced meshes with per-instance team color, hit flash and construction height.
 //
 // One tile is one world unit; models stand on y = 0 and face +z.
 import * as THREE from 'three';
@@ -13,12 +13,12 @@ import { HQ_MODELS, HOUSING_MODELS } from './campus.js';
 
 function head(b, badger, y = 0.34) {
   if (badger) {
-    // White face, a black stripe through each eye, grey cheeks, small dark ears.
+    // White face, a black stripe through each eye, gray cheeks, small dark ears.
     b.add(ball(0.072, 1), K.white, { at: [0, y, 0.005], scale: [1, 0.92, 1.12] })
       .add(box(0.024, 0.04, 0.13), K.black, { at: [-0.032, y + 0.028, 0.02] })
       .add(box(0.024, 0.04, 0.13), K.black, { at: [0.032, y + 0.028, 0.02] })
-      .add(ball(0.05, 0), K.badgerGrey, { at: [-0.05, y - 0.02, -0.005], scale: [0.7, 0.9, 1.1] })
-      .add(ball(0.05, 0), K.badgerGrey, { at: [0.05, y - 0.02, -0.005], scale: [0.7, 0.9, 1.1] })
+      .add(ball(0.05, 0), K.badgerGray, { at: [-0.05, y - 0.02, -0.005], scale: [0.7, 0.9, 1.1] })
+      .add(ball(0.05, 0), K.badgerGray, { at: [0.05, y - 0.02, -0.005], scale: [0.7, 0.9, 1.1] })
       .add(cone(0.036, 0.07, 6), K.white, { at: [0, y - 0.012, 0.09], rot: [Math.PI / 2, 0, 0] })
       .add(ball(0.016, 0), K.black, { at: [0, y - 0.012, 0.128] })
       .add(ball(0.02, 0), K.black, { at: [-0.05, y + 0.06, -0.02] })
@@ -72,7 +72,7 @@ function soldier(badger) {
     .add(box(0.022, 0.05, 0.11), K.team, { team: 1, at: [0, hy + 0.09, -0.01] })
     .add(ball(0.04, 0), K.steel, { at: [-0.1, 0.285, 0], scale: [1.1, 0.7, 1] })
     .add(ball(0.04, 0), K.steel, { at: [0.1, 0.285, 0], scale: [1.1, 0.7, 1] })
-    // Shield on the left arm: player colours with a steel rim and boss.
+    // Shield on the left arm: player colors with a steel rim and boss.
     .add(cyl(0.115, 0.115, 0.022, 12), K.steelDark, { at: [-0.14, 0.2, 0.04], rot: [Math.PI / 2, 0, 0], scale: [1, 1, 1.15] })
     .add(cyl(0.1, 0.1, 0.026, 12), K.team, { team: 1, at: [-0.14, 0.2, 0.043], rot: [Math.PI / 2, 0, 0], scale: [1, 1, 1.15] })
     .add(ball(0.026, 0), K.brightSteel, { at: [-0.14, 0.2, 0.06] })
@@ -83,10 +83,10 @@ function soldier(badger) {
   return b.build();
 }
 
-/** A round shield worn over a soldier's own (same place on the left arm): rings, a blue centre and a star. */
+/** A round shield worn over a soldier's own (same place on the left arm): rings, a blue center and a star. */
 function roundShield() {
   const b = new Builder();
-  const disc = (r, z, colour) => b.add(cyl(r, r, 0.006, 20), colour, { glow: 0.2, at: [-0.14, 0.2, z], rot: [Math.PI / 2, 0, 0] });
+  const disc = (r, z, color) => b.add(cyl(r, r, 0.006, 20), color, { glow: 0.2, at: [-0.14, 0.2, z], rot: [Math.PI / 2, 0, 0] });
   disc(0.13, 0.058, col('#c8102e'));
   disc(0.102, 0.062, col('#f5f5f5'));
   disc(0.077, 0.066, col('#c8102e'));
@@ -122,7 +122,7 @@ function archer(badger) {
 }
 
 function scout(badger) {
-  // A rider on a horse: long legs, an arched neck, a dark mane and tail, a saddle blanket in team colours.
+  // A rider on a horse: long legs, an arched neck, a dark mane and tail, a saddle blanket in team colors.
   const b = new Builder();
   const coat = col('#7a4f30'), dark = col('#2b1d14'), hoof = col('#1e1a17'), blaze = col('#efe8dc');
   b.add(box(0.12, 0.13, 0.32), coat, { at: [0, 0.25, 0] })                          // barrel
@@ -217,13 +217,13 @@ function snowMobile() {
   // white wheels and bumper. The roof carries a cannon where the real one carries its bubble machine.
   const b = new Builder();
   const navy = col('#1d3470'), deep = col('#14214a'), blue = col('#3a64ad'), orange = col('#f58025');
-  const white = col('#f4f4f2'), grey = col('#b9bcc0'), tyre = col('#1b1b1d');
+  const white = col('#f4f4f2'), gray = col('#b9bcc0'), tyre = col('#1b1b1d');
   // Wheels: white steel rims on black tyres, the front pair under the cab.
   for (const z of [-0.16, 0.17]) {
     for (const x of [-0.12, 0.12]) {
       b.add(cyl(0.062, 0.062, 0.05, 12), tyre, { at: [x, 0.062, z], rot: [0, 0, Math.PI / 2] })
         .add(cyl(0.036, 0.036, 0.055, 10), white, { at: [x, 0.062, z], rot: [0, 0, Math.PI / 2] })
-        .add(cyl(0.012, 0.012, 0.06, 6), grey, { at: [x, 0.062, z], rot: [0, 0, Math.PI / 2] });
+        .add(cyl(0.012, 0.012, 0.06, 6), gray, { at: [x, 0.062, z], rot: [0, 0, Math.PI / 2] });
     }
   }
   b.add(box(0.22, 0.05, 0.52), K.black, { at: [0, 0.1, -0.01] });                       // chassis
@@ -232,17 +232,17 @@ function snowMobile() {
     .add(box(0.274, 0.1, 0.4), blue, { at: [0, 0.39, -0.07] })
     .add(box(0.28, 0.035, 0.5), white, { at: [0, 0.475, -0.035] })
     .add(box(0.26, 0.012, 0.48), col('#e2e3e0'), { at: [0, 0.497, -0.035] });
-  for (const x of [-0.12, 0.12]) b.add(box(0.016, 0.018, 0.4), K.team, { team: 1, at: [x, 0.51, -0.05] });   // roof rails in the team's colour
+  for (const x of [-0.12, 0.12]) b.add(box(0.016, 0.018, 0.4), K.team, { team: 1, at: [x, 0.51, -0.05] });   // roof rails in the team's color
   // The cab front: a two-pane windscreen, raked a little, under a navy header with the orange S and
   // "SNOW COLLEGE" in white.
   for (const x of [-0.064, 0.064]) b.add(box(0.118, 0.11, 0.01), K.pane, { glow: 0.1, at: [x, 0.355, 0.21], rot: [-0.12, 0, 0] });
   b.add(box(0.008, 0.11, 0.012), deep, { at: [0, 0.355, 0.212], rot: [-0.12, 0, 0] })
     .add(box(0.03, 0.03, 0.006), orange, { at: [-0.075, 0.435, 0.208] })
     .add(box(0.13, 0.014, 0.006), white, { at: [0.02, 0.435, 0.208] });
-  // The hood: a short navy nose with a grey grille, round headlamps and a white bumper.
+  // The hood: a short navy nose with a gray grille, round headlamps and a white bumper.
   b.add(box(0.25, 0.15, 0.08), navy, { at: [0, 0.175, 0.24] })
     .add(box(0.25, 0.03, 0.07), blue, { at: [0, 0.255, 0.235], rot: [0.25, 0, 0] })
-    .add(box(0.1, 0.085, 0.008), grey, { at: [0, 0.175, 0.282] });
+    .add(box(0.1, 0.085, 0.008), gray, { at: [0, 0.175, 0.282] });
   for (let i = 0; i < 4; i++) b.add(box(0.1, 0.005, 0.01), K.steelDark, { at: [0, 0.145 + i * 0.02, 0.285] });
   for (const x of [-0.088, 0.088]) {
     b.add(cyl(0.022, 0.022, 0.012, 10), col('#fff4d0'), { glow: 0.8, at: [x, 0.19, 0.282], rot: [Math.PI / 2, 0, 0] })
@@ -267,7 +267,7 @@ function snowMobile() {
     b.add(box(0.008, h / 2, t), orange, { at: [s * 0.139, top - h / 4, zc + s * w / 2] })
       .add(box(0.008, h / 2, t), orange, { at: [s * 0.139, top - 3 * h / 4, zc - s * w / 2] });
   }
-  b.add(box(0.2, 0.02, 0.03), grey, { at: [0, 0.11, -0.285] })                           // rear step
+  b.add(box(0.2, 0.02, 0.03), gray, { at: [0, 0.11, -0.285] })                           // rear step
     .add(box(0.03, 0.02, 0.01), K.red, { glow: 0.6, at: [-0.11, 0.17, -0.282] })
     .add(box(0.03, 0.02, 0.01), K.red, { glow: 0.6, at: [0.11, 0.17, -0.282] });
   // The roof cannon, over the cab where the bubble machine sits: a navy turret ring with steel cheeks
@@ -297,7 +297,7 @@ function shell(badger) {
 
 
 function campusHall() {
-  // Snow College HQ: a red-brick hall with a white portico, a team-coloured roof and a cupola.
+  // Snow College HQ: a red-brick hall with a white portico, a team-colored roof and a cupola.
   const b = new Builder();
   foundation(b);
   b.add(box(0.8, 0.42, 0.58), K.brick, { at: [0, 0.29, -0.02] })
@@ -455,10 +455,10 @@ function bellTower() {
     for (const sx of [-1, 1]) for (const sz of [-1, 1]) b.add(box(p, h, p), brick, { at: [sx * (w - p) / 2, y0 + h / 2, sz * (w - p) / 2] });
   };
   // A band all the way round a stage at height y.
-  const band = (w, y, h, colour, out = 0.004) => b.add(box(w + out * 2, h, w + out * 2), colour, { at: [0, y + h / 2, 0] });
+  const band = (w, y, h, color, out = 0.004) => b.add(box(w + out * 2, h, w + out * 2), color, { at: [0, y + h / 2, 0] });
   // Lintels across the open faces at height y (the openings face front/back and left/right).
-  const lintels = (w, y, h, colour) => {
-    b.add(box(w, h, w * 0.98), colour, { at: [0, y + h / 2, 0] });
+  const lintels = (w, y, h, color) => {
+    b.add(box(w, h, w * 0.98), color, { at: [0, y + h / 2, 0] });
   };
   const bell = (y, s) => {
     b.add(cyl(0.022 * s, 0.05 * s, 0.07 * s, 10), bellMetal, { glow: 0.15, at: [0, y, 0] })
@@ -573,7 +573,7 @@ function siegeShed() {
 function washburn() {
   // The Washburn Building on Snow College's Richfield campus, home of the welding and automotive shops:
   // a long, low tan-block building with a flat roof, big roll-up bay doors (one up, a welder's glow
-  // inside), a navy sign band, rooftop units and team-coloured trim along the parapet.
+  // inside), a navy sign band, rooftop units and team-colored trim along the parapet.
   const b = new Builder();
   foundation(b);
   const block = col('#cdb68c'), blockDark = col('#b39a70'), navy = col('#00205b'), door = col('#9aa0a6');
@@ -654,7 +654,7 @@ function scaffold() {
 
 /**
  * Every geometry the view needs, for the active brand. In the Snow College theme each player's HQ
- * and housing is modelled on its real campus building (see lore.js for which slot gets which).
+ * and housing is modeled on its real campus building (see lore.js for which slot gets which).
  * Buildings are made the first time they're needed; their height (for construction and health bars)
  * comes from the model itself.
  */
@@ -705,7 +705,7 @@ export function buildModels(badger) {
 }
 
 /**
- * The material for units and buildings: vertex colours, with the player's colour where `team` is set,
+ * The material for units and buildings: vertex colors, with the player's color where `team` is set,
  * self-lit where `glow` is set, a red-white flash when hit, and (for buildings under construction)
  * everything above the build height cut away with a glowing seam.
  */

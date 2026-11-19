@@ -21,7 +21,7 @@ import { Commentary } from './commentary.js';
 import { drawTowerShot } from './towers.js';
 import { TOWER_RANGE, towerShotsOf } from '../towershots.js';
 
-/** Bright, colour-blind-friendly player colours (the site's dark palette): they read well in daylight. */
+/** Bright, color-blind-friendly player colors (the site's dark palette): they read well in daylight. */
 const TEAM = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
   '#bcaaa4', '#f48fb1', '#9fa8da', '#aed581', '#ffab40', '#80cbc4', '#ce93d8', '#b0bec5'].map((c) => new THREE.Color(c));
 const teamOf = (slot) => TEAM[((slot % TEAM.length) + TEAM.length) % TEAM.length];
@@ -77,11 +77,11 @@ class Instances {
     this.n = 0;
   }
   begin() { this.n = 0; }
-  push(matrix, colour, flash = 0, cut = NO_CUT, walk = null, draw = null) {
+  push(matrix, color, flash = 0, cut = NO_CUT, walk = null, draw = null) {
     if (this.n >= this.cap) this.alloc(this.cap * 2);
     const i = this.n++;
     this.mesh.setMatrixAt(i, matrix);
-    this.team.setXYZ(i, colour.r, colour.g, colour.b);
+    this.team.setXYZ(i, color.r, color.g, color.b);
     this.flash.setX(i, flash);
     this.cut.setX(i, cut);
     if (walk) this.walk.setXYZ(i, walk[0], walk[1], walk[2]);
@@ -272,7 +272,7 @@ export class View3D {
     scene.add(sky);
     this.sky = sky;
 
-    // Image-based lighting from the same sky, so every surface picks up its colour.
+    // Image-based lighting from the same sky, so every surface picks up its color.
     const pmrem = new THREE.PMREMGenerator(this.renderer);
     const envScene = new THREE.Scene();
     const envSky = new Sky();
@@ -696,7 +696,7 @@ export class View3D {
     this.audio.sfx(kind, vol * Math.pow(near / Math.max(d, near), 1.3), clamp(v.copy(p).project(this.camera).x * 0.75, -1, 1));
   }
 
-  /** Show who said what, in their colour, for as long as they're talking (and a moment more). */
+  /** Show who said what, in their color, for as long as they're talking (and a moment more). */
   caption(slot, name, text, secs) {
     if (!this.audio?.settings.captions) return;
     const line = document.createElement('p');
@@ -817,7 +817,7 @@ export class View3D {
   updateSun() {
     let t, reach;
     if (this.manual && this.lookAt) {
-      // Manual mode: centre the shadows on what the caller's camera is looking at.
+      // Manual mode: center the shadows on what the caller's camera is looking at.
       t = this.lookAt;
       reach = clamp(this.camera.position.distanceTo(this.lookAt) * 0.9, 6, 70);
     } else {
@@ -1166,7 +1166,7 @@ export class View3D {
   /**
    * Siege shots in flight: each leaves its engine when the picture reaches the tick it was fired and
    * drops on its tile in a high arc, landing as the picture reaches the frame it came down in. The tile
-   * it's falling on is marked in the owner's colour, so you can watch units scramble out of the way.
+   * it's falling on is marked in the owner's color, so you can watch units scramble out of the way.
    */
   updateShells(now) {
     const L = this.layers.shell;
@@ -1387,7 +1387,7 @@ export class View3D {
 
   // ---------------------------------------------------------------- camera helpers for the page
 
-  /** Centre of the biggest fight right now, or a fresh explosion. */
+  /** Center of the biggest fight right now, or a fresh explosion. */
   hotspot() {
     const now = this.now();
     this.hotspots = this.hotspots.filter((h) => now - h.t < 4000);
@@ -1531,7 +1531,7 @@ export class View3D {
 
   /**
    * Outline what a guard tower can hit: a square, since its reach counts diagonal steps like straight
-   * ones. Draped over the ground in the owner's colour, faint, with a fainter wash inside.
+   * ones. Draped over the ground in the owner's color, faint, with a fainter wash inside.
    */
   showRange(b) {
     if (this.range?.id === (b?.id ?? null)) return;
@@ -1564,7 +1564,7 @@ export class View3D {
     const cx = (x0 + x1) / 2, cz = (z0 + z1) / 2;
     const pos = [], idx = [];
     for (const [px, pz] of pts) {
-      // Step the inner edge toward the centre along both axes, so corners stay square.
+      // Step the inner edge toward the center along both axes, so corners stay square.
       const ix = px + Math.sign(cx - px) * w, iz = pz + Math.sign(cz - pz) * w;
       pos.push(px, this.terrain.heightAt(px, pz) + lift + 0.01, pz, ix, this.terrain.heightAt(ix, iz) + lift + 0.01, iz);
     }

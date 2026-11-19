@@ -243,7 +243,7 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
-    public async Task A_match_is_played_in_rounds_that_bots_join_one_at_a_time_reseated_away_from_old_neighbours()
+    public async Task A_match_is_played_in_rounds_that_bots_join_one_at_a_time_reseated_away_from_old_neighbors()
     {
         var admin = factory.ClientFor(await factory.NewAccountAsync(admin: true));
         var match = await CreateAsync(admin, new CreateLeagueMatchRequest { Name = MatchName() });
@@ -300,8 +300,8 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
         Assert.Equal([$"{match.Name}-r2-h1", $"{match.Name}-r2-h2"], heats2.Select(h => h.Name));
         Assert.Contains(heats2, h => h.PlayerIds.Contains(late.Player.PlayerId));
 
-        var before = round1.Heats!.SelectMany(h => LeagueSeating.Neighbours(h.PlayerIds)).ToHashSet();
-        Assert.DoesNotContain(heats2.SelectMany(h => LeagueSeating.Neighbours(h.PlayerIds)), before.Contains);
+        var before = round1.Heats!.SelectMany(h => LeagueSeating.Neighbors(h.PlayerIds)).ToHashSet();
+        Assert.DoesNotContain(heats2.SelectMany(h => LeagueSeating.Neighbors(h.PlayerIds)), before.Contains);
 
         Assert.Equal(MatchStatus.Active, (await PostAsync<MatchSummaryDto>(admin, $"/api/v1/admin/matches/{match.MatchId}/start")).Status);
         var next = await waiting.WaitAsync(TimeSpan.FromSeconds(5), Ct);
@@ -405,7 +405,7 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
-    public void Seating_avoids_earlier_neighbours_and_keeps_the_fewest_repeats_when_it_cannot()
+    public void Seating_avoids_earlier_neighbors_and_keeps_the_fewest_repeats_when_it_cannot()
     {
         var players = Enumerable.Range(0, 12).Select(i => new Seat(Guid.NewGuid(), $"b{i}", false)).ToList();
         var random = new Random(7);
@@ -415,16 +415,16 @@ public class LeagueMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
             var (heats, repeats) = LeagueSeating.Plan(players, [6, 6], seen, random);
             Assert.Equal(0, repeats);
             Assert.Equal(players.Select(p => p.PlayerId).Order(), heats.SelectMany(h => h).Select(s => s.PlayerId).Order());
-            var pairs = heats.SelectMany(h => LeagueSeating.Neighbours(h.Select(s => s.PlayerId).ToList())).ToList();
+            var pairs = heats.SelectMany(h => LeagueSeating.Neighbors(h.Select(s => s.PlayerId).ToList())).ToList();
             Assert.Equal(12, pairs.Count);
             Assert.DoesNotContain(pairs, seen.Contains);
             seen.UnionWith(pairs);
         }
 
-        // Three bots in one heat always share a neighbour pair with a previous seating of the three.
+        // Three bots in one heat always share a neighbor pair with a previous seating of the three.
         var three = players.Take(3).ToList();
         var first = LeagueSeating.Plan(three, [3], new HashSet<(Guid, Guid)>(), random);
-        var again = LeagueSeating.Plan(three, [3], first.Heats.SelectMany(h => LeagueSeating.Neighbours(h.Select(s => s.PlayerId).ToList())).ToHashSet(), random);
+        var again = LeagueSeating.Plan(three, [3], first.Heats.SelectMany(h => LeagueSeating.Neighbors(h.Select(s => s.PlayerId).ToList())).ToHashSet(), random);
         Assert.Equal(1, again.Repeats);
     }
 

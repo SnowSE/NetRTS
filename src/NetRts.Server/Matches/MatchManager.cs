@@ -328,13 +328,13 @@ public sealed partial class MatchManager(
         var host = Get(matchId) ?? throw new MatchException(404, "MATCH_NOT_FOUND", "No live match with that id.");
         if (host.Status != MatchStatus.Waiting)
         {
-            throw new MatchException(409, "MATCH_ALREADY_STARTED", "Only matches that haven't started can be cancelled.");
+            throw new MatchException(409, "MATCH_ALREADY_STARTED", "Only matches that haven't started can be canceled.");
         }
 
         if (_matches.TryRemove(matchId, out _))
         {
             host.Stop();
-            _logger.LogInformation("Cancelled match {MatchId}", matchId);
+            _logger.LogInformation("Canceled match {MatchId}", matchId);
         }
 
         return host;

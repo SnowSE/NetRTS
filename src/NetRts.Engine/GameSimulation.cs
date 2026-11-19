@@ -46,7 +46,7 @@ public sealed record PlayerSeat(Guid Id, string Name, StartKit? Kit = null);
 
 /// <summary>
 /// One match. Pure and deterministic: given the same config, seats and command stream it always
-/// produces the same result. Not thread safe — the host must serialise access.
+/// produces the same result. Not thread safe — the host must serialize access.
 /// </summary>
 public sealed partial class GameSimulation
 {

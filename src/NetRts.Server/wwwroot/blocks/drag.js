@@ -12,8 +12,8 @@ const CONTROLS = 'select, input, textarea, label, a, button';
  * @param onStart(payload)  the drag began (past a few pixels of movement)
  * @param onEnd()           it ended, dropped or not
  * @param covered()         where the page shows from, when something pinned covers its top (else 0)
- * @param layer()           the element the copy goes in: one inside the styles that colour the block
- *                          (in document.body, a block whose colours come from its editor shows blank)
+ * @param layer()           the element the copy goes in: one inside the styles that color the block
+ *                          (in document.body, a block whose colors come from its editor shows blank)
  * @param carry(el)         what's picked up when el is taken hold of (a whole card by its grip): el itself by default
  * Returns a function that stops it.
  */

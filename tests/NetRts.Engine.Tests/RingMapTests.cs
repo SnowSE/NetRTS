@@ -92,23 +92,23 @@ public class RingMapTests
     [InlineData(3)]
     [InlineData(4)]
     [MemberData(nameof(PlayerCounts))]
-    public void Neighbour_slots_are_the_nearest_starts(int players)
+    public void Neighbor_slots_are_the_nearest_starts(int players)
     {
         var size = SizeFor(players);
         var starts = MapGenerator.Generate(size, size, seed: 5, players).StartPositions;
-        var pairs = MapGenerator.NeighbourSlots(players);
+        var pairs = MapGenerator.NeighborSlots(players);
 
         Assert.Equal(pairs.Count, pairs.Distinct().Count());
         Assert.All(pairs, p => Assert.True(p.A < p.B));
         for (var slot = 0; slot < players; slot++)
         {
-            var neighbours = pairs.Where(p => p.A == slot || p.B == slot).Select(p => p.A == slot ? p.B : p.A).ToList();
-            var others = Enumerable.Range(0, players).Where(o => o != slot && !neighbours.Contains(o)).ToList();
-            Assert.NotEmpty(neighbours);
-            foreach (var n in neighbours)
+            var neighbors = pairs.Where(p => p.A == slot || p.B == slot).Select(p => p.A == slot ? p.B : p.A).ToList();
+            var others = Enumerable.Range(0, players).Where(o => o != slot && !neighbors.Contains(o)).ToList();
+            Assert.NotEmpty(neighbors);
+            foreach (var n in neighbors)
             {
                 Assert.All(others, o => Assert.True(starts[slot].DistanceSquared(starts[n]) < starts[slot].DistanceSquared(starts[o]),
-                    $"slot {slot}: neighbour {n} isn't nearer than {o}"));
+                    $"slot {slot}: neighbor {n} isn't nearer than {o}"));
             }
         }
     }

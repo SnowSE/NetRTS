@@ -23,7 +23,7 @@ public class EconomyAndBuildingTests
     }
 
     [Fact]
-    public void Workers_move_on_to_a_neighbouring_deposit_when_theirs_runs_dry()
+    public void Workers_move_on_to_a_neighboring_deposit_when_theirs_runs_dry()
     {
         var sim = TestGames.New();
         sim.ClearArmies();

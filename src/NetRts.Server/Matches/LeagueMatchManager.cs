@@ -12,8 +12,8 @@ namespace NetRts.Server.Matches;
 /// A preseason, season or championship match: one name (e.g. week3) and one id all night. It is played
 /// in rounds, and a bot joins it for each round it wants to play, at any time until the match is closed:
 /// it plays in the next round to be split. For each round the admin splits everyone who joined into
-/// heats (separate games) and starts them all at once, seated so that bots who were neighbours before
-/// are, where possible, not neighbours again. Bots keep using this match's id: the server sends each
+/// heats (separate games) and starts them all at once, seated so that bots who were neighbors before
+/// are, where possible, not neighbors again. Bots keep using this match's id: the server sends each
 /// bot's requests to its heat.
 /// </summary>
 public sealed class LeagueMatch(Guid id, string name, MatchCategory category, int? tickIntervalMs, int? maxTicks, DateTime createdAt)
@@ -99,14 +99,14 @@ public sealed class LeagueMatch(Guid id, string name, MatchCategory category, in
     internal LeagueRound? RoundOf(Guid heatId) => Rounds.FirstOrDefault(r => r.Heats.Any(h => h.Id == heatId));
 
     /// <summary>Pairs of bots that have started next to each other in a round so far.</summary>
-    internal HashSet<(Guid, Guid)> PastNeighbours() =>
-        [.. Rounds.Where(r => r.Started).SelectMany(r => r.Heats).SelectMany(h => LeagueSeating.Neighbours(h.Seats.Select(s => s.PlayerId).ToList()))];
+    internal HashSet<(Guid, Guid)> PastNeighbors() =>
+        [.. Rounds.Where(r => r.Started).SelectMany(r => r.Heats).SelectMany(h => LeagueSeating.Neighbors(h.Seats.Select(s => s.PlayerId).ToList()))];
 
     private static TaskCompletionSource NewSignal() => new(TaskCreationOptions.RunContinuationsAsynchronously);
 }
 
 /// <summary>One round of a league match: everyone in it plays one heat, all at the same time.</summary>
-public sealed class LeagueRound(int number, List<(Seat Seat, DateTime JoinedAt)> entrants, List<MatchHost> heats, int repeatedNeighbours)
+public sealed class LeagueRound(int number, List<(Seat Seat, DateTime JoinedAt)> entrants, List<MatchHost> heats, int repeatedNeighbors)
 {
     /// <summary>Who was split into this round's heats, in the order they joined (so an undone split can put them back).</summary>
     internal List<(Seat Seat, DateTime JoinedAt)> Entrants { get; } = entrants;
@@ -118,7 +118,7 @@ public sealed class LeagueRound(int number, List<(Seat Seat, DateTime JoinedAt)>
     public List<MatchHost> Heats { get; } = heats;
 
     /// <summary>Pairs of bots seated next to each other again, because no seating could avoid it.</summary>
-    public int RepeatedNeighbours { get; } = repeatedNeighbours;
+    public int RepeatedNeighbors { get; } = repeatedNeighbors;
 
     public DateTime? StartedAt { get; internal set; }
     public bool Started => StartedAt is not null;
@@ -269,7 +269,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
             }
 
             var number = league.Rounds.Count(r => r.Started) + 1;
-            var (seating, repeats) = LeagueSeating.Plan(entrants.Select(q => q.Seat).ToList(), sizes, league.PastNeighbours(), Random.Shared);
+            var (seating, repeats) = LeagueSeating.Plan(entrants.Select(q => q.Seat).ToList(), sizes, league.PastNeighbors(), Random.Shared);
             DropPendingRound(league);
             league.Queue.Clear();
             var heats = new List<MatchHost>();
@@ -290,7 +290,7 @@ public sealed partial class LeagueMatchManager(MatchManager matches, Presence pr
 
             league.Rounds.Add(new LeagueRound(number, entrants, heats, repeats));
             league.LastActivityAt = DateTime.UtcNow;
-            logger.LogInformation("Split round {Round} of {MatchName} into heats of {Sizes} ({Repeats} repeated neighbours)",
+            logger.LogInformation("Split round {Round} of {MatchName} into heats of {Sizes} ({Repeats} repeated neighbors)",
                 number, league.Name, string.Join(", ", sizes), repeats);
         }
 

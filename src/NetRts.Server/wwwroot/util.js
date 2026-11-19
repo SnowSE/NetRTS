@@ -1,4 +1,4 @@
-// Shared helpers: API access, escaping, player colours.
+// Shared helpers: API access, escaping, player colors.
 import { GAME, say, nickname } from './lore.js';
 
 export class ApiError extends Error {
@@ -86,16 +86,16 @@ function patchChildren(el, want) {
   have.slice(wanted.length).forEach((n) => n.remove());
 }
 
-/** Player colours: one per slot, up to 16 players. */
-export const SLOT_COLOURS = 16;
+/** Player colors: one per slot, up to 16 players. */
+export const SLOT_COLORS = 16;
 
-/** CSS custom property name for a slot's colour. */
-export const slotVar = (slot) => `var(--p${((slot % SLOT_COLOURS) + SLOT_COLOURS) % SLOT_COLOURS})`;
+/** CSS custom property name for a slot's color. */
+export const slotVar = (slot) => `var(--p${((slot % SLOT_COLORS) + SLOT_COLORS) % SLOT_COLORS})`;
 
-/** Reads the resolved player colours (theme aware) for the canvas. */
-export function playerColours() {
+/** Reads the resolved player colors (theme aware) for the canvas. */
+export function playerColors() {
   const cs = getComputedStyle(document.documentElement);
-  return Array.from({ length: SLOT_COLOURS }, (_, i) => cs.getPropertyValue(`--p${i}`).trim());
+  return Array.from({ length: SLOT_COLORS }, (_, i) => cs.getPropertyValue(`--p${i}`).trim());
 }
 
 export function cssVar(name) {
@@ -172,7 +172,7 @@ export function outcomeText(outcome, players) {
   return `${displayName(winner.name)} won ${howWon(outcome.reason)} after ${fmt(outcome.ticks)} ticks`;
 }
 
-/** outcomeText as markup: the winner (in their colour) and how they won stand out; the tick count doesn't. */
+/** outcomeText as markup: the winner (in their color) and how they won stand out; the tick count doesn't. */
 export function outcomeHtml(outcome, players) {
   if (!outcome) return '';
   const winner = players?.find((p) => p.playerId === outcome.winnerId);

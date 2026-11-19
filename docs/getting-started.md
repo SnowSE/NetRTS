@@ -15,7 +15,7 @@ C# and Python; pick your language on any example and the rest follow.
 
 ## 1. Get a server
 
-Your organiser will give you a server address (we'll write it as `$SERVER`). Practising on your own
+Your organizer will give you a server address (we'll write it as `$SERVER`). Practising on your own
 machine? Install the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), clone the
 repository and run:
 

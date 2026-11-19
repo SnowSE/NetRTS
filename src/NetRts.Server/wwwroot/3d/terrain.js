@@ -50,7 +50,7 @@ export class Terrain {
     return this.rock[ty * this.W + tx] === 1;
   }
 
-  /** 0 on open ground .. 1 on rock, bilinear between tile centres. Off the map counts as rock. */
+  /** 0 on open ground .. 1 on rock, bilinear between tile centers. Off the map counts as rock. */
   rockiness(x, z) {
     const u = x - 0.5, v = z - 0.5;
     const x0 = Math.floor(u), z0 = Math.floor(v);
@@ -164,9 +164,9 @@ export class Terrain {
         tmp2.lerp(PAL.rockDark, smoothstep(0.55, 0.9, slope) * 0.45 + (noise2(x * 2.3, z * 2.3, s) - 0.5) * 0.2);
         tmp.lerp(tmp2, rockMix);
       }
-      // High mountains turn grey.
+      // High mountains turn gray.
       if (d > 0) tmp.lerp(PAL.peak, smoothstep(9, 22, h) * 0.8);
-      // Tiny per-vertex variation breaks up flat colour.
+      // Tiny per-vertex variation breaks up flat color.
       const v = 0.93 + hash2(Math.round(x * 7), Math.round(z * 7), s) * 0.12;
       col[k * 3] = tmp.r * v; col[k * 3 + 1] = tmp.g * v; col[k * 3 + 2] = tmp.b * v;
     }
@@ -311,7 +311,7 @@ export class Terrain {
   }
 }
 
-/** Tileable grey speckle that gives the ground grain up close. */
+/** Tileable gray speckle that gives the ground grain up close. */
 function detailTexture() {
   const N = 256, P = 16;
   const c = document.createElement('canvas');
@@ -349,7 +349,7 @@ function detailTexture() {
   return tex;
 }
 
-function instanced(geo, mat, items, place, colour) {
+function instanced(geo, mat, items, place, color) {
   const mesh = new THREE.InstancedMesh(geo, mat, Math.max(1, items.length));
   mesh.count = items.length;
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), s = new THREE.Vector3();
@@ -357,7 +357,7 @@ function instanced(geo, mat, items, place, colour) {
     place(it, v, e, s);
     m.compose(v, q.setFromEuler(e), s);
     mesh.setMatrixAt(i, m);
-    if (colour) mesh.setColorAt(i, colour(it, i));
+    if (color) mesh.setColorAt(i, color(it, i));
   });
   mesh.castShadow = true;
   mesh.receiveShadow = true;

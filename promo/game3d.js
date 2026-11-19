@@ -133,7 +133,7 @@ export class Battle3D {
         const bd = rec?.b;
         if (!bd) { this.tags.get(key)?.remove(); this.tags.delete(key); continue; }
         const name = bd.type === 'CommandCenter' ? hqName(bd.owner) : bd.type === 'Barracks' ? housingName(bd.owner) : BUILDING_NAME[bd.type];
-        const kind = { CommandCenter: 'HQ', Barracks: 'HOUSING', ResourceDepot: 'DROP-OFF', TechLab: 'RESEARCH', GuardTower: 'DEFENCE' }[bd.type];
+        const kind = { CommandCenter: 'HQ', Barracks: 'HOUSING', ResourceDepot: 'DROP-OFF', TechLab: 'RESEARCH', GuardTower: 'DEFENSE' }[bd.type];
         const x = bd.x + 0.5, z = bd.y + 0.5;
         info = { x, y: v.terrain.heightAt(x, z) + v.models.building(bd.type, bd.owner).height * BUILDING_SCALE + 0.2, z, owner: bd.owner,
           title: (tg.label ?? name).toUpperCase(), id: bd.id, hp: bd.hp, maxHp: bd.maxHp, line: `${bd.type} · (${bd.x}, ${bd.y})`, act: tg.act ?? kind };

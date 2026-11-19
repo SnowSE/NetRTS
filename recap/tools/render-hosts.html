@@ -17,7 +17,7 @@ import { buildModels, entityMaterial } from '/3d/models.js';
 const models = buildModels(true);   // the Snow College badgers
 const material = entityMaterial();
 
-// Each host: unit, team colour, pose (the unit shader's walk = (phase, leg swing, arm swing) and
+// Each host: unit, team color, pose (the unit shader's walk = (phase, leg swing, arm swing) and
 // bow draw = (raise, pull)) and which way it turns to the camera.
 const HOSTS = {
   zip: { unit: 'Scout', team: '#56b4e9', walk: [1.1, 0.55, 0.25], draw: [0, 0], turn: 1.05, focus: 0.34, dist: 1.75, lift: 0.2 },

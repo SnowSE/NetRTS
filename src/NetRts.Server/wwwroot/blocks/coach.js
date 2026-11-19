@@ -1,5 +1,5 @@
 // The coached first match ("Start now" in intro.js): three short steps on a card over the match while it
-// plays. 1: these rules are your bot, and what their colours mean. 2: add a defend rule at the top, ticked
+// plays. 1: these rules are your bot, and what their colors mean. 2: add a defend rule at the top, ticked
 // off as the blocks go in, and done once the match is playing it (or "Do it for me"). 3: it's live, and two
 // ideas to try next. The step is kept (store.js coaching), so a reload picks up where it was; Skip, the last
 // step's button or the end of the match finishes it.
@@ -76,7 +76,7 @@ export function mountCoach(scope, root, matchId, live) {
         <ul class="bb-coach-keys">
           <li><span class="bb-coach-dot firing"></span><span><b>Green</b> is doing it right now.</span></li>
           <li><span class="bb-coach-dot waiting"></span><span><b>Yellow</b> wants to, and says what it’s waiting for.</span></li>
-          <li><span class="bb-coach-dot"></span><span><b>Grey</b> is waiting for its “when” to come true.</span></li>
+          <li><span class="bb-coach-dot"></span><span><b>Gray</b> is waiting for its “when” to come true.</span></li>
         </ul>
         <p class="small muted">Point at a rule to see which ${unitWord('Worker', true)} and ${unitWord('Soldier', true)} it’s moving.</p>
         <div class="bb-coach-row">${skip}<button type="button" class="btn start small-btn" data-coach-next>Next</button></div>`;

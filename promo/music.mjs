@@ -214,10 +214,10 @@ function reverb(inp, out, offs) {
 reverb(verbL, L, 0);
 reverb(verbR, R, 23);
 
-// ---------- master: fade, soft clip, normalise
+// ---------- master: fade, soft clip, normalize
 
 const fadeIn = 0.02, fadeOut = 1.2;
-// Normalise so the loudest 0.1% of samples sit at 0.8, then soft-clip only the rare peaks above that.
+// Normalize so the loudest 0.1% of samples sit at 0.8, then soft-clip only the rare peaks above that.
 const mags = new Float32Array(LEN / 16 | 0);
 for (let i = 0; i < mags.length; i++) mags[i] = Math.max(Math.abs(L[i * 16]), Math.abs(R[i * 16]));
 mags.sort();

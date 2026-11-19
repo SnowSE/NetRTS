@@ -7,7 +7,7 @@
 //   Te >= 26  illustrated glyphs (pickaxe, sword & shield, bow, eye, trebuchet; keep, crossed swords, crate,
 //             flask, tower, anvil — or the Snow College set), production / research bars, health bars on everything damaged
 //   Te >= 56  labels: unit ids and building names
-import { playerColours, cssVar } from './util.js';
+import { playerColors, cssVar } from './util.js';
 import { SNOW, buildingName } from './lore.js';
 import { towerShotsOf } from './towershots.js';
 
@@ -36,7 +36,7 @@ export class MapView {
     this.cursor = null;          // {x, y} keyboard / hover tile
     this.T = 8;                  // tile size at zoom 1, in device pixels
     this.zoom = 1;               // 1 = whole map fits
-    this.cam = null;             // camera centre in tile coordinates
+    this.cam = null;             // camera center in tile coordinates
     this.camGoal = null;         // where the camera is gliding to (follow mode)
     this.follow = false;
     this.onCameraChange = null;  // callback(view) when zoom / follow changes
@@ -60,7 +60,7 @@ export class MapView {
   destroy() { cancelAnimationFrame(this.raf); }
 
   readTheme() {
-    this.colours = playerColours();
+    this.colors = playerColors();
     this.theme = {
       open: cssVar('--terrain-open'),
       grid: cssVar('--terrain-grid'),
@@ -129,12 +129,12 @@ export class MapView {
   /** On-screen tile size in device pixels (an integer keeps tiles crisp). */
   tileSize() { return Math.max(1, Math.round(this.T * this.zoom)); }
 
-  /** Top-left of the view, in device pixels of the zoomed world (negative = the map is centred with margins). */
+  /** Top-left of the view, in device pixels of the zoomed world (negative = the map is centerd with margins). */
   offset(Te = this.tileSize()) {
     const { width: W, height: H } = this.map;
-    const axis = (size, view, centre) => size <= view
+    const axis = (size, view, center) => size <= view
       ? Math.round((size - view) / 2)
-      : Math.round(Math.min(size - view, Math.max(0, centre * Te - view / 2)));
+      : Math.round(Math.min(size - view, Math.max(0, center * Te - view / 2)));
     return { ox: axis(W * Te, this.canvas.width, this.cam.x), oy: axis(H * Te, this.canvas.height, this.cam.y) };
   }
 
@@ -165,7 +165,7 @@ export class MapView {
     this.onCameraChange?.(this);
   }
 
-  /** Zoom by factor and centre the view on the world point under (cssX, cssY). */
+  /** Zoom by factor and center the view on the world point under (cssX, cssY). */
   zoomTo(factor, cssX, cssY) {
     if (!this.map) return;
     const scale = this.canvas.width / this.canvas.getBoundingClientRect().width;
@@ -178,7 +178,7 @@ export class MapView {
     this.onCameraChange?.(this);
   }
 
-  zoomCentre(factor) {
+  zoomCenter(factor) {
     const r = this.canvas.getBoundingClientRect();
     this.zoomAt(factor, r.width / 2, r.height / 2);
   }
@@ -234,7 +234,7 @@ export class MapView {
     return true;
   }
 
-  /** Centre of the biggest fight: the attacker with the most other attackers within 6 tiles. */
+  /** Center of the biggest fight: the attacker with the most other attackers within 6 tiles. */
   hotspot() {
     const s = this.state;
     if (!s) return null;
@@ -269,7 +269,7 @@ export class MapView {
     return { x, y };
   }
 
-  /** Tile -> CSS-pixel centre, for placing tooltips. */
+  /** Tile -> CSS-pixel center, for placing tooltips. */
   tileCenter(tile) {
     const Te = this.tileSize();
     const { ox, oy } = this.offset(Te);
@@ -558,7 +558,7 @@ export class MapView {
     const inset = Math.max(1, Math.round(T * 0.06));
     for (const b of s.buildings) {
       if (!inView(b.x, b.y)) continue;
-      const col = this.teamColour(b.owner);
+      const col = this.teamColor(b.owner);
       const x = b.x * T + inset, y = b.y * T + inset, w = T - inset * 2;
       if (b.completed) {
         g.fillStyle = col;
@@ -628,7 +628,7 @@ export class MapView {
     for (const sh of shells) {
       const fx = sh.fromX + 0.5, fy = sh.fromY + 0.5, tx = sh.x + 0.5, ty = sh.y + 0.5;
       const t = Math.min(1, (s.tick - sh.firedTick + since) / Math.max(1, sh.landsTick - sh.firedTick));
-      g.strokeStyle = this.teamColour(sh.owner);
+      g.strokeStyle = this.teamColor(sh.owner);
       g.globalAlpha = 0.5 + 0.4 * t;
       g.lineWidth = Math.max(1, T / 14);
       g.setLineDash([T / 8, T / 10]);
@@ -706,7 +706,7 @@ export class MapView {
         glowDot(g, p.x, p.y, Math.max(1.5, T * 0.14), 'rgba(255,250,220,');
         continue;
       }
-      // The burst: a flash, a ring of heat spreading out, and sparks flying from the centre.
+      // The burst: a flash, a ring of heat spreading out, and sparks flying from the center.
       const b = Math.min(1, (now - f.t0 - f.dur) / SHOT_BURST);
       const cx = to.x * T, cy = to.y * T;
       glowDot(g, cx, cy, T * (0.4 + b * 0.5) * (1 - b), 'rgba(255,170,70,');
@@ -744,7 +744,7 @@ export class MapView {
       const t = pos.get(u.targetId) || targets.get(u.targetId);
       if (!t) continue;
       const p = pos.get(u.id);
-      g.strokeStyle = this.teamColour(u.owner);
+      g.strokeStyle = this.teamColor(u.owner);
       g.globalAlpha = 0.7;
       if (T >= DETAIL) g.setLineDash([T / 6, T / 8]);
       g.beginPath();
@@ -761,10 +761,10 @@ export class MapView {
       const cx = p.x * T, cy = p.y * T;
       const stacked = u._scale || 1;
       const r = T * 0.34 * (T >= DETAIL && stacked < 1 ? Math.min(1, stacked * 1.15) : stacked);
-      const col = this.teamColour(u.owner);
+      const col = this.teamColor(u.owner);
       const detailed = r * 2 >= DETAIL * 0.62;
       if (u.effects?.includes('serum')) {
-        // A thick round shield behind the unit: red, white, red, then a blue centre.
+        // A thick round shield behind the unit: red, white, red, then a blue center.
         for (const [k, c] of [[1.95, '#c8102e'], [1.7, '#f5f5f5'], [1.47, '#c8102e'], [1.26, '#1f3a93']]) {
           g.fillStyle = c;
           g.beginPath();
@@ -798,10 +798,10 @@ export class MapView {
     }
   }
 
-  /** A player's colour by slot; the palette repeats past its length. */
-  teamColour(slot) {
-    const n = this.colours.length;
-    return this.colours[((slot % n) + n) % n];
+  /** A player's color by slot; the palette repeats past its length. */
+  teamColor(slot) {
+    const n = this.colors.length;
+    return this.colors[((slot % n) + n) % n];
   }
 
   hpBar(g, x, y, T, frac, scale = 1) {
@@ -835,7 +835,7 @@ export class MapView {
   }
 }
 
-/** Shapes, so unit types are distinguishable without colour. */
+/** Shapes, so unit types are distinguishable without color. */
 export function unitPath(g, type, cx, cy, r) {
   switch (type) {
     case 'Soldier': // square
@@ -867,9 +867,9 @@ export function unitPath(g, type, cx, cy, r) {
 }
 
 /** A curled grub: what workers dig for. Detailed grubs get body segments. */
-function grub(g, cx, cy, size, colour, detailed) {
+function grub(g, cx, cy, size, color, detailed) {
   g.save();
-  g.strokeStyle = colour;
+  g.strokeStyle = color;
   g.lineCap = 'round';
   g.lineWidth = Math.max(1.5, size * 0.3);
   const rad = size * 0.3;
@@ -992,7 +992,7 @@ function badgerFace(g, s, ink, accent) {
   g.fill();
 }
 
-/** Snow College close-up unit art, drawn inside the unit's shape: ink is the glyph colour, accent the player colour. */
+/** Snow College close-up unit art, drawn inside the unit's shape: ink is the glyph color, accent the player color. */
 function snowUnitIcon(g, type, cx, cy, s, ink, accent) {
   g.save();
   g.translate(cx, cy);
@@ -1142,7 +1142,7 @@ function snowBuildingIcon(g, type, cx, cy, s, ink, accent) {
   g.restore();
 }
 
-/** Original close-up unit art, drawn inside the unit's shape: ink is the glyph colour, accent the player colour. */
+/** Original close-up unit art, drawn inside the unit's shape: ink is the glyph color, accent the player color. */
 function classicUnitIcon(g, type, cx, cy, s, ink, accent) {
   g.save();
   g.translate(cx, cy);
@@ -1317,7 +1317,7 @@ function classicBuildingIcon(g, type, cx, cy, s, ink, accent) {
   g.restore();
 }
 
-/** A soft round glow; rgba is the colour up to the alpha, e.g. 'rgba(255,160,60,'. */
+/** A soft round glow; rgba is the color up to the alpha, e.g. 'rgba(255,160,60,'. */
 function glowDot(g, x, y, r, rgba) {
   if (r <= 0) return;
   const grad = g.createRadialGradient(x, y, 0, x, y, r);

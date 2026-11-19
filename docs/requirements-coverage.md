@@ -32,7 +32,7 @@ Deliberate deviations are marked **Δ**.
 | 031–036 Construction | `Build`: workers walk to the site, cost paid when ground breaks, progress = worker-ticks, `constructionPercent`. Site validation (bounds, rock, buildings, deposits, enemy units, prerequisites, ore). |
 | 037–042 Production | `Produce` with `count`; queue of 5 per building; spawns adjacent. **Δ** cost is paid when queued rather than when the item reaches the front, so a rejection is immediate. |
 | 043 Unit types | Worker, Soldier, Scout, plus Archer (ranged) and Trebuchet (siege: minimum range, delayed shells that hit a tile). |
-| 044 Building types | Command Center, Barracks, Resource Depot (drop-off + storage), plus TechLab (research), Guard Tower (defence) and Siege Workshop (trebuchets; needs the SiegeEngineering upgrade). |
+| 044 Building types | Command Center, Barracks, Resource Depot (drop-off + storage), plus TechLab (research), Guard Tower (defense) and Siege Workshop (trebuchets; needs the SiegeEngineering upgrade). |
 | 045–046 Distinct stats | `GameRules`; published at `GET /api/v1/rules`. |
 | 047–051 Combat | Range checks, armor, simultaneous resolution, removal at 0 hp, freed tiles. |
 | 052–055 Resources | Finite deposits, continuous mine-and-haul, storage capacity, no negative balances. |
@@ -41,13 +41,13 @@ Deliberate deviations are marked **Δ**.
 | 062 Elimination | Losing your last Command Center. **Δ** extra Command Centers can be built, so it's the *last* one. |
 | 063–064 Time limit | Highest total wins; ties are draws. |
 | 065 Results endpoint | `GET …/result` (live or archived), plus `GET …/replay` and the recorded frames (`GET …/frames`) the website's replay viewer plays. |
-| 066–067 Auth and participation | Per-player API keys (hashed at rest); every game endpoint checks the caller is seated (`NOT_A_PARTICIPANT`). Beyond the spec: people sign in to the website with Discord to claim bots (blue check, server nickname); Discord server admins, and the league runners they pick on the website (`LeagueRunnerPolicy`: create, split, start and close, not remove bots or call off), run league matches (preseason, season, championship) that verified bots join like any match and play in rounds of heats started together (bots join each round they want to play, at any time until the match closes, under one name and id; each round is reseated away from earlier neighbours; an admin can end a round early, scored as at its tick limit); those ladders are ranked by points (each bot's whole score in every heat), per season, with each bot's lowest heat of a league match dropped once it plays two or more, added when the admin closes the match (`LeagueFinalizer`); ties and a second column go to an opponent-aware OpenSkill skill (`OpenSkill`, `SkillBackfill`) (`AccountTests`, `LeagueMatchTests`, `SkillTests`). |
+| 066–067 Auth and participation | Per-player API keys (hashed at rest); every game endpoint checks the caller is seated (`NOT_A_PARTICIPANT`). Beyond the spec: people sign in to the website with Discord to claim bots (blue check, server nickname); Discord server admins, and the league runners they pick on the website (`LeagueRunnerPolicy`: create, split, start and close, not remove bots or call off), run league matches (preseason, season, championship) that verified bots join like any match and play in rounds of heats started together (bots join each round they want to play, at any time until the match closes, under one name and id; each round is reseated away from earlier neighbors; an admin can end a round early, scored as at its tick limit); those ladders are ranked by points (each bot's whole score in every heat), per season, with each bot's lowest heat of a league match dropped once it plays two or more, added when the admin closes the match (`LeagueFinalizer`); ties and a second column go to an opponent-aware OpenSkill skill (`OpenSkill`, `SkillBackfill`) (`AccountTests`, `LeagueMatchTests`, `SkillTests`). |
 | 068 Error codes | Uniform `{code, message}` bodies; per-command codes listed in the bot guide. |
 | 069 Concurrent matches | One `MatchHost` per match; `Ten_concurrent_matches_all_progress`. |
 
 ## Edge cases from the spec
 
-| Case | Behaviour |
+| Case | Behavior |
 |---|---|
 | Two units move onto the same tile | Units may share tiles; only buildings, deposits and rock block. |
 | A bot stops sending commands | Its units keep their last orders (workers keep mining) or idle. |

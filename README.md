@@ -109,7 +109,7 @@ remembers your choice.
 Press **3D** and the same brawl plays out in a WebGL valley: sandstone plateaus, pine-covered
 mountains, badgers in team jerseys marching, digging and trading blows, arrows in flight, bell
 towers firing, and buildings going up behind scaffolding and coming down in fire and debris. Every
-team's HQ and housing is modelled on its real namesake: the Noyes Building's pediment and portico,
+team's HQ and housing is modeled on its real namesake: the Noyes Building's pediment and portico,
 the Eccles Center's stage towers, the stadium's grandstand, the Suites' glass atrium, the Up House's
 gazebo. Drag,
 turn and zoom like an RTS camera, click any badger to ride along with it, press **Fly** for free

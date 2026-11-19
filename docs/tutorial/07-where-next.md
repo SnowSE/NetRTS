@@ -50,7 +50,7 @@ before going in again.
 `Weapons1` (+2 damage for every unit), `Armor1` (+1 armor), `Mobility1` (+2 speed) and
 `Harvesting1` (+1 ore per mining tick). See the [upgrade table](../bot-guide.md#game-rules).
 
-**Expand.** Richer ore sits near the centre of the map. A **Resource Depot** (100 ore) next to a
+**Expand.** Richer ore sits near the center of the map. A **Resource Depot** (100 ore) next to a
 far deposit gives your workers a closer drop-off point and adds 750 storage.
 
 **Stop hard-coding numbers.** `GET /api/v1/rules` returns every cost, stat and build time. Read it

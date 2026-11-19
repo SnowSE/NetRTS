@@ -493,7 +493,7 @@ public sealed class MatchAnnouncer(
         {
             ["title"] = title,
             ["description"] = description,
-            ["color"] = CategoryColour(category),
+            ["color"] = CategoryColor(category),
         };
         if (url is not null)
         {
@@ -509,7 +509,7 @@ public sealed class MatchAnnouncer(
     }
 
     /// <summary>The embed's side stripe: blue for season, gold for championship, green for preseason, Discord blurple for practice.</summary>
-    private static int CategoryColour(MatchCategory category) => category switch
+    private static int CategoryColor(MatchCategory category) => category switch
     {
         MatchCategory.Season => 0x1A73C9,
         MatchCategory.Championship => 0xE69F00,

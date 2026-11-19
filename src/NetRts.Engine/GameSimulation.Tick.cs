@@ -15,7 +15,7 @@ public sealed partial class GameSimulation
 
     /// <summary>
     /// Advances the match by one tick:
-    /// queued commands → production &amp; research → unit behaviour and movement →
+    /// queued commands → production &amp; research → unit behavior and movement →
     /// simultaneous combat → deaths → elimination / victory check.
     /// </summary>
     public void Step()

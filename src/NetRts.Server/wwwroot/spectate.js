@@ -222,8 +222,8 @@ export function mountSpectate(root, matchKey) {
     queueMicrotask(() => refreshTooltip()); // defined further down
   };
   view.onCameraChange(view);
-  $('zoom-in').addEventListener('click', () => (is3d ? view3d.zoomStep('in') : view.zoomCentre(1.5)));
-  $('zoom-out').addEventListener('click', () => (is3d ? view3d.zoomStep('out') : view.zoomCentre(1 / 1.5)));
+  $('zoom-in').addEventListener('click', () => (is3d ? view3d.zoomStep('in') : view.zoomCenter(1.5)));
+  $('zoom-out').addEventListener('click', () => (is3d ? view3d.zoomStep('out') : view.zoomCenter(1 / 1.5)));
   $('zoom-fit').addEventListener('click', () => (is3d ? view3d.overview() : view.resetView()));
   followBtn.addEventListener('click', () => {
     if (is3d) view3d.setMode(view3d.mode === 'director' ? 'orbit' : 'director');
@@ -338,8 +338,8 @@ export function mountSpectate(root, matchKey) {
     const d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] }[e.key];
     if (e.key === 'Escape' && !$('gameover').hidden) { hideGameOver(); return; }
     if (e.key === 'Escape') { inspect(null); if (isFull() && !document.fullscreenElement) setFull(false); return; }
-    if (e.key === '+' || e.key === '=') { view.zoomCentre(1.5); return; }
-    if (e.key === '-' || e.key === '_') { view.zoomCentre(1 / 1.5); return; }
+    if (e.key === '+' || e.key === '=') { view.zoomCenter(1.5); return; }
+    if (e.key === '-' || e.key === '_') { view.zoomCenter(1 / 1.5); return; }
     if (e.key === '0') { view.resetView(); return; }
     if (e.key === 'f' || e.key === 'F') { view.setFollow(!view.follow); return; }
     if (e.key === 'g' || e.key === 'G') { toggleFull(); return; }

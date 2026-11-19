@@ -6,7 +6,7 @@
 // the attack, then the Forever units as a mix. It plays close to the pick-up plan, not exactly: Block
 // Bot re-runs steps when units die and there is no starting pile at home.
 
-/** Where a built building goes (Block Bot's sites); anything else goes toward the centre. */
+/** Where a built building goes (Block Bot's sites); anything else goes toward the center. */
 const SITE = { GuardTower: 'TowardEnemy', ResourceDepot: 'NearOre' };
 const UNITS = ['Worker', 'Soldier', 'Archer', 'Scout', 'Trebuchet'];
 /** The free building every pick-up player starts with. */

@@ -16,7 +16,7 @@ const MAX_RETRY_MS = 30000;
  * live: false for a match already over: no stream, just the map and the final snapshot.
  *
  * The feed closes itself when the match ends or is gone; close() stops it early (in a page's teardown).
- * end(): the caller has learnt the match is over some other way (its summary says so): the feed stops
+ * end(): the caller has learned the match is over some other way (its summary says so): the feed stops
  * waiting for frames, shows the final snapshot and calls onEnd. (A match that ends without a new tick, by
  * a surrender, say, gets no last frame on the stream.) No callback runs after the feed has closed.
  */

@@ -18,7 +18,7 @@ export class StatHistory {
   }
 }
 
-/** tone: the --hud-<tone> colour (styles.css .hud-dark) of its number and line. */
+/** tone: the --hud-<tone> color (styles.css .hud-dark) of its number and line. */
 function trendTile(history, status, key, label, tone) {
   const h = history.points;
   const now = h[h.length - 1]?.[key] ?? status?.stats?.[key] ?? 0;

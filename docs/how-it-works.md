@@ -61,7 +61,7 @@ viewer.
 
 > **Discuss:** the first version of this project used "Clean Architecture" layers (Domain,
 > Application, Infrastructure, Api) with a mediator library between them, but game logic leaked
-> across all of them and it never became playable. What is the difference between organising code
+> across all of them and it never became playable. What is the difference between organizing code
 > by *layer* and by *responsibility*? When is each appropriate?
 
 ## 2. A simulation is a function: determinism

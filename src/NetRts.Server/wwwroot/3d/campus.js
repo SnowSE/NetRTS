@@ -1,9 +1,9 @@
 // 3D match view: the Snow College theme's HQs and housing, one model per player slot, each built to
-// look like the real building in lore.js (HQ_NAME, HOUSING_NAME). Modelled from photos of the campus
+// look like the real building in lore.js (HQ_NAME, HOUSING_NAME). Modeled from photos of the campus
 // and of Ephraim's apartments; where no photo turned up, the model follows what's known about it.
 //
-// Flat roofs are drawn in the team's colour so teams stay easy to tell apart from above; buildings
-// with pitched roofs keep their real roof colour and fly a team flag instead.
+// Flat roofs are drawn in the team's color so teams stay easy to tell apart from above; buildings
+// with pitched roofs keep their real roof color and fly a team flag instead.
 import * as THREE from 'three';
 import { col, K, Builder, box, cyl, ball, cone, dome, prism, foundation, flag } from './kit.js';
 
@@ -11,8 +11,8 @@ const C = {
   brick: col('#a8573f'), brickRed: col('#9e4a35'), brickOrange: col('#b5603f'), brickDark: col('#6b3a2c'),
   brickBuff: col('#c8b48c'), brickPink: col('#b5786a'), limestone: col('#cfc6b5'), concrete: col('#bdb8ad'),
   fascia: col('#cfc7b8'), whiteTrim: col('#eeeee8'), charcoal: col('#2e3236'), shingle: col('#5a4636'),
-  shingleGrey: col('#6a625a'), shingleBrown: col('#6e6358'), stucco: col('#c9b49a'), stuccoLight: col('#cdbba3'),
-  siding: col('#e8e2d2'), sidingGrey: col('#d4d6d4'), metalGrey: col('#8e959b'), woodStrip: col('#7a4e33'),
+  shingleGray: col('#6a625a'), shingleBrown: col('#6e6358'), stucco: col('#c9b49a'), stuccoLight: col('#cdbba3'),
+  siding: col('#e8e2d2'), sidingGray: col('#d4d6d4'), metalGray: col('#8e959b'), woodStrip: col('#7a4e33'),
   stone: col('#4a4a4a'), glass: col('#4a6070'), glassTeal: col('#3e8c9a'), glassNavy: col('#2e3f5c'),
   unlit: col('#56708a'), lit: col('#f5d9a0'), orangePanel: col('#d9502a'), mint: col('#9fd3b0'),
   maroon: col('#7a2a2a'), railGreen: col('#3f6b45'), lawn: col('#5f8a3c'), roofMembrane: col('#a9adb0'), teamRoof: col('#8a8f94'),
@@ -20,15 +20,15 @@ const C = {
 
 const Y0 = 0.085;   // top of the foundation slab
 
-/** A box standing on y0 (default: the foundation), centred at (x, z). */
-function block(b, colour, x, z, w, h, d, opts = {}) {
+/** A box standing on y0 (default: the foundation), centerd at (x, z). */
+function block(b, color, x, z, w, h, d, opts = {}) {
   const y0 = opts.y0 ?? Y0;
-  b.add(box(w, h, d), colour, { ...opts, at: [x, y0 + h / 2, z] });
+  b.add(box(w, h, d), color, { ...opts, at: [x, y0 + h / 2, z] });
   return { x, z, w, h, d, y0, top: y0 + h };
 }
 
 /**
- * A flat roof: a parapet in `trim` round a grey membrane, with a team-coloured stripe inside the
+ * A flat roof: a parapet in `trim` round a gray membrane, with a team-colored stripe inside the
  * parapet and a couple of rooftop units, so teams still read from above without the roofs glaring.
  */
 function flatRoof(b, blk, trim = C.whiteTrim, { overhang = 0.015, band = 0.03 } = {}) {
@@ -50,15 +50,15 @@ function flatRoof(b, blk, trim = C.whiteTrim, { overhang = 0.015, band = 0.03 } 
  * A hipped roof over a block, with eaves and a fascia. The four-sided cone is turned square in its own
  * geometry before it's stretched to the block; stretching first would skew it into a lopsided diamond.
  */
-export function hipRoof(b, blk, colour, h, eave = 0.04, team = 0, fascia = col('#e8e4dc')) {
+export function hipRoof(b, blk, color, h, eave = 0.04, team = 0, fascia = col('#e8e4dc')) {
   const w = blk.w + eave * 2, d = blk.d + eave * 2;
   b.add(box(w, 0.016, d), fascia, { at: [blk.x, blk.top + 0.008, blk.z] })
-    .add(cone(Math.SQRT1_2, h, 4).rotateY(Math.PI / 4), colour, { team, at: [blk.x, blk.top + 0.016 + h / 2, blk.z], scale: [w, 1, d] });
+    .add(cone(Math.SQRT1_2, h, 4).rotateY(Math.PI / 4), color, { team, at: [blk.x, blk.top + 0.016 + h / 2, blk.z], scale: [w, 1, d] });
 }
 
 /** A gable roof along x (ridge parallel to the block's width). */
-function gableRoof(b, blk, colour, h, eave = 0.03, team = 0) {
-  b.add(prism(blk.d + eave * 2, h, blk.w + eave * 2), colour, { team, at: [blk.x, blk.top + h / 2, blk.z], rot: [0, Math.PI / 2, 0] });
+function gableRoof(b, blk, color, h, eave = 0.03, team = 0) {
+  b.add(prism(blk.d + eave * 2, h, blk.w + eave * 2), color, { team, at: [blk.x, blk.top + h / 2, blk.z], rot: [0, Math.PI / 2, 0] });
 }
 
 /**
@@ -88,23 +88,23 @@ function windowsOn(b, blk, faces, rows, cols, { y0 = 0.07, dy = 0.15, ww = 0.05,
 }
 
 /** A continuous band of glass on a face (ribbon windows, storefronts, curtain walls). */
-function glassBand(b, blk, face, y, h, colour = C.glass, glow = 0.25, inset = 0.9) {
+function glassBand(b, blk, face, y, h, color = C.glass, glow = 0.25, inset = 0.9) {
   const along = face === 'f' || face === 'b';
   const w = (along ? blk.w : blk.d) * inset;
   const s = face === 'f' || face === 'r' ? 1 : -1;
   const at = along ? [blk.x, blk.y0 + y, blk.z + s * (blk.d / 2 + 0.004)] : [blk.x + s * (blk.w / 2 + 0.004), blk.y0 + y, blk.z];
-  b.add(box(along ? w : 0.01, h, along ? 0.01 : w), colour, { glow, at });
+  b.add(box(along ? w : 0.01, h, along ? 0.01 : w), color, { glow, at });
 }
 
-function door(b, x, z, colour = K.woodDark, ry = 0, w = 0.06, h = 0.1, y0 = Y0) {
-  b.add(box(w, h, 0.012), colour, { at: [x, y0 + h / 2, z], rot: [0, ry, 0] });
+function door(b, x, z, color = K.woodDark, ry = 0, w = 0.06, h = 0.1, y0 = Y0) {
+  b.add(box(w, h, 0.012), color, { at: [x, y0 + h / 2, z], rot: [0, ry, 0] });
 }
 
 function lawn(b, w = 0.9, d = 0.9) {
   b.add(box(w, 0.006, d), C.lawn, { at: [0, Y0 + 0.004, 0] });
 }
 
-/** A team flag on a white pole, for buildings without a flat roof to colour. */
+/** A team flag on a white pole, for buildings without a flat roof to color. */
 function teamFlag(b, x, z, h = 0.34) { flag(b, x, Y0, z, h); }
 
 // ---------------------------------------------------------------- housing
@@ -126,7 +126,7 @@ function suites() {
   hipRoof(b, back, C.charcoal, 0.09, 0.04, 0);
   hipRoof(b, left, C.charcoal, 0.09, 0.04, 0);
   hipRoof(b, right, C.charcoal, 0.09, 0.04, 0);
-  // The glass atrium between the wings, with its mullion grid and a team-coloured canopy.
+  // The glass atrium between the wings, with its mullion grid and a team-colored canopy.
   const atrium = block(b, C.glass, 0, -0.02, 0.34, 0.6, 0.3, { glow: 0.3 });
   for (let i = -2; i <= 2; i++) b.add(box(0.008, 0.6, 0.008), C.charcoal, { at: [i * 0.068, Y0 + 0.3, 0.135] });
   for (let i = 1; i < 5; i++) b.add(box(0.34, 0.008, 0.008), C.charcoal, { at: [0, Y0 + i * 0.12, 0.135] });
@@ -250,7 +250,7 @@ function summitValley() {
   lawn(b, 0.86, 0.2);
   for (const z of [-0.24, 0.16]) {
     const row = block(b, C.brick, 0, z, 0.82, 0.17, 0.24);
-    gableRoof(b, row, C.shingleGrey, 0.09, 0.03);
+    gableRoof(b, row, C.shingleGray, 0.09, 0.03);
     for (let i = 0; i < 6; i++) {
       const x = -0.34 + i * 0.136;
       door(b, x - 0.03, z + 0.126, K.team, 0, 0.035, 0.09);
@@ -281,11 +281,11 @@ function badgerStudios() {
   return b.build();
 }
 
-/** Nordic Pointe: four storeys of grey metal, white panels and wood strips over a glass storefront. */
+/** Nordic Pointe: four storeys of gray metal, white panels and wood strips over a glass storefront. */
 function nordicPointe() {
   const b = new Builder();
   foundation(b);
-  const bar = block(b, C.metalGrey, 0, -0.06, 0.82, 0.62, 0.42);
+  const bar = block(b, C.metalGray, 0, -0.06, 0.82, 0.62, 0.42);
   glassBand(b, bar, 'f', 0.07, 0.12, C.glass, 0.4, 0.96);
   b.add(box(0.86, 0.025, 0.08), C.whiteTrim, { at: [0, Y0 + 0.15, bar.z + bar.d / 2 + 0.035] });
   // Cladding bands: white panels and wood-tone strips, with inset balconies.
@@ -302,7 +302,7 @@ function nordicPointe() {
   // Corner tower caps over a stepped parapet.
   b.add(box(0.84, 0.03, 0.44), C.whiteTrim, { at: [0, bar.top + 0.015, bar.z] })
     .add(box(0.8, 0.012, 0.4), C.teamRoof, { team: 1, at: [0, bar.top + 0.032, bar.z] });
-  for (const x of [-0.36, 0.36]) b.add(box(0.12, 0.08, 0.44), C.metalGrey, { at: [x, bar.top + 0.04, bar.z] });
+  for (const x of [-0.36, 0.36]) b.add(box(0.12, 0.08, 0.44), C.metalGray, { at: [x, bar.top + 0.04, bar.z] });
   return b.build();
 }
 
@@ -382,15 +382,15 @@ function badgerHouse() {
   return b.build();
 }
 
-/** Badger Loft: a single-storey house in grey-white siding with twin front gables. */
+/** Badger Loft: a single-storey house in gray-white siding with twin front gables. */
 function badgerLoft() {
   const b = new Builder();
   foundation(b);
   lawn(b);
-  const h = block(b, C.sidingGrey, 0, -0.06, 0.6, 0.17, 0.38);
+  const h = block(b, C.sidingGray, 0, -0.06, 0.6, 0.17, 0.38);
   gableRoof(b, h, col('#5d6266'), 0.12, 0.03);
   for (const x of [-0.16, 0.16]) {
-    const g = block(b, C.sidingGrey, x, 0.15, 0.2, 0.17, 0.1);
+    const g = block(b, C.sidingGray, x, 0.15, 0.2, 0.17, 0.1);
     b.add(prism(0.24, 0.1, 0.14), col('#5d6266'), { at: [x, g.top + 0.05, 0.16] })
       .add(box(0.08, 0.07, 0.01), C.lit, { glow: 0.45, at: [x, Y0 + 0.1, 0.206] });
   }
@@ -438,7 +438,7 @@ function alpineCanyon() {
   b.add(box(0.6, 0.07, 0.36), C.concrete, { at: [0, Y0 + 0.035, -0.06] });
   const h = block(b, C.siding, 0, -0.06, 0.58, 0.3, 0.34, { y0: Y0 + 0.07 });
   for (let i = 1; i < 10; i++) b.add(box(0.584, 0.004, 0.344), col('#d4ccb8'), { at: [0, h.y0 + i * 0.03, -0.06] });
-  gableRoof(b, h, C.shingleGrey, 0.13, 0.035);
+  gableRoof(b, h, C.shingleGray, 0.13, 0.035);
   b.add(box(0.66, 0.012, 0.012), C.whiteTrim, { at: [0, h.top, 0.14] })
     .add(box(0.66, 0.012, 0.012), C.whiteTrim, { at: [0, h.top, -0.26] });
   windowsOn(b, h, 'fblr', 2, 4, { y0: 0.08, dy: 0.14, seed: 4 });
@@ -458,12 +458,12 @@ function archWindow(b, x, y, z, w, h, { ry = 0, lit = true, trim = null } = {}) 
   if (trim) b.add(cyl(w / 2 + 0.01, w / 2 + 0.01, 0.006, 10, 1, false, -Math.PI / 2, Math.PI), trim, { at: [x, y + h / 2 + 0.002, z - 0.003], rot: [-Math.PI / 2, ry, 0] });
 }
 
-function columns(b, xs, z, y0, h, r = 0.014, colour = C.whiteTrim) {
-  for (const x of xs) b.add(cyl(r, r * 1.15, h, 8), colour, { at: [x, y0 + h / 2, z] });
+function columns(b, xs, z, y0, h, r = 0.014, color = C.whiteTrim) {
+  for (const x of xs) b.add(cyl(r, r * 1.15, h, 8), color, { at: [x, y0 + h / 2, z] });
 }
 
-function steps(b, x, z, w, n = 3, colour = C.concrete) {
-  for (let i = 0; i < n; i++) b.add(box(w - i * 0.02, 0.02, 0.05 + (n - i) * 0.03), colour, { at: [x, Y0 + 0.01 + i * 0.02, z + (n - i) * 0.015] });
+function steps(b, x, z, w, n = 3, color = C.concrete) {
+  for (let i = 0; i < n; i++) b.add(box(w - i * 0.02, 0.02, 0.05 + (n - i) * 0.03), color, { at: [x, Y0 + 0.01 + i * 0.02, z + (n - i) * 0.015] });
 }
 
 function tree(b, x, z, s = 1) {
@@ -471,7 +471,7 @@ function tree(b, x, z, s = 1) {
     .add(cone(0.05 * s, 0.16 * s, 7), col('#2f5a34'), { at: [x, Y0 + 0.13 * s, z] });
 }
 
-/** Noyes Building (1899-1909): red brick on cream stone, a pedimented centre bay, Ionic portico and wide steps. */
+/** Noyes Building (1899-1909): red brick on cream stone, a pedimented center bay, Ionic portico and wide steps. */
 function noyes() {
   const b = new Builder();
   foundation(b);
@@ -481,7 +481,7 @@ function noyes() {
   b.add(box(0.83, 0.018, 0.51), cream, { at: [0, base.top + 0.15, -0.06] })
     .add(box(0.88, 0.03, 0.56), trim, { at: [0, main.top + 0.015, -0.06] });
   hipRoof(b, { ...main, top: main.top + 0.03 }, col('#7a6a5e'), 0.14, 0.03);
-  // The projecting centre bay, crowned by a pediment rising above the eaves.
+  // The projecting center bay, crowned by a pediment rising above the eaves.
   b.add(box(0.3, 0.1, 0.07), cream, { at: [0, Y0 + 0.05, 0.225] })
     .add(box(0.3, 0.3, 0.07), brick, { at: [0, base.top + 0.15, 0.225] })
     .add(box(0.32, 0.03, 0.08), trim, { at: [0, main.top + 0.015, 0.225] })
@@ -612,7 +612,7 @@ function huntsman() {
   return b.build();
 }
 
-/** Humanities Building: a broad, notched two-storey block round a light well (modelled from the site plan). */
+/** Humanities Building: a broad, notched two-storey block round a light well (modeled from the site plan). */
 function humanities() {
   const b = new Builder();
   foundation(b);
@@ -690,7 +690,7 @@ function healthScience() {
   return b.build();
 }
 
-/** Horne Activity Center: a big tan brick gym box, grey metal panels, tall corner window strips. */
+/** Horne Activity Center: a big tan brick gym box, gray metal panels, tall corner window strips. */
 function horne() {
   const b = new Builder();
   foundation(b);
@@ -699,7 +699,7 @@ function horne() {
     .add(box(0.8, 0.012, 0.52), C.teamRoof, { team: 1, at: [0, gym.top + 0.042, gym.z] });
   b.add(box(0.84, 0.12, 0.012), col('#8e9196'), { at: [0, Y0 + 0.4, 0.225] })
     .add(box(0.012, 0.12, 0.56), col('#8e9196'), { at: [-0.425, Y0 + 0.4, gym.z] });
-  // The corner bay: three tall window strips, each capped with grey.
+  // The corner bay: three tall window strips, each capped with gray.
   for (let i = 0; i < 3; i++) {
     b.add(box(0.035, 0.26, 0.01), C.glass, { glow: 0.35, at: [0.26 + i * 0.055, Y0 + 0.2, 0.226] })
       .add(box(0.04, 0.05, 0.012), col('#8e9196'), { at: [0.26 + i * 0.055, Y0 + 0.36, 0.226] });
@@ -850,21 +850,21 @@ function sevierValley() {
   return b.build();
 }
 
-/** Sorensen Administration Building (Richfield): low brick boxes round a taller centre, a columned canopy. */
+/** Sorensen Administration Building (Richfield): low brick boxes round a taller center, a columned canopy. */
 function sorensen() {
   const b = new Builder();
   foundation(b);
   const brick = col('#8e4b3a'), belt = col('#5a3328'), coping = col('#4a2e25');
-  const centre = block(b, brick, 0, -0.08, 0.4, 0.36, 0.4);
+  const center = block(b, brick, 0, -0.08, 0.4, 0.36, 0.4);
   const wl = block(b, brick, -0.3, -0.02, 0.24, 0.2, 0.62);
   const wr = block(b, brick, 0.3, -0.02, 0.24, 0.2, 0.62);
-  for (const blk of [centre, wl, wr]) {
+  for (const blk of [center, wl, wr]) {
     b.add(box(blk.w + 0.004, 0.02, blk.d + 0.004), belt, { at: [blk.x, Y0 + 0.12, blk.z] })
       .add(box(blk.w + 0.02, 0.025, blk.d + 0.02), coping, { at: [blk.x, blk.top + 0.012, blk.z] })
       .add(box(blk.w - 0.02, 0.012, blk.d - 0.02), C.teamRoof, { team: 1, at: [blk.x, blk.top + 0.028, blk.z] });
   }
-  glassBand(b, centre, 'f', 0.3, 0.04, C.unlit, 0.15, 0.85);   // clerestory
-  glassBand(b, centre, 'b', 0.3, 0.04, C.unlit, 0.15, 0.85);
+  glassBand(b, center, 'f', 0.3, 0.04, C.unlit, 0.15, 0.85);   // clerestory
+  glassBand(b, center, 'b', 0.3, 0.04, C.unlit, 0.15, 0.85);
   // The glass storefront entry under a flat canopy on round white columns.
   b.add(box(0.24, 0.13, 0.01), C.glass, { glow: 0.4, at: [0, Y0 + 0.065, 0.125] })
     .add(box(0.3, 0.02, 0.16), C.whiteTrim, { at: [0, Y0 + 0.16, 0.2] })

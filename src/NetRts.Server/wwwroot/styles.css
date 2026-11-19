@@ -935,7 +935,7 @@ pre.snippet {
 @media (max-width: 560px) { .sound-panel { top: 50px; right: 8px; } }
 .map-frame:not(.is-full) .sound-panel { top: 10px; right: 10px; }   /* the buttons are above the map */
 
-/* What the players say, bottom centre of the 3D view. */
+/* What the players say, bottom center of the 3D view. */
 .map3d-captions {
   position: absolute; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 2;
   width: min(560px, calc(100% - 32px)); display: grid; gap: 4px; justify-items: center;
@@ -1114,7 +1114,7 @@ pre.snippet {
 }
 
 [data-brand="snow"] .topbar { background: var(--brand); color: #fff; border-bottom: 3px solid var(--orange); }
-.brand-s { display: block; height: 44px; width: auto; }   /* the official S; don't recolour or crop it */
+.brand-s { display: block; height: 44px; width: auto; }   /* the official S; don't recolor or crop it */
 .brand small { display: block; font-size: 0.7rem; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; opacity: 0.8; }
 [data-brand="snow"] .brand span { line-height: 1.05; }
 [data-brand="snow"] .topbar nav { align-items: center; }
@@ -1515,7 +1515,7 @@ a.owner:hover { text-decoration: underline; }
 .deck-count { min-width: 4.5em; text-align: center; font-weight: 700; }
 
 /* A slide is laid out on a 1920x1080 canvas: calc(N * var(--u)) is N canvas pixels at any size.
-   Slides keep their own colours (like a picture) whatever the site theme. */
+   Slides keep their own colors (like a picture) whatever the site theme. */
 .slide {
   --u: calc(100cqw / 1920);
   --navy: #0e1a2b; --navy-2: #16283f; --navy-line: #2a4060; --cream: #f4f0e6; --ink-2: #13213a;

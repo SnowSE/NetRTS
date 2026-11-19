@@ -40,7 +40,7 @@ try
 }
 catch (OperationCanceledException) when (cts.IsCancellationRequested)
 {
-    Runner.Log("Cancelled.");
+    Runner.Log("Canceled.");
     return 130;
 }
 catch (NetRtsApiException ex)

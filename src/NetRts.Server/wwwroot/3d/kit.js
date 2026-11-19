@@ -1,5 +1,5 @@
-// 3D match view: the kit models are built from. A Builder collects coloured primitives and merges them
-// into one geometry with per-vertex colour, plus `team` (1 where the player's colour shows through),
+// 3D match view: the kit models are built from. A Builder collects colored primitives and merges them
+// into one geometry with per-vertex color, plus `team` (1 where the player's color shows through),
 // `glow` (self-lit windows, crystals, lanterns) and `limb` (parts that swing as units move).
 //
 // One tile is one world unit; models stand on y = 0 and face +z.
@@ -13,16 +13,16 @@ export const K = {
   wood: col('#8a6440'), woodDark: col('#5b4029'), white: col('#e6e0d4'), black: col('#1c1c1e'),
   brick: col('#a5523b'), brickTan: col('#c7a47a'), stone: col('#a59c8c'), stoneDark: col('#857c6e'),
   slate: col('#4b5058'), pane: col('#56708a'), window: col('#ffcf7a'), glass: col('#8fdcff'), hat: col('#f2b632'),
-  badgerGrey: col('#8d9196'), deer: col('#8e6440'), deerBelly: col('#cfb08a'), team: col('#f4f4f4'),
+  badgerGray: col('#8d9196'), deer: col('#8e6440'), deerBelly: col('#cfb08a'), team: col('#f4f4f4'),
   teamShade: col('#b8b8b8'), ore: col('#ffc94a'), grub: col('#f3e0b5'), soil: col('#6b5039'),
   bell: col('#d9a640'), ember: col('#ff8a2a'), red: col('#ff3b30'),
 };
 
-/** Collects coloured parts and merges them into one geometry. */
+/** Collects colored parts and merges them into one geometry. */
 export class Builder {
   constructor() { this.parts = []; }
 
-  add(geo, colour, { team = 0, glow = 0, limb = 0, joint = 0, at = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
+  add(geo, color, { team = 0, glow = 0, limb = 0, joint = 0, at = [0, 0, 0], rot = [0, 0, 0], scale = [1, 1, 1] } = {}) {
     const g = geo.index ? geo.toNonIndexed() : geo.clone();
     g.deleteAttribute('uv');
     const m = new THREE.Matrix4().compose(
@@ -32,7 +32,7 @@ export class Builder {
     g.applyMatrix4(m);
     const n = g.attributes.position.count;
     const c = new Float32Array(n * 3), t = new Float32Array(n), w = new Float32Array(n), l = new Float32Array(n * 2);
-    for (let i = 0; i < n; i++) { c[i * 3] = colour.r; c[i * 3 + 1] = colour.g; c[i * 3 + 2] = colour.b; t[i] = team; w[i] = glow; l[i * 2] = limb; l[i * 2 + 1] = joint; }
+    for (let i = 0; i < n; i++) { c[i * 3] = color.r; c[i * 3 + 1] = color.g; c[i * 3 + 2] = color.b; t[i] = team; w[i] = glow; l[i * 2] = limb; l[i * 2 + 1] = joint; }
     g.setAttribute('color', new THREE.BufferAttribute(c, 3));
     g.setAttribute('team', new THREE.BufferAttribute(t, 1));
     g.setAttribute('glow', new THREE.BufferAttribute(w, 1));
@@ -56,8 +56,8 @@ export class Builder {
       const x = (p.getX(i) + p.getX(i + 1) + p.getX(i + 2)) / 3;
       const y = (p.getY(i) + p.getY(i + 1) + p.getY(i + 2)) / 3;
       const z = (p.getZ(i) + p.getZ(i + 1) + p.getZ(i + 2)) / 3;
-      const colour = paint(x, y, z);
-      for (let k = 0; k < 3; k++) c.setXYZ(i + k, colour.r, colour.g, colour.b);
+      const color = paint(x, y, z);
+      for (let k = 0; k < 3; k++) c.setXYZ(i + k, color.r, color.g, color.b);
     }
     return this;
   }

@@ -26,7 +26,7 @@ tie-breaks are explicit, and nothing reads the clock. A replay is just the confi
 accepted commands with the tick they were queued on; `GameSimulation.FromReplay` re-runs it and the
 tests check the final state hash matches the original.
 
-Because the engine is just data in and data out, nearly all game behaviour is tested directly and
+Because the engine is just data in and data out, nearly all game behavior is tested directly and
 quickly (`tests/NetRts.Engine.Tests`), including full matches between the house bots.
 
 ### One tick
@@ -69,13 +69,13 @@ match id (e.g. a consistent-hash ingress on the `/matches/{id}` path segment) pl
 
 The first version (still in git history: its last commit is `90a5484`) followed a Clean-Architecture/CQRS template but never reached a playable game:
 
-- it didn't build (vulnerable package pins under warnings-as-errors; MediatR 13+ now needs a commercial licence);
+- it didn't build (vulnerable package pins under warnings-as-errors; MediatR 13+ now needs a commercial license);
 - authentication was disabled on every game endpoint, and any caller could impersonate a player
   with an `X-Test-Player-Id` header;
 - workers never constructed anything (buildings appeared instantly), gathering happened once per
   command instead of continuously, speed and armor stats were ignored, building kills were scored
   twice, combat was sequential, and command ids came from `DateTime.Ticks`;
-- API threads and the tick thread mutated the same lists without synchronisation;
+- API threads and the tick thread mutated the same lists without synchronization;
 - there were no sample bots, which the spec's success criteria require.
 
 The rewrite keeps the specification and the good ideas (Aspire, PostgreSQL, fog of war, the

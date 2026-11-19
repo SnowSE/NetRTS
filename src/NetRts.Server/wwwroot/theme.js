@@ -1,4 +1,4 @@
-// Colour theme toggle: Auto (follow the system) → Light → Dark. The choice is kept in localStorage;
+// Color theme toggle: Auto (follow the system) → Light → Dark. The choice is kept in localStorage;
 // index.html applies it before first paint so the page never flashes the wrong theme.
 import { loadText, saveText } from './storage.js';
 
@@ -18,7 +18,7 @@ function apply(choice) {
   if (choice === 'auto') delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme = choice;
   label.textContent = LABEL[choice];
-  button.setAttribute('aria-label', `Colour theme: ${LABEL[choice].toLowerCase()}. Click to change.`);
+  button.setAttribute('aria-label', `Color theme: ${LABEL[choice].toLowerCase()}. Click to change.`);
   window.dispatchEvent(new Event('netrts-theme'));
 }
 

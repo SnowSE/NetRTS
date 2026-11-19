@@ -1,5 +1,5 @@
 // Block Bot: what this browser keeps (strategies, preferences, which strategy played which match, and
-// the player's key) and the authorised API call. While someone is signed in to the website, sync.js
+// the player's key) and the authorized API call. While someone is signed in to the website, sync.js
 // copies the strategies to and from their account; it reads and writes them here too.
 import { api, downloadJson } from '../util.js';
 import { load, save, forget } from '../storage.js';

@@ -19,7 +19,7 @@ const TABS = [
 const CHOICE_KEYS = ['kind', 'what', 'op', 'value', 'name', 'unit', 'building', 'target', 'on', 'percent'];
 
 /**
- * Snap-together blocks: a palette of coloured blocks to drag into rules, each rule a "when ⟨check⟩ do"
+ * Snap-together blocks: a palette of colored blocks to drag into rules, each rule a "when ⟨check⟩ do"
  * block holding a stack of actions. Blocks drag by mouse, pen or finger; a block dropped back on the
  * palette is removed. For keyboards (and quick taps), a palette block clicked goes into the selected
  * rule, a focused step moves with ↑ ↓ and goes with Delete. The editing itself is EditorCore's.
@@ -41,7 +41,7 @@ export class BlockEditor extends EditorCore {
       onStart: (payload) => { this.dragging = payload; root.querySelector('.bb-blocks')?.classList.add('is-dragging', `drag-${payload.type}`); },
       onEnd: () => { this.dragging = null; root.querySelector('.bb-blocks')?.classList.remove('is-dragging', 'drag-rule', 'drag-step', 'drag-cond', 'drag-new-rule', 'drag-new-cond', 'drag-new-action'); },
       covered: () => this.paletteCover(),
-      layer: () => root.querySelector('.bb-blocks'),   // the block colours are set there
+      layer: () => root.querySelector('.bb-blocks'),   // the block colors are set there
     }));
     this.render();
   }

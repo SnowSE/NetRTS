@@ -58,7 +58,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
     private const int RetargetEveryTicks = 15;
     private const int EscortEveryTicks = 3;
 
-    // Where escorts stand around the trebuchets: the eight neighbours two tiles out, then three.
+    // Where escorts stand around the trebuchets: the eight neighbors two tiles out, then three.
     private static readonly (int X, int Y)[] Ring =
     [
         (2, 0), (-2, 0), (0, 2), (0, -2), (2, 2), (-2, -2), (2, -2), (-2, 2),
@@ -328,7 +328,7 @@ public class PlanBot(string name, BotPlan plan) : IBotStrategy
             return;
         }
 
-        // The ring is centred a step ahead of the trebuchets, toward the target.
+        // The ring is centerd a step ahead of the trebuchets, toward the target.
         var cx = (int)Math.Round(siege.Average(u => u.X));
         var cy = (int)Math.Round(siege.Average(u => u.Y));
         cx += Math.Sign(target.Value.X - cx);

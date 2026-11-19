@@ -163,7 +163,7 @@ and round 2 another two heats of 10 with everyone reseated.
 
 Each round is seated at random, but the match remembers who started next to whom: if a seating
 would put two bots side by side again, it is reshuffled (a small heat can't always avoid it). So a
-bad draw of neighbours in one round isn't repeated in the next.
+bad draw of neighbors in one round isn't repeated in the next.
 
 Spectators watch on the match's page, `/#/match/season-week3`. They see who has joined, how the
 admin splits each round into heats (in seat order around the map), and then a live scoreboard per
@@ -202,7 +202,7 @@ so every bot starts at 0 and climbs as results come in and the model grows surer
 mu 30, sigma 1.5 shows 1,020). League ladders are still ranked by points; skill is the second column,
 a guide to who is actually strong, and breaks ties on points. The practice ladder stays ranked by Elo.
 
-Seats are shuffled when a match starts, so your slot (and with it your start position and colour)
+Seats are shuffled when a match starts, so your slot (and with it your start position and color)
 doesn't depend on when you joined; read `you.slot` from your state. The shuffle uses the match
 seed, so a match created with a fixed `seed` and the same players in the same order starts the same way.
 League heats are seated by their round instead (see above).
@@ -329,7 +329,7 @@ Command error codes: `INVALID_COMMAND_TYPE`, `NO_UNITS_SPECIFIED`, `UNIT_NOT_OWN
 The map is a grid (64×64 by default) with four-way mirror symmetry, so every start is equally fair.
 `(0,0)` is the top-left. Rock (`#`) blocks movement; so do buildings and ore deposits. Units may
 share tiles. Each player starts with a Command Center, 5 workers and 500 ore, with a field of ore
-about five tiles away; richer contested ore sits near the centre.
+about five tiles away; richer contested ore sits near the center.
 
 **Units**
 
@@ -385,7 +385,7 @@ drop-off. Ore beyond your storage capacity is lost.
 time, so two units can kill each other. Idle soldiers/archers/scouts fight back against enemies
 already in range; workers never attack unless ordered.
 
-**Each tick runs in this order:** your queued commands → production & research → unit behaviour
+**Each tick runs in this order:** your queued commands → production & research → unit behavior
 and movement → shells due this tick land → combat → deaths → elimination & victory checks.
 
 ## Scoring and victory

@@ -4,9 +4,9 @@
 
 (() => {
   const HOSTS = {
-    zip: { name: 'Zip', unit: 'The Scout', colour: 'var(--zip)', x: 112, seed: 0.2 },
-    sarge: { name: 'Sarge', unit: 'The Soldier', colour: 'var(--sarge)', x: 318, seed: 0.55 },
-    quill: { name: 'Quill', unit: 'The Archer', colour: 'var(--quill)', x: 528, seed: 0.85 },
+    zip: { name: 'Zip', unit: 'The Scout', color: 'var(--zip)', x: 112, seed: 0.2 },
+    sarge: { name: 'Sarge', unit: 'The Soldier', color: 'var(--sarge)', x: 318, seed: 0.55 },
+    quill: { name: 'Quill', unit: 'The Archer', color: 'var(--quill)', x: 528, seed: 0.85 },
   };
   const ORDER = ['zip', 'sarge', 'quill'];
   const SLOT = ['#e69f00', '#56b4e9', '#2fc497', '#e68fc3', '#ff6b5e', '#b39ddb', '#d4d45a', '#4dd0e1',
@@ -41,11 +41,11 @@
       const holder = document.createElement('div');
       holder.className = 'host';
       holder.style.left = `${h.x - 150}px`;
-      holder.innerHTML = `<div class="glow" style="--c:${h.colour}"></div><img src="hosts/${key}.png" alt="">`;
+      holder.innerHTML = `<div class="glow" style="--c:${h.color}"></div><img src="hosts/${key}.png" alt="">`;
       $('hosts').appendChild(holder);
       const plate = document.createElement('div');
       plate.className = 'plate';
-      plate.style.setProperty('--c', h.colour);
+      plate.style.setProperty('--c', h.color);
       plate.innerHTML = `${esc(h.name)}<small>${esc(h.unit)}</small><span class="meter">${'<i></i>'.repeat(7)}</span>`;
       $('plates').appendChild(plate);
       hosts[key] = { holder, img: holder.querySelector('img'), glow: holder.querySelector('.glow'), bars: [...plate.querySelectorAll('.meter i')] };
@@ -134,7 +134,7 @@
     if (subject && i !== shownLine) {
       shownLine = i;
       const h = HOSTS[subject.speaker];
-      lt.style.setProperty('--c', h.colour);
+      lt.style.setProperty('--c', h.color);
       $('lt-who').innerHTML = `${esc(h.name)}<small>${esc(h.unit)}</small>`;
       $('lt-said').textContent = subject.text;
     }

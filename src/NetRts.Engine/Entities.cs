@@ -117,7 +117,7 @@ internal sealed class UnitEntity : Entity
     public long? OrderCommandId { get; set; }
     public BuildingType? BuildType { get; set; }
 
-    /// <summary>Where the last mined deposit was, so workers can move on to a neighbouring one.</summary>
+    /// <summary>Where the last mined deposit was, so workers can move on to a neighboring one.</summary>
     public Point? LastDepositPosition { get; set; }
 
     public int Carrying { get; set; }

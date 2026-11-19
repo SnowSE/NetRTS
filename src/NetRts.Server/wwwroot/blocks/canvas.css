@@ -1,5 +1,5 @@
 /* Block Bot's drag-and-drop blocks (block-editor.js). Loaded by blocks/index.js on Block Bot pages only.
-   Each family of block has its own colour; white text on every one of them is at least 4.5:1. */
+   Each family of block has its own color; white text on every one of them is at least 4.5:1. */
 
 .bb-blocks {
   --blk-rule: #8f5500;      /* when … do */

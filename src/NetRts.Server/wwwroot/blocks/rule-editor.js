@@ -51,7 +51,7 @@ export class RuleEditor extends EditorCore {
     this.listeners.push(pointerDrag(this.root, {
       pick: (el) => (el.dataset.drag === 'rule' && !this.session && !this.saving ? { index: Number(el.dataset.i) } : null),
       carry: (el) => el.closest('.bb-row') ?? el,
-      layer: () => this.root,   // inside the page, where the card colours are set
+      layer: () => this.root,   // inside the page, where the card colors are set
       over: (payload, x, y) => {
         const list = dropSpot(x, y, '.bb-rules');
         if (!list) return null;

@@ -85,7 +85,7 @@ public static class MapGenerator
     private const int ExpansionOreAmount = 1200;
     private const int RichOreAmount = 1500;
 
-    /// <summary>Command Centers on a ring sit at least this far apart from their neighbours.</summary>
+    /// <summary>Command Centers on a ring sit at least this far apart from their neighbors.</summary>
     private const int RingSpacing = 16;
 
     /// <summary>Tiles kept between a ring base and the map edge, for the ore seam behind it.</summary>
@@ -102,7 +102,7 @@ public static class MapGenerator
     /// (and the last and first); in the corners, slots sharing an edge of the map (slot order there is
     /// top-left, bottom-right, top-right, bottom-left), and both players of a 2-player map.
     /// </summary>
-    public static IReadOnlyList<(int A, int B)> NeighbourSlots(int playerCount) => playerCount switch
+    public static IReadOnlyList<(int A, int B)> NeighborSlots(int playerCount) => playerCount switch
     {
         < 2 => [],
         2 => [(0, 1)],
@@ -176,7 +176,7 @@ public static class MapGenerator
             }
         }
 
-        // Contested ore just off the centre (mirrors into N/S and W/E pairs).
+        // Contested ore just off the center (mirrors into N/S and W/E pairs).
         quadrantDeposits.Add(new DepositSpawn(new Point(quadrantW - 1, quadrantH - 4), RichOreAmount));
         quadrantDeposits.Add(new DepositSpawn(new Point(quadrantW - 4, quadrantH - 1), RichOreAmount));
 

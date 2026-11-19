@@ -88,7 +88,7 @@ public sealed class BotView
         return EnemyStart(cc.X, cc.Y) is { } start ? (start.X, start.Y) : null;
     }
 
-    /// <summary>Where the army waits: a few tiles from the Command Center toward the map centre.</summary>
+    /// <summary>Where the army waits: a few tiles from the Command Center toward the map center.</summary>
     public (int X, int Y) RallyPoint()
     {
         var cc = CommandCenter!;

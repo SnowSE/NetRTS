@@ -88,7 +88,7 @@ public sealed class RecapBrief(
     {
         ["CommandCenter"] = "each team's is a campus building",
         ["SiegeWorkshop"] = "Richfield campus",
-        ["Trebuchet"] = "an old Snap-on tool truck in Snow College colours, with a cannon on the roof",
+        ["Trebuchet"] = "an old Snap-on tool truck in Snow College colors, with a cannon on the roof",
     };
 
     /// <summary>A bot's name as the hosts say it: house bots by their nickname.</summary>
@@ -334,11 +334,11 @@ public sealed class RecapBrief(
             }
 
             var winnerRow = rows.FirstOrDefault(r => r.Result == MatchResultKind.Win);
-            var favourite = rows.Where(r => r.RatingBefore is not null).MaxBy(r => r.RatingBefore);
-            if (winnerRow?.RatingBefore is int wr && favourite?.RatingBefore is int fr && fr - wr >= 50 && favourite != winnerRow)
+            var favorite = rows.Where(r => r.RatingBefore is not null).MaxBy(r => r.RatingBefore);
+            if (winnerRow?.RatingBefore is int wr && favorite?.RatingBefore is int fr && fr - wr >= 50 && favorite != winnerRow)
             {
                 score += (fr - wr) / 4;
-                why.Add($"upset: {Name(winnerRow.PlayerId)} was rated {fr - wr} below {Name(favourite.PlayerId)}");
+                why.Add($"upset: {Name(winnerRow.PlayerId)} was rated {fr - wr} below {Name(favorite.PlayerId)}");
             }
 
             var kills = result.Players.Sum(p => p.UnitsKilled);
@@ -429,14 +429,14 @@ public sealed class RecapBrief(
         foreach (var win in real.Where(r => r.Result == MatchResultKind.Win).OrderBy(r => r.CompletedAt))
         {
             var others = byMatch[win.MatchId].Where(o => o.PlayerId != win.PlayerId && !o.IsHouseBot).ToList();
-            var favourite = others.Where(o => o.RatingBefore is not null).MaxBy(o => o.RatingBefore);
-            if (win.RatingBefore is int mine && favourite?.RatingBefore is int theirs && theirs - mine >= 100)
+            var favorite = others.Where(o => o.RatingBefore is not null).MaxBy(o => o.RatingBefore);
+            if (win.RatingBefore is int mine && favorite?.RatingBefore is int theirs && theirs - mine >= 100)
             {
                 notes.Add(new RecapNoteDto
                 {
                     Bot = Name(win.PlayerId),
                     Owner = Owner(win.PlayerId),
-                    Text = $"upset: beat {Name(favourite.PlayerId)}, rated {theirs - mine} higher",
+                    Text = $"upset: beat {Name(favorite.PlayerId)}, rated {theirs - mine} higher",
                     MatchId = win.MatchId,
                 });
             }

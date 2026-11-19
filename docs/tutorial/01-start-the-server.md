@@ -48,9 +48,9 @@ taken to the match's spectate page:
 
 What you're looking at:
 
-- **The map** is a 64×64 grid. `(0, 0)` is the top-left corner. Grey blobs are rock, which
+- **The map** is a 64×64 grid. `(0, 0)` is the top-left corner. Gray blobs are rock, which
   nothing can walk through. Yellow pentagons are ore deposits.
-- **Each player has a colour.** Rusher (orange) starts top left, economist (blue) bottom right.
+- **Each player has a color.** Rusher (orange) starts top left, economist (blue) bottom right.
   The dashed circle marks a starting Command Center.
 - **Shapes tell you the unit type** (see the key above the map): circles are workers, squares
   soldiers, triangles archers, diamonds scouts. Filled squares with a letter are buildings.

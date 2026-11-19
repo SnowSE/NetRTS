@@ -83,7 +83,7 @@ export function condParts(program, c, path, { select, number } = LIVE) {
   }
 }
 
-/** Which colour family an action belongs to: train, build, army or switch (as the choices group them). */
+/** Which color family an action belongs to: train, build, army or switch (as the choices group them). */
 export const actionFamily = (kind) => (['train', 'trainMix'].includes(kind) ? 'train'
   : ['build', 'research', 'expand'].includes(kind) ? 'build' : kind === 'setSwitch' ? 'switch' : 'army');
 
@@ -115,7 +115,7 @@ export function actionParts(program, a, path, { select, number, live } = LIVE) {
  * knows are included, and a group with none left is dropped.
  */
 export function choiceGroups(type, program) {
-  // Most choices are labelled as the block they make, with {braces} on what can be changed once it's placed.
+  // Most choices are labeled as the block they make, with {braces} on what can be changed once it's placed.
   const shown = (data) => {
     const node = choiceNode(type, data);
     const { label, fields } = type === 'cond' ? condParts(program, node, '', SHOWN) : actionParts(program, node, '', SHOWN);

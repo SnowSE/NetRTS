@@ -176,10 +176,10 @@ export class Effects {
   // ---------------------------------------------------------------- bursts
 
   /** Sparks where a blade or arrow lands. */
-  spark(p, n = 8, colour = [2.2, 1.7, 0.9], s = 1) {
+  spark(p, n = 8, color = [2.2, 1.7, 0.9], s = 1) {
     for (let i = 0; i < n; i++) {
       this.glow.emit(p.x, p.y, p.z, rand(-1.4, 1.4) * s, rand(0.4, 2.0) * s, rand(-1.4, 1.4) * s,
-        { life: rand(0.18, 0.4), size: rand(0.03, 0.06) * s, color: colour, gravity: 6 * s, drag: 2 });
+        { life: rand(0.18, 0.4), size: rand(0.03, 0.06) * s, color: color, gravity: 6 * s, drag: 2 });
     }
     this.glow.emit(p.x, p.y, p.z, 0, 0, 0, { life: 0.12, size: 0.35 * s, color: [1, 0.85, 0.6], alpha: 0.8 });
   }
@@ -196,14 +196,14 @@ export class Effects {
   }
 
   /** A puff of dust at a unit's feet. */
-  dust(p, n = 4, colour = [0.62, 0.55, 0.44], spread = 0.4) {
+  dust(p, n = 4, color = [0.62, 0.55, 0.44], spread = 0.4) {
     for (let i = 0; i < n; i++) {
       this.soft.emit(p.x + rand(-0.1, 0.1), p.y + 0.03, p.z + rand(-0.1, 0.1), rand(-spread, spread), rand(0.1, 0.35), rand(-spread, spread),
-        { life: rand(0.5, 1.0), size: rand(0.12, 0.2), grow: 1.8, color: colour, alpha: 0.4, drag: 2.5 });
+        { life: rand(0.5, 1.0), size: rand(0.12, 0.2), grow: 1.8, color: color, alpha: 0.4, drag: 2.5 });
     }
   }
 
-  /** A unit falls: a burst in its team colour and a cloud of dust. */
+  /** A unit falls: a burst in its team color and a cloud of dust. */
   death(p, teamRGB) {
     this.onSound?.('death', p);
     for (let i = 0; i < 14; i++) {
@@ -225,7 +225,7 @@ export class Effects {
     }
   }
 
-  /** A building is finished: a flash of the seam colour from top to bottom. */
+  /** A building is finished: a flash of the seam color from top to bottom. */
   completed(p, teamRGB, height) {
     this.onSound?.('complete', p);
     this.ring(p, teamRGB, 1.4, 0.8, 0.7);
@@ -253,10 +253,10 @@ export class Effects {
       this.soft.emit(p.x + rand(-0.3, 0.3), p.y + rand(0.1, 0.6), p.z + rand(-0.3, 0.3), rand(-0.8, 0.8), rand(0.3, 1.3), rand(-0.8, 0.8),
         { life: rand(1.6, 3.2), size: rand(0.35, 0.6) * s, grow: 2.5, color: [0.16, 0.14, 0.13], alpha: 0.7, drag: 1.2 });
     }
-    const greys = [[0.3, 0.27, 0.23], [0.2, 0.18, 0.16], [0.26, 0.16, 0.09], teamRGB.map((c) => c * 0.6)];
+    const grays = [[0.3, 0.27, 0.23], [0.2, 0.18, 0.16], [0.26, 0.16, 0.09], teamRGB.map((c) => c * 0.6)];
     for (let i = 0; i < 26 * s; i++) {
       if (this.debris.items.length >= this.debris.max) break;
-      const c = greys[i % greys.length];
+      const c = grays[i % grays.length];
       this.debris.items.push({
         x: p.x + rand(-0.3, 0.3), y: p.y + rand(0.2, 0.6), z: p.z + rand(-0.3, 0.3),
         vx: rand(-2.6, 2.6) * s, vy: rand(1.5, 4.5) * s, vz: rand(-2.6, 2.6) * s,
@@ -489,7 +489,7 @@ export class Effects {
     // Debris tumbles, bounces and settles.
     const deb = this.debris;
     let di = 0;
-    const colour = new THREE.Color();
+    const color = new THREE.Color();
     deb.items = deb.items.filter((d) => (d.life -= dt) > 0);
     for (const d of deb.items) {
       d.vy -= 9.8 * dt;
@@ -507,7 +507,7 @@ export class Effects {
       m.scale.setScalar(d.size * Math.min(1, d.life / 0.6));
       m.updateMatrix();
       deb.mesh.setMatrixAt(di, m.matrix);
-      deb.mesh.setColorAt(di, colour.setRGB(d.c[0], d.c[1], d.c[2]));
+      deb.mesh.setColorAt(di, color.setRGB(d.c[0], d.c[1], d.c[2]));
       di++;
     }
     deb.mesh.count = di;

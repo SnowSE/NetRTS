@@ -312,7 +312,7 @@ dotnet ef migrations add <Name> --context SqliteNetRtsDb   -o Data/Migrations/Sq
 dotnet ef migrations add <Name> --context PostgresNetRtsDb -o Data/Migrations/Postgres --namespace NetRts.Server.Data.Migrations.Postgres
 ```
 
-Databases created before migrations existed are recognised at startup (they have a `players` table
+Databases created before migrations existed are recognized at startup (they have a `players` table
 but no history) and marked as being at the first migration, so the rest applies on top and existing
 bots keep their keys.
 
