@@ -7,7 +7,7 @@ namespace NetRts.Server.Pickup;
 /// <summary>
 /// The pick-up game's king of the hill (#/pickup). Phones join a line; the champion (a student, or the house
 /// playing one of the decks) takes on up to three challengers at a time; winner stays on, and a champion retires
-/// after <see cref="RetireAfter"/> wins against students. With nobody ready, the house keeps a match going while
+/// after <see cref="RetireAfter"/> wins. With nobody ready, the house keeps a match going while
 /// someone is watching, and that match gives way the moment a student is ready. Everything lives in memory:
 /// names, plans and results are gone when the server stops, and the matches are never recorded.
 /// </summary>
@@ -438,10 +438,10 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             student.OverAt = now;
         }
 
-        var beatStudents = round.Players.Any(p => p.Student is not null && p != winner);
+        // Every win counts, against students or the house, the one that takes the hill included.
         if (winner == champion)
         {
-            if (_champion is not null && beatStudents && ++_championWins >= RetireAfter)
+            if (_champion is not null && ++_championWins >= RetireAfter)
             {
                 logger.LogInformation("Pick-up: {Name} retires undefeated after {Wins} wins", _champion.Name, _championWins);
                 Crown(null, deck: _nextDeck++);
@@ -450,7 +450,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
         else if (winner.Student is { } student)
         {
             Crown(student, deck: _houseDeck);
-            _championWins = beatStudents ? 1 : 0;
+            _championWins = 1;
         }
         else
         {

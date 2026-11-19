@@ -583,7 +583,7 @@ no other match uses:
   attack rule (`army` size or a `time`, against the nearest `base` or the `nearest` enemies, with or
   without defending). During the match the phone can send `attack` (attack now) or `pullback`.
 - **The hill.** The champion takes on up to 3 challengers from the front of the line; winner stays on;
-  a champion retires after 5 wins against students. With nobody ready the house plays one of the three
+  a champion retires after 5 wins (against students or the house). With nobody ready the house plays one of the three
   decks (`GET /api/v1/pickup/decks`). The phone API is under `/api/v1/pickup` (see `/scalar`).
 
 ## Reference bots

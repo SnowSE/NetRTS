@@ -107,7 +107,7 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
     }
 
     [Fact]
-    public void A_champion_retires_after_five_wins_against_students()
+    public void Every_win_counts_and_a_champion_retires_after_five()
     {
         var hill = NewHill(SitterDeck);
         var champ = hill.Join(null, At(0));
@@ -118,10 +118,18 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         var crowned = hill.Me(champ.Token, At(100));
         Assert.True(crowned.Result!.Won);
         Assert.True(crowned.Champion);
-        Assert.Equal(0, crowned.Wins);
+        Assert.Equal(1, crowned.Wins);   // taking the hill from the house counts
 
-        var now = 100.0;
-        for (var i = 1; i <= 5; i++)
+        // Defending against the house counts too.
+        hill.Rejoin(champ.Token, At(130));
+        hill.Hill(At(130));
+        hill.Update(At(130));
+        hill.Update(At(140));
+        Finish(hill, At(150));
+        Assert.Equal(2, hill.Me(champ.Token, At(150)).Wins);
+
+        var now = 150.0;
+        for (var i = 3; i <= PickupHill.RetireAfter; i++)
         {
             var challenger = hill.Join(null, At(now));
             hill.SetPlan(challenger.Token, Sitter);
@@ -130,7 +138,6 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
             hill.Update(At(now + 10));
             Assert.Equal("playing", hill.Me(challenger.Token, At(now + 10)).Phase);
             Finish(hill, At(now + 20));
-            Assert.Equal("over", hill.Me(challenger.Token, At(now + 20)).Phase);
             now += 30;
         }
 

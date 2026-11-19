@@ -123,7 +123,8 @@ the prototype's `PRESETS`). They must be tested against each other and adjusted 
   line"), so abandoned phones don't cycle forever. A phone not heard from for 3 minutes leaves the line. Name
   and place survive a reload (a token in `sessionStorage`).
 - **Champion details** (my call): the champion gets the same 10-second countdown (and can edit) before
-  each defense. Only wins against students count toward the 5. A champion-vs-house match cut short for
+  each defense. Every win counts toward the 5, against students or the house (decided; at first only wins
+  against students counted). A champion-vs-house match cut short for
   a student counts for nothing. A retired champion can get back in line like anyone.
 - **Always on** (decided): the hill runs on production too. House-vs-house matches run only while
   someone is watching (a big screen or a phone is connected), so an empty site doesn't burn CPU at 100 ms
