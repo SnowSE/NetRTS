@@ -246,4 +246,32 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         Assert.Equal(changed.Steps.Count, hill.Me(a.Token, At(11)).Steps);
         host.Stop();
     }
+
+    [Fact]
+    public void A_phone_the_hill_forgot_comes_back_with_its_own_name()
+    {
+        var hill = NewHill();
+        var token = Guid.NewGuid().ToString("N");
+
+        var back = hill.Join(token, At(0), "Sneaky-Sagebrush");
+
+        Assert.Equal(token, back.Token);
+        Assert.Equal("Sneaky-Sagebrush", back.Name);
+        Assert.Equal(1, back.Place);
+    }
+
+    [Fact]
+    public void A_name_that_isnt_one_of_ours_gets_a_new_one()
+    {
+        var hill = NewHill();
+        var first = hill.Join(Guid.NewGuid().ToString("N"), At(0), "Sneaky-Sagebrush");
+
+        var made_up = hill.Join(Guid.NewGuid().ToString("N"), At(0), "<b>Bob</b>");
+        var taken = hill.Join(Guid.NewGuid().ToString("N"), At(0), first.Name);
+        var junk_token = hill.Join("not a token", At(0), "Brave-Pinecone");
+
+        Assert.Matches("^[A-Z][a-z]+-[A-Z][a-z]+$", made_up.Name);
+        Assert.NotEqual(first.Name, taken.Name);
+        Assert.NotEqual("not a token", junk_token.Token);
+    }
 }

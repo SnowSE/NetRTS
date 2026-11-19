@@ -18,6 +18,10 @@ public static class PickupNames
         "Mesa", "Thistle", "Aspen", "Ridge", "Coyote", "Tumbleweed", "Chipmunk", "Acorn", "Magpie", "Willow", "Hedgehog", "Bramble",
     ];
 
+    /// <summary>Whether a name is one of these two-word names (a phone coming back asks for the one it had).</summary>
+    public static bool IsName(string? name) =>
+        name?.Split('-') is [var first, var second] && First.Contains(first) && Second.Contains(second);
+
     /// <summary>A name not in <paramref name="taken"/> (after many tries, one with a number on the end).</summary>
     public static string Pick(Random rng, IReadOnlySet<string> taken)
     {

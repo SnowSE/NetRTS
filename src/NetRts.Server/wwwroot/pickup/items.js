@@ -5,7 +5,6 @@
 import { unitName, upgradeName, buildingName, badgerize } from '../lore.js';
 
 export const START_GRUBS = 1500;
-export const MAX_STEPS = 6;
 export const MAX_FOREVER = 3;
 export const MAX_EACH_BUILDING = 3;
 /** The building every player gets for free, besides the HQ. */

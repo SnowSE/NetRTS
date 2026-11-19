@@ -111,7 +111,8 @@ public sealed record PickupHillDto
     public int? SecondsLeft { get; init; }
 }
 
-public sealed record PickupTokenRequest(string? Token);
+/// <summary>Name: the name this phone had, so it keeps it if the server restarted (only one of the game's own names is accepted).</summary>
+public sealed record PickupTokenRequest(string? Token, string? Name = null);
 
 public sealed record PickupPlanRequest(string Token, PickupPlanDto Plan);
 

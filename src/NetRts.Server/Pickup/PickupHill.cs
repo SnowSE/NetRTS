@@ -85,8 +85,12 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
 
     // ------------------------------------------------------------ phones
 
-    /// <summary>Joins the line (a new name and the first deck as the plan), or picks up where a known token left off.</summary>
-    public PickupMeDto Join(string? token, DateTime now)
+    /// <summary>
+    /// Joins the line (a new name and the first deck as the plan), or picks up where a known token left off. A
+    /// phone the hill doesn't know (the server restarted) keeps its token, and the name it had if that's one of
+    /// ours and nobody has it now.
+    /// </summary>
+    public PickupMeDto Join(string? token, DateTime now, string? name = null)
     {
         lock (_gate)
         {
@@ -101,7 +105,9 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             }
 
             var taken = _entries.Values.Select(e => e.Name).ToHashSet();
-            var entry = new Entry(Guid.NewGuid().ToString("N"), PickupNames.Pick(_rng, taken), now);
+            var keepToken = token is { Length: 32 } && token.All(char.IsAsciiHexDigitLower);
+            var keepName = PickupNames.IsName(name) && !taken.Contains(name!);
+            var entry = new Entry(keepToken ? token! : Guid.NewGuid().ToString("N"), keepName ? name! : PickupNames.Pick(_rng, taken), now);
             _entries[entry.Token] = entry;
             _line.Add(entry);
             logger.LogInformation("Pick-up: {Name} joined the line ({Count} in line)", entry.Name, _line.Count);

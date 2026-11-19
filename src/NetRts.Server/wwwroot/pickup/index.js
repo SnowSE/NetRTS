@@ -17,8 +17,12 @@ import { mountPlaying } from './playing.js';
 import { overHTML } from './over.js';
 import { setCatalog, normalize, left, clock, ordinal } from './items.js';
 
+// Who this phone is, kept on the device (localStorage) so a new tab, a closed browser or a server restart
+// brings back the same player: the token, and the name to ask for if the server has forgotten the token.
 const TOKEN_KEY = 'netrts.pickup.token';
-const SESSION = 'sessionStorage';
+const NAME_KEY = 'netrts.pickup.name';
+const DEVICE = 'localStorage';
+const stored = () => load(DEVICE, TOKEN_KEY, null) ?? load('sessionStorage', TOKEN_KEY, null);
 const POLL_MS = 1000;
 const SAVE_MS = 400;
 /** A match is about 2:30 and takes up to three from the line: a rough wait for a place in line. */
@@ -65,12 +69,13 @@ export function mountPickup(main) {
 
   // ---- talking to the server
 
-  const token = () => me?.token ?? load(SESSION, TOKEN_KEY, null);
+  const token = () => me?.token ?? stored();
 
   async function join() {
-    const t = load(SESSION, TOKEN_KEY, null);
-    me = await scope.wait(api('/api/v1/pickup/join', { method: 'POST', body: t ? { token: t } : {} }));
-    save(SESSION, TOKEN_KEY, me.token);
+    const t = stored(), name = load(DEVICE, NAME_KEY, null);
+    me = await scope.wait(api('/api/v1/pickup/join', { method: 'POST', body: { token: t, name } }));
+    save(DEVICE, TOKEN_KEY, me.token);
+    save(DEVICE, NAME_KEY, me.name);
   }
 
   /** A fresh entry in line (the server forgot this phone, or it never had one); a plan already edited here goes with it. */
@@ -287,7 +292,7 @@ export function mountPickup(main) {
 
   (async () => {
     try {
-      const t = load(SESSION, TOKEN_KEY, null);
+      const t = stored();
       const [rules, list] = await scope.wait(Promise.all([
         api('/api/v1/rules'),
         api('/api/v1/pickup/decks').catch(() => []),

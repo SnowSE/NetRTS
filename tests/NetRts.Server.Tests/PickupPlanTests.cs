@@ -26,11 +26,13 @@ public class PickupPlanTests
         Assert.NotNull(PickupPlans.Validate(Plan(new PickupBuyDto("GuardTower", 4))));
 
     [Fact]
-    public void Seven_steps_are_refused() =>
-        Assert.NotNull(PickupPlans.Validate(new PickupPlanDto
-        {
-            Steps = Enumerable.Range(1, 7).Select(i => new PickupStepDto { Kind = "workers", Count = 5 + i }).ToList(),
-        }));
+    public void A_plan_can_have_lots_of_steps()
+    {
+        PickupPlanDto Steps(int n) => new() { Steps = Enumerable.Range(1, n).Select(i => new PickupStepDto { Kind = "workers", Count = 5 + (i % 50) }).ToList() };
+
+        Assert.Null(PickupPlans.Validate(Steps(40)));
+        Assert.NotNull(PickupPlans.Validate(Steps(PickupPlans.MaxSteps + 1)));   // only a guard against junk requests
+    }
 
     [Fact]
     public void Forever_takes_one_to_three_cards()

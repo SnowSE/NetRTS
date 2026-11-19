@@ -578,7 +578,7 @@ no other match uses:
 - **Treaty.** For the first 120 ticks (30 seconds at 250 ms a tick) no player can damage another.
 - **Combat score.** A match lasts 600 ticks (2.5 minutes); at the limit the highest score wins, and the score is
   damage dealt to other players plus the value of what you destroyed (ore and what you own don't count).
-- **The plan** (`PickupPlanDto`): up to 6 steps run once, in order (`workers` / `train` "up to N",
+- **The plan** (`PickupPlanDto`): any number of steps, run once, in order (`workers` / `train` "up to N",
   optionally kept at that level; `build`; `research`), then 1–3 Forever cards repeated in order, and an
   attack rule (`army` size or a `time`, against the nearest `base` or the `nearest` enemies, with or
   without defending). During the match the phone can send `attack` (attack now) or `pullback`.

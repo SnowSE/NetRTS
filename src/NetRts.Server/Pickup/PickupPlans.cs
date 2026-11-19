@@ -11,7 +11,8 @@ namespace NetRts.Server.Pickup;
 public static class PickupPlans
 {
     public const int StartGrubs = 1500;
-    public const int MaxSteps = 6;
+    /// <summary>Not a game rule (plans can be as long as you like): a guard against junk requests.</summary>
+    public const int MaxSteps = 100;
     public const int MaxForever = 3;
     public const int MaxEachBuilding = 3;
     public const int MaxCount = 60;

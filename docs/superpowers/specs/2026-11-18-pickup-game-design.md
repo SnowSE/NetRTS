@@ -78,7 +78,7 @@ its start pile. Normal matches keep today's score.
 **The plan** (the same shape for every player and for the house):
 - **Start pile:** units (Soldier, Archer, Scout, Worker) and buildings (Housing, Co-op Store, Makerspace,
   Bell Tower), paid from the 1,500.
-- **Then:** up to **6 steps**, each run **once, in order**; a step starts when the one before it is done.
+- **Then:** as many steps as you like (decided; was 6), each run **once, in order**; a step starts when the one before it is done.
   Step kinds:
   - *Workers up to N*, *[unit] up to N*: train until you have N. "Up to", never "N more". If you
     already have N the step is done immediately (the editor warns). Optional **"Keep it at this level"**:

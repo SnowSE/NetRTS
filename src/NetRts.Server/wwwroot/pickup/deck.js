@@ -5,7 +5,7 @@
 import { esc } from '../util.js';
 import { card, icon, artHTML } from './cards.js';
 import {
-  item, tcls, nameOf, plural, clock, START_ITEMS, ALL_ITEMS, MAX_STEPS, MAX_FOREVER, FREE_BUILDING,
+  item, tcls, nameOf, plural, clock, START_ITEMS, ALL_ITEMS, MAX_FOREVER, FREE_BUILDING,
   startN, left, owned, missing, workersBefore, haveBefore, issue, stepText, stepSub, stepItem, foreverText, startBlock, normalize, samePlan,
 } from './items.js';
 
@@ -98,7 +98,6 @@ export function createDeck(ctx) {
       changed();
       return;
     }
-    if (plan.steps.length >= MAX_STEPS) { toast('Six steps at most'); return; }
     const it = item(id), idx = plan.steps.length;
     if (it.type === 'unit') { countSheet(id, idx, null, () => toast(`Step ${idx + 1}: ${stepText(P().steps[idx])}`)); return; }
     const s = { kind: it.type === 'building' ? 'build' : 'research', item: id, count: 1, keep: false };
@@ -119,8 +118,9 @@ export function createDeck(ctx) {
 
   function thenZone(plan) {
     const live = ctx.live?.();
-    const o = owned(plan, plan.steps.length), full = plan.steps.length >= MAX_STEPS;
-    const zone = `<ol class="slots" data-drag="steps">${Array.from({ length: MAX_STEPS }, (_, i) => {
+    // As many steps as you like: the list shows them all and one empty slot for the next.
+    const o = owned(plan, plan.steps.length);
+    const zone = `<ol class="slots" data-drag="steps">${Array.from({ length: plan.steps.length + 1 }, (_, i) => {
       const s = plan.steps[i];
       if (!s) return `<li class="slot empty"><span class="no">${i + 1}</span><span>${i === plan.steps.length ? 'Play a card from your hand' : ''}</span></li>`;
       const e = issue(plan, i), counts = s.kind === 'train' || s.kind === 'workers';
@@ -128,9 +128,9 @@ export function createDeck(ctx) {
       return `<li class="slot t-${tcls(stepItem(s))} ${state}" data-di="${i}"><span class="grip" data-grip title="Drag to reorder" aria-hidden="true">⠿</span><span class="no">${state === 'done' ? '✓' : i + 1}</span><button type="button" class="sl-main" data-a="step-edit" data-v="${i}"><span class="sl-ic">${icon(stepItem(s), 26)}</span><span><b>${esc(stepText(s))}</b><small class="${e ? 'bad' : ''}">${state === 'done' ? 'Done' : state === 'now' ? 'Your bot is on this step now' : esc(e || stepSub(s))}</small></span></button>${counts ? `<span class="sl-n"><button type="button" data-a="step-dec" data-v="${i}" aria-label="Fewer">−</button><button type="button" data-a="step-inc" data-v="${i}" aria-label="More">+</button></span>` : ''}</li>`;
     }).join('')}</ol>
     <p class="hint">${live ? 'Steps already done stay done. Changes reach your bot right away.' : 'Each step runs once, top to bottom. Drag ⠿ to change the order. Then the Forever cards take over.'}</p>`;
-    const hand = `<p class="hand-h">${full ? 'Six steps is the most' : 'Your hand · tap to add a step'}</p><div class="hand">${ALL_ITEMS.map((id) => {
+    const hand = `<p class="hand-h">Your hand · tap to add a step</p><div class="hand">${ALL_ITEMS.map((id) => {
       const it = item(id), m = missing(id, o), taken = it.type === 'research' && o.has(id);
-      return card(id, full || m.length > 0 || taken, taken ? 'Already taken' : m.length ? `Needs ${m.join(' + ')}` : '');
+      return card(id, m.length > 0 || taken, taken ? 'Already taken' : m.length ? `Needs ${m.join(' + ')}` : '');
     }).join('')}</div>`;
     return [zone, hand];
   }
@@ -174,7 +174,7 @@ export function createDeck(ctx) {
   function html() {
     const plan = P(), tab = ui.tab, decks = ctx.decks();
     const [zone, hand] = ZONES[tab](plan);
-    const tabs = [['start', 'Start', left(plan)], ['then', 'Then', `${plan.steps.length}/${MAX_STEPS}`], ['forever', 'Forever', `${plan.forever.length}/${MAX_FOREVER}`], ['attack', 'Attack', '']];
+    const tabs = [['start', 'Start', left(plan)], ['then', 'Then', `${plan.steps.length}`], ['forever', 'Forever', `${plan.forever.length}/${MAX_FOREVER}`], ['attack', 'Attack', '']];
     return `${decks.length ? `<div class="cd-pre"><span>Decks:</span>${decks.map((d) => `<button type="button" class="pill ${samePlan(d.plan, plan) ? 'on' : ''}" data-a="preset" data-v="${esc(d.id)}">${esc(d.name)}</button>`).join('')}</div>` : ''}
       <div class="cd-tabs" role="tablist">${tabs.map(([k, l, c]) => `<button type="button" role="tab" aria-selected="${tab === k}" class="${tab === k ? 'on' : ''}" data-a="tab" data-v="${k}">${l}${c !== '' ? ` <small>${c}</small>` : ''}</button>`).join('')}</div>
       <div class="zone">${zone}</div>
