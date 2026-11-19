@@ -120,7 +120,7 @@ the prototype's `PRESETS`). They must be tested against each other and adjusted 
 - Someone who scans and walks away still plays once: their bot plays their plan.
 - **Getting back in line** (my call): opening the page joins the line once. After a match the phone
   shows the match-over screen, and **getting back in line takes a tap** ("Tweak your plan and get back in
-  line"), so abandoned phones don't cycle forever. A phone not heard from for 60 s leaves the line. Name
+  line"), so abandoned phones don't cycle forever. A phone not heard from for 3 minutes leaves the line. Name
   and place survive a reload (a token in `sessionStorage`).
 - **Champion details** (my call): the champion gets the same 10-second countdown (and can edit) before
   each defense. Only wins against students count toward the 5. A champion-vs-house match cut short for

@@ -141,17 +141,20 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
     }
 
     [Fact]
-    public void Phones_not_seen_for_a_minute_leave_the_line()
+    public void Phones_not_seen_for_three_minutes_leave_the_line()
     {
         var hill = NewHill();
         var a = hill.Join(null, At(0));
         var b = hill.Join(null, At(0));
 
-        hill.Me(a.Token, At(61));
-        hill.Update(At(61));
+        hill.Me(a.Token, At(120));
+        hill.Update(At(120));
+        Assert.Equal(b.Name, hill.Me(b.Token, At(120)).Name);   // asleep two minutes: still in line
 
-        Assert.Equal(a.Name, hill.Me(a.Token, At(61)).Name);
-        var gone = Assert.Throws<MatchException>(() => hill.Me(b.Token, At(61)));
+        hill.Me(a.Token, At(301));
+        hill.Update(At(301));
+        Assert.Equal(a.Name, hill.Me(a.Token, At(301)).Name);
+        var gone = Assert.Throws<MatchException>(() => hill.Me(b.Token, At(302)));
         Assert.Equal("UNKNOWN_TOKEN", gone.Code);
     }
 

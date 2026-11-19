@@ -16,7 +16,7 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
     public static readonly TimeSpan FirstPlanning = TimeSpan.FromSeconds(60);
     public static readonly TimeSpan AgainPlanning = TimeSpan.FromSeconds(20);
     public static readonly TimeSpan Countdown = TimeSpan.FromSeconds(10);
-    public static readonly TimeSpan Unseen = TimeSpan.FromSeconds(60);
+    public static readonly TimeSpan Unseen = TimeSpan.FromMinutes(3);   // a phone that sleeps a while keeps its place
     public static readonly TimeSpan Watched = TimeSpan.FromSeconds(30);
     public static readonly TimeSpan Forgotten = TimeSpan.FromMinutes(15);
     public const int RetireAfter = 5;
