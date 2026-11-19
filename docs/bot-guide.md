@@ -575,8 +575,8 @@ no other match uses:
   whatever they bought from 1,500 ore (`Soldier`, `Archer`, `Scout`, `Worker`, `Barracks`,
   `ResourceDepot`, `TechLab`, `GuardTower`; at most 3 of each building). Bought units and completed
   buildings exist at tick 0; unspent ore is in the bank.
-- **Treaty.** For the first 300 ticks (30 seconds at 100 ms a tick) no player can damage another.
-- **Combat score.** A match lasts 1,500 ticks; at the limit the highest score wins, and the score is
+- **Treaty.** For the first 120 ticks (30 seconds at 250 ms a tick) no player can damage another.
+- **Combat score.** A match lasts 600 ticks (2.5 minutes); at the limit the highest score wins, and the score is
   damage dealt to other players plus the value of what you destroyed (ore and what you own don't count).
 - **The plan** (`PickupPlanDto`): up to 6 steps run once, in order (`workers` / `train` "up to N",
   optionally kept at that level; `build`; `research`), then 1–3 Forever cards repeated in order, and an
