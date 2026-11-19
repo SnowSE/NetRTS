@@ -73,7 +73,22 @@ function route() {
   window.scrollTo(0, 0);
 }
 
-window.addEventListener('hashchange', () => { route(); main.focus({ preventScroll: true }); });
+window.addEventListener('hashchange', () => { closeMenu(); route(); main.focus({ preventScroll: true }); });
+
+// The ☰ menu on narrow screens: opens the links under the bar; picking one, tapping elsewhere or Escape closes it.
+const topbar = document.querySelector('.topbar');
+const navToggle = document.getElementById('nav-toggle');
+function closeMenu() {
+  topbar.classList.remove('nav-open');
+  navToggle.setAttribute('aria-expanded', 'false');
+}
+navToggle.addEventListener('click', () => {
+  const open = topbar.classList.toggle('nav-open');
+  navToggle.setAttribute('aria-expanded', String(open));
+});
+document.addEventListener('click', (e) => { if (!topbar.contains(e.target)) closeMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && topbar.classList.contains('nav-open')) { closeMenu(); navToggle.focus(); } });
+topbar.querySelector('nav').addEventListener('click', (e) => { if (e.target.closest('a')) closeMenu(); });
 
 /**
  * A match page: league matches (played in heats) get the queue / heats / scoreboard page, every other

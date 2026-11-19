@@ -213,6 +213,25 @@ a:hover { text-decoration-thickness: 2px; }
 .topbar-toggles { display: inline-flex; align-items: center; gap: 8px; }   /* the two theme buttons wrap as a pair */
 .topbar nav a:hover, .topbar nav a[aria-current="page"] { color: var(--ink); text-decoration: underline; }
 
+/* Narrow screens: the links fold into a ☰ menu that opens under the bar (app.js toggles .nav-open). */
+.nav-toggle { display: none; align-items: center; justify-content: center; width: 42px; height: 38px; padding: 0; border-radius: 8px;
+  border: 1px solid var(--line); background: transparent; color: inherit; cursor: pointer; }
+@media (max-width: 1060px) {
+  .topbar { flex-wrap: wrap; }
+  .nav-toggle { display: inline-flex; }
+  .topbar nav { display: none; flex: 1 1 100%; flex-direction: column; align-items: stretch; gap: 0; padding: 4px 0 8px; }
+  .topbar.nav-open nav { display: flex; }
+  .topbar nav > a { align-self: stretch; text-align: left; padding: 11px 4px; border-top: 1px solid var(--line); font-size: 1.05rem; }
+  .topbar nav > a:first-child { border-top: 0; }
+  .topbar-toggles { padding-top: 10px; }
+}
+[data-brand="snow"] .nav-toggle { border-color: rgba(255, 255, 255, 0.55); color: #fff; }
+@media (max-width: 1060px) {
+  [data-brand="snow"] .topbar nav { align-items: stretch; }
+  [data-brand="snow"] .topbar nav > a { border-top-color: rgba(255, 255, 255, 0.18); }
+  .topbar-toggles { align-self: flex-start; }
+}
+
 main {
   flex: 1;
   width: 100%;
