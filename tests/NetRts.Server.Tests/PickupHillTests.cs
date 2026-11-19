@@ -148,7 +148,6 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         var b = hill.Join(null, At(0));
 
         hill.Me(a.Token, At(120));
-        hill.Update(At(120));
         Assert.Equal(b.Name, hill.Me(b.Token, At(120)).Name);   // asleep two minutes: still in line
 
         hill.Me(a.Token, At(301));
