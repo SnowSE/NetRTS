@@ -32,7 +32,8 @@ public class PickupMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
         var client = factory.CreateClient();
         var listed = await client.GetFromJsonAsync<List<MatchSummaryDto>>("/api/v1/matches", Ct);
         Assert.DoesNotContain(listed!, m => m.MatchId == host.Id);
-        Assert.Equal(HttpStatusCode.OK, (await client.GetAsync($"/api/v1/matches/{host.Id}", Ct)).StatusCode);
+        var summary = await client.GetFromJsonAsync<MatchSummaryDto>($"/api/v1/matches/{host.Id}", Ct);
+        Assert.True(summary!.Pickup);   // the match page shows no replay button for it
 
         host.Advance(MatchManager.PickupMaxTicks);
         Assert.Equal(MatchStatus.Completed, host.Status);

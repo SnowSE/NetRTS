@@ -42,6 +42,9 @@ public sealed record CreateExhibitionRequest
 public sealed record MatchSummaryDto
 {
     public Guid MatchId { get; init; }
+
+    /// <summary>A pick-up game match (#/pickup): never saved, so it has no replay.</summary>
+    public bool Pickup { get; init; }
     public MatchStatus Status { get; init; }
     public int MaxPlayers { get; init; }
     public int Tick { get; init; }

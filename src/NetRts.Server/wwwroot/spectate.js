@@ -678,7 +678,7 @@ export function mountSpectate(root, matchKey) {
         <p>${outcomeText(outcome, players)}. ${reason}</p>
         <div class="banner-actions">
           ${replay ? html`<button type="button" class="btn" data-replay="restart">Watch it again</button>`
-            : replayNote ? '' : html`<button type="button" class="btn" data-replay="start">Watch the replay</button>`}
+            : replayNote || summary?.pickup ? '' : html`<button type="button" class="btn" data-replay="start">Watch the replay</button>`}
           <a class="btn ghost" href="#/">${say('Back to matches', 'Back to the brawls')}</a>
         </div>
       </div>`);

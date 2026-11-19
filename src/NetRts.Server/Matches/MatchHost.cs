@@ -641,6 +641,7 @@ public sealed class MatchHost
             return new MatchSummaryDto
             {
                 MatchId = Id,
+                Pickup = IsPickup,
                 Status = _sim?.Status ?? MatchStatus.Waiting,
                 MaxPlayers = MaxPlayers,
                 Tick = _sim?.Tick ?? 0,

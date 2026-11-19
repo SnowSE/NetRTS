@@ -15,12 +15,13 @@ import { createSheets } from './sheets.js';
 import { createDeck, dragToReorder } from './deck.js';
 import { mountPlaying } from './playing.js';
 import { overHTML } from './over.js';
-import { setCatalog, normalize, left, clock, ordinal } from './items.js';
+import { setCatalog, normalize, left, clock, ordinal, samePlan } from './items.js';
 
 // Who this phone is, kept on the device (localStorage) so a new tab, a closed browser or a server restart
 // brings back the same player: the token, and the name to ask for if the server has forgotten the token.
 const TOKEN_KEY = 'netrts.pickup.token';
 const NAME_KEY = 'netrts.pickup.name';
+const PLAN_KEY = 'netrts.pickup.plan';   // the plan too, so a server restart or a reload never loses it
 const DEVICE = 'localStorage';
 const stored = () => load(DEVICE, TOKEN_KEY, null) ?? load('sessionStorage', TOKEN_KEY, null);
 const POLL_MS = 1000;
@@ -81,10 +82,15 @@ export function mountPickup(main) {
   /** A fresh entry in line (the server forgot this phone, or it never had one); a plan already edited here goes with it. */
   async function rejoinLine() {
     await join();
-    if (plan) saveNow(); else plan = normalize(me.plan);
+    plan ??= devicePlan() ?? normalize(me.plan);
+    saveNow();
   }
 
+  /** The plan kept on this phone, if there is one. */
+  const devicePlan = () => { const p = load(DEVICE, PLAN_KEY, null); return p ? normalize(p) : null; };
+
   function changed() {
+    save(DEVICE, PLAN_KEY, plan);
     if (playing) {
       // During the match the server hands each saved plan to the bot; now playing shows the new steps.
       playedPlan = normalize(plan);
@@ -301,7 +307,11 @@ export function mountPickup(main) {
       setCatalog(rules);
       decks = list || [];
       if (!me) await join();
-      plan = normalize(me.plan);
+      // This phone's own copy wins over the server's (the server may have restarted and started over).
+      const kept = devicePlan();
+      plan = kept ?? normalize(me.plan);
+      if (kept && !samePlan(kept, me.plan)) saveNow();
+      else save(DEVICE, PLAN_KEY, plan);
     } catch (e) {
       $('pk-screen').innerHTML = `<div class="pk-fail"><h1>Pick-up Game</h1><p class="pk-error" role="alert">Couldn't get you in line: ${esc(e.message)}</p><p><a class="big-btn" href="#/pickup" data-retry>Try again</a></p></div>`;
       root.querySelector('[data-retry]').addEventListener('click', (ev) => { ev.preventDefault(); window.dispatchEvent(new HashChangeEvent('hashchange')); });
