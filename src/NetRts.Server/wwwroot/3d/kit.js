@@ -45,7 +45,7 @@ export class Builder {
   }
 
   /**
-   * Like add, but each triangle gets its own colour: paint(x, y, z) at the triangle's centre (after placing),
+   * Like add, but each triangle gets its own color: paint(x, y, z) at the triangle's center (after placing),
    * for a picture painted onto a part (the Makerspace's logo wrapped over its dome).
    */
   addPainted(geo, paint, options = {}) {

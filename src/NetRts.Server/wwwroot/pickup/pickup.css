@@ -1,5 +1,5 @@
 /* The Pick-up Game: the phone's Deck, printed like a board game (two inks, Snow blue and orange, on white
-   card stock, whatever the site's colour theme), now playing, match over, and the booth's big screen.
+   card stock, whatever the site's color theme), now playing, match over, and the booth's big screen.
    Loaded by pickup/page.js when a pick-up page opens. The site loads no web fonts: Archivo and IBM Plex
    Mono are used where they're installed, the site's own faces otherwise. */
 
@@ -158,7 +158,7 @@ main.pk-main { max-width: none; padding: 0; }
 .pk .ov.playing > * { width: 100%; max-width: 528px; margin-inline: auto; }
 .pk .np-h small { display: block; color: var(--sub); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; font-weight: 700; }
 .pk .np-h b { font-size: 15px; font-weight: 600; color: var(--sub); }
-/* Your name on your colour: the same colour as your badgers and name tag on the big screen. */
+/* Your name on your color: the same color as your badgers and name tag on the big screen. */
 .pk .np-me { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin: 6px 0 4px; }
 .pk .np-badge { display: inline-block; padding: 8px 14px; border-radius: 8px; background: var(--pc, var(--blue)); color: #fff;
   font: 800 22px/1.1 var(--pk-font); text-shadow: 0 1px 2px rgba(0, 0, 0, .35); box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .18); }
@@ -173,7 +173,7 @@ main.pk-main { max-width: none; padding: 0; }
 .pk .ps.cur small { color: var(--hl); font-weight: 700; }
 .pk .ps.cur .thumb { width: 48px; height: 48px; }
 .pk .ps .ic:not(.thumb) { color: var(--blue); }
-/* The Block Bot HUD's dark panel and tile colours (styles.css .hud-dark), so the two read as one game. */
+/* The Block Bot HUD's dark panel and tile colors (styles.css .hud-dark), so the two read as one game. */
 .hudp { background: #0c1114; border-radius: 10px; padding: 8px; display: grid; gap: 10px; color: var(--hud-ink); font-family: var(--font); }
 .hudp .hud { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .hudp .t { border: 1px solid var(--hud-edge); border-radius: 8px; padding: 6px 8px 4px; display: grid; gap: 1px; background: rgba(255, 255, 255, .03); min-width: 0; }
@@ -196,7 +196,7 @@ main.pk-main { max-width: none; padding: 0; }
 .opp tr.me th { color: #fff; font-weight: 800; padding-left: 4px; }
 .opp tr.me { background: rgba(240, 138, 60, .14); }
 .opp .crown { color: #f2c14e; }
-/* Each player's name in their map colour (lightened to read on the dark panel). */
+/* Each player's name in their map color (lightened to read on the dark panel). */
 .opp tbody th.pc, .opp tr.me th.pc { color: color-mix(in srgb, var(--pc) 72%, #fff); }
 .opp .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; background: var(--pc); margin-right: 5px; vertical-align: 1px; box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .5); }
 .vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }

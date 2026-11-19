@@ -70,7 +70,7 @@ function effectText(effect) {
 
 export const item = (id) => ITEMS[id] ?? null;
 export const ready = () => Object.keys(ITEMS).length > 0;
-/** unit | building | research | worker: the card's colour. */
+/** unit | building | research | worker: the card's color. */
 export const tcls = (id) => (id === 'Worker' ? 'worker' : ITEMS[id]?.type ?? 'unit');
 export const nameOf = (id) => ITEMS[id]?.name ?? id;
 export function plural(id, n) {

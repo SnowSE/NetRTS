@@ -107,9 +107,9 @@ export function mountPlaying(el, { plan, token, matchId }) {
       h.push({ t, v: you[k] ?? 0 });
       while (h.length && h[0].t < t - KEEP_S * 1000) h.shift();
     }
-    // Your name in your colour: the colour of your badgers and your name tag on the big screen.
+    // Your name in your color: the color of your badgers and your name tag on the big screen.
     $('np-me').innerHTML = you.slot != null
-      ? `<span class="np-badge" style="--pc:${slotVar(you.slot)}">${esc(me.name)}</span><span class="np-look">Look for your colour on the big screen</span>`
+      ? `<span class="np-badge" style="--pc:${slotVar(you.slot)}">${esc(me.name)}</span><span class="np-look">Look for your color on the big screen</span>`
       : `<span class="np-badge">${esc(me.name)}</span>`;
     $('np-who').textContent = players.length > 1 ? `vs ${othersText(players)}` : '';
     $('np-steps').innerHTML = stepsHTML(Math.min(me.step ?? 0, plan.steps.length));
