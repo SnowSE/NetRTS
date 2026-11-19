@@ -21,6 +21,12 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
     public static readonly TimeSpan Forgotten = TimeSpan.FromMinutes(15);
     public const int RetireAfter = 5;
     public const int MaxChallengers = 3;
+    /// <summary>Phones the hill keeps at once (the line, the champion, and recent results); past it, joins wait.</summary>
+    public const int MaxEntries = 300;
+
+    /// <summary>The podium's order: the winner first (last one standing, or the champion on a tie), then by score.</summary>
+    public static List<PickupPlayerDto> Standings(IEnumerable<PickupPlayerDto> players, string winner) =>
+        players.OrderByDescending(p => p.Name == winner).ThenByDescending(p => p.Score).ToList();
 
     private enum Phase
     {
@@ -84,6 +90,11 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             if (token is not null && _entries.TryGetValue(token, out var known))
             {
                 return MeLocked(known, now);
+            }
+
+            if (_entries.Count >= MaxEntries)
+            {
+                throw new MatchException(503, "LINE_FULL", "The line is full right now. Try again in a minute.");
             }
 
             var taken = _entries.Values.Select(e => e.Name).ToHashSet();
@@ -334,10 +345,10 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
             round.Host = matches.CreatePickup(seats);
             logger.LogInformation("Pick-up match {MatchId}: {Players}", round.Host.Id, string.Join(" vs ", round.Players.Select(p => p.Name)));
         }
-        catch (MatchException ex)
+        catch (Exception ex)
         {
-            // The server is full: put everyone back and try again on the next update.
-            logger.LogWarning("Pick-up match not started: {Message}", ex.Message);
+            // Never leave students stuck "playing" a match that didn't start: back in line, try again next update.
+            logger.LogError(ex, "Pick-up match not started");
             GiveWay(round, null);
         }
     }
@@ -358,11 +369,11 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
 
     private void Settle(Round round, MatchHost host, DateTime now)
     {
-        var players = PlayersOf(round, host, null).OrderByDescending(p => p.Score).ToList();
         var winnerId = host.GetResult()?.Outcome?.WinnerId;
         var winner = winnerId is { } id && round.Seats.TryGetValue(id, out var w) ? w.Player : null;
         var champion = round.Players[0];
         winner ??= champion;   // a tie keeps the champion
+        var players = Standings(PlayersOf(round, host, null), winner.Name);
         var view = host.GetSpectatorView(null, includeVisibility: false);
 
         foreach (var (seatId, (player, bot)) in round.Seats)

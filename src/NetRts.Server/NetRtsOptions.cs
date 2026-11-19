@@ -79,6 +79,9 @@ public sealed class NetRtsOptions
     /// <summary>API requests allowed per second per player in each match (4x this across all of a player's matches).</summary>
     public int RequestsPerSecond { get; set; } = 30;
 
+    /// <summary>Pick-up game joins per minute from one network address (a whole booth can share one).</summary>
+    public int PickupJoinsPerMinutePerIp { get; set; } = 60;
+
     /// <summary>A classroom shares one address, so this leaves room for a whole class signing up at once.</summary>
     public int RegistrationsPerMinutePerIp { get; set; } = 25;
 

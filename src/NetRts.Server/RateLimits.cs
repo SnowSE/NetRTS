@@ -9,6 +9,7 @@ public static class RateLimits
 {
     public const string Registration = "registration";
     public const string Exhibition = "exhibition";
+    public const string PickupJoin = "pickup-join";
 
     public static IServiceCollection AddNetRtsRateLimits(this IServiceCollection services, NetRtsOptions options)
     {
@@ -28,6 +29,13 @@ public static class RateLimits
                 ?? context.Connection.RemoteIpAddress?.ToString()
                 ?? "anonymous";
 
+            // Pick-up phones at one booth share a network address: each phone's polls get their own budget by
+            // its token (the per-address cap below still holds them all).
+            static string Budget(HttpContext context) =>
+                context.Request.Path.StartsWithSegments("/api/v1/pickup") && context.Request.Query["token"] is [{ Length: > 0 } token]
+                    ? $"pickup|{token}"
+                    : $"{Caller(context)}|{context.Request.RouteValues["matchId"]}";
+
             TokenBucketRateLimiterOptions Bucket(int perSecond) => new()
             {
                 TokenLimit = perSecond * 2,
@@ -39,7 +47,7 @@ public static class RateLimits
             limiter.GlobalLimiter = PartitionedRateLimiter.CreateChained(
                 PartitionedRateLimiter.Create<HttpContext, string>(context =>
                     RateLimitPartition.GetTokenBucketLimiter(
-                        $"{Caller(context)}|{context.Request.RouteValues["matchId"]}",
+                        Budget(context),
                         _ => Bucket(options.RequestsPerSecond))),
                 PartitionedRateLimiter.Create<HttpContext, string>(context =>
                     RateLimitPartition.GetTokenBucketLimiter(
@@ -51,6 +59,15 @@ public static class RateLimits
                 _ => new FixedWindowRateLimiterOptions
                 {
                     PermitLimit = options.RegistrationsPerMinutePerIp,
+                    Window = TimeSpan.FromMinutes(1),
+                    QueueLimit = 0,
+                }));
+
+            limiter.AddPolicy(PickupJoin, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "anonymous",
+                _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = options.PickupJoinsPerMinutePerIp,
                     Window = TimeSpan.FromMinutes(1),
                     QueueLimit = 0,
                 }));

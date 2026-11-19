@@ -157,7 +157,8 @@ public sealed class MatchHost
         }
     }
 
-    private bool SpeedAdjustableLocked => Category == MatchCategory.Practice && _seats.Count(s => !s.IsHouseBot) <= 1;
+    // Pick-up matches never: anyone can call /speed, and a paused pick-up match would stall the whole line.
+    private bool SpeedAdjustableLocked => Category == MatchCategory.Practice && !IsPickup && _seats.Count(s => !s.IsHouseBot) <= 1;
 
     /// <summary>Changes the speed and/or pauses. Returns an error code, or null on success.</summary>
     public string? SetSpeed(int? tickIntervalMs, bool? paused, DateTime now)

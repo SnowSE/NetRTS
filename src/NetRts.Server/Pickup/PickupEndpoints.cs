@@ -13,8 +13,10 @@ public static class PickupEndpoints
         var pickup = app.MapGroup("/api/v1/pickup").WithTags("Pick-up Game");
 
         pickup.MapPost("/join", (PickupTokenRequest request, PickupHill hill, TimeProvider time) =>
-                Results.Ok(hill.Join(request.Token, Now(time))))
+                Guarded(() => Results.Ok(hill.Join(request.Token, Now(time)))))
+            .RequireRateLimiting(RateLimits.PickupJoin)
             .Produces<PickupMeDto>()
+            .ProducesErrors()
             .WithSummary("Join the pick-up line (or come back to it with your token): a name, a place in line and the first deck as your plan.");
 
         pickup.MapGet("/me", (string token, PickupHill hill, TimeProvider time) => Guarded(() => Results.Ok(hill.Me(token, Now(time)))))

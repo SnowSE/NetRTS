@@ -104,7 +104,17 @@ public sealed partial class MatchManager(
         }
 
         _matches[host.Id] = host;
-        host.Start(_options.AutoTick, TimeSpan.Zero);
+        try
+        {
+            host.Start(_options.AutoTick, TimeSpan.Zero);
+        }
+        catch
+        {
+            _matches.TryRemove(host.Id, out _);
+            host.Stop();
+            throw;
+        }
+
         return host;
     }
 
