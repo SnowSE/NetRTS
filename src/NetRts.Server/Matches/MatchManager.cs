@@ -79,6 +79,39 @@ public sealed partial class MatchManager(
 
     public IReadOnlyList<MatchHost> All => _matches.Values.OrderByDescending(m => m.CreatedAt).ToList();
 
+    /// <summary>The matches public lists show: all but the pick-up game's.</summary>
+    public IReadOnlyList<MatchHost> Listed => All.Where(m => !m.IsPickup).ToList();
+
+    /// <summary>
+    /// A pick-up game match (the pick-up hill starts these): every seat played on the server with its start
+    /// kit, a small map, fast ticks, the treaty and the combat score. Starts at once and is never recorded.
+    /// </summary>
+    public MatchHost CreatePickup(IReadOnlyList<(Seat Seat, IBotStrategy Bot, StartKit Kit)> players)
+    {
+        ArgumentNullException.ThrowIfNull(players);
+        if (players.Count is < 2 or > 4)
+        {
+            throw new MatchException(400, "INVALID_SETTINGS", "A pick-up match has 2 to 4 players.");
+        }
+
+        var size = MapGenerator.MinSizeFor(players.Count);
+        var settings = new MatchSettings(size, size, Random.Shared.Next(), PickupTickMs, PickupMaxTicks, PickupTreatyTicks, CombatScore: true);
+        var host = new MatchHost(Guid.NewGuid(), null, null, players.Count, settings, isExhibition: false, DateTime.UtcNow,
+            loggerFactory.CreateLogger<MatchHost>(), metrics) { IsPickup = true };
+        foreach (var (seat, bot, kit) in players)
+        {
+            host.TryJoin(seat, bot, kit);
+        }
+
+        _matches[host.Id] = host;
+        host.Start(_options.AutoTick, TimeSpan.Zero);
+        return host;
+    }
+
+    public const int PickupTickMs = 100;
+    public const int PickupMaxTicks = 1500;
+    public const int PickupTreatyTicks = 300;
+
     /// <summary>
     /// A practice match; the creator takes slot 0. <paramref name="creatorBot"/> plays the creator's seat on the
     /// server (a Block Bot) instead of the creator's own program calling in.
@@ -417,7 +450,7 @@ public sealed partial class MatchManager(
             var timeout = host.HostAccountId is not null ? _options.HostedMatchTimeoutMinutes
                 : host.Category == MatchCategory.Practice ? _options.WaitingMatchTimeoutMinutes : _options.LeagueMatchTimeoutMinutes;
             var expiredWaiting = status == MatchStatus.Waiting && now - host.CreatedAt > TimeSpan.FromMinutes(timeout);
-            var agedOut = status == MatchStatus.Completed && host.Recorded && host.CompletedAt is { } done
+            var agedOut = status == MatchStatus.Completed && (host.Recorded || host.IsPickup) && host.CompletedAt is { } done
                           && now - done > TimeSpan.FromMinutes(_options.CompletedMatchRetentionMinutes);
             if ((expiredWaiting || agedOut) && _matches.TryRemove(host.Id, out _))
             {

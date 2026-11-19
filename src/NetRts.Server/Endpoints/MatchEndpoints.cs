@@ -33,7 +33,7 @@ public static class MatchEndpoints
             .WithSummary("Create a practice match (you take slot 0). Optionally fill seats with house bots; it starts when full.");
 
         matches.MapGet("/", (MatchManager manager, LeagueMatchManager leagues, MatchStatus? status) =>
-                leagues.All.Select(leagues.ToSummary).Concat(manager.All.Select(m => m.ToSummary()))
+                leagues.All.Select(leagues.ToSummary).Concat(manager.Listed.Select(m => m.ToSummary()))
                     .Where(m => status is null || m.Status == status).ToList())
             .WithSummary("Matches currently in memory: waiting for players, running, or recently finished. League matches come first.");
 
@@ -76,7 +76,7 @@ public static class MatchEndpoints
 
                 // A name belongs to one unfinished match at a time; after that it can be reused, so prefer
                 // the unfinished one, then the newest.
-                var live = manager.All.Where(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+                var live = manager.Listed.Where(m => string.Equals(m.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
                 if ((live.FirstOrDefault(m => m.Status != MatchStatus.Completed) ?? live.FirstOrDefault()) is { } host)
                 {
                     return Results.Ok(host.ToSummary());

@@ -39,7 +39,7 @@ public static class BlockEndpoints
             .WithSummary("Start a practice match that the server plays for you with a Block Bot program: a sandbox (against the Sleepy Sitter), one house bot, a free-for-all, or (Create) a match of 2-4 seats for other players to join.");
 
         blocks.MapGet("/matches", (ClaimsPrincipal user, MatchManager manager, string? theme) =>
-                manager.All
+                manager.Listed
                     .Select(m => (Match: m, Bot: m.BotFor(user.PlayerId()) as BlockBot))
                     .Where(x => x.Bot is not null)
                     .Select(x => x.Bot!.Status(x.Match.Id, x.Match.Status, x.Match.SlotOf(user.PlayerId()) ?? -1, BlockWords.For(theme)))

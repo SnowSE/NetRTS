@@ -7,7 +7,8 @@ using NetRts.Protocol;
 
 namespace NetRts.Server.Matches;
 
-public sealed record MatchSettings(int MapWidth, int MapHeight, int Seed, int TickIntervalMs, int MaxTicks);
+/// <summary>TreatyTicks and CombatScore: the pick-up game's rules (see <see cref="GameConfig"/>); off for every other match.</summary>
+public sealed record MatchSettings(int MapWidth, int MapHeight, int Seed, int TickIntervalMs, int MaxTicks, int TreatyTicks = 0, bool CombatScore = false);
 
 public enum SerumOutcome
 {
@@ -43,6 +44,7 @@ public sealed class MatchHost
     private readonly object _gate = new();
     private readonly List<Seat> _seats = [];
     private readonly List<IBotStrategy?> _seatBots = []; // parallel to _seats; non-null for bots the server plays (house bots, Block Bots)
+    private readonly List<StartKit?> _seatKits = [];      // parallel to _seats; the pick-up game's start kits
     private readonly Dictionary<Guid, string> _serums = [];
     private readonly HashSet<Guid> _serumsTaken = [];
     private readonly ILogger _logger;
@@ -113,6 +115,9 @@ public sealed class MatchHost
     public DateTime CreatedAt { get; }
     public DateTime? CompletedAt { get; private set; }
     public bool Recorded { get; set; }
+
+    /// <summary>A pick-up game match (#/pickup): never recorded, never listed, dropped soon after it ends.</summary>
+    public bool IsPickup { get; init; }
 
     /// <summary>The current speed; starts at <see cref="MatchSettings.TickIntervalMs"/> and can be changed while running.</summary>
     public int TickIntervalMs
@@ -260,7 +265,7 @@ public sealed class MatchHost
     }
 
     /// <summary>Takes a seat. <paramref name="bot"/>, when given, plays it on the server (a house bot or a Block Bot). Returns an error code, or null on success.</summary>
-    public string? TryJoin(Seat seat, IBotStrategy? bot = null)
+    public string? TryJoin(Seat seat, IBotStrategy? bot = null, StartKit? kit = null)
     {
         lock (_gate)
         {
@@ -281,6 +286,7 @@ public sealed class MatchHost
 
             _seats.Add(seat);
             _seatBots.Add(bot);
+            _seatKits.Add(kit);
             return null;
         }
     }
@@ -302,6 +308,7 @@ public sealed class MatchHost
 
             _seats.RemoveAt(index);
             _seatBots.RemoveAt(index);
+            _seatKits.RemoveAt(index);
             return true;
         }
     }
@@ -336,10 +343,13 @@ public sealed class MatchHost
                 new Random(Settings.Seed).Shuffle(order);
                 var shuffledSeats = order.Select(i => _seats[i]).ToList();
                 var shuffledBots = order.Select(i => _seatBots[i]).ToList();
+                var shuffledKits = order.Select(i => _seatKits[i]).ToList();
                 _seats.Clear();
                 _seats.AddRange(shuffledSeats);
                 _seatBots.Clear();
                 _seatBots.AddRange(shuffledBots);
+                _seatKits.Clear();
+                _seatKits.AddRange(shuffledKits);
             }
 
             _sim = new GameSimulation(Id,
@@ -349,10 +359,12 @@ public sealed class MatchHost
                     MapHeight = Settings.MapHeight,
                     Seed = Settings.Seed,
                     MaxTicks = Settings.MaxTicks,
+                    TreatyTicks = Settings.TreatyTicks,
+                    CombatScore = Settings.CombatScore,
                 },
-                _seats.Select(s => new PlayerSeat(s.PlayerId, s.Name)).ToList());
+                _seats.Select((s, i) => new PlayerSeat(s.PlayerId, s.Name, _seatKits[i])).ToList());
             _map = _sim.Map.ToDto();
-            _frameRecorder = new ReplayFrameRecorder();
+            _frameRecorder = IsPickup ? null : new ReplayFrameRecorder();
             RecordFrame();
             _autoTick = autoTick;
             _lastTickAt = DateTime.UtcNow + startDelay;
