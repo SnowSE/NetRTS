@@ -68,6 +68,8 @@ builder.Services.AddSingleton<LeagueFinalizer>();
 builder.Services.AddSingleton<ReplayFrameStore>();
 builder.Services.AddSingleton<Presence>();
 builder.Services.AddHostedService<MatchHousekeeper>();
+builder.Services.AddSingleton(sp => new NetRts.Server.Pickup.PickupHill(sp.GetRequiredService<MatchManager>(), sp.GetRequiredService<ILogger<NetRts.Server.Pickup.PickupHill>>()));
+builder.Services.AddHostedService<NetRts.Server.Pickup.PickupHillLoop>();
 builder.Services.AddNetRtsHealthChecks();
 
 // Bots authenticate with API keys (the default scheme); people sign in to the website with Discord.
@@ -121,6 +123,7 @@ app.MapDefaultEndpoints();
 app.MapPlayerEndpoints();
 app.MapMatchEndpoints();
 app.MapBlockEndpoints();
+NetRts.Server.Pickup.PickupEndpoints.MapPickupEndpoints(app);
 app.MapAccountEndpoints();
 app.MapAccountStrategyEndpoints();
 app.MapAchievementEndpoints();
