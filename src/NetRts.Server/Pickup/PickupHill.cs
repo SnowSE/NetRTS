@@ -256,7 +256,8 @@ public sealed class PickupHill(MatchManager matches, ILogger<PickupHill> logger,
                 Playing = playing,
                 Line = _line.Where(e => e != _champion).Take(10).Select(e => e.Name).ToList(),
                 SecondsLeft = round is { Host: null } ? Seconds(round.StartsAt - now) : null,
-                Warmup = round is { ForStudents: false },
+                Warmup = round is not null && round.Players.All(p => p.Student is null),
+                GivesWay = round is { ForStudents: false },
             };
         }
     }

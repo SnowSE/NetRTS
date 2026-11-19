@@ -372,4 +372,25 @@ public class PickupHillTests(ServerFactory factory) : IClassFixture<ServerFactor
         Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, unknown.StatusCode);
     }
+
+    [Fact]
+    public void A_champion_defending_against_the_house_is_a_real_match_not_a_warm_up()
+    {
+        var hill = NewHill(SitterDeck);
+        var champ = hill.Join(null, At(0));
+        hill.StartNow(champ.Token, At(0));
+        hill.Update(At(0));
+        hill.Update(At(10));
+        Finish(hill, At(100), champ.Token);
+
+        hill.Rejoin(champ.Token, At(130));
+        hill.Hill(At(130));
+        hill.Update(At(130));
+        hill.Update(At(140));
+        var screen = hill.Hill(At(141));
+
+        Assert.Equal("playing", hill.Me(champ.Token, At(141)).Phase);
+        Assert.False(screen.Warmup);
+        Assert.True(screen.GivesWay);
+    }
 }

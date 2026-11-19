@@ -126,8 +126,11 @@ public sealed record PickupHillDto
     public IReadOnlyList<string> Line { get; init; } = [];
     public int? SecondsLeft { get; init; }
 
-    /// <summary>The match on now is the house keeping the screen busy: it stops as soon as a player is ready.</summary>
+    /// <summary>The match on now is house against house, keeping the screen busy: it stops as soon as a player is ready.</summary>
     public bool Warmup { get; init; }
+
+    /// <summary>The match on now (a warm-up, or the champion against the house) ends early when a challenger is ready.</summary>
+    public bool GivesWay { get; init; }
 }
 
 /// <summary>Name: the name this phone had, so it keeps it if the server restarted (only one of the game's own names is accepted).</summary>

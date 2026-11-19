@@ -78,6 +78,7 @@ export function mountScreen(main) {
       : hill?.warmup
         ? '<b>Warm-up</b><small>the house plays until someone is ready · scan to play</small>'
       : `<b>${clockText(msLeft)}</b><small>${treatyLeft > 0 ? `left · fighting starts in ${clockText(treatyLeft)}` : 'left in this match'}</small>
+         ${hill?.givesWay ? '<small>A challenger who\'s ready ends this one early.</small>' : ''}
          <span class="pks-bar"><span style="width:${pct.toFixed(1)}%"></span></span>`;
   }
   scope.cleanup(drop);
