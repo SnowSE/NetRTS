@@ -30,6 +30,12 @@ public sealed record PickupAttackDto
     public int AtSecond { get; init; } = 90;
     public string Target { get; init; } = "base";
     public bool Defend { get; init; } = true;
+
+    /// <summary>
+    /// Who to go for first, in order: towers (Bell Towers), workers, base (their HQ, else their nearest building),
+    /// nearest (the nearest enemies). The first one the army can see wins. Null: just Target.
+    /// </summary>
+    public IReadOnlyList<string>? Priority { get; init; }
 }
 
 /// <summary>A pick-up plan: what to buy before the match, the steps, the Forever cards (repeated in order) and the attack.</summary>

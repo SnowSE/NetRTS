@@ -34,7 +34,9 @@ export function toBlockProgram(plan, name) {
   const when = attack.trigger === 'time'
     ? { kind: 'minute', op: '>=', value: Math.max(1, Math.round((attack.atSecond ?? 60) / 60)) }
     : count('fighters', '>=', attack.army ?? 12);
-  rules.push(rule(when, { kind: 'attack', who: 'fighters', target: attack.target === 'nearest' ? 'nearestEnemy' : 'enemyBase' }));
+  // Block Bot can go for the enemy base or the nearest enemies: the first of those in the plan's order.
+  const first = (attack.priority || []).find((k) => k === 'base' || k === 'nearest') ?? attack.target;
+  rules.push(rule(when, { kind: 'attack', who: 'fighters', target: first === 'nearest' ? 'nearestEnemy' : 'enemyBase' }));
   const mix = (plan.forever ?? []).filter((id) => UNITS.includes(id));
   if (mix.length) rules.push(rule({ kind: 'always' }, mix.length === 1 ? { kind: 'train', unit: mix[0] } : { kind: 'trainMix', units: mix }));
   return { name: `${name}'s plan`.slice(0, MAX_NAME), switches: [], rules };

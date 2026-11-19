@@ -32,6 +32,9 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
     private int _holdUntil;
     private int _tick;
     private PickupWaitDto? _waiting;
+    private int _targetId = -1;
+    private int _targetTick;
+    private const int RetargetTicks = 15;
 
     public string Name { get; } = name;
 
@@ -185,9 +188,28 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
             return;
         }
 
-        if (_attacking && Target(view, army) is { } spot)
+        if (_attacking && Target(view, army) is { } target)
         {
-            turn.Order(army, CommandType.Attack, spot, retarget: true);
+            if (target.Id is { } id)
+            {
+                // A particular tower or worker: every fighter onto it, re-sent now and then for the new ones.
+                if (id != _targetId || _tick - _targetTick >= RetargetTicks)
+                {
+                    turn.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = army.Select(u => u.Id).ToArray(), TargetId = id });
+                    _targetId = id;
+                    _targetTick = _tick;
+                }
+
+                foreach (var u in army)
+                {
+                    turn.Claim(u.Id);
+                }
+            }
+            else
+            {
+                turn.Order(army, CommandType.Attack, (target.X, target.Y), retarget: true);
+            }
+
             return;
         }
 
@@ -208,20 +230,33 @@ public sealed class PickupBot(string name, PickupPlanDto plan, int treatyTicks, 
             .OrderBy(e => BotView.Dist(view.CommandCenter!.X, view.CommandCenter.Y, e.X, e.Y)).ThenBy(e => e.Id)
             .FirstOrDefault();
 
-    private (int X, int Y)? Target(BotView view, IReadOnlyList<UnitDto> army)
+    /// <summary>
+    /// What to go for: the first of the plan's priorities the army can see. Towers and workers are a particular
+    /// one (Id: attacked directly); base and nearest are a place to attack-move to. With nothing in sight, their
+    /// base, so the army goes looking.
+    /// </summary>
+    private (int? Id, int X, int Y)? Target(BotView view, IReadOnlyList<UnitDto> army)
     {
-        if (_plan.Attack.Target != "nearest")
-        {
-            return view.AttackTarget();
-        }
-
         var cx = (int)army.Average(u => u.X);
         var cy = (int)army.Average(u => u.Y);
-        return view.EnemyUnits.Select(u => (u.X, u.Y))
-            .Concat(view.EnemyBuildings.Select(b => (b.X, b.Y)))
-            .OrderBy(p => BotView.Dist(p.X, p.Y, cx, cy)).ThenBy(p => p.X).ThenBy(p => p.Y)
-            .Select(p => ((int X, int Y)?)p)
-            .FirstOrDefault() ?? view.AttackTarget();
+        int Near(int x, int y) => BotView.Dist(x, y, cx, cy);
+        foreach (var kind in _plan.Attack.Priority is { Count: > 0 } order ? order : [_plan.Attack.Target])
+        {
+            switch (kind)
+            {
+                case "towers" when view.EnemyBuildings.Where(b => b.Type == BuildingType.GuardTower).OrderBy(b => Near(b.X, b.Y)).ThenBy(b => b.Id).FirstOrDefault() is { } tower:
+                    return (tower.Id, tower.X, tower.Y);
+                case "workers" when view.EnemyUnits.Where(u => u.Type == UnitType.Worker).OrderBy(u => Near(u.X, u.Y)).ThenBy(u => u.Id).FirstOrDefault() is { } worker:
+                    return (worker.Id, worker.X, worker.Y);
+                case "base" when view.AttackTarget() is { } spot:
+                    return (null, spot.X, spot.Y);
+                case "nearest" when view.EnemyUnits.Select(u => (u.X, u.Y)).Concat(view.EnemyBuildings.Select(b => (b.X, b.Y)))
+                        .OrderBy(p => Near(p.X, p.Y)).ThenBy(p => p.X).ThenBy(p => p.Y).Select(p => ((int X, int Y)?)p).FirstOrDefault() is { } near:
+                    return (null, near.X, near.Y);
+            }
+        }
+
+        return view.AttackTarget() is { } home ? (null, home.X, home.Y) : null;
     }
 
     // ------------------------------------------------------------ the plan

@@ -72,6 +72,17 @@ export const ready = () => Object.keys(ITEMS).length > 0;
 /** unit | building | research | worker: the card's color. */
 export const tcls = (id) => (id === 'Worker' ? 'worker' : ITEMS[id]?.type ?? 'unit');
 export const nameOf = (id) => ITEMS[id]?.name ?? id;
+
+/** What an attack can go for first (the server's PickupPlans.AttackTargets), in the order a plan lists them. */
+export const ATTACK_TARGETS = ['towers', 'workers', 'base', 'nearest'];
+
+/** A plan's attack order: its own, or (an older plan) its one target first and the rest after. */
+export function priorityOf(a) {
+  const own = (a.priority || []).filter((k, i, all) => ATTACK_TARGETS.includes(k) && all.indexOf(k) === i);
+  if (own.length) return [...own, ...ATTACK_TARGETS.filter((k) => !own.includes(k))];
+  const first = a.target === 'nearest' ? 'nearest' : 'base';
+  return [first, ...ATTACK_TARGETS.filter((k) => k !== first)];
+}
 export function plural(id, n) {
   const nm = nameOf(id);
   return n === 1 || id === 'Barracks' ? nm : `${nm}s`;
@@ -83,7 +94,7 @@ export const ordinal = (n) => `${n}${n % 100 >= 11 && n % 100 <= 13 ? 'th' : ['t
 
 export const emptyPlan = () => ({
   start: [], steps: [], forever: ['Soldier'],
-  attack: { trigger: 'army', army: 12, atSecond: 90, target: 'base', defend: true },
+  attack: { trigger: 'army', army: 12, atSecond: 90, target: 'base', defend: true, priority: ['base', 'towers', 'workers', 'nearest'] },
 });
 
 /** The plan with every field in a fixed order and shape, so two plans compare as JSON. */
@@ -93,7 +104,10 @@ export function normalize(p) {
     start: (p?.start || []).map((x) => ({ item: x.item, count: x.count | 0 })),
     steps: (p?.steps || []).map((s) => ({ kind: s.kind, item: s.kind === 'workers' ? null : s.item ?? null, count: s.count | 0, keep: !!s.keep })),
     forever: [...(p?.forever || [])],
-    attack: { trigger: a.trigger === 'time' ? 'time' : 'army', army: a.army ?? 12, atSecond: a.atSecond ?? 90, target: a.target === 'nearest' ? 'nearest' : 'base', defend: a.defend !== false },
+    attack: {
+      trigger: a.trigger === 'time' ? 'time' : 'army', army: a.army ?? 12, atSecond: a.atSecond ?? 90,
+      target: a.target === 'nearest' ? 'nearest' : 'base', defend: a.defend !== false, priority: priorityOf(a),
+    },
   };
 }
 export const samePlan = (a, b) => JSON.stringify(normalize(a)) === JSON.stringify(normalize(b));

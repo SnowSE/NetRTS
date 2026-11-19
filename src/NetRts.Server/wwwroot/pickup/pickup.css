@@ -302,3 +302,13 @@ html.pk-full .topbar, html.pk-full .foot, html.pk-full .skip { display: none; }
 
 /* Why the step on now is waiting (needs a building, saving up, ...). */
 .pk .ps-why { display: block; font-style: normal; font-size: 13px; font-weight: 600; color: var(--hl); margin-top: 2px; }
+
+/* The Attack tab's "go for" order. */
+.p-cards .prio { list-style: none; margin: 0 0 6px; padding: 0; display: grid; gap: 6px; }
+.p-cards .prio li { display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 10px; background: #fff; border: 1.5px solid var(--pk-ink); border-radius: 4px; }
+.p-cards .prio li:first-child { border-color: var(--hl); }
+.p-cards .pr-no { font: 700 15px var(--pk-mono); color: var(--hl); width: 18px; }
+.p-cards .pr-l { flex: 1; min-width: 0; }
+.p-cards .pr-l b { display: block; font-size: 15px; }
+.p-cards .pr-l small { color: var(--sub); font-size: 12px; }
+.p-cards .prio button[disabled] { opacity: .3; }

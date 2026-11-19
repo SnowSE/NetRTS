@@ -63,4 +63,15 @@ public class PickupPlanTests
         Assert.Equal(5, kit.Units.Count(u => u == UnitType.Archer));
         Assert.Equal([BuildingType.Barracks], kit.Buildings);
     }
+
+    [Fact]
+    public void The_attack_priority_lists_known_targets_once_each()
+    {
+        PickupPlanDto With(params string[] p) => new() { Attack = new() { Priority = p } };
+
+        Assert.Null(PickupPlans.Validate(With("towers", "workers", "base", "nearest")));
+        Assert.Null(PickupPlans.Validate(With("workers")));
+        Assert.NotNull(PickupPlans.Validate(With("towers", "towers")));
+        Assert.NotNull(PickupPlans.Validate(With("dragons")));
+    }
 }

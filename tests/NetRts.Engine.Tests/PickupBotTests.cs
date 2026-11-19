@@ -170,4 +170,22 @@ public class PickupBotTests
 
         Assert.Equal(new PickupWaitDto("building", "TechLab"), bots[0].Waiting);
     }
+
+    [Fact]
+    public void With_bell_towers_first_the_army_goes_for_a_tower_it_can_see()
+    {
+        var plan = new PickupPlanDto
+        {
+            Forever = ["Worker"],
+            Attack = new() { Trigger = "army", Army = 1, Priority = ["towers", "workers", "base", "nearest"] },
+        };
+        var (sim, bots) = Setup(plan, new StartKit(0, [], [BuildingType.Barracks]), Sitter, new StartKit(0, [], [BuildingType.Barracks, BuildingType.GuardTower]), treaty: 0);
+        var tower = sim.GetPlayerView(1).Buildings.Single(b => b.Owner == 1 && b.Type == BuildingType.GuardTower);
+        var soldier = sim.SpawnUnit(0, UnitType.Soldier, tower.X - 3, tower.Y);
+        sim.Step();   // past tick 0
+
+        var commands = bots[0].Decide(new BotContext(sim.GetPlayerView(0), sim.Map.ToDto(), GameRules.ToDto()));
+
+        Assert.Contains(commands, c => c.Type == CommandType.Attack && c.TargetId == tower.Id && c.UnitIds!.Contains(soldier));
+    }
 }

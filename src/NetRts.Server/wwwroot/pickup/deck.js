@@ -152,6 +152,14 @@ export function createDeck(ctx) {
     return [zone, hand];
   }
 
+  /** The Attack tab's "go for" list: what each choice means. */
+  const GO_FOR = {
+    towers: [`Their ${plural('GuardTower', 2)}`, 'Knock out their defenses first'],
+    workers: ['Their workers', 'Stop their digging'],
+    base: ['Their base', 'Their HQ, or their nearest building'],
+    nearest: ['Whatever is nearest', 'Fight what’s in front of you'],
+  };
+
   function attackZone(plan) {
     const a = plan.attack, army = a.trigger === 'army';
     return [`<div class="at">
@@ -160,8 +168,9 @@ export function createDeck(ctx) {
         <div class="tile wide ${army ? 'on' : ''}"><button type="button" class="tl-main" data-a="atk-mode">Army reaches <b>${army ? a.army : ARMY_SIZES.start}</b></button>${army ? `<span class="sl-n"><button type="button" data-a="atk-by" data-v="-1" aria-label="Smaller army">−</button><button type="button" data-a="atk-by" data-v="1" aria-label="Bigger army">+</button></span>` : ''}</div>
         ${ATTACK_TIMES.map((t) => `<button type="button" class="tile ${!army && a.atSecond === t ? 'on' : ''}" data-a="atk-time" data-v="${t}">At ${clock(t)}</button>`).join('')}
       </div>
-      <h3>Go for</h3>
-      <div class="tiles"><button type="button" class="tile ${a.target === 'base' ? 'on' : ''}" data-a="tgt-set" data-v="base">Their base</button><button type="button" class="tile ${a.target === 'nearest' ? 'on' : ''}" data-a="tgt-set" data-v="nearest">Nearest enemies</button></div>
+      <h3>Go for, in this order</h3>
+      <ol class="prio">${a.priority.map((k, i) => `<li><span class="pr-no">${i + 1}</span><span class="pr-l"><b>${esc(GO_FOR[k][0])}</b><small>${esc(GO_FOR[k][1])}</small></span><span class="sl-n"><button type="button" data-a="prio" data-v="${i}:-1" ${i === 0 ? 'disabled' : ''} aria-label="Move up">↑</button><button type="button" data-a="prio" data-v="${i}:1" ${i === a.priority.length - 1 ? 'disabled' : ''} aria-label="Move down">↓</button></span></li>`).join('')}</ol>
+      <p class="hint">Your army goes for the first of these it can see.</p>
       <h3>If they attack my base</h3>
       <div class="tiles"><button type="button" class="tile ${a.defend ? 'on' : ''}" data-a="def-set" data-v="1">Defend it</button><button type="button" class="tile ${!a.defend ? 'on' : ''}" data-a="def-set" data-v="0">Keep attacking</button></div>
       <p class="hint">Nobody can fight during the 30-second treaty.</p>
@@ -206,7 +215,14 @@ export function createDeck(ctx) {
     'atk-mode': () => { const a = P().attack; if (a.trigger !== 'army') { a.trigger = 'army'; changed(); } },
     'atk-by': (v) => { const a = P().attack; a.army = Math.min(ARMY_SIZES.max, Math.max(ARMY_SIZES.min, a.army + +v)); changed(); },
     'atk-time': (v) => { const a = P().attack; a.trigger = 'time'; a.atSecond = +v; changed(); },
-    'tgt-set': (v) => { P().attack.target = v; changed(); },
+    prio: (v) => {
+      const [i, d] = v.split(':').map(Number), p = P().attack.priority, j = i + d;
+      if (j < 0 || j >= p.length) return;
+      [p[i], p[j]] = [p[j], p[i]];
+      // The older single target (what the server falls back to) follows the first base / nearest in the list.
+      P().attack.target = p.find((k) => k === 'base' || k === 'nearest');
+      changed();
+    },
     'def-set': (v) => { P().attack.defend = v === '1'; changed(); },
   };
 

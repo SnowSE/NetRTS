@@ -24,6 +24,9 @@ public static class PickupPlans
 
     private static readonly string[] Kinds = ["workers", "train", "build", "research"];
 
+    /// <summary>What an attack can go for first (PickupAttackDto.Priority).</summary>
+    public static readonly IReadOnlyList<string> AttackTargets = ["towers", "workers", "base", "nearest"];
+
     public static IReadOnlyList<PickupDeckDto> Decks { get; } =
     [
         new("rush", "Honey Rush", "Honey Badger", new PickupPlanDto
@@ -125,6 +128,11 @@ public static class PickupPlans
         if (a.Trigger is not ("army" or "time") || a.Target is not ("base" or "nearest"))
         {
             return "Attack: pick when (army or time) and what (base or nearest).";
+        }
+
+        if (a.Priority is { } order && (order.Count is < 1 or > 4 || order.Distinct().Count() != order.Count || order.Any(p => !AttackTargets.Contains(p))))
+        {
+            return $"Attack: go for each of {string.Join(", ", AttackTargets)} at most once.";
         }
 
         return a.Army is < 1 or > MaxCount || a.AtSecond is < 0 or > MatchSeconds ? "Attack: that army size or time is out of range." : null;
