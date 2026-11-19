@@ -44,6 +44,24 @@ export class Builder {
     return this;
   }
 
+  /**
+   * Like add, but each triangle gets its own colour: paint(x, y, z) at the triangle's centre (after placing),
+   * for a picture painted onto a part (the Makerspace's logo wrapped over its dome).
+   */
+  addPainted(geo, paint, options = {}) {
+    this.add(geo, K.white, options);
+    const g = this.parts[this.parts.length - 1];
+    const p = g.attributes.position, c = g.attributes.color;
+    for (let i = 0; i < p.count; i += 3) {
+      const x = (p.getX(i) + p.getX(i + 1) + p.getX(i + 2)) / 3;
+      const y = (p.getY(i) + p.getY(i + 1) + p.getY(i + 2)) / 3;
+      const z = (p.getZ(i) + p.getZ(i + 1) + p.getZ(i + 2)) / 3;
+      const colour = paint(x, y, z);
+      for (let k = 0; k < 3; k++) c.setXYZ(i + k, colour.r, colour.g, colour.b);
+    }
+    return this;
+  }
+
   build() {
     const g = mergeGeometries(this.parts);
     g.computeVertexNormals();

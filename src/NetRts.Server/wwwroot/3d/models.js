@@ -384,57 +384,61 @@ function depot(badger) {
 }
 
 /**
- * The GRSC Makerspace logo on a post at y: a navy hexagon frame, white, an orange hexagon, a white gear and the
- * Snow block "S" (two oranges, outlined in navy). Faces front and back; the S is mirrored behind so it reads
- * from either side.
+ * The GRSC Makerspace logo as seen from above, (u, v) from -1 to 1 with v up: a navy hexagon frame (corners left
+ * and right), white, an orange hexagon, a white gear and the Snow block "S" (two oranges outlined in navy).
+ * Painted over the dome like a wrap.
  */
-function makerspaceLogo(b, y) {
-  const navy = col('#1f3570'), orange = col('#ec7a26'), light = col('#f9a63a'), dark = col('#e46f1c');
-  const R = 0.15;                       // the frame's corner radius (pointed left and right, flat top and bottom)
-  const cy = y + 0.04 + R * 0.866;
-  const face = [Math.PI / 2, 0, 0];     // a cylinder's axis along z: the shape stands in the xy plane
-  const hex = (r, d, colour) => b.add(new THREE.CylinderGeometry(r, r, d, 6, 1, false, Math.PI / 6), colour, { at: [0, cy, 0], rot: face });
-  b.add(cyl(0.01, 0.01, 0.06, 6), K.steel, { at: [0, y + 0.03, 0] });
-  hex(R, 0.012, navy);
-  hex(R * 0.86, 0.014, K.white);
-  hex(R * 0.76, 0.016, orange);
-  // The gear: a disc with teeth round it.
-  const g = R * 0.4, teeth = 14;
-  b.add(cyl(g, g, 0.018, 20), K.white, { at: [0, cy, 0], rot: face });
-  for (let i = 0; i < teeth; i++) {
-    const a = (i / teeth) * Math.PI * 2;
-    b.add(box(0.016, R * 0.1, 0.018), K.white, { at: [Math.sin(a) * g * 1.08, cy + Math.cos(a) * g * 1.08, 0], rot: [0, 0, -a] });
-  }
-  // The S: navy bars a little bigger behind orange ones, on each face.
-  const W = R * 0.42, H = R * 0.66, t = H * 0.24, legH = (H - 3 * t) / 2, o = 0.005;
-  for (const side of [1, -1]) {
-    const x = (v) => v * side;
-    const bars = (grow, z, flat, upright) => {
-      for (const yy of [cy + H / 2 - t / 2, cy, cy - H / 2 + t / 2]) b.add(box(W + grow, t + grow, 0.004), flat, { at: [0, yy, z] });
-      b.add(box(t + grow, legH + grow, 0.004), upright, { at: [x(-(W - t) / 2), cy + t / 2 + legH / 2, z] })
-        .add(box(t + grow, legH + grow, 0.004), upright, { at: [x((W - t) / 2), cy - t / 2 - legH / 2, z] });
-    };
-    bars(o * 2, side * 0.011, navy, navy);
-    bars(0, side * 0.013, light, dark);
-  }
+const LOGO = { navy: col('#1f3570'), orange: col('#ec7a26'), light: col('#f9a63a'), dark: col('#e46f1c') };
+function makerspaceLogo(u, v) {
+  const inHex = (r) => Math.abs(v) <= r * 0.866 && Math.sqrt(3) * Math.abs(u) + Math.abs(v) <= Math.sqrt(3) * r;
+  // The S: three bars and two uprights, outlined in navy.
+  const W = 0.42, H = 0.64, t = 0.16, o = 0.035;
+  const inS = (grow) => {
+    const bar = (yc) => Math.abs(u) <= W / 2 + grow && Math.abs(v - yc) <= t / 2 + grow;
+    const leg = (xc, y0, y1) => Math.abs(u - xc) <= t / 2 + grow && v >= y0 - grow && v <= y1 + grow;
+    if (bar(H / 2 - t / 2) || bar(0) || bar(-H / 2 + t / 2)) return 'bar';
+    if (leg(-(W - t) / 2, 0, H / 2) || leg((W - t) / 2, -H / 2, 0)) return 'leg';
+    return null;
+  };
+  const s = inS(0);
+  if (s) return s === 'bar' ? LOGO.light : LOGO.dark;
+  if (inS(o)) return LOGO.navy;
+  const rho = Math.hypot(u, v), teeth = 14;
+  const a = (Math.atan2(u, v) / (Math.PI * 2) + 1) % 1;
+  const tooth = Math.abs((a * teeth) % 1 - 0.5) < 0.22;
+  if (rho <= 0.5 || (tooth && rho <= 0.62)) return K.white;
+  if (inHex(0.8)) return LOGO.orange;
+  if (inHex(0.9)) return K.white;
+  if (inHex(1)) return LOGO.navy;
+  return K.white;
 }
 
 function makerspace(badger) {
-  // Tech lab / GRSC Makerspace: concrete drum, glass band, a glowing dome and an antenna; in the Snow College
-  // theme the Makerspace's own logo stands on top of the dome.
+  // Tech lab: concrete drum, glass band, a glowing dome and an antenna; as the GRSC Makerspace (the Snow College
+  // theme) the dome wears the Makerspace's logo instead.
   const b = new Builder();
   foundation(b);
   b.add(cyl(0.38, 0.4, 0.22, 8), K.stone, { at: [0, 0.18, 0] })
     .add(cyl(0.33, 0.33, 0.14, 16), K.glass, { glow: 0.25, at: [0, 0.36, 0] })
     .add(cyl(0.36, 0.36, 0.03, 16), K.team, { team: 1, at: [0, 0.445, 0] })
-    .add(dome(0.27, 16, 8), K.glass, { glow: 0.3, at: [0, 0.46, 0] })
-    .add(cyl(0.008, 0.012, 0.32, 4), K.steel, { at: [0.18, 0.72, 0.1] })
-    .add(ball(0.022, 0), K.red, { glow: 2.2, at: [0.18, 0.89, 0.1] });
+  if (badger) {
+    // The Makerspace logo wrapped over the dome (front of the building at the bottom of the logo).
+    // Spread by the angle from the top (not straight down), so the logo covers the curve evenly instead of
+    // crowding the crown and stretching down the sides.
+    b.addPainted(dome(0.27, 96, 32), (x, y, z) => {
+      const h = Math.hypot(x, z) || 1e-9;
+      const r = Math.acos(Math.min(1, Math.max(-1, (y - 0.46) / 0.27))) / (Math.PI / 2);
+      return makerspaceLogo((r * x) / h, (-r * z) / h);
+    }, { glow: 0.12, at: [0, 0.46, 0] });
+  } else {
+    b.add(dome(0.27, 16, 8), K.glass, { glow: 0.3, at: [0, 0.46, 0] })
+      .add(cyl(0.008, 0.012, 0.32, 4), K.steel, { at: [0.18, 0.72, 0.1] })
+      .add(ball(0.022, 0), K.red, { glow: 2.2, at: [0.18, 0.89, 0.1] });
+  }
   for (const a of [0.6, 2.4, 4.2]) {
     b.add(cyl(0.07, 0.07, 0.24, 8), K.team, { team: 1, at: [Math.cos(a) * 0.36, 0.19, Math.sin(a) * 0.36] })
       .add(dome(0.07, 8, 4), K.steel, { at: [Math.cos(a) * 0.36, 0.31, Math.sin(a) * 0.36] });
   }
-  if (badger) makerspaceLogo(b, 0.72);
   return b.build();
 }
 
