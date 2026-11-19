@@ -30,8 +30,9 @@ function route() {
   const history = hash.match(/^#\/history\/?(?:\?(.*))?$/);
   const colab = /^#\/colab\/?$/.test(hash);
   const apiDocs = /^#\/api\/?$/.test(hash);
-  const blocks = hash.match(/^#\/blocks(?:\/(edit|match)\/([A-Za-z0-9-]{1,64}))?\/?$/);
-  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : blocks ? 'blocks' : 'home';
+  const blocks = hash.match(/^#\/blocks(?:\/(edit|match)\/([A-Za-z0-9-]{1,64})|\/(import)\?program=([A-Za-z0-9_-]*))?\/?$/);
+  const pickup = hash.match(/^#\/pickup(\/screen)?\/?$/);
+  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : blocks ? 'blocks' : pickup ? 'pickup' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -59,8 +60,13 @@ function route() {
     teardown = mountApiDocs(main);
   } else if (blocks) {
     // Block Bot's code (and the rules it fetches) loads only when one of its pages opens.
-    const page = blocks[1] ? { page: blocks[1], id: blocks[2] } : null;
+    const page = blocks[1] ? { page: blocks[1], id: blocks[2] } : blocks[3] ? { page: 'import', program: blocks[4] } : null;
     teardown = mountLazy(() => import('./blocks/index.js'), (m) => m.mountBlocks(main, page));
+  } else if (pickup) {
+    // The Pick-up Game: the phone page, or the booth's big screen.
+    teardown = pickup[1]
+      ? mountLazy(() => import('./pickup/screen.js'), (m) => m.mountScreen(main))
+      : mountLazy(() => import('./pickup/index.js'), (m) => m.mountPickup(main));
   } else {
     teardown = mountHome(main);
   }

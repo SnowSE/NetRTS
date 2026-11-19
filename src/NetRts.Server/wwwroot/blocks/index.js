@@ -11,12 +11,14 @@
 //   #/blocks/match/<id>      the cockpit (cockpit.js): the match in the 3D view, the rules live, switches,
 //                            and each rule saved into the running match as you change it; for the
 //                            first match from "Start now", the coach's steps over it (coach.js)
+//   #/blocks/import?program=… a strategy from a link (import.js): checked, saved here, opened in the editor
 import { html, setHtml, setTitle } from '../util.js';
 import { loadVocabulary } from './program.js';
 import { mountLocker } from './locker.js';
 import { mountEditor } from './edit-page.js';
 import { holdSync } from './sync.js';
 import { mountCockpit } from './cockpit.js';
+import { mountImport } from './import.js';
 
 // The drag-and-drop blocks' look, only on Block Bot pages (blocks.css, the rest of Block Bot's, is on every page).
 function loadBlockStyles() {
@@ -28,7 +30,7 @@ function loadBlockStyles() {
   document.head.append(link);
 }
 
-/** Mounts the page for route ({ page: 'edit' | 'match', id } or null for the locker); returns its teardown. */
+/** Mounts the page for route ({ page: 'edit' | 'match', id }, { page: 'import', program } or null for the locker); returns its teardown. */
 export function mountBlocks(main, route) {
   let alive = true;
   let teardown = null;
@@ -47,7 +49,8 @@ export function mountBlocks(main, route) {
     if (!alive) return;
     teardown = route?.page === 'edit' ? mountEditor(main, route.id)
       : route?.page === 'match' ? mountCockpit(main, route.id)
-        : mountLocker(main);
+        : route?.page === 'import' ? mountImport(main, route.program)
+          : mountLocker(main);
   }, (e) => {
     if (!alive) return;
     setHtml(main, html`<section class="bb-page"><h1>Block Bot</h1>
