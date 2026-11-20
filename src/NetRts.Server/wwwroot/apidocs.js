@@ -110,8 +110,11 @@ export function mountApiDocs(root) {
         <p class="small muted">Server: <code>${location.origin}</code> · Rules and strategy:
           <a href="https://github.com/SnowSE/NetRTS/blob/main/docs/bot-guide.md" target="_blank" rel="noopener">the bot guide</a> ·
           Every schema and field: <a href="/scalar">the full reference</a> ·
-          <a href="#requests">Request files for your editor</a> ·
-          Rather work in a notebook? <a href="#/colab">Play with Google Colab</a></p>
+          <a href="#requests">Request files for your editor</a></p>
+        <a class="colab-callout" href="#/colab">
+          <img src="images/colab-logo.svg" alt="" width="40" height="25">
+          <span>Rather work in a notebook? <b>Play with Google Colab</b> <span aria-hidden="true">→</span></span>
+        </a>
       </header>
 
       <section class="apidocs-bar" aria-label="Your key and language">
