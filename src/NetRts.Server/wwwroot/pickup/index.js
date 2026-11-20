@@ -12,7 +12,7 @@ import { api, esc, mountScope, setTitle } from '../util.js';
 import { load, save } from '../storage.js';
 import { takePage } from './page.js';
 import { createSheets } from './sheets.js';
-import { createDeck, dragToReorder } from './deck.js';
+import { createDeck, dragToReorder, mouseScroll } from './deck.js';
 import { mountPlaying } from './playing.js';
 import { overHTML } from './over.js';
 import { setCatalog, normalize, left, clock, ordinal, samePlan } from './items.js';
@@ -65,7 +65,9 @@ export function mountPickup(main) {
     live: () => (liveEdit && me?.phase === 'playing' ? { step: me.step ?? 0 } : null),
     sheets,
   });
-  const eatClick = dragToReorder(root, scope, (kind, from, to) => deck.move(kind, from, to));
+  const eatDrag = dragToReorder(root, scope, (kind, from, to) => deck.move(kind, from, to));
+  const eatScroll = mouseScroll(root, scope);
+  const eatClick = () => eatDrag() | eatScroll();   // both, so neither keeps a stale true
   scope.cleanup(() => playing?.dispose());
 
   // ---- talking to the server

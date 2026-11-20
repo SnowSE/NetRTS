@@ -282,3 +282,48 @@ export function dragToReorder(root, scope, onMove) {
   scope.on(document, 'pointercancel', end);
   return () => { const was = eatClick; eatClick = false; return was; };
 }
+
+/**
+ * The hands of cards scroll sideways with a mouse too: the wheel scrolls the row under the pointer (until
+ * it reaches an end, then the page scrolls on), and a mouse can drag the row. Touch already swipes it.
+ * Returns eat(): true once just after a drag, so the click that ends it doesn't also play a card.
+ */
+export function mouseScroll(root, scope) {
+  let D = null, eatClick = false;
+  scope.on(root, 'wheel', (e) => {
+    const row = e.target.closest('.hand');
+    if (!row || e.ctrlKey || Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    const room = row.scrollWidth - row.clientWidth;
+    if (room <= 0 || (e.deltaY < 0 && row.scrollLeft <= 0) || (e.deltaY > 0 && row.scrollLeft >= room - 1)) return;
+    e.preventDefault();
+    row.scrollLeft += e.deltaY;
+  }, { passive: false });
+  scope.on(root, 'pointerdown', (e) => {
+    const row = e.target.closest('.hand');
+    if (!row || e.pointerType !== 'mouse' || e.button !== 0 || row.scrollWidth <= row.clientWidth) return;
+    D = { row, x: e.clientX, left: row.scrollLeft, moved: false, id: e.pointerId };
+  });
+  scope.on(document, 'pointermove', (e) => {
+    if (!D || e.pointerId !== D.id) return;
+    const dx = e.clientX - D.x;
+    if (!D.moved) {
+      if (Math.abs(dx) < 6) return;
+      D.moved = true;
+      D.row.classList.add('grabbing');   // snapping off while it's held, so it follows the mouse
+    }
+    e.preventDefault();
+    D.row.scrollLeft = D.left - dx;
+  });
+  const end = (e) => {
+    if (!D || e.pointerId !== D.id) return;
+    const d = D;
+    D = null;
+    if (!d.moved) return;
+    d.row.classList.remove('grabbing');
+    eatClick = true;
+    scope.later(() => { eatClick = false; }, 80);
+  };
+  scope.on(document, 'pointerup', end);
+  scope.on(document, 'pointercancel', end);
+  return () => { const was = eatClick; eatClick = false; return was; };
+}

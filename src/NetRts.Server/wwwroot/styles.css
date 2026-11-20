@@ -1312,6 +1312,8 @@ html.map-full { overflow: hidden; }
 .avatar { border-radius: 50%; vertical-align: middle; margin-right: 6px; }
 .avatar.big { margin: 0; }
 .topbar nav a.account-link { display: inline-flex; align-items: center; }
+/* The Pick-up Game is played on phones: its link shows only in the folded (☰) menu. */
+@media (min-width: 1061px) { .topbar nav a.nav-phone-only { display: none; } }
 /* GitHub: the logo in the bar (its name for screen readers); logo and name in the folded menu. */
 .topbar nav a.gh-link { display: inline-flex; align-items: center; gap: 8px; }
 .topbar nav a.gh-link svg { display: block; }
