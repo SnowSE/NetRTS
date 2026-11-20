@@ -172,6 +172,7 @@ public static partial class PlayerEndpoints
                 Losses = x.Stats?.Losses ?? 0,
                 Draws = x.Stats?.Draws ?? 0,
                 Points = x.Stats?.Points ?? 0,
+                PreviousRank = league ? x.Stats?.PreviousRank : null,
                 Skill = OpenSkill.Display(skill.Mu, skill.Sigma),
                 Mu = skill.Mu,
                 Sigma = skill.Sigma,

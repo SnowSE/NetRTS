@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.ResponseCompression;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using NetRts.Bots;
 using NetRts.Server;
 using NetRts.Server.Achievements;
@@ -148,6 +149,11 @@ static async Task InitializeDatabaseAsync(IServiceProvider services)
     if (applied.Any(m => m.EndsWith("_" + ScorePointsBackfill.Migration, StringComparison.Ordinal)))
     {
         await ScorePointsBackfill.RunAsync(db, logger);
+    }
+
+    if (applied.Any(m => m.EndsWith("_" + RankChanges.Migration, StringComparison.Ordinal)))
+    {
+        await RankChanges.BackfillAsync(db, scope.ServiceProvider.GetRequiredService<IOptions<DiscordOptions>>(), logger);
     }
 
     var directory = services.GetRequiredService<HouseBotDirectory>();

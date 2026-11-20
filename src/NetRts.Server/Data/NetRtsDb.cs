@@ -126,6 +126,12 @@ public sealed class PlayerStatsRecord
     /// OpenSkill uncertainty. 0 only on rows that predate skills, until <see cref="SkillBackfill"/> runs at startup.
     /// </summary>
     public double Sigma { get; set; } = OpenSkill.DefaultSigma;
+
+    /// <summary>
+    /// League ladders: the rank this bot held just before the category's latest league match went on the
+    /// ladder (null when it wasn't on it yet), so the scoreboard can show who moved. See <see cref="RankChanges"/>.
+    /// </summary>
+    public int? PreviousRank { get; set; }
 }
 
 public sealed class MatchRecord

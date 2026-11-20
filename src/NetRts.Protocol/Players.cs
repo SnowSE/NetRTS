@@ -95,6 +95,12 @@ public sealed record LeaderboardEntryDto
     public int Points { get; init; }
 
     /// <summary>
+    /// League ladders: the rank before the latest league match in this category went on the ladder, or
+    /// null if the bot wasn't on it then. Rank minus this is how far it moved.
+    /// </summary>
+    public int? PreviousRank { get; init; }
+
+    /// <summary>
     /// Opponent-aware skill (OpenSkill, Weng-Lin Plackett-Luce): beating strong bots raises it more than
     /// beating weak ones. Shown as max(0, round(40 x (mu - 3 sigma))), a conservative estimate, so it
     /// starts at 0 and rises as results come in and the model grows surer. It moves in the same games as

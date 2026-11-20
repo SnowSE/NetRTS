@@ -486,6 +486,9 @@ namespace NetRts.Server.Data.Migrations.Postgres
                     b.Property<int>("Points")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("PreviousRank")
+                        .HasColumnType("integer");
+
                     b.Property<int>("Rating")
                         .HasColumnType("integer");
 

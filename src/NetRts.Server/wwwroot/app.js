@@ -122,6 +122,19 @@ function mountLazy(load, mount) {
   return () => { alive = false; inner?.(); };
 }
 
+/**
+ * How far a bot moved on a league ladder since its last match went on, like a poll's ranking: ▲ 3 in
+ * green, ▼ 1 in red, a dash for no change, and NEW for a bot that wasn't ranked before it.
+ */
+function rankMove(p, moved) {
+  if (!moved) return '';
+  if (p.previousRank == null) return html`<span class="rank-move new" title="New on the ladder since the last match">NEW</span>`;
+  const by = p.previousRank - p.rank;
+  if (by === 0) return html`<span class="rank-move same" title="No change since the last match"><span aria-hidden="true">–</span><span class="visually-hidden">no change</span></span>`;
+  const up = by > 0;
+  return html`<span class="rank-move ${up ? 'up' : 'down'}" title="${up ? 'Up' : 'Down'} ${Math.abs(by)} since the last match (was ${p.previousRank})"><span aria-hidden="true">${up ? '▲' : '▼'}</span>${Math.abs(by)}<span class="visually-hidden"> ${up ? 'up' : 'down'} since the last match</span></span>`;
+}
+
 /** The top bar's account link: who is signed in (with their blue check), or an invitation to sign in. */
 function showAccountLink(info) {
   const link = document.getElementById('account-link');
@@ -443,6 +456,8 @@ Authorization: Bearer &lt;apiKey&gt;
     try {
       const list = await api(`/api/v1/leaderboard?category=${category}`);
       if (!alive || category !== root.querySelector('input[name="ladder-cat"]:checked')?.value) return;
+      // Rank changes show once a league match has gone on this ladder since they started being kept.
+      const moved = list.some((p) => p.previousRank != null);
       setHtml(el, list.length ? html`
         <div class="table-scroll"><table class="ladder">
           <caption class="visually-hidden">${category === 'Practice' ? say('Players ranked by rating', 'Badgers ranked by rating') : say('Players ranked by points', 'Badgers ranked by points')}</caption>
@@ -451,7 +466,7 @@ Authorization: Bearer &lt;apiKey&gt;
             : html`<th scope="col">Rating</th>${SKILL_TH}`}
             <th scope="col"><abbr title="Wins">W</abbr></th><th scope="col"><abbr title="Losses">L</abbr></th><th scope="col"><abbr title="Draws">D</abbr></th></tr></thead>
           <tbody>${list.map((p) => html`
-            <tr><td>${p.rank}</td>
+            <tr><td class="rank-cell">${p.rank}${category !== 'Practice' ? rankMove(p, moved) : ''}</td>
               <td>${botAndOwner(p)}${p.isHouseBot ? html`<span class="tag">house</span>` : ''}</td>
               ${category !== 'Practice'
                 ? html`<td class="rating">${fmt(p.points)}</td><td>${fmt(p.skill)}</td><td>${Math.round(p.rating)}</td>`

@@ -78,6 +78,7 @@ public sealed class LeagueFinalizer(
                 .ToDictionaryAsync(s => s.PlayerId, ct);
             var players = await db.Players.AsNoTracking().Include(p => p.Owner).Where(p => ids.Contains(p.Id)).ToDictionaryAsync(p => p.Id, ct);
 
+            await RankChanges.RememberAsync(db, discord, category, rows, ct);   // who moved, for the scoreboard
             var totals = new List<LeagueMatchTotal>();
             foreach (var heats in rows.GroupBy(r => r.PlayerId))
             {

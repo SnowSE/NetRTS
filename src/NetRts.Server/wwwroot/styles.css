@@ -436,6 +436,14 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 }
 .section-head h2 { margin-bottom: 8px; }
 
+/* League ladders: how far each bot moved since the last match, like a top-25 poll. */
+.ladder .rank-cell { white-space: nowrap; }
+.rank-move { display: inline-flex; align-items: center; gap: 1px; margin-left: 6px; font-size: 0.75rem; font-weight: 700; font-variant-numeric: tabular-nums; vertical-align: 1px; }
+.rank-move [aria-hidden] { font-size: 0.65rem; }
+.rank-move.up { color: var(--ok); }
+.rank-move.down { color: var(--danger); }
+.rank-move.same { color: var(--muted); font-weight: 400; }
+.rank-move.new { color: var(--orange, var(--muted)); font-size: 0.65rem; letter-spacing: 0.04em; }
 .match-list { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line); }
 .match-list li { border-bottom: 1px solid var(--line); }
 .match-row {
@@ -1302,6 +1310,13 @@ html.map-full { overflow: hidden; }
 .avatar { border-radius: 50%; vertical-align: middle; margin-right: 6px; }
 .avatar.big { margin: 0; }
 .topbar nav a.account-link { display: inline-flex; align-items: center; }
+/* GitHub: the logo in the bar (its name for screen readers); logo and name in the folded menu. */
+.topbar nav a.gh-link { display: inline-flex; align-items: center; gap: 8px; }
+.topbar nav a.gh-link svg { display: block; }
+.topbar nav a.gh-link .gh-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+@media (max-width: 1060px) {
+  .topbar nav a.gh-link .gh-text { position: static; width: auto; height: auto; clip-path: none; }
+}
 .topbar nav a.account-link[hidden] { display: none; }
 [data-brand="snow"] .topbar .verified circle { fill: #fff; }
 [data-brand="snow"] .topbar .verified path { stroke: var(--brand); }

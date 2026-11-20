@@ -479,6 +479,9 @@ namespace NetRts.Server.Data.Migrations.Sqlite
                     b.Property<int>("Points")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("PreviousRank")
+                        .HasColumnType("INTEGER");
+
                     b.Property<int>("Rating")
                         .HasColumnType("INTEGER");
 
