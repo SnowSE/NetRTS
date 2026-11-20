@@ -137,3 +137,4 @@
   .st-waffle span { width: 11px; height: 11px; }
 }
 @media (prefers-reduced-motion: reduce) { .st * { transition: none !important; } }
+.st-block > .st-seg { justify-self: start; }

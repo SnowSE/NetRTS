@@ -1,6 +1,6 @@
 // Spectator UI: hash router + home view.
 import { api, html, raw, setHtml, botAndOwner, verifiedBadge, fmt, esc, matchRow, botLabel, SKILL_TITLE } from './util.js';
-import { GAME, SNOW, say, nickname } from './lore.js';
+import { GAME, SNOW, say, nickname, CATEGORIES } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
 import { mountLeague } from './league.js';
@@ -150,12 +150,6 @@ api('/api/v1/account').then(showAccountLink).catch(() => {});
 /* ------------------------------------------------------------------ home */
 
 /** Each category is its own leaderboard, in the order a year plays out. */
-const CATEGORIES = [
-  { key: 'Practice', label: say('Practice', 'Scrimmage'), note: 'Every match bots start themselves. Open to everyone.' },
-  { key: 'Preseason', label: say('Preseason', 'Preseason'), note: 'Warm-up league matches (beta testing). Ranked by points; they don\'t count toward the season.' },
-  { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: every bot earns its whole score in each heat; a bot that plays two or more heats of one match drops its lowest. Skill weighs who you beat.' },
-  { key: 'Championship', label: say('Championship', 'Championship'), note: 'Championship matches; Discord-verified bots only. Ranked by points, like the season.' },
-];
 
 /**
  * The tab to open on: the latest phase of this season that has had a match (a league ladder only

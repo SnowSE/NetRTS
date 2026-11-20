@@ -113,3 +113,11 @@ export function badgerize(text) {
     .replace(/\bKilled enemy\b/g, 'Bowled over enemy')
     .replace(/\bDestroyed enemy\b/g, 'Flattened enemy');
 }
+
+/** The kinds of games, each its own ladder, in the order a year plays out (the home leaderboard's tabs, the Stats race). */
+export const CATEGORIES = [
+  { key: 'Practice', label: say('Practice', 'Scrimmage'), note: 'Every match bots start themselves. Open to everyone.' },
+  { key: 'Preseason', label: say('Preseason', 'Preseason'), note: 'Warm-up league matches (beta testing). Ranked by points; they don\'t count toward the season.' },
+  { key: 'Season', label: say('Season', 'Season'), note: 'Regular-season matches run by the admins in heats; Discord-verified bots only. Ranked by points: every bot earns its whole score in each heat; a bot that plays two or more heats of one match drops its lowest. Skill weighs who you beat.' },
+  { key: 'Championship', label: say('Championship', 'Championship'), note: 'Championship matches; Discord-verified bots only. Ranked by points, like the season.' },
+];

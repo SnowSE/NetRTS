@@ -1,6 +1,7 @@
 // The race for most wins (a line chart you can play) and the highlight reel: the longest streak, the
 // fastest knockouts, the free-for-all king and the first student win over the house.
 import { esc } from '../util.js';
+import { CATEGORIES } from '../lore.js';
 import { when, clock, num, labelDay, winnerOf, recordOf, winCounts, baseName, barList } from './data.js';
 
 const SER = ['s1', 's2', 's3', 's4', 's5'];
@@ -10,7 +11,8 @@ export const recordsHtml = `
   <section class="st-block" aria-labelledby="st-race-h">
     <p class="st-eyebrow">The race for most wins</p>
     <h2 id="st-race-h">Who piled up wins, and when</h2>
-    <p class="st-lede">Total wins over time for the five winningest student bots. Press play to watch it unfold, or drag the slider.</p>
+    <p class="st-lede">Total wins over time for the five winningest student bots, in every kind of game or one at a time. Press play to watch it unfold, or drag the slider.</p>
+    <div class="st-seg" role="group" aria-label="Which games" id="st-race-kind"></div>
     <div class="st-panel" style="display:grid;gap:12px">
       <div class="st-race-controls">
         <button type="button" class="st-btn primary" id="st-play">▶ Play</button>
@@ -57,7 +59,7 @@ export function mountRecords(root, data, tip, scope) {
   const $ = (id) => root.querySelector(`#${id}`);
   const name = (b) => bots[b].name;
   const wins = winCounts(data);
-  mountRace($, data, wins, tip, scope);
+  mountRace($, data, tip, scope);
 
   // The longest streak by a student bot, each win along its timeline.
   let star = null, starRec = null;
@@ -132,24 +134,35 @@ export function mountRecords(root, data, tip, scope) {
   $('st-house').innerHTML = barList(hRows.map(([n, [p, w]]) => [n, (100 * w) / p, `${Math.round((100 * w) / p)}%`]), { max: 100 });
 }
 
-/** Total wins by day for the five winningest student bots: a line chart with play, scrub and hover. */
-function mountRace($, data, wins, tip, scope) {
+/** Total wins by day for the five winningest student bots, in one kind of game or all: a line chart with tabs, play, scrub and hover. */
+function mountRace($, data, tip, scope) {
   const { bots, matches, days } = data;
-  const top = [...wins].filter(([b]) => bots[b].kind !== 'house').sort((a, b) => b[1] - a[1]).slice(0, 5).map(([b]) => b);
   const dayAt = new Map(days.map((d, i) => [d, i]));
-  const cum = top.map(() => new Array(days.length).fill(0));
-  for (const m of matches) { const k = top.indexOf(winnerOf(m)); if (k >= 0) cum[k][dayAt.get(m.day)]++; }
-  cum.forEach((row) => { for (let d = 1; d < row.length; d++) row[d] += row[d - 1]; });
-  $('st-race-legend').innerHTML = top.map((b, k) => `<span><i style="background:var(--${SER[k]})"></i>${esc(bots[b].name)}</span>`).join('');
   const W = 960, H = 360, l = 44, r = 140, t = 12, b = 30;
   const last = Math.max(0, days.length - 1);
-  const step = Math.max(10, Math.ceil(Math.max(1, ...cum.map((row) => row[last] ?? 0)) / 6 / 10) * 10);
-  const yMax = Math.max(step, Math.ceil(Math.max(1, ...cum.map((row) => row[last] ?? 0)) / step) * step);
   const x = (d) => l + ((W - l - r) * d) / Math.max(1, last);
-  const y = (v) => t + (H - t - b) * (1 - v / yMax);
   const scrub = $('st-scrub');
   scrub.max = String(last);
-  let cut = last, hover = null, timer = 0;
+  let top = [], cum = [], step = 10, yMax = 10, cut = last, hover = null, timer = 0;
+  const y = (v) => t + (H - t - b) * (1 - v / yMax);
+
+  // Tabs: every game, then each kind that has had a match.
+  const kinds = [{ key: '', label: 'All games' }, ...CATEGORIES.filter((c) => matches.some((m) => m.category === c.key))];
+  $('st-race-kind').innerHTML = kinds.map((k, i) => `<button type="button" data-kind="${k.key}" aria-pressed="${i === 0}">${esc(k.label)}</button>`).join('');
+
+  function pick(kind) {
+    const games = kind ? matches.filter((m) => m.category === kind) : matches;
+    const wins = new Map();
+    for (const m of games) { const w = winnerOf(m); if (w >= 0 && bots[w].kind !== 'house') wins.set(w, (wins.get(w) || 0) + 1); }
+    top = [...wins].sort((a, c) => c[1] - a[1]).slice(0, 5).map(([bot]) => bot);
+    cum = top.map(() => new Array(days.length).fill(0));
+    for (const m of games) { const k = top.indexOf(winnerOf(m)); if (k >= 0) cum[k][dayAt.get(m.day)]++; }
+    cum.forEach((row) => { for (let d = 1; d < row.length; d++) row[d] += row[d - 1]; });
+    const most = Math.max(1, ...cum.map((row) => row[last] ?? 0));
+    step = most <= 5 ? 1 : most <= 10 ? 2 : most <= 30 ? 5 : Math.max(10, Math.ceil(most / 6 / 10) * 10);
+    yMax = Math.ceil(most / step) * step;
+    $('st-race-legend').innerHTML = top.map((bot, k) => `<span><i style="background:var(--${SER[k]})"></i>${esc(bots[bot].name)}</span>`).join('');
+  }
 
   function draw() {
     let s = '';
@@ -157,6 +170,7 @@ function mountRace($, data, wins, tip, scope) {
     s += `<line class="st-base" x1="${l}" x2="${W - r}" y1="${y(0)}" y2="${y(0)}"/>`;
     const every = Math.max(1, Math.round(days.length / 7));
     for (let d = 0; d < days.length; d += every) s += `<text x="${x(d)}" y="${H - 8}" text-anchor="middle">${labelDay(days[d])}</text>`;
+    if (!top.length) s += `<text class="lab" x="${(l + W - r) / 2}" y="${H / 2}" text-anchor="middle">No student wins in these games yet</text>`;
     const ends = cum.map((row, k) => ({ k, y: y(row[cut]) })).sort((a, c) => a.y - c.y);
     for (let j = 1; j < ends.length; j++) if (ends[j].y - ends[j - 1].y < 15) ends[j].y = ends[j - 1].y + 15;
     cum.forEach((row, k) => {
@@ -172,6 +186,11 @@ function mountRace($, data, wins, tip, scope) {
   }
   function stop() { scope.clear(timer); timer = 0; $('st-play').textContent = '▶ Play'; }
   function tick() { cut++; draw(); if (cut >= last) stop(); else timer = scope.later(tick, 180); }
+  scope.on($('st-race-kind'), 'click', (e) => {
+    const btn = e.target.closest('button[data-kind]'); if (!btn) return;
+    $('st-race-kind').querySelectorAll('button').forEach((k) => k.setAttribute('aria-pressed', String(k === btn)));
+    stop(); cut = last; pick(btn.dataset.kind); draw();
+  });
   scope.on($('st-play'), 'click', () => {
     if (timer) { stop(); return; }
     if (cut >= last) cut = 0;
@@ -183,12 +202,13 @@ function mountRace($, data, wins, tip, scope) {
   scope.on($('st-race'), 'pointermove', (e) => {
     const box = $('st-race').getBoundingClientRect();
     const d = Math.round(((((e.clientX - box.left) * W) / box.width - l) / (W - l - r)) * last);
-    if (d < 0 || d > cut) { hover = null; tip.hide(); draw(); return; }
+    if (!top.length || d < 0 || d > cut) { hover = null; tip.hide(); draw(); return; }
     hover = d; draw();
     const rows = top.map((bot, k) => [cum[k][d], k]).sort((a, c) => c[0] - a[0]);
     tip.show(`<b>${labelDay(days[d])}</b><br>${rows.map(([v, k]) => `${esc(short(bots[top[k]].name))}: ${v}`).join('<br>')}`, e.clientX, e.clientY);
   });
   scope.on($('st-race'), 'pointerleave', () => { hover = null; tip.hide(); draw(); });
-  if (!top.length) $('st-race').closest('.st-block').hidden = true;
-  else draw();
+  if (!days.length) { $('st-race').closest('.st-block').hidden = true; return; }
+  pick('');
+  draw();
 }
