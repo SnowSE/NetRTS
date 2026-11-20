@@ -175,6 +175,24 @@ const SPEEDS = [
   { ms: 1000, label: say('Slow', 'Hibernating') },
 ];
 
+/** Scrimmage map sizes (square); Auto lets the server fit the map to the number of bots. */
+const MAP_SIZES = [
+  { size: '', label: 'Auto (fits the bots)' },
+  { size: 32, label: 'Tiny · 32×32' },
+  { size: 48, label: 'Small · 48×48' },
+  { size: 64, label: 'Standard · 64×64' },
+  { size: 96, label: 'Large · 96×96' },
+  { size: 128, label: 'Huge · 128×128' },
+];
+
+/** How many grubs the map holds, as a share of the usual deposits (the match setting grubPercent). */
+const GRUBS = [
+  { percent: 50, label: 'Scarce · half' },
+  { percent: 100, label: 'Usual' },
+  { percent: 200, label: 'Plenty · double' },
+  { percent: 400, label: 'Gold rush · 4×' },
+];
+
 function mountHome(root) {
   document.title = GAME;
   setHtml(root, html`
@@ -241,6 +259,20 @@ function mountHome(root) {
                   <label for="speed-${s.ms}">${s.label} <span class="muted small ms">${s.ms} ms</span></label>`)}
               </div>
             </fieldset>
+            <div class="launch-row">
+              <div class="field">
+                <label for="launch-size">Map size</label>
+                <select id="launch-size" name="size">
+                  ${MAP_SIZES.map((m) => html`<option value="${m.size}">${m.label}</option>`)}
+                </select>
+              </div>
+              <div class="field">
+                <label for="launch-grubs">${say('Ore', 'Grubs')}</label>
+                <select id="launch-grubs" name="grubs">
+                  ${GRUBS.map((g) => html`<option value="${g.percent}" ${g.percent === 100 ? html`selected` : ''}>${g.label}</option>`)}
+                </select>
+              </div>
+            </div>
             <div><button class="btn" type="submit" id="launch-btn">${say('Start match', 'Let them brawl')}</button></div>
             <p class="error" id="launch-error" role="alert" hidden></p>
           </form>
@@ -328,13 +360,16 @@ Authorization: Bearer &lt;apiKey&gt;
       showError(say(`Pick 2 to ${MAX_SEATS} house bots in all.`, `Pick 2 to ${MAX_SEATS} house badgers in all.`));
       return;
     }
-    const speed = Number(new FormData(ev.target).get('speed')) || 500;
+    const form = new FormData(ev.target);
+    const speed = Number(form.get('speed')) || 500;
+    const size = Number(form.get('size')) || null;   // Auto: the server sizes the map for the bots
+    const grubs = Number(form.get('grubs')) || 100;
     btn.disabled = true;
     btn.textContent = say('Starting…', 'Digging in…');
     try {
       const summary = await api('/api/v1/exhibitions', {
         method: 'POST',
-        body: { bots: seats, settings: { tickIntervalMs: speed } },
+        body: { bots: seats, settings: { tickIntervalMs: speed, grubPercent: grubs, ...(size ? { mapWidth: size, mapHeight: size } : {}) } },
       });
       location.hash = `#/match/${summary.matchId}`;
     } catch (e) {

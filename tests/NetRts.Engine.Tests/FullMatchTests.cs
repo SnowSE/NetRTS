@@ -9,9 +9,9 @@ public class FullMatchTests
 {
     /// <param name="surrenderAt">Slot 1 surrenders at this tick.</param>
     /// <param name="boostAt">Slot 0 takes its boost at this tick, and sends every command boosted.</param>
-    internal static GameSimulation Play(string bot0, string bot1, int seed, int maxTicks = 1800, int? surrenderAt = null, int? boostAt = null, int? endAt = null)
+    internal static GameSimulation Play(string bot0, string bot1, int seed, int maxTicks = 1800, int? surrenderAt = null, int? boostAt = null, int? endAt = null, int grubPercent = 100)
     {
-        var sim = new GameSimulation(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks },
+        var sim = new GameSimulation(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks, GrubPercent = grubPercent },
             [new PlayerSeat(Guid.NewGuid(), bot0), new PlayerSeat(Guid.NewGuid(), bot1)]);
         var bots = new[] { HouseBots.Create(bot0), HouseBots.Create(bot1) };
         var rules = GameRules.ToDto();

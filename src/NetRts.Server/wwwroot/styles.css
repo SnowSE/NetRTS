@@ -419,6 +419,8 @@ fieldset { border: 0; margin: 0; padding: 0; min-width: 0; }
 .versus .vs { padding-bottom: 10px; color: var(--muted); font-stretch: 75%; font-weight: 700; }
 .side-swatch { display: inline-block; width: 10px; height: 10px; margin-right: 6px; vertical-align: 0; }
 .bot-desc { min-height: 2.6em; margin: 0; }
+.launch-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.launch-row select { width: 100%; min-height: 38px; font: inherit; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius-s, 4px); padding: 6px 8px; }
 
 .board {
   display: grid;

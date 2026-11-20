@@ -45,6 +45,10 @@ public sealed class GameMap
 
     public bool IsRock(Point p) => IsRock(p.X, p.Y);
 
+    /// <summary>The same map with every deposit scaled to <paramref name="percent"/>% (rounded, at least 1 grub).</summary>
+    internal GameMap WithGrubs(int percent) =>
+        new(Width, Height, _rock, StartPositions, [.. Deposits.Select(d => d with { Amount = Math.Max(1, (d.Amount * percent + 50) / 100) })]);
+
     public MapDto ToDto()
     {
         var rows = new string[Height];
@@ -111,7 +115,26 @@ public static class MapGenerator
         _ => [.. Enumerable.Range(0, playerCount).Select(i => i + 1 < playerCount ? (i, i + 1) : (0, i))],
     };
 
-    public static GameMap Generate(int width, int height, int seed, int playerCount)
+    /// <summary>The fewest and most grubs a match can ask for, as a percentage of the usual amounts.</summary>
+    public const int MinGrubPercent = 25;
+    public const int MaxGrubPercent = 400;
+
+    /// <summary>
+    /// The map for a match: terrain, start positions and grub deposits, the same every time for the same
+    /// arguments. <paramref name="grubPercent"/> scales every deposit (100 is the usual amount).
+    /// </summary>
+    public static GameMap Generate(int width, int height, int seed, int playerCount, int grubPercent = 100)
+    {
+        if (grubPercent is < MinGrubPercent or > MaxGrubPercent)
+        {
+            throw new ArgumentOutOfRangeException(nameof(grubPercent), $"Grubs must be {MinGrubPercent}% to {MaxGrubPercent}% of the usual amount.");
+        }
+
+        var map = Layout(width, height, seed, playerCount);
+        return grubPercent == 100 ? map : map.WithGrubs(grubPercent);
+    }
+
+    private static GameMap Layout(int width, int height, int seed, int playerCount)
     {
         if (width < MinSize || height < MinSize || width > MaxSize || height > MaxSize)
         {

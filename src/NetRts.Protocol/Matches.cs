@@ -9,6 +9,9 @@ public sealed record MatchSettingsDto
     public int? Seed { get; init; }
     public int? TickIntervalMs { get; init; }
     public int? MaxTicks { get; init; }
+
+    /// <summary>Grubs on the map, as a percentage of the usual deposits: 25 to 400 (default 100).</summary>
+    public int? GrubPercent { get; init; }
 }
 
 public sealed record CreateMatchRequest
@@ -53,6 +56,9 @@ public sealed record MatchSummaryDto
     public int MapWidth { get; init; }
     public int MapHeight { get; init; }
     public int Seed { get; init; }
+
+    /// <summary>Grubs on the map as a percentage of the usual deposits; null for the usual 100.</summary>
+    public int? GrubPercent { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public IReadOnlyList<MatchPlayerDto> Players { get; init; } = [];
     public MatchOutcomeDto? Outcome { get; init; }
@@ -304,6 +310,9 @@ public sealed record ReplayDto
 
     public int MapHeight { get; init; }
     public int Seed { get; init; }
+
+    /// <summary>Grubs on the map as a percentage of the usual deposits; null for the usual 100.</summary>
+    public int? GrubPercent { get; init; }
     public int MaxTicks { get; init; }
 
     /// <summary>Player ids by slot.</summary>

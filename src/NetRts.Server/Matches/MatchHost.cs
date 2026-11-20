@@ -8,7 +8,7 @@ using NetRts.Protocol;
 namespace NetRts.Server.Matches;
 
 /// <summary>TreatyTicks and CombatScore: the pick-up game's rules (see <see cref="GameConfig"/>); off for every other match.</summary>
-public sealed record MatchSettings(int MapWidth, int MapHeight, int Seed, int TickIntervalMs, int MaxTicks, int TreatyTicks = 0, bool CombatScore = false);
+public sealed record MatchSettings(int MapWidth, int MapHeight, int Seed, int TickIntervalMs, int MaxTicks, int TreatyTicks = 0, bool CombatScore = false, int GrubPercent = 100);
 
 public enum SerumOutcome
 {
@@ -362,6 +362,7 @@ public sealed class MatchHost
                     MaxTicks = Settings.MaxTicks,
                     TreatyTicks = Settings.TreatyTicks,
                     CombatScore = Settings.CombatScore,
+                    GrubPercent = Settings.GrubPercent,
                 },
                 _seats.Select((s, i) => new PlayerSeat(s.PlayerId, s.Name, _seatKits[i])).ToList());
             _map = _sim.Map.ToDto();
@@ -650,6 +651,7 @@ public sealed class MatchHost
                 MapWidth = Settings.MapWidth,
                 MapHeight = Settings.MapHeight,
                 Seed = Settings.Seed,
+                GrubPercent = Settings.GrubPercent == 100 ? null : Settings.GrubPercent,
                 CreatedAt = new DateTimeOffset(CreatedAt, TimeSpan.Zero),
                 Players = _seats.Select((s, i) => new MatchPlayerDto
                 {

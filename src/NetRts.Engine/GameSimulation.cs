@@ -34,6 +34,9 @@ public sealed class GameConfig
     /// grubs and what you own don't count, so a big start kit isn't worth points by itself.
     /// </summary>
     public bool CombatScore { get; init; }
+
+    /// <summary>Grubs on the map, as a percentage of the usual deposits (see <see cref="MapGenerator.Generate"/>).</summary>
+    public int GrubPercent { get; init; } = 100;
 }
 
 /// <summary>
@@ -91,7 +94,7 @@ public sealed partial class GameSimulation
         MatchId = matchId;
         Config = config;
         TickLimit = config.MaxTicks;
-        Map = MapGenerator.Generate(config.MapWidth, config.MapHeight, config.Seed, seats.Count);
+        Map = MapGenerator.Generate(config.MapWidth, config.MapHeight, config.Seed, seats.Count, config.GrubPercent);
         _buildingAt = new int[Map.Width * Map.Height];
         _depositAt = new int[Map.Width * Map.Height];
 
@@ -311,6 +314,7 @@ public sealed partial class GameSimulation
             MapHeight = replay.MapHeight,
             Seed = replay.Seed,
             MaxTicks = replay.MaxTicks,
+            GrubPercent = replay.GrubPercent ?? 100,
             QueueCapacity = int.MaxValue,
         };
         var sim = new GameSimulation(replay.MatchId, config,
@@ -360,6 +364,7 @@ public sealed partial class GameSimulation
         MapWidth = Config.MapWidth,
         MapHeight = Config.MapHeight,
         Seed = Config.Seed,
+        GrubPercent = Config.GrubPercent == 100 ? null : Config.GrubPercent,
         MaxTicks = TickLimit,
         Players = _players.Select(p => p.Id).ToList(),
         Commands = _replayCommands.ToList(),

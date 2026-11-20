@@ -144,8 +144,8 @@ public static class MatchEndpoints
                     return ApiErrors.NotFound("Match");
                 }
 
-                var players = JsonSerializer.Deserialize<MatchSummaryDto>(record.SummaryJson, NetRtsClient.JsonOptions)!.Players.Count;
-                return Results.Ok(MapGenerator.Generate(record.MapWidth, record.MapHeight, record.Seed, players).ToDto());
+                var summary = JsonSerializer.Deserialize<MatchSummaryDto>(record.SummaryJson, NetRtsClient.JsonOptions)!;
+                return Results.Ok(MapGenerator.Generate(record.MapWidth, record.MapHeight, record.Seed, summary.Players.Count, summary.GrubPercent ?? 100).ToDto());
             })
             .Produces<MapDto>()
             .ProducesErrors()

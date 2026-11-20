@@ -584,12 +584,18 @@ public sealed partial class MatchManager(
             throw new MatchException(400, "INVALID_SETTINGS", $"tickIntervalMs must be between {_options.MinTickIntervalMs} and {_options.MaxTickIntervalMs}.");
         }
 
+        var grubs = dto?.GrubPercent ?? 100;
+        if (grubs is < MapGenerator.MinGrubPercent or > MapGenerator.MaxGrubPercent)
+        {
+            throw new MatchException(400, "INVALID_SETTINGS", $"grubPercent must be between {MapGenerator.MinGrubPercent} and {MapGenerator.MaxGrubPercent}.");
+        }
+
         if (maxTicks is < 10 or > 20_000)
         {
             throw new MatchException(400, "INVALID_SETTINGS", "maxTicks must be between 10 and 20000.");
         }
 
-        return new MatchSettings(width, height, dto?.Seed ?? Random.Shared.Next(), interval, maxTicks);
+        return new MatchSettings(width, height, dto?.Seed ?? Random.Shared.Next(), interval, maxTicks, GrubPercent: grubs);
     }
 }
 
