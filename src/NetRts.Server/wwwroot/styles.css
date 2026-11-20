@@ -1710,6 +1710,8 @@ a.owner:hover { text-decoration: underline; }
 .verb.DELETE { color: var(--danger); }
 .ep-body { display: grid; gap: 12px; padding: 12px; background: var(--bg); }
 .ep-params { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; }
+/* Each parameter keeps its natural height, so the boxes line up across the row whatever the hints below them say. */
+.ep-params .field { align-content: start; }
 .ep-fields summary { cursor: pointer; color: var(--muted); margin-top: 4px; }
 .ep-fields table { width: auto; margin-top: 6px; font-size: 0.875rem; }
 .ep-fields th, .ep-fields td { text-align: left; padding: 4px 14px 4px 0; border-bottom: 1px solid var(--line); vertical-align: top; }

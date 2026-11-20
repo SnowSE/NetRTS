@@ -15,6 +15,12 @@ public sealed class NetRtsOptions
     /// </summary>
     public string? AppInsightsResourceId { get; set; }
 
+    /// <summary>
+    /// The Log Analytics workspace ID (a GUID) behind Application Insights. When set, the server reads its
+    /// own telemetry each morning for the Stats page (its identity needs Log Analytics Reader there).
+    /// </summary>
+    public string? LogAnalyticsWorkspaceId { get; set; }
+
     /// <summary>Tenant ID or domain the portal links sign in to, so they open in the right directory.</summary>
     public string? AzureTenant { get; set; }
 

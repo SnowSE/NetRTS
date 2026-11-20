@@ -32,7 +32,8 @@ function route() {
   const apiDocs = /^#\/api\/?$/.test(hash);
   const blocks = hash.match(/^#\/blocks(?:\/(edit|match)\/([A-Za-z0-9-]{1,64})|\/(import)\?program=([A-Za-z0-9_-]*))?\/?$/);
   const pickup = hash.match(/^#\/pickup(\/screen)?\/?$/);
-  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : blocks ? 'blocks' : pickup ? 'pickup' : 'home';
+  const stats = /^#\/stats\/?$/.test(hash);
+  const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : blocks ? 'blocks' : pickup ? 'pickup' : stats ? 'stats' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
   });
@@ -67,6 +68,9 @@ function route() {
     teardown = pickup[1]
       ? mountLazy(() => import('./pickup/screen.js'), (m) => m.mountScreen(main))
       : mountLazy(() => import('./pickup/index.js'), (m) => m.mountPickup(main));
+  } else if (stats) {
+    // Stats: every match to explore, the records and how the server held up.
+    teardown = mountLazy(() => import('./stats/index.js'), (m) => m.mountStats(main));
   } else {
     teardown = mountHome(main);
   }
@@ -370,15 +374,37 @@ Authorization: Bearer &lt;apiKey&gt;
   async function loadHistory() {
     const el = $('history');
     try {
-      const list = await api('/api/v1/matches/history?limit=10');
+      const list = await api(`/api/v1/matches/history?limit=${HISTORY_FETCH}`);
       if (!alive) return;
       setHtml(el, list.length
         ? html`<ul class="match-list">${list.map((m) => matchRow(m, { status: false }))}</ul>`
         : html`<p class="empty">${say('No finished matches yet.', "No finished brawls yet. The season hasn't started.")}</p>`);
+      fitHistory();
     } catch (e) {
       if (alive) setHtml(el, html`<p class="error">Could not load results: ${e.message}</p>`);
     }
   }
+
+  // Recent results run down the left column as far as the right column goes, and no further: the list
+  // never makes the page longer on its own. Stacked on a narrow screen, it shows the first ten.
+  const HISTORY_FETCH = 40, HISTORY_STACKED = 10, HISTORY_MIN = 3;
+  function fitHistory() {
+    const items = [...root.querySelectorAll('#history .match-list > li')];
+    if (!items.length) return;
+    const [left, right] = root.querySelector('.board').children;
+    items.forEach((li) => { li.hidden = false; });
+    if (right.getBoundingClientRect().top > left.getBoundingClientRect().top + 10) {
+      items.forEach((li, i) => { li.hidden = i >= HISTORY_STACKED; });
+      return;
+    }
+    const end = (col) => col.lastElementChild.getBoundingClientRect().bottom;
+    for (let n = items.length - 1; n >= HISTORY_MIN && end(left) > end(right); n--) items[n].hidden = true;
+  }
+  // Refit when the right column (the leaderboard, a tab change) or the top of the left (live matches,
+  // the recap card) changes height. The list itself isn't watched: hiding rows mustn't refit.
+  const fitWatch = new ResizeObserver(() => fitHistory());
+  fitWatch.observe(root.querySelector('.board').children[1]);
+  for (const id of ['live', 'recap-card']) fitWatch.observe($(id));
 
   // The trailer is a still until it's played: YouTube (and its channel banner) only loads on click.
   $('promo-play').addEventListener('click', (e) => {
@@ -445,7 +471,7 @@ Authorization: Bearer &lt;apiKey&gt;
   const stopRecap = showLatestRecap($('recap-card'));
   refresh();
 
-  return () => { alive = false; clearTimeout(timer); stopRecap(); };
+  return () => { alive = false; clearTimeout(timer); stopRecap(); fitWatch.disconnect(); };
 }
 
 route();

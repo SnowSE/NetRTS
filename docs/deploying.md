@@ -360,6 +360,16 @@ account page once two app settings are set on the web app:
 | `NetRts__AppInsightsResourceId` | `/subscriptions/<subscription id>/resourceGroups/rg-netrts/providers/microsoft.insights/components/netrts-insights` |
 | `NetRts__AzureTenant` | the subscription's tenant ID, so the links open in that directory |
 
+The **Stats** page (`#/stats`) shows how the server held up, read from this telemetry each morning at
+5 a.m. (and at startup) through the end of yesterday. It needs one more setting and a role:
+
+| Setting | Value |
+|---|---|
+| `NetRts__LogAnalyticsWorkspaceId` | the workspace ID (a GUID) of `netrts-logs`: `az monitor log-analytics workspace show -g rg-netrts -n netrts-logs --query customerId` |
+
+and the web app's system-assigned identity needs **Log Analytics Reader** on `netrts-logs`. Without
+them the page still shows every match (from the database) and says the server numbers aren't connected.
+
 Per-tick requests (state long-polls, command submissions, spectator polls and streams) and health
 probes are left out of traces to keep volume down; the standard HTTP request metrics still count them.
 

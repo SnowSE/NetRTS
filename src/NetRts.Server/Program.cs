@@ -38,9 +38,13 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<ApiKeyCache>();
 builder.Services.AddSingleton<HouseBotDirectory>();
 builder.Services.AddSingleton<MatchMetrics>();
+builder.Services.AddSingleton<NetRts.Server.Stats.MatchStatsCache>();
+builder.Services.AddSingleton<NetRts.Server.Stats.ServerStatsService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<NetRts.Server.Stats.ServerStatsService>());
 // The webhook's token is in its URL, which the client's request logs (and their scope, on every log
 // line inside it) would send to Application Insights.
 builder.Services.AddHttpClient<IDiscordWebhook, DiscordWebhook>().RemoveAllLoggers();
+builder.Services.AddHttpClient(nameof(NetRts.Server.Stats.ServerStatsService), c => c.Timeout = TimeSpan.FromSeconds(60)).RemoveAllLoggers();
 builder.Services.AddSingleton<MatchAnnouncer>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<MatchAnnouncer>());
 builder.Services.Configure<RecapOptions>(builder.Configuration.GetSection(RecapOptions.Section));
@@ -129,6 +133,7 @@ app.MapAccountStrategyEndpoints();
 app.MapAchievementEndpoints();
 app.MapPeopleEndpoints();
 app.MapRecapEndpoints();
+NetRts.Server.Stats.StatsEndpoints.MapStatsEndpoints(app);
 app.MapFallback("/api/{**path}", () => ApiErrors.Error(404, "NOT_FOUND", "No such API endpoint. See /scalar."));
 
 await app.RunAsync();
