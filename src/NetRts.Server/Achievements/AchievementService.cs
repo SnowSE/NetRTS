@@ -120,7 +120,8 @@ public sealed class AchievementService(
                 : 0;
             var verified = Accounts.IsVerified(bot.Owner, discord.Value);
             var context = new AchievementContext(row, result.Players.First(p => p.Slot == row.Slot), result.Players, history,
-                opponents.ToLookup(o => o.MatchId), match.MaxTicks, houseBots.FullHouseIds, verified, bestRating, ownerBots, options.Value.Zone);
+                opponents.ToLookup(o => o.MatchId), match.MaxTicks, houseBots.FullHouseIds, verified, bestRating, ownerBots, options.Value.Zone,
+                houseBots.FormicsId);
             await AwardAsync(db, context, match.CompletedAt, announce: (bot.Name, verified, verified ? bot.Owner!.DisplayName : null), ct);
         }
     }
@@ -309,7 +310,7 @@ public sealed class AchievementService(
                     opponents, match.MaxTicks, houseBots.FullHouseIds, Accounts.IsVerified(bot.Owner, discord.Value),
                     ratings.GetValueOrDefault(row.PlayerId, Elo.InitialRating),
                     bot.OwnerAccountId is { } o && winners.TryGetValue(o, out var bots) ? bots.Count : 0,
-                    options.Value.Zone);
+                    options.Value.Zone, houseBots.FormicsId);
                 foreach (var achievement in Earned(context).Where(a => have.Add((row.PlayerId, a.Id))))
                 {
                     db.BotAchievements.Add(new BotAchievementRecord

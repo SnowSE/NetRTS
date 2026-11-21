@@ -20,6 +20,7 @@ public sealed class AchievementContext
     /// <param name="bestRating">The bot's best rating in any category, now.</param>
     /// <param name="ownerBotsWithRealWins">How many of the owner's verified bots have beaten a real bot.</param>
     /// <param name="zone">The server's local time zone.</param>
+    /// <param name="formicsId">The Formics' player id, if they're seeded.</param>
     public AchievementContext(
         MatchPlayerRecord row,
         PlayerResultDto result,
@@ -31,7 +32,8 @@ public sealed class AchievementContext
         bool verified,
         int bestRating,
         int ownerBotsWithRealWins,
-        TimeZoneInfo zone)
+        TimeZoneInfo zone,
+        Guid? formicsId = null)
     {
         Row = row;
         Result = result;
@@ -40,6 +42,7 @@ public sealed class AchievementContext
         _zone = zone;
         MaxTicks = maxTicks;
         HouseBotIds = houseBotIds;
+        FormicsId = formicsId;
         Verified = verified;
         BestRating = bestRating;
         OwnerBotsWithRealWins = ownerBotsWithRealWins;
@@ -59,6 +62,9 @@ public sealed class AchievementContext
 
     public int MaxTicks { get; }
     public IReadOnlyCollection<Guid> HouseBotIds { get; }
+
+    /// <summary>The Formics' player id (the hardest house bot), if they're seeded.</summary>
+    public Guid? FormicsId { get; }
     public bool Verified { get; }
     public int BestRating { get; }
     public int OwnerBotsWithRealWins { get; }

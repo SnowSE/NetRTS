@@ -16,12 +16,12 @@ public class AchievementTests(ServerFactory factory) : IClassFixture<ServerFacto
     [Fact]
     public async Task The_catalog_lists_every_achievement_and_keeps_hidden_ones_secret()
     {
-        Assert.Equal(77, AchievementCatalog.All.Count);
+        Assert.Equal(78, AchievementCatalog.All.Count);
         Assert.Equal(AchievementCatalog.All.Count, AchievementCatalog.All.Select(a => a.Id).Distinct().Count());
         Assert.All(AchievementCatalog.All, a => Assert.True(a.Id.Length <= 40));
 
         var catalog = await GetAsync<List<AchievementDto>>("/api/v1/achievements");
-        Assert.Equal(77, catalog.Count);
+        Assert.Equal(78, catalog.Count);
         var serum = catalog.Single(a => a.Id == "super-soldier");
         Assert.True(serum.Hidden);
         Assert.Equal("???", serum.Name);
@@ -185,6 +185,22 @@ public class AchievementTests(ServerFactory factory) : IClassFixture<ServerFacto
         var earned = AchievementService.Earned(context).Select(a => a.Id).ToList();
         Assert.Contains("hat-trick", earned);
         Assert.DoesNotContain("unstoppable", earned);
+    }
+
+    [Theory]
+    [InlineData(MatchResultKind.Win, true)]
+    [InlineData(MatchResultKind.Loss, false)]
+    public void Beating_the_formics_opens_the_enemys_gate(MatchResultKind outcome, bool earns)
+    {
+        var (bot, formics, match) = (Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid());
+        var row = new MatchPlayerRecord { MatchId = match, PlayerId = bot, Result = outcome, CompletedAt = DateTime.UtcNow, Ticks = 900 };
+        var them = new MatchPlayerRecord { MatchId = match, PlayerId = formics, Slot = 1, IsHouseBot = true };
+        var result = new PlayerResultDto { Slot = 0, Winner = outcome == MatchResultKind.Win, Score = new ScoreDto() };
+        AchievementContext Context(Guid? formicsId) => new(row, result, [result], [row], new[] { them }.ToLookup(o => o.MatchId), 1800, [], verified: false,
+            Elo.InitialRating, 0, TimeZoneInfo.Utc, formicsId);
+
+        Assert.Equal(earns, AchievementService.Earned(Context(formics)).Any(a => a.Id == "enemys-gate"));
+        Assert.DoesNotContain(AchievementService.Earned(Context(Guid.NewGuid())), a => a.Id == "enemys-gate"); // some other house bot
     }
 
     /// <summary>A plays B for some ticks, then B surrenders; returns once the match's achievements are in.</summary>

@@ -63,6 +63,8 @@ public static class AchievementCatalog
             c => c.Won && c.Others.Any(o => o.IsHouseBot), HouseBotsCount: true),
         new("full-house", "Full House", "Beat every house bot (rusher, economist, balanced, sitter and poky), over any number of matches.", FirstSteps, Silver,
             c => c.Won && c.HouseBotIds.Count > 0 && c.HouseBotIds.All(c.HasBeaten), HouseBotsCount: true),
+        new("enemys-gate", "The Enemy's Gate Is Down", "Beat the Formics, the hardest house bot.", FirstSteps, Gold,
+            c => c.Won && c.FormicsId is { } formics && c.Others.Any(o => o.PlayerId == formics), HouseBotsCount: true),
         new("blue-check", "Blue Check", "Play a match after a Discord-verified owner claims your bot.", FirstSteps, Bronze, c => c.Verified, HouseBotsCount: true),
         new("worthy-opponent", "Worthy Opponent", "Play a match against another real bot.", FirstSteps, Bronze, _ => true),
         new("suit-up", "Suit Up", "Play in a league match (preseason, season or championship).", FirstSteps, Bronze,

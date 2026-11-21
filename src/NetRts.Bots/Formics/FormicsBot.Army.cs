@@ -9,6 +9,16 @@ public sealed partial class FormicsBot
 
     /// <summary>The strongest enemy army is probably bigger than ours: fighters come before more workers.</summary>
     private bool _outnumbered;
+
+    /// <summary>Enemy fighters we can see by our buildings outweigh our army and towers: hold at home, all in on fighters.</summary>
+    private bool _rushed;
+
+    /// <summary>One on one, the enemy army as it's growing will outweigh ours: Barracks, a Tech Lab and towers before expansions.</summary>
+    private bool _outgunned;
+
+    // The strongest enemy army we expected, tick by tick, to see how fast it grows.
+    private readonly Queue<int> _enemyArmyHistory = new();
+    private const int GrowthWindow = 30;
     private int _launchValue;
     private readonly HashSet<int> _pulledWorkers = [];
 
@@ -23,14 +33,30 @@ public sealed partial class FormicsBot
         var strongest = StrongestEnemyArmy(view);
         var guard = view.MyBuildings.Any(b => b.Type == BuildingType.Barracks && b.Completed) ? view.Workers.Count * _tune.ArmyPerWorker : 0;
         _outnumbered = armyValue < Math.Max(guard, strongest * _tune.DefendShare);
+        var towers = view.MyBuildings.Count(b => b.Type == BuildingType.GuardTower && b.Completed) * _tune.TowerValue;
+        // Where their army is heading: a Barracks and its first soldiers take most of this long to answer with.
+        _enemyArmyHistory.Enqueue(strongest);
+        var growth = _enemyArmyHistory.Count > GrowthWindow ? Math.Max(0, strongest - _enemyArmyHistory.Dequeue()) / (double)GrowthWindow : 0;
+        var expected = strongest + (int)(growth * _tune.LookaheadTicks);
+        // One on one, their army is coming for us; in a crowd, the big armies mostly meet each other.
+        var duel = view.State.Players.Count(p => p.Slot != view.State.You.Slot && !p.Eliminated) == 1;
+        _outgunned = duel && expected * _tune.DefendShare > armyValue + towers + _tune.OutgunnedMargin;
+
+        // An army by our buildings that we've seen with our own eyes and can't match yet: a rush. Build fighters, not expansions.
+        var seenRecently = _enemySeen.Values
+            .Where(e => e.Type != UnitType.Worker && hive.Tick - e.Tick <= 80 && view.MyBuildings.Any(b => Cheb(b.X, b.Y, e.X, e.Y) <= 2 * _tune.DefenseRadius))
+            .Sum(e => view.UnitCost(e.Type));
+        _rushed = seenRecently >= 200 && seenRecently > armyValue + towers;
 
         var threats = Threats(hive);
         var threatValue = threats.Sum(e => view.UnitCost(e.Type));
         var defenders = new List<UnitDto>();
         if (threats.Count > 0)
         {
-            // Everyone at home answers; while attacking, only as many as it takes (the nearest first).
-            var (tx, ty) = (threats[0].X, threats[0].Y);
+            // Everyone at home answers; while attacking, only as many as it takes (the nearest first). They go for the
+            // biggest bunch of raiders, not a straggler, or the two armies walk past each other.
+            var main = threats.OrderByDescending(t => threats.Where(o => Cheb(o.X, o.Y, t.X, t.Y) <= 4).Sum(o => view.UnitCost(o.Type))).First();
+            var (tx, ty) = (main.X, main.Y);
             var needed = _attacking ? threatValue * 2 : int.MaxValue;
             foreach (var u in army.OrderBy(u => Cheb(u.X, u.Y, tx, ty)))
             {
@@ -43,7 +69,9 @@ public sealed partial class FormicsBot
                 needed -= view.UnitCost(u.Type);
             }
 
-            Fight(hive, defenders, (tx, ty));
+            // Outmatched, they gather at the Command Center (with its towers and workers) rather than trickle in one by one.
+            var hold = (_rushed || threatValue > (armyValue * 1.3) + 100) && Cheb(tx, ty, view.CommandCenter!.X, view.CommandCenter.Y) > 3;
+            Fight(hive, defenders, hold ? (view.CommandCenter!.X, view.CommandCenter.Y) : (tx, ty), regroup: hold);
             var near = defenders.Where(u => Cheb(u.X, u.Y, tx, ty) <= 8).Sum(u => view.UnitCost(u.Type));
             _emergency = threatValue > 150 && near < threatValue * 1.2;
             if (_emergency || threats.Any(t => t.Type != UnitType.Worker && near == 0))
@@ -127,7 +155,7 @@ public sealed partial class FormicsBot
 
         var want = Math.Max(0, (threatValue * 3 / 2) - defenders) / 50;
         foreach (var w in view.Workers
-                     .Where(w => !hive.Turn.IsClaimed(w.Id) && fighters.Any(t => Cheb(t.X, t.Y, w.X, w.Y) <= 6))
+                     .Where(w => !hive.Turn.IsClaimed(w.Id) && !_memory.IsBuilder(w.Id) && fighters.Any(t => Cheb(t.X, t.Y, w.X, w.Y) <= 6))
                      .OrderBy(w => fighters.Min(t => Cheb(t.X, t.Y, w.X, w.Y))).Take(want))
         {
             _pulledWorkers.Add(w.Id);
@@ -143,7 +171,7 @@ public sealed partial class FormicsBot
     /// <summary>Workers near an army we can't stop dig somewhere safe instead.</summary>
     private void Evacuate(HiveTick hive, List<UnitDto> fighters)
     {
-        foreach (var w in hive.View.Workers.Where(w => !hive.Turn.IsClaimed(w.Id) && w.Activity != UnitActivity.Building
+        foreach (var w in hive.View.Workers.Where(w => !hive.Turn.IsClaimed(w.Id) && w.Activity != UnitActivity.Building && !_memory.IsBuilder(w.Id)
                                                        && fighters.Any(t => Cheb(t.X, t.Y, w.X, w.Y) <= 7)))
         {
             _pulledWorkers.Remove(w.Id);
@@ -235,11 +263,16 @@ public sealed partial class FormicsBot
         return null;
     }
 
-    /// <summary>Where the army waits: ahead of the main Command Center, toward the enemy.</summary>
-    private static (int X, int Y) RallyPoint(HiveTick hive)
+    /// <summary>Where the army waits: ahead of the main Command Center, toward the enemy (behind it while rushed).</summary>
+    private (int X, int Y) RallyPoint(HiveTick hive)
     {
         var cc = hive.View.CommandCenter!;
         var (dx, dy) = EnemyDirection(hive, cc.X, cc.Y);
+        if (_rushed && hive.IsOpen(cc.X - dx, cc.Y - dy))
+        {
+            return (cc.X - dx, cc.Y - dy); // behind the Command Center, out of the way until there are enough of us
+        }
+
         for (var d = 6; d >= 2; d--)
         {
             var (x, y) = (cc.X + (dx * d), cc.Y + (dy * d));

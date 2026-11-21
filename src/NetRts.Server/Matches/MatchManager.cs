@@ -24,6 +24,9 @@ public sealed class HouseBotDirectory
     public void Register(string bot, Guid playerId) => _ids[bot] = playerId;
 
     /// <summary>The player ids of the house bots Full House asks for (<see cref="HouseBots.FullHouse"/>).</summary>
+    /// <summary>The Formics' player id, for The Enemy's Gate Is Down.</summary>
+    public Guid? FormicsId => _ids.TryGetValue("formics", out var id) ? id : null;
+
     public IReadOnlyCollection<Guid> FullHouseIds => [.. HouseBots.FullHouse.Where(_ids.ContainsKey).Select(b => _ids[b])];
 
     public Guid IdOf(string bot) =>

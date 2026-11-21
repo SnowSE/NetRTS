@@ -10,6 +10,9 @@ public sealed partial class FormicsBot
         UpgradeType.Armor2, UpgradeType.Armor3, UpgradeType.Mobility1, UpgradeType.Mobility2, UpgradeType.Fortify1, UpgradeType.Fortify2,
     ];
 
+    // Under the gun, the fighting upgrades go first.
+    private static readonly UpgradeType[] FightFirst = [UpgradeType.Weapons1, UpgradeType.Armor1, .. ResearchOrder.Except([UpgradeType.Weapons1, UpgradeType.Armor1])];
+
     private int _fighterCursor;
 
     /// <summary>Set by the army when the base is under attack by more than it can hold: fighters come before everything.</summary>
@@ -185,16 +188,35 @@ public sealed partial class FormicsBot
             return Place(hive, cc ? BuildingType.CommandCenter : BuildingType.ResourceDepot, depot);
         }
 
+        // Facing a bigger army than ours, Barracks come before expansions.
+        var barracks = Have(BuildingType.Barracks);
+        var barracksWanted = workers < _tune.FirstBarracksWorkers && !_emergency && !_outnumbered ? 0
+            : Math.Clamp((int)Math.Ceiling(hive.IncomePerTick * (_rushed ? 1.0 : ArmyShare(hive)) / _tune.IncomePerBarracks) + (view.State.You.Resources / 800), 1, _tune.MaxBarracks);
+        var rising = barracks - view.MyBuildings.Count(b => b.Type == BuildingType.Barracks && b.Completed);
+        if ((_outgunned || _rushed) && barracks < barracksWanted && rising < 2)
+        {
+            return PlaceNearBase(hive, BuildingType.Barracks);
+        }
+
+        // Upgraded soldiers beat more soldiers.
+        if ((_outgunned || _rushed) && barracks >= 2 && Have(BuildingType.TechLab) == 0)
+        {
+            return PlaceNearBase(hive, BuildingType.TechLab);
+        }
+
+        // ...and towers by the Command Centers: a tower holds off three soldiers for the price of one and a quarter.
+        if ((_outgunned || _rushed) && view.MyBuildings.Any(b => b.Type == BuildingType.Barracks && b.Completed) && TowerWanted(hive) is { } guard)
+        {
+            return Place(hive, BuildingType.GuardTower, guard);
+        }
+
         // 2. More Command Centers: more workers at once, and the free corners' grubs.
-        if (Have(BuildingType.CommandCenter) < CommandCentersWanted(workers) && DropOffWanted(hive, onlyNear: false) is { } expansion)
+        if (!_rushed && !_outgunned && Have(BuildingType.CommandCenter) < CommandCentersWanted(workers) && DropOffWanted(hive, onlyNear: false) is { } expansion)
         {
             return Place(hive, BuildingType.CommandCenter, expansion, helpers: 2);
         }
 
         // 3. Barracks, Tech Labs, towers.
-        var barracks = Have(BuildingType.Barracks);
-        var barracksWanted = workers < _tune.FirstBarracksWorkers && !_emergency && !_outnumbered ? 0
-            : Math.Clamp((int)Math.Ceiling(hive.IncomePerTick * ArmyShare(hive) / _tune.IncomePerBarracks) + (view.State.You.Resources / 800), 1, _tune.MaxBarracks);
         var hasBarracks = view.MyBuildings.Any(b => b.Type == BuildingType.Barracks && b.Completed);
         var labs = Have(BuildingType.TechLab);
         var labsWanted = !hasBarracks ? 0 : workers >= 45 ? 2 : 1;
@@ -213,7 +235,7 @@ public sealed partial class FormicsBot
             return Place(hive, BuildingType.GuardTower, tower);
         }
 
-        if (barracks < barracksWanted)
+        if (barracks < barracksWanted && rising < 3)
         {
             return PlaceNearBase(hive, BuildingType.Barracks);
         }
@@ -326,7 +348,7 @@ public sealed partial class FormicsBot
     private (int X, int Y)? TowerWanted(HiveTick hive)
     {
         var view = hive.View;
-        if (view.Workers.Count < _tune.TowersFromWorkers || _tune.TowersPerBase == 0)
+        if ((view.Workers.Count < _tune.TowersFromWorkers && !_emergency && !_outgunned) || _tune.TowersPerBase == 0)
         {
             return null;
         }
@@ -383,7 +405,7 @@ public sealed partial class FormicsBot
         return true;
     }
 
-    /// <summary>The nearest open tile to (ax, ay) with a free tile all round, off the ore, a few tiles from (cx, cy).</summary>
+    /// <summary>The nearest open tile to (ax, ay) with a free tile all round, off the ore, out of the enemy's reach, a few tiles from (cx, cy).</summary>
     private static (int X, int Y)? FindSite(HiveTick hive, int ax, int ay, int cx, int cy)
     {
         (int X, int Y)? best = null;
@@ -392,7 +414,7 @@ public sealed partial class FormicsBot
         {
             for (var x = ax - 7; x <= ax + 7; x++)
             {
-                if (!hive.IsOpen(x, y) || Cheb(x, y, cx, cy) < 2 || !RoomAround(hive, x, y))
+                if (!hive.IsOpen(x, y) || Cheb(x, y, cx, cy) < 2 || !RoomAround(hive, x, y) || hive.IsDangerous(x, y))
                 {
                     continue;
                 }
@@ -447,7 +469,7 @@ public sealed partial class FormicsBot
             return;
         }
 
-        foreach (var upgrade in ResearchOrder)
+        foreach (var upgrade in _outgunned || _rushed ? FightFirst : ResearchOrder)
         {
             var stats = view.Rules.Upgrades.First(u => u.Type == upgrade);
             if (Budget(hive) < stats.Cost)
@@ -471,7 +493,7 @@ public sealed partial class FormicsBot
         {
             var type = _tune.ArcherEvery > 0 && _fighterCursor % _tune.ArcherEvery == _tune.ArcherEvery - 1 ? UnitType.Archer : UnitType.Soldier;
             var cost = view.UnitCost(type);
-            if (Budget(hive) - (_emergency ? 0 : hive.Reserved) < cost)
+            if (Budget(hive) - (_emergency || _rushed ? 0 : hive.Reserved) < cost)
             {
                 return;
             }

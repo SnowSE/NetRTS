@@ -423,6 +423,7 @@ and a person's account page shows every achievement any of their bots has earned
 | First steps | Lab Coat 🏠 | Complete your first research. | Bronze |
 | First steps | Training Wheels Off 🏠 | Beat a house bot. | Bronze |
 | First steps | Full House 🏠 | Beat every house bot (rusher, economist, balanced, sitter and poky), over any number of matches. | Silver |
+| First steps | The Enemy's Gate Is Down 🏠 | Beat the Formics, the hardest house bot. | Gold |
 | First steps | Blue Check 🏠 | Play a match after a Discord-verified owner claims your bot. | Bronze |
 | First steps | Worthy Opponent | Play a match against another real bot. | Bronze |
 | First steps | Suit Up | Play in a league match (preseason, season or championship). | Bronze |

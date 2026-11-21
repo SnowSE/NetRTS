@@ -60,7 +60,7 @@ public class FormicsBotTests
         // Same economy, same plan; only the fighting differs.
         var blunt = new FormicsTuning { FocusFire = false };
         Assert.Equal(0, Winner(Play([new FormicsBot(), new FormicsBot(blunt)], seed: 41)));
-        Assert.Equal(1, Winner(Play([new FormicsBot(blunt), new FormicsBot()], seed: 42)));
+        Assert.Equal(1, Winner(Play([new FormicsBot(blunt), new FormicsBot()], seed: 41)));
     }
 
     [Fact]
@@ -74,6 +74,19 @@ public class FormicsBotTests
             AttackThreshold = 5,
         });
         Assert.Equal(1, Winner(Play([rush, new FormicsBot()], seed: 43)));
+    }
+
+    [Fact]
+    public void A_twenty_worker_timing_attack_with_the_same_focus_fire_is_held_from_either_corner()
+    {
+        // Most of the strongest student bots target units, not just attack-move: a lean army with good micro, early.
+        var timing = new FormicsTuning
+        {
+            MaxWorkers = 20, MinWorkers = 20, CommandCenterAtWorkers = [0], FirstBarracksWorkers = 6, EarlyArmyShare = 0.9, MidArmyShare = 1.0, MidGameTick = 100,
+            MaxBarracks = 5, TowersPerBase = 0, AttackValue = 1000, AttackEdge = 0.7,
+        };
+        Assert.Equal(0, Winner(Play([new FormicsBot(), new FormicsBot(timing)], seed: 47)));
+        Assert.Equal(1, Winner(Play([new FormicsBot(timing), new FormicsBot()], seed: 47)));
     }
 
     [Theory]

@@ -96,6 +96,12 @@ internal sealed record FormicsTuning
     /// <summary>Once there's a Barracks, keep this many grubs of army per worker.</summary>
     public int ArmyPerWorker { get; init; } = 25;
 
+    /// <summary>An expected enemy army this much bigger than ours and our towers puts Barracks and towers before expansions.</summary>
+    public int OutgunnedMargin { get; init; } = 700;
+
+    /// <summary>Judge the enemy army by what it will be this many ticks on, at the rate it's growing.</summary>
+    public int LookaheadTicks { get; init; } = 50;
+
     /// <summary>Keep the army at least this share of the strongest enemy army we expect.</summary>
     public double DefendShare { get; init; } = 0.9;
 
