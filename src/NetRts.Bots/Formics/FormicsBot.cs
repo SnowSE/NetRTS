@@ -177,6 +177,14 @@ public sealed partial class FormicsBot : IBotStrategy, ISerumTaker
         return Math.Max(seen, (int)(guess * _tune.ScoreArmyShare));
     }
 
+    /// <summary>An enemy started close by (a crowded map): their base is a short walk from ours.</summary>
+    private bool CloseNeighbor(BotView view)
+    {
+        var me = view.State.Players.First(p => p.Slot == view.State.You.Slot).StartPosition;
+        return view.State.Players.Any(p => p.Slot != view.State.You.Slot && !p.Eliminated
+                                           && Cheb(p.StartPosition.X, p.StartPosition.Y, me.X, me.Y) <= _tune.CloseNeighborTiles);
+    }
+
     /// <summary>The strongest enemy army we expect.</summary>
     private int StrongestEnemyArmy(BotView view) =>
         view.State.Players.Where(p => p.Slot != view.State.You.Slot && !p.Eliminated).Select(p => EstimatedArmy(view, p)).DefaultIfEmpty(0).Max();

@@ -38,6 +38,9 @@ internal sealed record FormicsTuning
     /// <summary>The first Barracks waits for this many workers.</summary>
     public int FirstBarracksWorkers { get; init; } = 24;
 
+    /// <summary>An enemy start this near ours makes a crowded map, a neighbor next door: Barracks and Tech Labs go behind the Command Center.</summary>
+    public int CloseNeighborTiles { get; init; } = 30;
+
     /// <summary>One Barracks per this many grubs a tick of the income share for fighters (one turning out soldiers nonstop spends 8.3).</summary>
     public double IncomePerBarracks { get; init; } = 6.0;
 

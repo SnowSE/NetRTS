@@ -386,6 +386,11 @@ public sealed partial class FormicsBot
     {
         var cc = hive.View.CommandCenter!;
         var (ex, ey) = EnemyDirection(hive, cc.X, cc.Y);
+        if (CloseNeighbor(hive.View))
+        {
+            (ex, ey) = (-ex, -ey); // a neighbor next door: Barracks and Tech Labs go behind the Command Center, out of their reach
+        }
+
         var site = FindSite(hive, cc.X + (ex * 4), cc.Y + (ey * 4), cc.X, cc.Y);
         return site is null || Place(hive, type, site.Value, helpers: type == BuildingType.ResourceDepot ? 0 : 1);
     }
