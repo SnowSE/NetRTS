@@ -6,6 +6,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\NetRts.Protocol\NetRts.Protocol.csproj" />
+    <InternalsVisibleTo Include="NetRts.Engine.Tests" />
   </ItemGroup>
 
 </Project>

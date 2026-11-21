@@ -54,6 +54,7 @@ public static class SnowLore
         ["rusher"] = "Honey Badger",
         ["balanced"] = "Blue Badger",
         ["economist"] = "Grub Hoarder",
+        ["formics"] = "The Formics",
     };
 
     /// <summary>A name to use mid-sentence ("a Bell Tower"): without a leading "The".</summary>

@@ -23,8 +23,8 @@ public sealed class HouseBotDirectory
 
     public void Register(string bot, Guid playerId) => _ids[bot] = playerId;
 
-    /// <summary>Every house bot's player id.</summary>
-    public IReadOnlyCollection<Guid> Ids => [.. _ids.Values];
+    /// <summary>The player ids of the house bots Full House asks for (<see cref="HouseBots.FullHouse"/>).</summary>
+    public IReadOnlyCollection<Guid> FullHouseIds => [.. HouseBots.FullHouse.Where(_ids.ContainsKey).Select(b => _ids[b])];
 
     public Guid IdOf(string bot) =>
         _ids.TryGetValue(bot, out var id) ? id : throw new InvalidOperationException($"House bot {bot} was not seeded.");

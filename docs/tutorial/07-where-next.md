@@ -22,6 +22,7 @@ python step4_attack.py --name my-first-bot --vs balanced --tick-ms 200          
 | `rusher` | Races up the tech to two Trebuchets, then attacks with them surrounded by soldiers and scouts. |
 | `economist` | Big economy, guard towers, upgrades, a large late push. |
 | `balanced` | Steady economy, soldiers plus archers, upgrades, attacks in waves of ten. |
+| `formics` | The hardest: a huge economy across the whole map, then a swarm of upgraded soldiers that focus their fire. |
 
 Watch the matches in the spectate page: seeing *how* you lose is the fastest way to improve. Use
 `--seed` to replay the same map while you compare changes.

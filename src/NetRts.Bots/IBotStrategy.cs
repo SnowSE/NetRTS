@@ -1,3 +1,4 @@
+using NetRts.Bots.Formics;
 using NetRts.Protocol;
 
 namespace NetRts.Bots;
@@ -26,7 +27,11 @@ public static class HouseBots
             ["balanced"] = ("The Blue Badger: steady economy, mixed soldiers and archers, Weapons/Armor upgrades, attacks in waves.", () => new BalancedBot()),
             ["sitter"] = ("The Sleepy Sitter: only mines. A friendly practice badger for testing your first bot.", () => new SitterBot()),
             ["poky"] = ("The Poky Badger: digs slowly, keeps a few soldiers home and walks the rest over three at a time. A first opponent that fights back.", () => new PokyBot()),
+            ["formics"] = ("The Formics: a hive mind and the hardest house bot. Digs every corner of the map with a hundred workers, guards them with bell towers, then swarms in with upgraded soldiers that all strike the same target.", () => new FormicsBot()),
         };
+
+    /// <summary>The house bots the Full House achievement asks a bot to beat (the Formics came later, and aren't one of them).</summary>
+    public static IReadOnlyList<string> FullHouse { get; } = ["rusher", "economist", "balanced", "sitter", "poky"];
 
     public static IReadOnlyList<HouseBotDto> All =>
         Registry.Select(kv => new HouseBotDto(kv.Key, kv.Value.Description)).ToList();

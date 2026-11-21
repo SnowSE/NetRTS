@@ -147,7 +147,7 @@ Take the last enemy HQ, or have the higher score at the final whistle. Results b
 destruction, economy and survival, feed an Elo ladder of Top Badgers, and come with a full replay:
 the engine is deterministic, so a seed plus the command log reproduces any brawl exactly.
 
-## Five house badgers to scrimmage
+## Six house bots to scrimmage
 
 | House badger | API name | Plays like |
 |---|---|---|
@@ -156,8 +156,9 @@ the engine is deterministic, so a seed plus the command log reproduces any brawl
 | **Honey Badger** | `rusher` | Doesn't care. Races to two Snow Mobiles and rolls them at your campus ringed by soldiers. |
 | **Blue Badger** | `balanced` | Steady economy, mixed team, upgrades, attacks in waves. |
 | **Grub Hoarder** | `economist` | Out-digs everyone, hides behind bell towers, arrives late with an enormous clan. |
+| **The Formics** | `formics` | A hive mind. Digs every corner of the map with a hundred workers, then swarms you with upgraded soldiers that all hit the same target. The final boss. |
 
-Beat the Sleepy Sitter and the Poky Badger in your first hour. Beating the Grub Hoarder takes a real plan.
+Beat the Sleepy Sitter and the Poky Badger in your first hour. Beating the Grub Hoarder takes a real plan. Beating the Formics takes the best bot in the class.
 
 ## An API that documents itself
 

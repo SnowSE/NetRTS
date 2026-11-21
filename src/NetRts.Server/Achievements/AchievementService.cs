@@ -120,7 +120,7 @@ public sealed class AchievementService(
                 : 0;
             var verified = Accounts.IsVerified(bot.Owner, discord.Value);
             var context = new AchievementContext(row, result.Players.First(p => p.Slot == row.Slot), result.Players, history,
-                opponents.ToLookup(o => o.MatchId), match.MaxTicks, houseBots.Ids, verified, bestRating, ownerBots, options.Value.Zone);
+                opponents.ToLookup(o => o.MatchId), match.MaxTicks, houseBots.FullHouseIds, verified, bestRating, ownerBots, options.Value.Zone);
             await AwardAsync(db, context, match.CompletedAt, announce: (bot.Name, verified, verified ? bot.Owner!.DisplayName : null), ct);
         }
     }
@@ -306,7 +306,7 @@ public sealed class AchievementService(
                 }
 
                 var context = new AchievementContext(row, match.Result.Players.First(p => p.Slot == row.Slot), match.Result.Players, history,
-                    opponents, match.MaxTicks, houseBots.Ids, Accounts.IsVerified(bot.Owner, discord.Value),
+                    opponents, match.MaxTicks, houseBots.FullHouseIds, Accounts.IsVerified(bot.Owner, discord.Value),
                     ratings.GetValueOrDefault(row.PlayerId, Elo.InitialRating),
                     bot.OwnerAccountId is { } o && winners.TryGetValue(o, out var bots) ? bots.Count : 0,
                     options.Value.Zone);

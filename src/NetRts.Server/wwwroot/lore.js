@@ -61,6 +61,7 @@ export const BOT_NICKNAME = {
   rusher: 'Honey Badger',
   balanced: 'Blue Badger',
   economist: 'Grub Hoarder',
+  formics: 'The Formics',
 };
 
 /** The resource: ore in the API, grubs on the field. Badgers dig for them. */

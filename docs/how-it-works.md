@@ -350,6 +350,8 @@ matches are rated, so nobody can farm rating by beating the passive house bot.
 - `PlanBot` — one data-driven strategy engine. `rusher`, `economist`, `balanced` and `sitter` are
   the same code with different `BotPlan`s (worker target, build order, army mix, attack
   threshold).
+- `FormicsBot` (`Formics/`) — the hardest house bot, its own code: depots two tiles from the grubs,
+  Command Centers on the free fields, an army sized from the public scoreboard, and focus fire.
 
 The same strategy objects run in two places. Over HTTP via the runner, they are ordinary bots.
 Inside the server as **house bots**, `MatchHost` calls `Decide` just before each tick and submits
