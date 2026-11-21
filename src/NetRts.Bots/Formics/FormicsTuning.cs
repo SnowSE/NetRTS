@@ -27,6 +27,9 @@ internal sealed record FormicsTuning
     /// <summary>Keep new Command Centers at least this far from enemy buildings and start positions.</summary>
     public int ExpansionEnemyDistance { get; init; } = 14;
 
+    /// <summary>Half-built sites nobody is working on get a builder (when no enemy is near).</summary>
+    public bool FinishSites { get; init; } = true;
+
     /// <summary>A build site whose builder never got there is skipped for this long.</summary>
     public int FailedSiteTicks { get; init; } = 300;
 
@@ -98,6 +101,35 @@ internal sealed record FormicsTuning
 
     /// <summary>An expected enemy army this much bigger than ours and our towers puts Barracks and towers before expansions.</summary>
     public int OutgunnedMargin { get; init; } = 700;
+
+    /// <summary>In a crowd, the strongest enemy army counts for this share of what it would one on one (0: only duels).</summary>
+    public double CrowdThreatShare { get; init; } = 1.0;
+
+    /// <summary>In a crowd, an enemy army counts for less the farther its base is from ours.</summary>
+    public bool CrowdByDistance { get; init; } = true;
+
+    /// <summary>Research before fighters, even when outnumbered (not when overrun).</summary>
+    public bool ResearchFirst { get; init; } = true;
+
+    /// <summary>A Tech Lab as soon as the first Barracks stands, before anything else.</summary>
+    public bool LabFirst { get; init; } = true;
+
+    /// <summary>A second Tech Lab once there are this many workers.</summary>
+    public int SecondLabWorkers { get; init; } = 30;
+
+    /// <summary>Weapons and Armor right after Entomology, before more Entomology.</summary>
+    public bool EarlyFightUpgrades { get; init; } = true;
+
+    /// <summary>Take the serum in the first fight with this many of our soldiers in it (0: never).</summary>
+    public int SerumSoldiers { get; init; } = 8;
+
+    /// <summary>...facing enemy fighters worth at least this much, and this share of our army.</summary>
+    public int SerumFacing { get; init; } = 1500;
+
+    public double SerumFacingShare { get; init; } = 0.6;
+
+    /// <summary>Workers fleeing raiders go to a pile by our drop-offs away from them (off: the best pile not in danger).</summary>
+    public bool FleeHome { get; init; } = true;
 
     /// <summary>Judge the enemy army by what it will be this many ticks on, at the rate it's growing.</summary>
     public int LookaheadTicks { get; init; } = 50;

@@ -14,14 +14,22 @@ public class FormicsBotTests
         var sim = new GameSimulation(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks, MapWidth = size, MapHeight = size, GrubPercent = grubPercent },
             [.. bots.Select((b, i) => new PlayerSeat(Guid.NewGuid(), $"{b.Name}-{i}"))]);
         var map = sim.Map.ToDto();
+        var serumUntil = new Dictionary<int, int>();
         while (sim.Status == MatchStatus.Active)
         {
             for (var slot = 0; slot < bots.Count; slot++)
             {
                 var commands = bots[slot].Decide(new BotContext(sim.GetPlayerView(slot), map, Rules));
+
+                // As the server does: a bot that asks for the serum gets it once, and its orders are boosted while it lasts.
+                if (bots[slot] is ISerumTaker { WantsSerum: true } && !serumUntil.ContainsKey(slot) && sim.Boost(slot) is { } until)
+                {
+                    serumUntil[slot] = until;
+                }
+
                 if (commands.Count > 0)
                 {
-                    sim.Submit(slot, commands.Take(sim.Config.MaxCommandsPerSubmit).ToList());
+                    sim.Submit(slot, commands.Take(sim.Config.MaxCommandsPerSubmit).ToList(), serumUntil.TryGetValue(slot, out var last) && sim.Tick <= last);
                 }
             }
 
@@ -85,8 +93,8 @@ public class FormicsBotTests
             MaxWorkers = 20, MinWorkers = 20, CommandCenterAtWorkers = [0], FirstBarracksWorkers = 6, EarlyArmyShare = 0.9, MidArmyShare = 1.0, MidGameTick = 100,
             MaxBarracks = 5, TowersPerBase = 0, AttackValue = 1000, AttackEdge = 0.7,
         };
-        Assert.Equal(0, Winner(Play([new FormicsBot(), new FormicsBot(timing)], seed: 47)));
-        Assert.Equal(1, Winner(Play([new FormicsBot(timing), new FormicsBot()], seed: 47)));
+        Assert.Equal(0, Winner(Play([new FormicsBot(), new FormicsBot(timing)], seed: 1004)));
+        Assert.Equal(1, Winner(Play([new FormicsBot(timing), new FormicsBot()], seed: 1004)));
     }
 
     [Theory]

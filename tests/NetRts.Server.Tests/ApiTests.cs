@@ -628,6 +628,24 @@ public class ApiTests(ServerFactory factory) : IClassFixture<ServerFactory>
     }
 
     [Fact]
+    public async Task House_bots_that_ask_for_the_serum_take_it_once_each_and_their_orders_are_boosted_while_it_lasts()
+    {
+        var http = factory.CreateClient();
+        var created = await http.PostAsJsonAsync("/api/v1/exhibitions",
+            new CreateExhibitionRequest { Bots = ["formics", "formics"], Settings = new MatchSettingsDto { Seed = 7 } }, NetRtsClient.JsonOptions, Ct);
+        var match = (await created.Content.ReadFromJsonAsync<MatchSummaryDto>(NetRtsClient.JsonOptions, Ct))!;
+        factory.Matches.Get(match.MatchId)!.Advance(1800);
+
+        var replay = (await http.GetFromJsonAsync<ReplayDto>($"/api/v1/matches/{match.MatchId}/replay", NetRtsClient.JsonOptions, Ct))!;
+        var boosts = replay.Boosts!;
+        Assert.NotEmpty(boosts);
+        Assert.Equal(boosts.Count, boosts.Select(b => b.Slot).Distinct().Count());
+        var boosted = replay.Commands.Where(c => c.Boosted).ToList();
+        Assert.NotEmpty(boosted);
+        Assert.All(boosted, c => Assert.Contains(boosts, b => b.Slot == c.Slot && c.Tick >= b.Tick && c.Tick <= b.Tick + 30));
+    }
+
+    [Fact]
     public async Task The_api_reference_leaves_out_internal_fields()
     {
         var document = await factory.CreateClient().GetStringAsync("/openapi/v1.json", Ct);

@@ -787,9 +787,10 @@ public sealed class MatchHost
             try
             {
                 var commands = bot.Decide(new BotContext(_sim!.GetPlayerView(slot), _map!, Rules));
+                var boosted = ServerBotBoosted(slot, bot);
                 if (commands.Count > 0)
                 {
-                    _sim.Submit(slot, commands.Take(_sim.Config.MaxCommandsPerSubmit).ToList());
+                    _sim.Submit(slot, commands.Take(_sim.Config.MaxCommandsPerSubmit).ToList(), boosted);
                 }
             }
             catch (Exception ex)
@@ -800,6 +801,20 @@ public sealed class MatchHost
                 _metrics.ServerBotFailed(kind);
             }
         }
+    }
+
+    // The last tick of the serum for server-played bots that took it, by slot.
+    private readonly Dictionary<int, int> _serverBotSerumUntil = [];
+
+    /// <summary>A server-played bot takes the serum when it asks (once a match, like anyone); its orders are boosted while it lasts.</summary>
+    private bool ServerBotBoosted(int slot, IBotStrategy bot)
+    {
+        if (bot is ISerumTaker { WantsSerum: true } && !_serverBotSerumUntil.ContainsKey(slot) && _sim!.Boost(slot) is { } until)
+        {
+            _serverBotSerumUntil[slot] = until;
+        }
+
+        return _serverBotSerumUntil.TryGetValue(slot, out var last) && _sim!.Tick <= last;
     }
 
     private void Signal()

@@ -14,7 +14,7 @@ namespace NetRts.Bots.Formics;
 /// <see cref="BotTurn"/>); the economy is in FormicsBot.Economy.cs and the fighting in FormicsBot.Army.cs.
 /// </para>
 /// </summary>
-public sealed partial class FormicsBot : IBotStrategy
+public sealed partial class FormicsBot : IBotStrategy, ISerumTaker
 {
     private readonly BotMemory _memory = new(trackBuilders: true);
     private readonly FormicsTuning _tune;
@@ -67,6 +67,12 @@ public sealed partial class FormicsBot : IBotStrategy
         CommandArmy(hive);
         Scout(hive);
         Spend(hive);
+        if (_tune.FinishSites)
+        {
+            // A builder killed or chased off leaves a half-built site: someone else finishes it, once it's safe.
+            turn.FinishAbandonedSites(site => hive.IsDangerous(site.X, site.Y));
+        }
+
         GatherWorkers(hive);
 
         return turn.Commands.Count <= MaxCommands ? turn.Commands : [.. turn.Commands.Take(MaxCommands)];
@@ -172,6 +178,20 @@ public sealed partial class FormicsBot : IBotStrategy
     /// <summary>The strongest enemy army we expect.</summary>
     private int StrongestEnemyArmy(BotView view) =>
         view.State.Players.Where(p => p.Slot != view.State.You.Slot && !p.Eliminated).Select(p => EstimatedArmy(view, p)).DefaultIfEmpty(0).Max();
+
+    /// <summary>The strongest enemy army, each counted by how near its base is to ours (the nearest in full): the far ones have others to fight first.</summary>
+    private int NearestThreat(BotView view)
+    {
+        var me = view.State.Players.First(p => p.Slot == view.State.You.Slot).StartPosition;
+        var enemies = view.State.Players.Where(p => p.Slot != view.State.You.Slot && !p.Eliminated).ToList();
+        if (enemies.Count == 0)
+        {
+            return 0;
+        }
+
+        var nearest = Math.Max(1, enemies.Min(p => Cheb(p.StartPosition.X, p.StartPosition.Y, me.X, me.Y)));
+        return enemies.Max(p => (int)(EstimatedArmy(view, p) * nearest / (double)Math.Max(1, Cheb(p.StartPosition.X, p.StartPosition.Y, me.X, me.Y))));
+    }
 
     private void RecordScores(BotView view)
     {

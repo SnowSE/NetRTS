@@ -10,6 +10,12 @@ public sealed partial class FormicsBot
         UpgradeType.Armor2, UpgradeType.Armor3, UpgradeType.Mobility1, UpgradeType.Mobility2, UpgradeType.Fortify1, UpgradeType.Fortify2,
     ];
 
+    private static readonly UpgradeType[] FightSoon =
+    [
+        UpgradeType.Harvesting1, UpgradeType.Weapons1, UpgradeType.Armor1, UpgradeType.Harvesting2, UpgradeType.Weapons2,
+        UpgradeType.Armor2, UpgradeType.Armor3, UpgradeType.Mobility1, UpgradeType.Mobility2, UpgradeType.Fortify1, UpgradeType.Fortify2,
+    ];
+
     // Under the gun, the fighting upgrades go first.
     private static readonly UpgradeType[] FightFirst = [UpgradeType.Weapons1, UpgradeType.Armor1, .. ResearchOrder.Except([UpgradeType.Weapons1, UpgradeType.Armor1])];
 
@@ -20,6 +26,12 @@ public sealed partial class FormicsBot
 
     private void Spend(HiveTick hive)
     {
+        // Research is cheap and makes every fighter better: it goes first unless the base is being overrun.
+        if (_tune.ResearchFirst && !_emergency)
+        {
+            Research(hive);
+        }
+
         if (_emergency || _outnumbered)
         {
             TrainFighters(hive);
@@ -199,7 +211,8 @@ public sealed partial class FormicsBot
         }
 
         // Upgraded soldiers beat more soldiers.
-        if ((_outgunned || _rushed) && barracks >= 2 && Have(BuildingType.TechLab) == 0)
+        var labFirst = _tune.LabFirst && view.MyBuildings.Any(b => b.Type == BuildingType.Barracks && b.Completed);
+        if ((_outgunned || _rushed || labFirst) && (barracks >= 2 || labFirst) && Have(BuildingType.TechLab) == 0)
         {
             return PlaceNearBase(hive, BuildingType.TechLab);
         }
@@ -219,13 +232,13 @@ public sealed partial class FormicsBot
         // 3. Barracks, Tech Labs, towers.
         var hasBarracks = view.MyBuildings.Any(b => b.Type == BuildingType.Barracks && b.Completed);
         var labs = Have(BuildingType.TechLab);
-        var labsWanted = !hasBarracks ? 0 : workers >= 45 ? 2 : 1;
+        var labsWanted = !hasBarracks ? 0 : workers >= _tune.SecondLabWorkers ? 2 : 1;
         if (barracks == 0 && barracksWanted > 0)
         {
             return PlaceNearBase(hive, BuildingType.Barracks);
         }
 
-        if (labs < labsWanted && (labs == 0 || barracks >= 3))
+        if (labs < labsWanted && (labs == 0 || barracks >= 2))
         {
             return PlaceNearBase(hive, BuildingType.TechLab);
         }
@@ -469,7 +482,7 @@ public sealed partial class FormicsBot
             return;
         }
 
-        foreach (var upgrade in _outgunned || _rushed ? FightFirst : ResearchOrder)
+        foreach (var upgrade in _outgunned || _rushed ? FightFirst : _tune.EarlyFightUpgrades ? FightSoon : ResearchOrder)
         {
             var stats = view.Rules.Upgrades.First(u => u.Type == upgrade);
             if (Budget(hive) < stats.Cost)

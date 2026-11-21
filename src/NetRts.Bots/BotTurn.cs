@@ -162,9 +162,9 @@ public sealed class BotTurn(BotView view, BotMemory memory, bool reserveUnits = 
     public UnitDto? PickBuilder((int X, int Y) site) => View.PickBuilder(site, id => IsClaimed(id) || Memory.IsBuilder(id));
 
     /// <summary>Sends a worker to every half-built building nobody is working on.</summary>
-    public void FinishAbandonedSites()
+    public void FinishAbandonedSites(Func<BuildingDto, bool>? skip = null)
     {
-        foreach (var site in View.MyBuildings.Where(b => !b.Completed))
+        foreach (var site in View.MyBuildings.Where(b => !b.Completed && skip?.Invoke(b) != true))
         {
             if (View.Workers.Any(w => w.TargetId == site.Id || (w.Destination is { } d && d.X == site.X && d.Y == site.Y)))
             {

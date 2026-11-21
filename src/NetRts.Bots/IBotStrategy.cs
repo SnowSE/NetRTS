@@ -17,6 +17,15 @@ public interface IBotStrategy
     IReadOnlyList<CommandRequest> Decide(BotContext context);
 }
 
+/// <summary>
+/// A server-played bot that takes the serum when it judges the moment right. The server asks after every
+/// <see cref="IBotStrategy.Decide"/>; the first yes takes it (once a match), and the bot's commands are boosted while it lasts.
+/// </summary>
+public interface ISerumTaker
+{
+    bool WantsSerum { get; }
+}
+
 public static class HouseBots
 {
     private static readonly Dictionary<string, (string Description, Func<IBotStrategy> Create)> Registry =

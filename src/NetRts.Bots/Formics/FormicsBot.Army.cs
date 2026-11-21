@@ -22,6 +22,13 @@ public sealed partial class FormicsBot
     private int _launchValue;
     private readonly HashSet<int> _pulledWorkers = [];
 
+    // The serum: soldiers ordered while it lasts fight and move twice as fast. Once a match.
+    private const int SerumTicks = 30;
+    private int _serumUntil = -1;
+
+    /// <inheritdoc/>
+    public bool WantsSerum { get; private set; }
+
     private void CommandArmy(HiveTick hive)
     {
         var view = hive.View;
@@ -35,18 +42,22 @@ public sealed partial class FormicsBot
         _outnumbered = armyValue < Math.Max(guard, strongest * _tune.DefendShare);
         var towers = view.MyBuildings.Count(b => b.Type == BuildingType.GuardTower && b.Completed) * _tune.TowerValue;
         // Where their army is heading: a Barracks and its first soldiers take most of this long to answer with.
-        _enemyArmyHistory.Enqueue(strongest);
-        var growth = _enemyArmyHistory.Count > GrowthWindow ? Math.Max(0, strongest - _enemyArmyHistory.Dequeue()) / (double)GrowthWindow : 0;
-        var expected = strongest + (int)(growth * _tune.LookaheadTicks);
-        // One on one, their army is coming for us; in a crowd, the big armies mostly meet each other.
+        // One on one, their army is coming for us; in a crowd, the big armies partly meet each other.
         var duel = view.State.Players.Count(p => p.Slot != view.State.You.Slot && !p.Eliminated) == 1;
-        _outgunned = duel && expected * _tune.DefendShare > armyValue + towers + _tune.OutgunnedMargin;
+        var threat = duel || !_tune.CrowdByDistance ? strongest : NearestThreat(view);
+        _enemyArmyHistory.Enqueue(threat);
+        var growth = _enemyArmyHistory.Count > GrowthWindow ? Math.Max(0, threat - _enemyArmyHistory.Dequeue()) / (double)GrowthWindow : 0;
+        var expected = threat + (int)(growth * _tune.LookaheadTicks);
+        var threatShare = duel ? 1.0 : _tune.CrowdThreatShare;
+        _outgunned = expected * threatShare * _tune.DefendShare > armyValue + towers + _tune.OutgunnedMargin;
 
         // An army by our buildings that we've seen with our own eyes and can't match yet: a rush. Build fighters, not expansions.
         var seenRecently = _enemySeen.Values
             .Where(e => e.Type != UnitType.Worker && hive.Tick - e.Tick <= 80 && view.MyBuildings.Any(b => Cheb(b.X, b.Y, e.X, e.Y) <= 2 * _tune.DefenseRadius))
             .Sum(e => view.UnitCost(e.Type));
         _rushed = seenRecently >= 200 && seenRecently > armyValue + towers;
+
+        TakeSerumIfDecisive(hive, army);
 
         var threats = Threats(hive);
         var threatValue = threats.Sum(e => view.UnitCost(e.Type));
@@ -126,6 +137,29 @@ public sealed partial class FormicsBot
         Fight(hive, rest.Where(u => u.Activity != UnitActivity.Idle || Cheb(u.X, u.Y, rally.X, rally.Y) > 3).ToList(), rally, regroup: true);
     }
 
+    /// <summary>The serum goes into the first big fight: enough of our soldiers at grips with a real army.</summary>
+    private void TakeSerumIfDecisive(HiveTick hive, List<UnitDto> army)
+    {
+        WantsSerum = false;
+        if (_tune.SerumSoldiers <= 0 || _serumUntil >= 0)
+        {
+            return;
+        }
+
+        var view = hive.View;
+        var enemies = view.EnemyUnits.Where(e => e.Type is UnitType.Soldier or UnitType.Archer or UnitType.Scout).ToList();
+        var engaged = army.Count(u => u.Type == UnitType.Soldier && enemies.Any(e => Cheb(e.X, e.Y, u.X, u.Y) <= 4));
+        var facing = enemies.Where(e => army.Any(u => Cheb(e.X, e.Y, u.X, u.Y) <= 6)).Sum(e => view.UnitCost(e.Type));
+        var armyValue = army.Sum(u => view.UnitCost(u.Type));
+        if (engaged >= _tune.SerumSoldiers && facing >= Math.Max(_tune.SerumFacing, armyValue * _tune.SerumFacingShare))
+        {
+            WantsSerum = true;
+            _serumUntil = hive.Tick + SerumTicks;
+        }
+    }
+
+    private bool Boosted(HiveTick hive) => hive.Tick <= _serumUntil;
+
     /// <summary>Enemy guard towers we know of within reach of a spot.</summary>
     private static int TowersNear(BotView view, int x, int y) =>
         view.EnemyBuildings.Count(b => b.Type == BuildingType.GuardTower && Cheb(b.X, b.Y, x, y) <= 8)
@@ -175,7 +209,7 @@ public sealed partial class FormicsBot
                                                        && fighters.Any(t => Cheb(t.X, t.Y, w.X, w.Y) <= 7)))
         {
             _pulledWorkers.Remove(w.Id);
-            if (BestDeposit(hive, w.X, w.Y, null) is { } spot && !hive.IsDangerous(spot.X, spot.Y))
+            if (SafeDeposit(hive, w, fighters) is { } spot)
             {
                 hive.Turn.Claim(w.Id);
                 if (w.TargetId != spot.Id)
@@ -184,6 +218,41 @@ public sealed partial class FormicsBot
                 }
             }
         }
+    }
+
+    /// <summary>A pile to dig at out of the raiders' way: away from them, by one of our drop-offs, nearer home than they are.</summary>
+    private OreSpot? SafeDeposit(HiveTick hive, UnitDto worker, List<UnitDto> raiders)
+    {
+        if (!_tune.FleeHome)
+        {
+            return BestDeposit(hive, worker.X, worker.Y, null) is { } spot && !hive.IsDangerous(spot.X, spot.Y) ? spot : null;
+        }
+
+        var standing = hive.View.MyBuildings.Where(b => b.Type is BuildingType.CommandCenter or BuildingType.ResourceDepot).Select(b => (b.X, b.Y)).ToList();
+        OreSpot? best = null;
+        var bestScore = int.MinValue;
+        foreach (var spot in hive.Ore.Spots)
+        {
+            if (spot.Id == 0 || spot.Remaining <= 0 || Walk(hive, spot, standing) > 2)
+            {
+                continue;
+            }
+
+            var away = raiders.Min(r => Cheb(r.X, r.Y, spot.X, spot.Y));
+            if (away < 8 || raiders.Any(r => Cheb(r.X, r.Y, spot.X, spot.Y) < Cheb(r.X, r.Y, worker.X, worker.Y) && Cheb(worker.X, worker.Y, spot.X, spot.Y) > away))
+            {
+                continue; // too near them, or through them
+            }
+
+            var score = (Math.Min(away, 20) * 3) - Cheb(worker.X, worker.Y, spot.X, spot.Y);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                best = spot;
+            }
+        }
+
+        return best;
     }
 
     /// <summary>Pulled workers go back to digging once the danger has passed.</summary>
@@ -313,7 +382,8 @@ public sealed partial class FormicsBot
                 continue;
             }
 
-            if (u.TargetId == target.Value.Id && u.Activity == UnitActivity.Attacking)
+            // While the serum lasts, every soldier is ordered again so it gets the boost.
+            if (u.TargetId == target.Value.Id && u.Activity == UnitActivity.Attacking && !Boosted(hive))
             {
                 continue;
             }
@@ -333,7 +403,14 @@ public sealed partial class FormicsBot
 
         if (free.Count > 0)
         {
-            hive.Turn.Order(free, CommandType.Attack, spot, retarget: !regroup);
+            if (Boosted(hive))
+            {
+                hive.Turn.Add(new CommandRequest { Type = CommandType.Attack, UnitIds = [.. free.Select(u => u.Id)], X = spot.X, Y = spot.Y });
+            }
+            else
+            {
+                hive.Turn.Order(free, CommandType.Attack, spot, retarget: !regroup);
+            }
         }
     }
 
