@@ -6,9 +6,11 @@ namespace NetRts.Bots.Formics;
 /// The Formics: a hive mind. It plays the macro game the strongest student bots play, only tighter: workers
 /// from every Command Center without a break, a drop-off two tiles from every grub field so diggers never walk,
 /// new Command Centers on the free corners' grubs, Entomology early, bell towers by every base, then a swarm of
-/// upgraded soldiers (equal grubs of soldiers beat any mix with archers or scouts) that shares out its blows so
-/// none is wasted, defends every base, and strikes once it outnumbers what it expects the enemy to have. The
-/// public scoreboard is its spy: survival and income say roughly how big an enemy army is before it's seen.
+/// upgraded soldiers (equal grubs of soldiers beat any mix with archers or scouts; Weapons and Armor are researched
+/// before anything but Entomology, and before more soldiers) that shares out its blows so none is wasted, defends
+/// every base, takes the serum into the first big fight, and strikes once it outnumbers what it expects the enemy
+/// to have. The public scoreboard is its spy: survival and income say roughly how big an enemy army is before it's
+/// seen; in a crowd, the armies of near neighbors count for more than far ones.
 /// <para>
 /// Built on the same pieces as the other house bots (<see cref="BotView"/>, <see cref="BotMemory"/>,
 /// <see cref="BotTurn"/>); the economy is in FormicsBot.Economy.cs and the fighting in FormicsBot.Army.cs.

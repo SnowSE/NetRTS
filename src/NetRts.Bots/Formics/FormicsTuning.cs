@@ -84,6 +84,9 @@ internal sealed record FormicsTuning
     /// <summary>...and then attack with this much of an edge (and at least 1,500 grubs of army).</summary>
     public double StarvingAttackEdge { get; init; } = 0.9;
 
+    /// <summary>...and in a crowd, this much.</summary>
+    public double CrowdStarvingAttackEdge { get; init; } = 1.5;
+
     /// <summary>Call the attack off when the army falls under this share of what it set out with.</summary>
     public double RetreatShare { get; init; } = 0.45;
 

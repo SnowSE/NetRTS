@@ -114,7 +114,9 @@ public sealed partial class FormicsBot
         // With our grubs running out, sitting still loses: go and take theirs.
         _peakIncome = Math.Max(_peakIncome, hive.IncomePerTick);
         var starving = hive.Tick > 300 && hive.IncomePerTick < _peakIncome * _tune.StarvingIncomeShare;
-        var (enough, edge) = starving ? (Math.Min(_tune.AttackValue, 1500), _tune.StarvingAttackEdge) : (_tune.AttackValue, _tune.AttackEdge);
+        // In a crowd everyone's grubs run out about together, and an army that leaves opens the door to the neighbors.
+        var starvingEdge = duel ? _tune.StarvingAttackEdge : _tune.CrowdStarvingAttackEdge;
+        var (enough, edge) = starving ? (Math.Min(_tune.AttackValue, 1500), starvingEdge) : (_tune.AttackValue, _tune.AttackEdge);
         if (!_attacking && rest.Count > 0 && ((restValue >= enough && restValue >= enemyValue * edge) || hive.Tick >= _tune.AllInTick))
         {
             _attacking = true;
