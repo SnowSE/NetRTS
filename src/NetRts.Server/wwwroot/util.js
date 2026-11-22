@@ -107,10 +107,13 @@ export function cssVar(name) {
  * copy "house-rusher 2" -> "rusher 2"; keeps other names as they are.
  */
 export const displayName = (name) => {
-  if (!name?.startsWith('house-')) return name ?? '';
-  const [bot, copy] = name.slice(6).split(' ');
-  return [nickname(bot) ?? bot, copy].filter(Boolean).join(' ');
+  const bot = houseBot(name);
+  if (!bot) return name ?? '';
+  return [nickname(bot) ?? bot, name.slice(6).split(' ')[1]].filter(Boolean).join(' ');
 };
+
+/** The house bot behind a player name ("house-rusher 2" -> "rusher"), or null ("house-" is reserved for them). */
+export const houseBot = (name) => (name?.startsWith('house-') ? name.slice(6).split(' ')[0] : null);
 
 /** The tab's title: the parts, most specific first, then the game ("Alice vs Bob · Block Bot · Badger Brawl"). */
 export const setTitle = (...parts) => { document.title = [...parts, GAME].filter(Boolean).join(' · '); };

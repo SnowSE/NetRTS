@@ -717,7 +717,8 @@ export function buildModels(badger) {
       Archer: { geo: archer(badger), height: 0.52 },
       Scout: { geo: scout(badger), height: 0.7 },
       // A vehicle, not a walker: the view rolls it along instead of striding (see updateUnits).
-      Trebuchet: { geo: badger ? snowMobile() : trebuchet(), height: 0.6, scale: 1.15, vehicle: true },
+      // The Snow Mobile's cannon fires from its muzzle; a model without one throws from an arm (siege.js).
+      Trebuchet: { geo: badger ? snowMobile() : trebuchet(), height: 0.6, scale: 1.15, vehicle: true, muzzle: badger ? { y: 0.635, z: 0.304 } : null },
     },
     building(type, slot) {
       if (badger && type === 'CommandCenter') {

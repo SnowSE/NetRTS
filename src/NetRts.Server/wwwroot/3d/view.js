@@ -12,6 +12,8 @@ import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer
 import { Sky } from 'three/addons/objects/Sky.js';
 import { Terrain } from './terrain.js';
 import { buildModels, entityMaterial } from './models.js';
+import { formicSlots, formicUnits } from './formics.js';
+import { siegePose, muzzleOf } from './siege.js';
 import { Effects } from './effects.js';
 import { CameraRig, ZOOM_KEYS, ZOOM_STEP } from './camera.js';
 import { clamp } from './noise.js';
@@ -42,12 +44,6 @@ const NO_CUT = 99;
 const SHIELD_BLUE = new THREE.Color('#2f6bff');
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const smooth = (t) => t * t * (3 - 2 * t);
-// Siege engines (models.js): the trebuchet's arm swings this far over (radians) to let its stone go, from
-// rest at this angle about its axle; the arm's tip is this far out. The Snow Mobile's cannon fires from
-// its muzzle (in model units, facing +z).
-const ARM_UP = 2.5, ARM_REST = -2.44, ARM_AXLE = 0.36, ARM_TIP = 0.43;
-const MUZZLE = { y: 0.635, z: 0.304 };
-const SIEGE_COOLDOWN = 8;   // GameRules: a trebuchet fires every 8 ticks
 
 /** An instanced mesh with the per-instance attributes the entity material reads, growing as needed. */
 class Instances {
@@ -243,6 +239,7 @@ export class View3D {
     this.camera = new THREE.PerspectiveCamera(42, 16 / 9, 0.08, 900);
     this.clock = new THREE.Clock();
     this.models = buildModels(badger);
+    this.formics = new Set();    // the seats the Formics play: their units are insects (formics.js)
     this.mat = entityMaterial();
     this.depthMat = entityDepthMaterial();
     this.setupSky();
@@ -338,14 +335,14 @@ export class View3D {
 
   buildLayers() {
     for (const l of Object.values(this.layers || {})) l.dispose?.();
-    for (const l of this.bLayers?.values() || []) l.dispose();
+    for (const l of [...this.bLayers?.values() || [], ...this.uLayers?.values() || []]) l.dispose();
     this.bLayers = new Map();    // building model key -> Instances, made when a model first appears
+    this.uLayers = new Map();    // unit model -> Instances, likewise (unitLayer)
     if (this.rings) { this.scene.remove(this.rings); this.rings.dispose(); }
     if (this.bars) this.scene.remove(this.bars.mesh);
     for (const l of this.labelObjs?.values() || []) { l.removeFromParent(); }
     for (const l of this.workObjs?.values() || []) { l.removeFromParent(); }
     const L = {};
-    for (const [type, def] of Object.entries(this.models.units)) L['u' + type] = new Instances(this.scene, def.geo, this.mat, this.depthMat, 64);
     L.deposit = new Instances(this.scene, this.models.deposit, this.mat, this.depthMat, 32);
     L.nugget = new Instances(this.scene, this.models.nugget, this.mat, this.depthMat, 32);
     L.shield = new Instances(this.scene, this.models.shield, this.mat, this.depthMat, 16);
@@ -500,6 +497,7 @@ export class View3D {
     this.lastSet = now;
     if (this.holdAt != null) this.holdAt = now + this.lag;   // paused: play this frame out, then stop
     this.state = s;
+    this.formics = formicSlots(s.players);
     const fx = step && !reducedMotion();
     const q = (fn, extra = 0) => { if (fx) this.later(fn, extra); };
     const lag = this.lag;
@@ -848,7 +846,7 @@ export class View3D {
 
   updateUnits(now, dt) {
     const L = this.layers;
-    for (const type of Object.keys(this.models.units)) L['u' + type].begin();
+    for (const l of this.uLayers.values()) l.begin();
     L.nugget.begin();
     L.shield.begin();
     const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ'), v = new THREE.Vector3(), sc = new THREE.Vector3();
@@ -867,7 +865,7 @@ export class View3D {
         this.units.delete(id);
         const p = this.unitPos(a, rt);
         if (a.deathFx) {
-          if (this.models.units[a.u.type].vehicle) this.effects.explosion(this.ground(p.x, p.z), teamRGB(a.u.owner), false);
+          if (this.unitDef(a.u).vehicle) this.effects.explosion(this.ground(p.x, p.z), teamRGB(a.u.owner), false);
           else this.effects.death(this.ground(p.x, p.z), teamRGB(a.u.owner));
           const from = a.hitFrom && positions.get(a.hitFrom.id);
           this.corpses.push({ a, x: p.x, z: p.z, t0: now, away: from ? Math.atan2(p.x - from.x, p.z - from.z) : a.yaw + Math.PI });
@@ -888,7 +886,7 @@ export class View3D {
       const moving = speed > 0.35;
       const working = !moving && (u.activity === 'Gathering' || u.activity === 'Building');
       const carrying = u.carrying > 0;
-      const vehicle = this.models.units[u.type].vehicle;
+      const def = this.unitDef(u), vehicle = def.vehicle;
 
       // What a fighter is hitting, where it is right now (it may be moving too).
       let tp = null;
@@ -1061,7 +1059,7 @@ export class View3D {
       const flash = Math.max(0, 1 - Math.abs(now - a.hitT) / 160);
       const born = a.bornT === -Infinity ? 1 : Math.min(1, (rt - a.bornT) / 350);
       const serum = u.effects?.includes('serum');
-      const s = (this.models.units[u.type].scale || 1) * a.scale * this.unitScale * (0.4 + 0.6 * born) * (serum ? 1.5 : 1);
+      const s = (def.scale || 1) * a.scale * this.unitScale * (0.4 + 0.6 * born) * (serum ? 1.5 : 1);
       const yaw = a.yaw + look;
       v.set(p.x + Math.sin(yaw) * fwd + Math.cos(yaw) * side + (p.kx || 0), y, p.z + Math.cos(yaw) * fwd - Math.sin(yaw) * side + (p.kz || 0));
       e.set(pitch, yaw, roll);
@@ -1075,15 +1073,15 @@ export class View3D {
         a.raise = (a.raise ?? 0) + ((fighting ? 1 : 0) - (a.raise ?? 0)) * (1 - Math.exp(-8 * dt));
         if (a.raise > 0.02) chop = Math.max(chop, a.raise);
       }
-      const draw = u.type === 'Archer' ? [a.raise ?? 0, pull] : vehicle ? this.siegePose(a, now) : null;
+      const draw = u.type === 'Archer' ? [a.raise ?? 0, pull] : vehicle ? siegePose(def, now - (a.fireT ?? -1e9), this.interval) : null;
       if (chop >= 0) {
         a.arm = 0;
         const reachUp = u.type === 'Archer' && !dancing ? -1.45 : -2.1;   // arms out level to aim, or overhead to chop (or cheer)
-        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [Math.asin(clamp(chop * 2 - 1, -1, 1)), a.leg, reachUp], draw);
+        this.unitLayer(def).push(m, teamOf(u.owner), flash, NO_CUT, [Math.asin(clamp(chop * 2 - 1, -1, 1)), a.leg, reachUp], draw);
       } else {
         a.arm = (a.arm ?? 0) + (armGoal - (a.arm ?? 0)) * k;
         a.walk = (a.walk ?? a.id) + dt * rate;
-        L['u' + u.type].push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm], draw);
+        this.unitLayer(def).push(m, teamOf(u.owner), flash, NO_CUT, [a.walk, a.leg, a.arm], draw);
       }
       if (serum) L.shield.push(m, teamOf(u.owner), flash);
       if (carrying) {
@@ -1106,7 +1104,7 @@ export class View3D {
         const d = camPos.distanceTo(v.set(p.x, y, p.z));
         const op = clamp(1.6 - d / 22, 0, 1);
         if (op > 0) {
-          bars.pos.setXYZ(bars.n, p.x, y + this.models.units[u.type].height * s + 0.1, p.z);
+          bars.pos.setXYZ(bars.n, p.x, y + def.height * s + 0.1, p.z);
           bars.data.setXYZ(bars.n, u.hp / u.maxHp, 0.34, op);
           bars.n++;
         }
@@ -1120,12 +1118,13 @@ export class View3D {
       const fall = Math.min(1, t / 0.35);
       const y = this.terrain.heightAt(c.x, c.z) - Math.max(0, t - 1.2) * 0.25;
       // Face the blow and topple away from it; a wrecked siege engine only slumps.
-      e.set(-fall * (this.models.units[c.a.u.type].vehicle ? 0.25 : Math.PI / 2 * 0.95), c.away + Math.PI, 0);
-      const s = (this.models.units[c.a.u.type].scale || 1) * (c.a.scale || 1);
+      const def = this.unitDef(c.a.u);
+      e.set(-fall * (def.vehicle ? 0.25 : Math.PI / 2 * 0.95), c.away + Math.PI, 0);
+      const s = (def.scale || 1) * (c.a.scale || 1);
       m.compose(v.set(c.x, y, c.z), q.setFromEuler(e), sc.set(s, s, s));
-      L['u' + c.a.u.type].push(m, teamOf(c.a.u.owner).clone().multiplyScalar(0.5));
+      this.unitLayer(def).push(m, teamOf(c.a.u.owner).clone().multiplyScalar(0.5));
     }
-    for (const type of Object.keys(this.models.units)) L['u' + type].end();
+    for (const l of this.uLayers.values()) l.end();
     L.nugget.end();
     L.shield.end();
     this.rings.count = ri;
@@ -1146,34 +1145,25 @@ export class View3D {
     }
   }
 
-  /**
-   * A siege engine's moving parts (iDraw, see models.js) a moment after it fired at a.fireT. The
-   * trebuchet's arm swings over to let the stone go right at the shot's launch, quivers at the top, then
-   * is winched back down before the next shot: [arm angle, 1 while the stone is away]. The Snow Mobile's
-   * cannon kicks back and runs out again: [recoil, 0].
-   */
-  siegePose(a, now) {
-    const since = now - (a.fireT ?? -1e9);
-    if (this.badger) return [since < 0 || since > 1200 ? 0 : since < 40 ? since / 40 : Math.exp(-(since - 40) / 220), 0];
-    const reload = Math.max(400, SIEGE_COOLDOWN * this.interval);
-    const swing = Math.min(320, reload * 0.15), hold = Math.min(450, reload * 0.2), back = reload * 0.85;
-    const t = since + swing;   // the arm starts over before the stone lets go
-    if (t < 0 || t >= back) return [0, 0];
-    if (t < swing) return [ARM_UP * (t / swing) ** 2, 0];
-    if (t < swing + hold) {
-      const w = (t - swing) / hold;
-      return [ARM_UP + Math.sin(w * Math.PI * 3) * 0.12 * (1 - w), 1];
-    }
-    return [ARM_UP * (1 - smooth((t - swing - hold) / (back - swing - hold))), 1];
+  /** A unit's model: the Formics' insects (formics.js) in their seats, else the theme's. */
+  unitDef(u) {
+    if (!this.formics.has(u.owner)) return this.models.units[u.type];
+    this.formicModels ??= formicUnits();
+    return this.formicModels[u.type];
+  }
+
+  /** The instanced mesh a unit model is drawn with, made the first time the model shows up. */
+  unitLayer(def) {
+    if (!this.uLayers.has(def)) this.uLayers.set(def, new Instances(this.scene, def.geo, this.mat, this.depthMat, 64));
+    return this.uLayers.get(def);
   }
 
   /** Where a siege shot leaves from: the arm's tip or the cannon's muzzle, or its tile if the engine is gone. */
   muzzle(sh) {
     const a = this.units.get(sh.attackerId), p = a && this.positions?.get(a.id);
     if (!p) return this.ground(sh.fromX + 0.5, sh.fromY + 0.5).add(new THREE.Vector3(0, 0.6, 0));
-    const s = (this.models.units[a.u.type].scale || 1) * (a.scale || 1) * this.unitScale;
-    const ang = ARM_REST - ARM_UP;
-    const ly = this.badger ? MUZZLE.y : ARM_AXLE + Math.sin(ang) * ARM_TIP, lz = this.badger ? MUZZLE.z : Math.cos(ang) * ARM_TIP;
+    const def = this.unitDef(a.u), s = (def.scale || 1) * (a.scale || 1) * this.unitScale;
+    const { y: ly, z: lz } = muzzleOf(def);
     return new THREE.Vector3(p.x + Math.sin(a.yaw) * lz * s, this.terrain.heightAt(p.x, p.z) + ly * s, p.z + Math.cos(a.yaw) * lz * s);
   }
 
