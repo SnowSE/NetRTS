@@ -1,9 +1,11 @@
 // What the players say in the 3D view. Each player has their own voice; they speak up when something
 // happens to them (a unit trained, a building finished or lost, a kill, an attack, research done, the
 // end of the match), and trade taunts when it's quiet. The lines and recordings come from
-// tools/voices (audio/voices.json). Only one player talks at a time, and nobody talks too often.
+// tools/voices (audio/voices.json); the Formics think instead of talking (hive.js). Only one player
+// talks at a time, and nobody talks too often.
 
 import { towerInReach, towerShotsOf } from '../towershots.js';
+import { HIVE_LINES, readingSecs } from './hive.js';
 
 // How keen a player is to comment on each kind of event (a chance), and how long they then keep
 // quiet about it (seconds of match time). Bigger moments jump the queue.
@@ -33,12 +35,14 @@ const CATS = {
 export class Commentary {
   /**
    * audio: GameAudio. badger: the Snow College theme (picks the theme's lines). names(): slot -> name.
-   * onCaption(slot, name, text): show what was said.
+   * hive(slot): whether the Formics play that seat. onCaption(slot, name, text, secs, hive): show what
+   * was said (or, for the hive, thought).
    */
-  constructor(audio, { badger, names, onCaption }) {
+  constructor(audio, { badger, names, hive = () => false, onCaption }) {
     this.audio = audio;
     this.badger = badger;
     this.names = names;
+    this.hive = hive;
     this.onCaption = onCaption;
     this.data = null;
     this.byCat = null;
@@ -64,7 +68,7 @@ export class Commentary {
     this.spoke = new Map();      // slot -> performance.now() when they last spoke
     this.quietUntil = 0;
     this.lastSaid = new Map();   // "slot|cat" -> tick
-    this.recent = [];            // recently used line indexes, not to be repeated soon
+    this.recent = [];            // recently used line indexes (or the hive's thoughts), not to be repeated soon
     this.lastLine = -1e9;        // tick of the last line anyone said
     this.tickNow = 0;
     this.lastScoreTalk = 0;
@@ -204,8 +208,9 @@ export class Commentary {
     if (now - (this.lastSaid.get(key) ?? -1e9) < rule.quiet) return;
     if (Math.random() > rule.p) return;
     // Some kinds have a line for each building or unit type.
-    const full = sub && this.byCat.has(`${cat}_${sub}`) ? `${cat}_${sub}` : cat;
-    if (!this.byCat.has(full)) return;
+    const has = this.hive(slot) ? (k) => k in HIVE_LINES : (k) => this.byCat.has(k);
+    const full = sub && has(`${cat}_${sub}`) ? `${cat}_${sub}` : cat;
+    if (!has(full)) return;
     this.lastSaid.set(key, now);
     const item = { slot, cat: full, rank: rule.rank, at: performance.now() };
     later(() => this.enqueue(item));
@@ -235,16 +240,19 @@ export class Commentary {
     if (i < 0) return;
     const [item] = this.queue.splice(i, 1);
     this.spoke.set(item.slot, now);
-    const lines = this.byCat.get(item.cat).filter((i) => !this.recent.includes(i));
-    const pool = lines.length ? lines : this.byCat.get(item.cat);
+    const hive = this.hive(item.slot);
+    const all = hive ? HIVE_LINES[item.cat] : this.byCat.get(item.cat);
+    const fresh = all.filter((i) => !this.recent.includes(i));
+    const pool = fresh.length ? fresh : all;
     const line = pool[Math.floor(Math.random() * pool.length)];
     this.recent.push(line);
     if (this.recent.length > 40) this.recent.shift();
     this.talking = true;
     this.lastLine = this.tickNow ?? 0;
     let secs = 0;
-    try { secs = await this.audio.speak(this.voiceOf(item.slot), line); } catch { secs = 0; }
-    if (secs > 0) this.onCaption?.(item.slot, this.names().get(item.slot) ?? `Player ${item.slot + 1}`, this.data.lines[line].text, secs);
+    try { secs = hive ? this.audio.chitter() && readingSecs(line) : await this.audio.speak(this.voiceOf(item.slot), line); } catch { secs = 0; }
+    const text = hive ? line : this.data.lines[line].text;
+    if (secs > 0) this.onCaption?.(item.slot, this.names().get(item.slot) ?? `Player ${item.slot + 1}`, text, secs, hive);
     setTimeout(() => {
       this.talking = false;
       this.lastLine = this.tickNow ?? 0;

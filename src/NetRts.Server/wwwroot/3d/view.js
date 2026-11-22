@@ -232,7 +232,7 @@ export class View3D {
     this.captions.className = 'map3d-captions';
     this.captions.setAttribute('aria-live', 'polite');
     container.appendChild(this.captions);
-    this.commentary = audio ? new Commentary(audio, { badger, names, onCaption: (slot, name, text, secs) => this.caption(slot, name, text, secs) }) : null;
+    this.commentary = audio ? new Commentary(audio, { badger, names, hive: (slot) => this.formics.has(slot), onCaption: (...said) => this.caption(...said) }) : null;
     container.appendChild(this.labels.domElement);
 
     this.scene = new THREE.Scene();
@@ -699,10 +699,10 @@ export class View3D {
   }
 
   /** Show who said what, in their color, for as long as they're talking (and a moment more). */
-  caption(slot, name, text, secs) {
+  caption(slot, name, text, secs, hive = false) {
     if (!this.audio?.settings.captions) return;
     const line = document.createElement('p');
-    line.className = 'cap';
+    line.className = hive ? 'cap hive' : 'cap';
     const who = document.createElement('b');
     who.textContent = `${name}: `;
     who.style.color = `#${teamOf(slot).getHexString()}`;

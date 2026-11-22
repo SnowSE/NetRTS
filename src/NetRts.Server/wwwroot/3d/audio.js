@@ -158,6 +158,12 @@ export class GameAudio {
     return buf.duration + 0.09;
   }
 
+  /** The Formics' thought reaching you (hive.js): a chitter instead of a voice. Its length, or 0 if it couldn't play. */
+  chitter() {
+    if (!this.live || !(this.settings.voice > 0)) return 0;
+    return this.synth.chitter(this.bus.voice, this.ctx.currentTime + 0.02);
+  }
+
   dispose() {
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.music?.stop();
@@ -548,6 +554,41 @@ class ChipSfx {
     g.connect(bus);
     this.tone(g, t, this.thin, 1568, 1568, 0.035, 0.05);
     this.tone(g, t + 0.04, this.thin, 2093, 2093, 0.035, 0.05);
+  }
+
+  /**
+   * The hive's chitter: a low, wavering hum swelling under runs of dry mandible clicks, never quite the
+   * same twice. Returns its length.
+   */
+  chitter(bus, t) {
+    const ctx = this.ctx, len = 0.9 + Math.random() * 0.3;
+    const hum = ctx.createGain(), lfo = ctx.createOscillator(), depth = ctx.createGain();
+    hum.gain.setValueAtTime(0.0001, t);
+    hum.gain.exponentialRampToValueAtTime(0.09, t + 0.18);
+    hum.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    lfo.frequency.value = 7 + Math.random() * 4;   // the hum flutters, like wings
+    depth.gain.value = 0.04;
+    lfo.connect(depth).connect(hum.gain);
+    hum.connect(bus);
+    for (const [f, type] of [[98, 'sine'], [147.5, 'triangle'], [196.7, 'sine']]) {
+      const o = ctx.createOscillator();
+      o.type = type;
+      o.frequency.setValueAtTime(f, t);
+      o.frequency.linearRampToValueAtTime(f * 0.94, t + len);
+      o.connect(hum);
+      o.start(t);
+      o.stop(t + len + 0.05);
+    }
+    lfo.start(t);
+    lfo.stop(t + len + 0.05);
+    // Clicks come in little runs, each run a touch higher or lower than the last.
+    let at = t + 0.06;
+    while (at < t + len - 0.1) {
+      const run = 3 + Math.floor(Math.random() * 5), pitch = 2600 + Math.random() * 3000;
+      for (let i = 0; i < run; i++, at += 0.022 + Math.random() * 0.02) this.hiss(bus, at, 0.014, pitch * (0.9 + Math.random() * 0.2), 0.32, 'bandpass');
+      at += 0.06 + Math.random() * 0.12;
+    }
+    return len;
   }
 
   tone(out, t, wave, f0, f1, len, vol) {

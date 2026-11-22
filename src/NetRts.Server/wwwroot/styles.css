@@ -977,6 +977,7 @@ pre.snippet {
   animation: cap-in 220ms ease-out;
 }
 .map3d-captions .cap b { font-weight: 700; }
+.map3d-captions .cap.hive { font-style: italic; color: #d4f5c0; letter-spacing: 0.02em; }   /* the Formics think, they don't speak */
 @keyframes cap-in { from { opacity: 0; transform: translateY(6px); } }
 @media (prefers-reduced-motion: reduce) { .map3d-captions .cap { animation: none; } }
 
