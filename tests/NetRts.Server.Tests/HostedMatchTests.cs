@@ -55,6 +55,19 @@ public class HostedMatchTests(ServerFactory factory) : IClassFixture<ServerFacto
     }
 
     [Fact]
+    public async Task The_host_can_seat_Formics_and_leave_a_seat_for_a_real_bot()
+    {
+        var host = factory.ClientFor(await factory.NewAccountAsync());
+        var match = await HostAsync(host, new CreateMatchRequest { Name = MatchName(), MaxPlayers = 4, HouseBots = ["formics", "formics", "formics"] });
+        Assert.Equal(["house-formics", "house-formics 2", "house-formics 3"], match.Players.Select(p => p.Name));
+        Assert.Equal(MatchStatus.Waiting, match.Status);
+
+        var full = await host.PostAsJsonAsync("/api/v1/account/matches",
+            new CreateMatchRequest { Name = MatchName(), MaxPlayers = 4, HouseBots = ["formics", "formics", "formics", "formics"] }, NetRtsClient.JsonOptions, Ct);
+        Assert.Equal("INVALID_SETTINGS", (await full.ErrorAsync()).Code);
+    }
+
+    [Fact]
     public async Task Hosting_takes_a_signed_in_person_and_a_name()
     {
         var (_, bot) = await factory.NewPlayerAsync();

@@ -138,6 +138,12 @@ export function mountAccount(root, onAccount) {
           <div class="field"><label for="hm-ticks">Tick limit</label>
             <input id="hm-ticks" name="maxTicks" type="number" min="10" max="20000" value="1800" inputmode="numeric"></div>
         </div>
+        <div class="form-row">
+          <div class="field"><label for="hm-formics">Formics <span class="muted small">(optional)</span></label>
+            <input id="hm-formics" name="formics" type="number" min="0" max="15" value="0" inputmode="numeric"></div>
+          <p class="muted small" style="align-self:end;margin:0">The hardest house ${say('bot', 'badger')}. Each copy takes a seat
+            from the start; at least one seat stays open for a real ${say('bot', 'badger')}.</p>
+        </div>
         <div><button class="btn" type="submit">${say('Host match', 'Host brawl')}</button></div>
       </form>
       <h3 style="margin-top:20px">Your hosted matches</h3>
@@ -293,18 +299,20 @@ export function mountAccount(root, onAccount) {
 
     $('host').addEventListener('submit', (ev) => act(ev, async (form) => {
       const name = form.get('name').trim();
+      const formics = Math.max(0, Math.floor(Number(form.get('formics')) || 0));
       await api('/api/v1/account/matches', {
         method: 'POST',
         body: {
           name,
           maxPlayers: Number(form.get('maxPlayers')) || undefined,
+          houseBots: Array(formics).fill('formics'),
           settings: {
             tickIntervalMs: Number(form.get('tickIntervalMs')) || undefined,
             maxTicks: Number(form.get('maxTicks')) || undefined,
           },
         },
       });
-      return `You're hosting ${name}. Bots join it by that name; start it under Your hosted matches when they're in.`;
+      return `You're hosting ${name}${formics ? ` with ${formics} Formic${formics === 1 ? '' : 's'} seated` : ''}. Bots join it by that name; start it under Your hosted matches when they're in.`;
     }));
 
     $('league')?.addEventListener('submit', (ev) => {
