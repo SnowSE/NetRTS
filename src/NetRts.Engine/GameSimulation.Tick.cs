@@ -100,9 +100,9 @@ public sealed partial class GameSimulation
 
         foreach (var player in _players)
         {
-            if (player.SerumUntilTick - GameRules.SerumTicks + 1 == Tick)
+            if (player.SerumUntilTick - Rules.SerumTicks + 1 == Tick)
             {
-                Announce(player, "SuperSoldiers", $"Super soldiers activated. {GameRules.SerumTicks} ticks.");
+                Announce(player, "SuperSoldiers", $"Super soldiers activated. {Rules.SerumTicks} ticks.");
             }
 
             if (player.SerumUntilTick == Tick)
@@ -195,8 +195,8 @@ public sealed partial class GameSimulation
             if (building.Production.Count > 0)
             {
                 var item = building.Production[0];
-                item.Progress = Math.Min(item.Progress + 1, GameRules.Units[item.Type].BuildTicks);
-                if (item.Progress >= GameRules.Units[item.Type].BuildTicks && FindFreeTileNear(building.Position) is { } spawn)
+                item.Progress = Math.Min(item.Progress + 1, Rules.Units[item.Type].BuildTicks);
+                if (item.Progress >= Rules.Units[item.Type].BuildTicks && FindFreeTileNear(building.Position) is { } spawn)
                 {
                     building.Production.RemoveAt(0);
                     var unit = AddUnit(building.Owner, item.Type, spawn);
@@ -215,7 +215,7 @@ public sealed partial class GameSimulation
             if (building.Research is { } research)
             {
                 research.Progress++;
-                if (research.Progress >= GameRules.Upgrades[research.Type].ResearchTicks)
+                if (research.Progress >= Rules.Upgrades[research.Type].ResearchTicks)
                 {
                     building.Research = null;
                     owner.Upgrades.Add(research.Type);
@@ -453,7 +453,7 @@ public sealed partial class GameSimulation
     /// <summary>Tenths of a tile this unit moves per tick.</summary>
     private int MoveSpeed(UnitEntity unit) => (unit.Stats.Speed + _players[unit.Owner].MobilityBonus) * Factor(unit);
 
-    private int Factor(UnitEntity unit) => unit.Type == UnitType.Soldier && Tick <= unit.SerumUntilTick ? GameRules.SerumFactor : 1;
+    private int Factor(UnitEntity unit) => unit.Type == UnitType.Soldier && Tick <= unit.SerumUntilTick ? Rules.SerumFactor : 1;
 
     private StepResult StepToward(UnitEntity unit, Point goal, int range)
     {
@@ -482,7 +482,7 @@ public sealed partial class GameSimulation
         }
 
         unit.MovePoints += MoveSpeed(unit);
-        while (unit.MovePoints >= GameRules.MovePointsPerTile && unit.Path.Count > 0)
+        while (unit.MovePoints >= Rules.MovePointsPerTile && unit.Path.Count > 0)
         {
             var next = unit.Path[0];
             if (!Passable(next))
@@ -492,7 +492,7 @@ public sealed partial class GameSimulation
 
             unit.Position = next;
             unit.Path.RemoveAt(0);
-            unit.MovePoints -= GameRules.MovePointsPerTile;
+            unit.MovePoints -= Rules.MovePointsPerTile;
             if (unit.Position.Chebyshev(goal) <= range)
             {
                 unit.ClearPath();
@@ -531,7 +531,7 @@ public sealed partial class GameSimulation
             unit.TargetId = deposit.Id;
         }
 
-        if (deposit is null || unit.Carrying >= GameRules.WorkerCarryCapacity)
+        if (deposit is null || unit.Carrying >= Rules.WorkerCarryCapacity)
         {
             ReturnCargo(unit, player);
             return;
@@ -541,8 +541,8 @@ public sealed partial class GameSimulation
         {
             unit.ClearPath();
             unit.Activity = UnitActivity.Gathering;
-            var take = Math.Min(GameRules.GatherPerTick + player.HarvestingBonus,
-                Math.Min(deposit.Remaining, GameRules.WorkerCarryCapacity - unit.Carrying));
+            var take = Math.Min(Rules.GatherPerTick + player.HarvestingBonus,
+                Math.Min(deposit.Remaining, Rules.WorkerCarryCapacity - unit.Carrying));
             deposit.Hp -= take;
             unit.Carrying += take;
             unit.LastDepositPosition = deposit.Position;
@@ -670,7 +670,7 @@ public sealed partial class GameSimulation
             return;
         }
 
-        player.Resources -= GameRules.Buildings[type].Cost;
+        player.Resources -= Rules.Buildings[type].Cost;
         var placed = AddBuilding(unit.Owner, type, site, completed: false);
         foreach (var standing in _units.Where(u => u.Position == site).ToList())
         {

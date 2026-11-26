@@ -203,7 +203,7 @@ public sealed partial class GameSimulation
         Effects = Factor(u) > 1 ? ["serum"] : null,
     };
 
-    private static BuildingDto ToDto(BuildingEntity b, bool revealQueues) => new()
+    private BuildingDto ToDto(BuildingEntity b, bool revealQueues) => new()
     {
         Id = b.Id,
         Owner = b.Owner,
@@ -215,14 +215,14 @@ public sealed partial class GameSimulation
         Completed = b.Completed,
         ConstructionPercent = b.ConstructionPercent,
         Production = revealQueues
-            ? b.Production.Select(p => new ProductionDto(p.Type, p.Progress * 100 / GameRules.Units[p.Type].BuildTicks)).ToList()
+            ? b.Production.Select(p => new ProductionDto(p.Type, p.Progress * 100 / Rules.Units[p.Type].BuildTicks)).ToList()
             : [],
         Research = revealQueues && b.Research is not null ? ToResearchDto(b) : null,
         Rally = revealQueues && b.Rally is { } r ? new PositionDto(r.X, r.Y) : null,
     };
 
-    private static ResearchDto ToResearchDto(BuildingEntity b) =>
-        new(b.Research!.Type, b.Research.Progress * 100 / GameRules.Upgrades[b.Research.Type].ResearchTicks, b.Id);
+    private ResearchDto ToResearchDto(BuildingEntity b) =>
+        new(b.Research!.Type, b.Research.Progress * 100 / Rules.Upgrades[b.Research.Type].ResearchTicks, b.Id);
 
     private static TowerShotDto ToDto(TowerShot s) => new()
     {

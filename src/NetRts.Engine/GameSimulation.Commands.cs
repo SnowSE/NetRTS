@@ -160,7 +160,7 @@ public sealed partial class GameSimulation
             return Error("POSITION_OCCUPIED", $"An enemy unit is standing on {site}.");
         }
 
-        var stats = GameRules.Buildings[type];
+        var stats = Rules.Buildings[type];
         foreach (var required in stats.Requires)
         {
             if (!_buildings.Any(b => b.Owner == player.Slot && b.Type == required && b.Completed))
@@ -206,13 +206,13 @@ public sealed partial class GameSimulation
             return (null, Error("INVALID_COUNT", "count must be at least 1."));
         }
 
-        if (building.Production.Count + count > GameRules.MaxProductionQueue)
+        if (building.Production.Count + count > Rules.MaxProductionQueue)
         {
             return (null, Error("PRODUCTION_QUEUE_FULL",
-                $"Building {building.Id} has {building.Production.Count} queued; the limit is {GameRules.MaxProductionQueue}."));
+                $"Building {building.Id} has {building.Production.Count} queued; the limit is {Rules.MaxProductionQueue}."));
         }
 
-        var cost = GameRules.Units[unitType].Cost * count;
+        var cost = Rules.Units[unitType].Cost * count;
         if (player.Resources < cost)
         {
             return (null, Error("INSUFFICIENT_RESOURCES", $"{count} x {unitType} costs {cost}; you have {player.Resources}."));
@@ -284,7 +284,7 @@ public sealed partial class GameSimulation
             return (null, Error("BUILDING_BUSY", $"TechLab {building.Id} is already researching {building.Research.Type}."));
         }
 
-        var stats = GameRules.Upgrades[upgrade];
+        var stats = Rules.Upgrades[upgrade];
         if (stats.Requires is { } prerequisite && !player.Upgrades.Contains(prerequisite))
         {
             return (null, Error("MISSING_PREREQUISITE", $"{upgrade} requires {prerequisite}."));
@@ -531,7 +531,7 @@ public sealed partial class GameSimulation
                 break;
 
             case CommandType.Produce:
-                player.Resources -= GameRules.Units[command.UnitType!.Value].Cost * command.Count;
+                player.Resources -= Rules.Units[command.UnitType!.Value].Cost * command.Count;
                 for (var i = 0; i < command.Count; i++)
                 {
                     command.Building!.Production.Add(new ProductionItem(command.UnitType.Value));
@@ -551,7 +551,7 @@ public sealed partial class GameSimulation
                 break;
 
             case CommandType.Research:
-                player.Resources -= GameRules.Upgrades[command.Upgrade!.Value].Cost;
+                player.Resources -= Rules.Upgrades[command.Upgrade!.Value].Cost;
                 command.Building!.Research = new ResearchItem(command.Upgrade.Value);
                 break;
         }

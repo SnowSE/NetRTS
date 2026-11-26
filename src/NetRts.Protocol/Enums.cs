@@ -38,6 +38,9 @@ public enum UpgradeType
     Fortify1,
     Fortify2,
     Armor3,
+
+    /// <summary>Guard towers fire faster. Only in rule sets that list it.</summary>
+    RapidFire,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<CommandType>))]

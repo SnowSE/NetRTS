@@ -12,12 +12,12 @@ internal enum OrderKind
     Build,
 }
 
-internal sealed class PlayerState(Guid id, int slot, string name)
+internal sealed class PlayerState(Guid id, int slot, string name, RuleSet rules)
 {
     public Guid Id { get; } = id;
     public int Slot { get; } = slot;
     public string Name { get; } = name;
-    public int Resources { get; set; } = GameRules.StartingResources;
+    public int Resources { get; set; } = rules.StartingResources;
     public bool Eliminated { get; set; }
     public HashSet<UpgradeType> Upgrades { get; } = [];
     public Queue<QueuedCommand> CommandQueue { get; } = new();
@@ -53,7 +53,7 @@ internal sealed class PlayerState(Guid id, int slot, string name)
     public int DepositsExhausted { get; set; }
     public int CommandCentersDestroyed { get; set; }
     public int PeakWorkers { get; set; }
-    public int PeakResources { get; set; } = GameRules.StartingResources;
+    public int PeakResources { get; set; } = rules.StartingResources;
     public int OreWasted { get; set; }
     public int TowerKills { get; set; }
     public int SerumKills { get; set; }
@@ -65,11 +65,11 @@ internal sealed class PlayerState(Guid id, int slot, string name)
 
     public int Tier(params UpgradeType[] tiers) => tiers.Count(Upgrades.Contains);
 
-    public int WeaponsBonus => Tier(UpgradeType.Weapons1, UpgradeType.Weapons2) * GameRules.WeaponsBonusPerTier;
-    public int ArmorBonus => Tier(UpgradeType.Armor1, UpgradeType.Armor2, UpgradeType.Armor3) * GameRules.ArmorBonusPerTier;
-    public int FortifyBonus => Tier(UpgradeType.Fortify1, UpgradeType.Fortify2) * GameRules.FortifyBonusPerTier;
-    public int MobilityBonus => Tier(UpgradeType.Mobility1, UpgradeType.Mobility2) * GameRules.MobilityBonusPerTier;
-    public int HarvestingBonus => Tier(UpgradeType.Harvesting1, UpgradeType.Harvesting2) * GameRules.HarvestingBonusPerTier;
+    public int WeaponsBonus => Tier(UpgradeType.Weapons1, UpgradeType.Weapons2) * rules.WeaponsBonusPerTier;
+    public int ArmorBonus => Tier(UpgradeType.Armor1, UpgradeType.Armor2, UpgradeType.Armor3) * rules.ArmorBonusPerTier;
+    public int FortifyBonus => Tier(UpgradeType.Fortify1, UpgradeType.Fortify2) * rules.FortifyBonusPerTier;
+    public int MobilityBonus => Tier(UpgradeType.Mobility1, UpgradeType.Mobility2) * rules.MobilityBonusPerTier;
+    public int HarvestingBonus => Tier(UpgradeType.Harvesting1, UpgradeType.Harvesting2) * rules.HarvestingBonusPerTier;
 }
 
 /// <summary>A command waiting in a player's queue.</summary>
@@ -96,11 +96,11 @@ internal abstract class Entity(int id, int owner, Point position)
 
 internal sealed class UnitEntity : Entity
 {
-    public UnitEntity(int id, int owner, UnitType type, Point position)
+    public UnitEntity(int id, int owner, UnitType type, UnitStats stats, Point position)
         : base(id, owner, position)
     {
         Type = type;
-        Stats = GameRules.Units[type];
+        Stats = stats;
         Hp = Stats.MaxHp;
     }
 
@@ -156,11 +156,11 @@ internal sealed class UnitEntity : Entity
 
 internal sealed class BuildingEntity : Entity
 {
-    public BuildingEntity(int id, int owner, BuildingType type, Point position, bool completed)
+    public BuildingEntity(int id, int owner, BuildingType type, BuildingStats stats, Point position, bool completed)
         : base(id, owner, position)
     {
         Type = type;
-        Stats = GameRules.Buildings[type];
+        Stats = stats;
         Completed = completed;
         Work = completed ? Stats.BuildWork : 0;
         Hp = completed ? Stats.MaxHp : HpForWork(0);

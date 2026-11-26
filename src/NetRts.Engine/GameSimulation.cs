@@ -37,6 +37,9 @@ public sealed class GameConfig
 
     /// <summary>Grubs on the map, as a percentage of the usual deposits (see <see cref="MapGenerator.Generate"/>).</summary>
     public int GrubPercent { get; init; } = 100;
+
+    /// <summary>The rules this match is played under.</summary>
+    public RuleSet Rules { get; init; } = GameRules.Classic;
 }
 
 /// <summary>
@@ -108,10 +111,10 @@ public sealed partial class GameSimulation
 
         for (var slot = 0; slot < seats.Count; slot++)
         {
-            _players.Add(new PlayerState(seats[slot].Id, slot, seats[slot].Name));
+            _players.Add(new PlayerState(seats[slot].Id, slot, seats[slot].Name, config.Rules));
             var start = Map.StartPositions[slot];
             AddBuilding(slot, BuildingType.CommandCenter, start, completed: true);
-            for (var i = 0; i < GameRules.StartingWorkers; i++)
+            for (var i = 0; i < Rules.StartingWorkers; i++)
             {
                 var spot = FindFreeTileNear(start) ?? start;
                 AddUnit(slot, UnitType.Worker, spot);
@@ -186,6 +189,9 @@ public sealed partial class GameSimulation
 
     public Guid MatchId { get; }
     public GameConfig Config { get; }
+
+    /// <summary>The rules this match is played under (<see cref="GameConfig.Rules"/>).</summary>
+    public RuleSet Rules => Config.Rules;
     public GameMap Map { get; }
     public int Tick { get; private set; }
     public MatchStatus Status { get; private set; } = MatchStatus.Active;
@@ -277,7 +283,7 @@ public sealed partial class GameSimulation
             return null;
         }
 
-        player.SerumUntilTick = Tick + GameRules.SerumTicks;
+        player.SerumUntilTick = Tick + Rules.SerumTicks;
         _replayBoosts.Add(new ReplayBoostDto(Tick, slot));
         return player.SerumUntilTick;
     }
@@ -410,7 +416,7 @@ public sealed partial class GameSimulation
 
     private UnitEntity AddUnit(int owner, UnitType type, Point position)
     {
-        var unit = new UnitEntity(_nextEntityId++, owner, type, position);
+        var unit = new UnitEntity(_nextEntityId++, owner, type, Rules.Units[type], position);
         _units.Add(unit);
         _entities[unit.Id] = unit;
         return unit;
@@ -418,7 +424,7 @@ public sealed partial class GameSimulation
 
     private BuildingEntity AddBuilding(int owner, BuildingType type, Point position, bool completed)
     {
-        var building = new BuildingEntity(_nextEntityId++, owner, type, position, completed);
+        var building = new BuildingEntity(_nextEntityId++, owner, type, Rules.Buildings[type], position, completed);
         _buildings.Add(building);
         _entities[building.Id] = building;
         _buildingAt[Index(position)] = building.Id;
@@ -559,7 +565,7 @@ public sealed partial class GameSimulation
 
         foreach (var b in _buildings.Where(b => b.Owner == slot))
         {
-            Reveal(b.Position, b.Completed ? b.Stats.Vision : GameRules.UnderConstructionVision);
+            Reveal(b.Position, b.Completed ? b.Stats.Vision : Rules.UnderConstructionVision);
         }
 
         return grid;
