@@ -53,11 +53,13 @@ internal static class Variants
 
         ["hq25"] = Classic with { ExtraHqCostPercent = 25 },
 
+        ["regrow50"] = Classic with { RegrowPartsPerMillion = 50 },
         ["regrow100"] = Classic with { RegrowPartsPerMillion = 100 },
         ["regrow200"] = Classic with { RegrowPartsPerMillion = 200 },
         ["regrow500"] = Classic with { RegrowPartsPerMillion = 500 },
 
         ["spring"] = Spring(spoils: 50, regrowPpm: 200, towerCost: 150, fortify: 2),
         ["spring-spoils25"] = Spring(spoils: 25, regrowPpm: 200, towerCost: 150, fortify: 2),
+        ["spring-regrow50"] = Spring(spoils: 50, regrowPpm: 50, towerCost: 150, fortify: 2),
     };
 }

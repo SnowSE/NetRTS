@@ -14,8 +14,8 @@ internal static class Report
 
         text.AppendLine(CultureInfo.InvariantCulture, $"{options.Players}-player games, {options.Seeds} seeds, tick limit {options.Ticks}, bots: {string.Join(", ", options.Bots)}");
         text.AppendLine();
-        text.AppendLine("| variant | games | eliminated | tick limit | median end | leader at 300 wins | tick-limit flips w/o economy | economy share of score | tower kill share | towers / player | trebuchets / game | spoils / player | HQs / player |");
-        text.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        text.AppendLine("| variant | games | eliminated | tick limit | mean end | median end | leader at 300 wins | tick-limit flips w/o economy | economy share of score | tower kill share | towers / player | trebuchets / game | spoils / player | HQs / player |");
+        text.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var (name, list) in byVariant)
         {
             var seats = list.SelectMany(g => g.Seats).ToList();
@@ -25,6 +25,7 @@ internal static class Report
             text.AppendLine(CultureInfo.InvariantCulture, $"| {name} | {list.Count} " +
                 $"| {Pct(list.Count(g => g.Reason == MatchEndReason.Elimination), list.Count)} " +
                 $"| {Pct(list.Count(g => g.Reason == MatchEndReason.TimeLimit), list.Count)} " +
+                $"| {Avg(list.Select(g => g.Ticks), "0")} " +
                 $"| {Median(list.Select(g => g.Ticks))} " +
                 $"| {Pct(decided.Count(g => g.Winner == g.LeaderAt300), decided.Count)} " +
                 $"| {Pct(timeLimit.Count(g => g.Seats.MaxBy(s => s.Score.Destruction + s.Score.Survival)!.Slot != g.Winner), timeLimit.Count)} " +
@@ -60,10 +61,10 @@ internal static class Report
 
     private static string Pct(long part, long whole) => whole == 0 ? "-" : (100.0 * part / whole).ToString("0", CultureInfo.InvariantCulture) + "%";
 
-    private static string Avg(IEnumerable<int> values)
+    private static string Avg(IEnumerable<int> values, string format = "0.0")
     {
         var list = values.ToList();
-        return list.Count == 0 ? "-" : list.Average().ToString("0.0", CultureInfo.InvariantCulture);
+        return list.Count == 0 ? "-" : list.Average().ToString(format, CultureInfo.InvariantCulture);
     }
 
     private static string Median(IEnumerable<int> values)
