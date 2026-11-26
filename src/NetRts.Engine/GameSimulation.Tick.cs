@@ -366,22 +366,47 @@ public sealed partial class GameSimulation
         unit.Cooldown = unit.Stats.AttackCooldown;
     }
 
-    /// <summary>Shells due this tick hit every enemy of their owner on the tile they land on; whoever moved away is missed.</summary>
+    /// <summary>
+    /// Shells due this tick hit every enemy of their owner on the tile they land on, and with
+    /// <see cref="RuleSet.ShellSplashPercent"/> that share of the damage on the 8 tiles around it; whoever
+    /// moved away is missed.
+    /// </summary>
     private void LandShells(List<Attack> attacks)
     {
         foreach (var shell in _shells.Where(s => s.LandsTick <= Tick).ToList())
         {
             _shells.Remove(shell);
-            var owner = shell.Attacker.Owner;
-            foreach (var unit in _units.Where(u => u.Owner != owner && !u.Dead && u.Position == shell.Target))
+            HitTile(shell, shell.Target, 100, attacks);
+            if (Rules.ShellSplashPercent <= 0)
             {
-                attacks.Add(new Attack(shell.Attacker, owner, unit, DamageAgainst(shell.Attacker, unit)));
+                continue;
             }
 
-            if (_buildingAt[Index(shell.Target)] is var id and not 0 && _entities[id] is BuildingEntity { Dead: false } building && building.Owner != owner)
+            for (var dy = -1; dy <= 1; dy++)
             {
-                attacks.Add(new Attack(shell.Attacker, owner, building, DamageAgainst(shell.Attacker, building)));
+                for (var dx = -1; dx <= 1; dx++)
+                {
+                    var tile = new Point(shell.Target.X + dx, shell.Target.Y + dy);
+                    if ((dx, dy) != (0, 0) && Map.InBounds(tile.X, tile.Y))
+                    {
+                        HitTile(shell, tile, Rules.ShellSplashPercent, attacks);
+                    }
+                }
             }
+        }
+    }
+
+    private void HitTile(Shell shell, Point tile, int percent, List<Attack> attacks)
+    {
+        var owner = shell.Attacker.Owner;
+        foreach (var unit in _units.Where(u => u.Owner != owner && !u.Dead && u.Position == tile))
+        {
+            attacks.Add(new Attack(shell.Attacker, owner, unit, DamageAgainst(shell.Attacker, unit, percent)));
+        }
+
+        if (_buildingAt[Index(tile)] is var id and not 0 && _entities[id] is BuildingEntity { Dead: false } building && building.Owner != owner)
+        {
+            attacks.Add(new Attack(shell.Attacker, owner, building, DamageAgainst(shell.Attacker, building, percent)));
         }
     }
 
@@ -407,7 +432,8 @@ public sealed partial class GameSimulation
 
     private static bool IsMoving(Entity e) => e is UnitEntity { Path.Count: > 0 };
 
-    private int DamageAgainst(Entity attacker, Entity target)
+    /// <summary>Damage of one hit after armor; <paramref name="percent"/> scales it before armor (splash).</summary>
+    private int DamageAgainst(Entity attacker, Entity target, int percent = 100)
     {
         var damage = attacker switch
         {
@@ -415,6 +441,7 @@ public sealed partial class GameSimulation
             BuildingEntity b => b.Stats.Damage + _players[b.Owner].WeaponsBonus,
             _ => 0,
         };
+        damage = damage * percent / 100;
         var armor = target switch
         {
             UnitEntity u => u.Stats.Armor + _players[u.Owner].ArmorBonus,

@@ -78,6 +78,9 @@ public sealed record RuleSet
     /// </summary>
     public int RegrowPartsPerMillion { get; init; }
 
+    /// <summary>Percent of a shell's damage (before armor) dealt on the 8 tiles around where it lands. 0 = none.</summary>
+    public int ShellSplashPercent { get; init; }
+
     /// <summary>Ticks the <see cref="UpgradeType.RapidFire"/> upgrade takes off guard tower cooldowns (never below 1).</summary>
     public int RapidFireCooldownCut { get; init; } = 1;
 
@@ -90,8 +93,8 @@ public sealed record RuleSet
         get
         {
             var json = System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(ToDto());
-            var options = (SpoilsPercent, ExtraHqCostPercent, RegrowPartsPerMillion, RapidFireCooldownCut);
-            if (options != (0, 0, 0, 1))
+            var options = (SpoilsPercent, ExtraHqCostPercent, RegrowPartsPerMillion, RapidFireCooldownCut, ShellSplashPercent);
+            if (options != (0, 0, 0, 1, 0))
             {
                 json = [.. json, .. System.Text.Encoding.UTF8.GetBytes(options.ToString())];
             }
@@ -176,6 +179,7 @@ public sealed record RuleSet
         ExtraCommandCenterCostPercent = ExtraHqCostPercent,
         SpoilsPercent = SpoilsPercent,
         RegrowPartsPerMillion = RegrowPartsPerMillion,
+        ShellSplashPercent = ShellSplashPercent,
     };
 }
 
@@ -275,6 +279,49 @@ public static class GameRules
         Upgrades = ClassicUpgrades,
         Notes = ClassicNotes,
     };
+
+    /// <summary>
+    /// The spring 2027 rules as drafted: slower, dearer guard towers with the RapidFire upgrade, cheaper
+    /// siege with splashing shells, stronger Fortify, spoils, dearer extra Command Centers and regrowing
+    /// grub patches. Numbers are still being tuned with netrts-sim.
+    /// </summary>
+    public static RuleSet SpringDraft { get; } = MakeSpringDraft();
+
+    /// <summary>Every rule set a server can be told to run, by <see cref="RuleSet.Name"/>.</summary>
+    public static IReadOnlyDictionary<string, RuleSet> Named { get; } =
+        new[] { Classic, SpringDraft }.ToDictionary(r => r.Name, StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>The named rule set with this <see cref="RuleSet.Version"/>, or null if none matches any more.</summary>
+    public static RuleSet? ByVersion(string version) => Named.Values.FirstOrDefault(r => r.Version == version);
+
+    private static RuleSet MakeSpringDraft()
+    {
+        var rules = Classic
+            .WithBuilding(BuildingType.GuardTower, s => s with { AttackCooldown = 3, Cost = 150 })
+            .WithUpgrade(UpgradeType.SiegeEngineering, ClassicUpgrades[UpgradeType.SiegeEngineering] with { Cost = 100, ResearchTicks = 30 })
+            .WithUpgrade(UpgradeType.RapidFire, new UpgradeStats(150, 40, null, "Guard towers fire every 2 ticks instead of 3"))
+            .WithUpgrade(UpgradeType.Fortify1, ClassicUpgrades[UpgradeType.Fortify1] with { Effect = "+2 armor for all completed buildings" })
+            .WithUpgrade(UpgradeType.Fortify2, ClassicUpgrades[UpgradeType.Fortify2] with { Effect = "+2 more building armor" });
+        const string siegeNote = "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then. They can't fire inside MinRange.";
+        return rules with
+        {
+            Name = "spring-draft",
+            FortifyBonusPerTier = 2,
+            SpoilsPercent = 50,
+            ExtraHqCostPercent = 25,
+            RegrowPartsPerMillion = 200,
+            ShellSplashPercent = 50,
+            Notes =
+            [
+                .. ClassicNotes.Select(n => n == siegeNote
+                    ? "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then, and every enemy on the 8 tiles around it for shellSplashPercent of the damage (before armor). They can't fire inside MinRange."
+                    : n),
+                "Destroying an enemy building banks spoilsPercent of its cost for you (storage permitting). Spoils are not economy score.",
+                "Each Command Center you own (finished or under construction) adds extraCommandCenterCostPercent of the base cost to your next one.",
+                "A deposit below its starting amount regrows regrowPartsPerMillion millionths of what it holds every tick, never past its starting amount. One mined to 0 is gone.",
+            ],
+        };
+    }
 
     public static IReadOnlyDictionary<UnitType, UnitStats> Units => Classic.Units;
     public static IReadOnlyDictionary<BuildingType, BuildingStats> Buildings => Classic.Buildings;

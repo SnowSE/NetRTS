@@ -122,4 +122,32 @@ public class RuleSetTests
 
         Assert.Equal(500, sim.Find(patch)!.Value.Hp);
     }
+
+    [Theory]
+    [InlineData(0, 0)]
+    [InlineData(50, 20)]
+    public void A_shell_splashes_onto_the_tiles_around_it(int percent, int splashDamage)
+    {
+        var sim = TestGames.New(rules: GameRules.Classic with { Name = "test", ShellSplashPercent = percent });
+        var trebuchet = sim.SpawnUnit(0, UnitType.Trebuchet, 10, 10);
+        var target = sim.SpawnUnit(1, UnitType.Soldier, 15, 10);
+        var beside = sim.SpawnUnit(1, UnitType.Archer, 15, 11);   // archers have no armor
+        var maxHp = sim.Find(beside)!.Value.Hp;
+        sim.SetHp(target, 100_000);
+        sim.SubmitOne(0, TestGames.AttackTarget(target, trebuchet)).AssertAccepted();
+
+        sim.Run(5);   // fires, then the shell lands 3 ticks later
+
+        Assert.Equal(maxHp - splashDamage, sim.Find(beside)!.Value.Hp);   // 40 damage, half of it splashes
+    }
+
+    [Fact]
+    public void The_spring_draft_is_a_named_rule_set_that_differs_from_classic()
+    {
+        Assert.Same(GameRules.SpringDraft, GameRules.Named["spring-draft"]);
+        Assert.Same(GameRules.Classic, GameRules.Named["classic"]);
+        Assert.NotEqual(GameRules.Version, GameRules.SpringDraft.Version);
+        Assert.Contains(GameRules.SpringDraft.ToDto().Upgrades, u => u.Type == UpgradeType.RapidFire);
+        Assert.DoesNotContain(GameRules.ToDto().Upgrades, u => u.Type == UpgradeType.RapidFire);
+    }
 }

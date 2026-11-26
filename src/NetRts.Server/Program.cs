@@ -101,6 +101,9 @@ builder.Services.Configure<BrotliCompressionProviderOptions>(o => o.Level = Syst
 
 var app = builder.Build();
 
+// Fail at startup, not at the first match, if NetRts:Rules names a rule set that doesn't exist.
+_ = app.Services.GetRequiredService<IOptions<NetRtsOptions>>().Value.RuleSet;
+
 await InitializeDatabaseAsync(app.Services);
 
 app.UseApiErrors();

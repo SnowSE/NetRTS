@@ -8,7 +8,8 @@ using NetRts.Protocol;
 namespace NetRts.Server.Matches;
 
 /// <summary>TreatyTicks and CombatScore: the pick-up game's rules (see <see cref="GameConfig"/>); off for every other match.</summary>
-public sealed record MatchSettings(int MapWidth, int MapHeight, int Seed, int TickIntervalMs, int MaxTicks, int TreatyTicks = 0, bool CombatScore = false, int GrubPercent = 100);
+public sealed record MatchSettings(int MapWidth, int MapHeight, int Seed, int TickIntervalMs, int MaxTicks, int TreatyTicks = 0, bool CombatScore = false, int GrubPercent = 100,
+    RuleSet? Rules = null);
 
 public enum SerumOutcome
 {
@@ -36,7 +37,7 @@ public sealed record Seat(Guid PlayerId, string Name, bool IsHouseBot, bool Veri
 /// </summary>
 public sealed class MatchHost
 {
-    private static readonly RulesDto Rules = GameRules.ToDto();
+    private RulesDto? _rulesDto;   // what the house bots read; made once
 
     /// <summary>A pause lifts itself after this long, so nobody can stall a match (or hold its slot) forever.</summary>
     public static readonly TimeSpan MaxPause = TimeSpan.FromMinutes(5);
@@ -83,6 +84,9 @@ public sealed class MatchHost
     public Guid? CreatorId { get; }
     public int MaxPlayers { get; }
     public MatchSettings Settings { get; }
+
+    /// <summary>The rules this match is played under.</summary>
+    public RuleSet Rules => Settings.Rules ?? GameRules.Classic;
     public bool IsExhibition { get; }
     public MatchCategory Category { get; }
 
@@ -363,6 +367,7 @@ public sealed class MatchHost
                     TreatyTicks = Settings.TreatyTicks,
                     CombatScore = Settings.CombatScore,
                     GrubPercent = Settings.GrubPercent,
+                    Rules = Rules,
                 },
                 _seats.Select((s, i) => new PlayerSeat(s.PlayerId, s.Name, _seatKits[i])).ToList());
             _map = _sim.Map.ToDto();
@@ -770,7 +775,7 @@ public sealed class MatchHost
         _frameRecorder.Add(_sim!.GetSpectatorView(_sim.Tick - 1));
         if (_sim.Status == MatchStatus.Completed)
         {
-            _frames = _frameRecorder.Finish(Id, _map!, GameRules.Version);
+            _frames = _frameRecorder.Finish(Id, _map!, Rules.Version);
             _frameRecorder = null;
         }
     }
@@ -786,7 +791,7 @@ public sealed class MatchHost
 
             try
             {
-                var commands = bot.Decide(new BotContext(_sim!.GetPlayerView(slot), _map!, Rules));
+                var commands = bot.Decide(new BotContext(_sim!.GetPlayerView(slot), _map!, _rulesDto ??= Rules.ToDto()));
                 var boosted = ServerBotBoosted(slot, bot);
                 if (commands.Count > 0)
                 {

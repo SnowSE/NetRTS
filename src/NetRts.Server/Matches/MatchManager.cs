@@ -478,7 +478,7 @@ public sealed partial class MatchManager(
     private MatchHost NewHost(string? name, Guid? creatorId, int maxPlayers, MatchSettings settings, bool isExhibition,
         MatchCategory category = MatchCategory.Practice)
     {
-        var host = new MatchHost(Guid.NewGuid(), name, creatorId, maxPlayers, settings, isExhibition, DateTime.UtcNow,
+        var host = new MatchHost(Guid.NewGuid(), name, creatorId, maxPlayers, settings with { Rules = settings.Rules ?? _options.RuleSet }, isExhibition, DateTime.UtcNow,
             loggerFactory.CreateLogger<MatchHost>(), metrics, category);
         host.Completed += recorder.Enqueue;
         return host;

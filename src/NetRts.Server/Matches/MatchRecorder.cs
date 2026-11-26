@@ -100,7 +100,7 @@ public sealed class MatchRecorder(
             SummaryJson = JsonSerializer.Serialize(summary, NetRtsClient.JsonOptions),
             ResultJson = JsonSerializer.Serialize(result, NetRtsClient.JsonOptions),
             ReplayJson = JsonSerializer.Serialize(replay, NetRtsClient.JsonOptions),
-            RulesVersion = GameRules.Version,
+            RulesVersion = host.Rules.Version,
         });
         if (host.Frames is { } frames)
         {

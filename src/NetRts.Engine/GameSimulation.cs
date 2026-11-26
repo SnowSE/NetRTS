@@ -311,7 +311,8 @@ public sealed partial class GameSimulation
     /// <param name="replay">The match to re-simulate.</param>
     /// <param name="names">Player names by slot (default P0, P1, ...).</param>
     /// <param name="onTick">Called with the simulation at tick 0, after every tick, and again whenever a surrender changes a tick.</param>
-    public static GameSimulation FromReplay(ReplayDto replay, IReadOnlyList<string>? names = null, Action<GameSimulation>? onTick = null)
+    /// <param name="rules">The rules the match was played under (default classic).</param>
+    public static GameSimulation FromReplay(ReplayDto replay, IReadOnlyList<string>? names = null, Action<GameSimulation>? onTick = null, RuleSet? rules = null)
     {
         ArgumentNullException.ThrowIfNull(replay);
         var config = new GameConfig
@@ -322,6 +323,7 @@ public sealed partial class GameSimulation
             MaxTicks = replay.MaxTicks,
             GrubPercent = replay.GrubPercent ?? 100,
             QueueCapacity = int.MaxValue,
+            Rules = rules ?? GameRules.Classic,
         };
         var sim = new GameSimulation(replay.MatchId, config,
             replay.Players.Select((id, i) => new PlayerSeat(id, names is not null && i < names.Count ? names[i] : $"P{i}")).ToList());

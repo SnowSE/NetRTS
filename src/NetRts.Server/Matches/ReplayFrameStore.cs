@@ -124,9 +124,10 @@ public sealed class ReplayFrameStore(MatchManager matches, IServiceScopeFactory 
                 return false;
             }
 
-            if (record.RulesVersion is { } version && version != GameRules.Version)
+            var rules = record.RulesVersion is { } version ? GameRules.ByVersion(version) : GameRules.Classic;
+            if (rules is null)
             {
-                logger.LogInformation("Not rebuilding frames for match {MatchId}: played under rules {Then}, now {Now}", matchId, version, GameRules.Version);
+                logger.LogInformation("Not rebuilding frames for match {MatchId}: played under rules {Then}, which this server no longer has", matchId, record.RulesVersion);
                 return false;
             }
 
@@ -137,7 +138,7 @@ public sealed class ReplayFrameStore(MatchManager matches, IServiceScopeFactory 
                 .ToList();
 
             var recorder = new ReplayFrameRecorder();
-            var sim = GameSimulation.FromReplay(replay, names, s => recorder.Add(s.GetSpectatorView(s.Tick - 1)));
+            var sim = GameSimulation.FromReplay(replay, names, s => recorder.Add(s.GetSpectatorView(s.Tick - 1)), rules);
 
             // Older matches have no rules version: trust the rebuild only if it ends exactly as the match did.
             if (sim.Outcome is not { } outcome || outcome.Reason.ToString() != record.Reason || outcome.WinnerId != record.WinnerId || outcome.Ticks != record.Ticks)
@@ -147,7 +148,7 @@ public sealed class ReplayFrameStore(MatchManager matches, IServiceScopeFactory 
                 return false;
             }
 
-            Add(db, matchId, recorder.Finish(matchId, sim.Map.ToDto(), GameRules.Version, rebuilt: true), DateTime.UtcNow);
+            Add(db, matchId, recorder.Finish(matchId, sim.Map.ToDto(), rules.Version, rebuilt: true), DateTime.UtcNow);
             await db.SaveChangesAsync(ct);
             logger.LogInformation("Rebuilt frames for match {MatchId} ({Ticks} ticks)", matchId, record.Ticks);
             return true;

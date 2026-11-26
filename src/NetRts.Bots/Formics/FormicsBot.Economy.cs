@@ -487,7 +487,7 @@ public sealed partial class FormicsBot
             return;
         }
 
-        foreach (var upgrade in _outgunned || _rushed ? FightFirst : _tune.EarlyFightUpgrades ? FightSoon : ResearchOrder)
+        foreach (var upgrade in ForTheseRules(_outgunned || _rushed ? FightFirst : _tune.EarlyFightUpgrades ? FightSoon : ResearchOrder, view.Rules))
         {
             var stats = view.Rules.Upgrades.First(u => u.Type == upgrade);
             if (Budget(hive) < stats.Cost)
@@ -501,6 +501,26 @@ public sealed partial class FormicsBot
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Where the rules offer RapidFire (towers that fire slower, and stronger Fortify), the hive leans on its
+    /// bell towers: RapidFire right after Weapons1, and Fortify after Armor2 instead of last.
+    /// </summary>
+    private static IEnumerable<UpgradeType> ForTheseRules(UpgradeType[] order, RulesDto rules)
+    {
+        if (!rules.Upgrades.Any(u => u.Type == UpgradeType.RapidFire))
+        {
+            return order;
+        }
+
+        UpgradeType[] fortify = [UpgradeType.Fortify1, UpgradeType.Fortify2];
+        return order.Except(fortify).SelectMany(u => u switch
+        {
+            UpgradeType.Weapons1 => [u, UpgradeType.RapidFire],
+            UpgradeType.Armor2 => [u, .. fortify],
+            _ => new[] { u },
+        });
     }
 
     private void TrainFighters(HiveTick hive)

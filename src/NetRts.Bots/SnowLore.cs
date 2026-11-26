@@ -42,6 +42,7 @@ public static class SnowLore
         [UpgradeType.Harvesting1] = "Intro to Biology",
         [UpgradeType.Harvesting2] = "Entomology",
         [UpgradeType.SiegeEngineering] = "Welding Technology",
+        [UpgradeType.RapidFire] = "Campanology",
         [UpgradeType.Fortify1] = "Intro to Construction",
         [UpgradeType.Fortify2] = "Structural Engineering",
     };

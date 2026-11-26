@@ -52,6 +52,7 @@ export const UPGRADE_NAME = {
   Harvesting1: 'Intro to Biology', Harvesting2: 'Entomology',
   Fortify1: 'Intro to Construction', Fortify2: 'Structural Engineering',
   SiegeEngineering: 'Welding Technology',
+  RapidFire: 'Campanology',
 };
 
 /** House bots keep their API names; these are their mascot-league nicknames. */
@@ -108,7 +109,7 @@ export function badgerize(text) {
   return String(text ?? '')
     .replace(/\bhouse-(\w+)/g, (m, bot) => BOT_NICKNAME[bot] ?? m)
     .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower|SiegeWorkshop)\b/g, (m) => BUILDING_NAME[m])
-    .replace(/\b((?:Weapons|Mobility|Harvesting|Fortify)[12]|Armor[123]|SiegeEngineering)\b/g, (m) => UPGRADE_NAME[m])
+    .replace(/\b((?:Weapons|Mobility|Harvesting|Fortify)[12]|Armor[123]|SiegeEngineering|RapidFire)\b/g, (m) => UPGRADE_NAME[m])
     .replace(/\bTrebuchet\b/g, UNIT_NAME.Trebuchet)
     .replace(/\bDeposit\b/g, 'Grub patch')
     .replace(/\bKilled enemy\b/g, 'Bowled over enemy')

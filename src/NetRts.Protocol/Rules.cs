@@ -28,6 +28,10 @@ public sealed record RulesDto
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int RegrowPartsPerMillion { get; init; }
+
+    /// <summary>Percent of a shell's damage (before armor) dealt to enemies on the 8 tiles around where it lands. Left out when 0.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int ShellSplashPercent { get; init; }
 }
 
 public sealed record UnitStatsDto

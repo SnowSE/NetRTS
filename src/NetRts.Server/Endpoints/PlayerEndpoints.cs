@@ -42,8 +42,8 @@ public static partial class PlayerEndpoints
         api.MapGet("/leaderboard", Leaderboard)
             .WithSummary("One category's ladder: Practice (default; by Elo rating, only player-vs-player 1v1s move it), Preseason, Season or Championship (by league points, then skill). Add season=<label> for a past season.");
 
-        api.MapGet("/rules", () => GameRules.ToDto())
-            .WithSummary("Every unit, building and upgrade stat, plus the core rules.");
+        api.MapGet("/rules", (IOptions<NetRtsOptions> options) => options.Value.RuleSet.ToDto())
+            .WithSummary("Every unit, building and upgrade stat, plus the core rules new matches on this server are played under.");
 
         api.MapGet("/bots", () => HouseBots.All)
             .WithSummary("House bots you can play against or watch.");

@@ -20,6 +20,9 @@ public class ServerFactory : WebApplicationFactory<Program>
 
     protected virtual bool AutoTick => false;
 
+    /// <summary>The server's rule set (NetRts:Rules).</summary>
+    protected virtual string Rules => "classic";
+
     public const string RecapKey = "test-recap-key";
 
     public const string TestAppInsights = "/subscriptions/sub/resourceGroups/rg/providers/microsoft.insights/components/ai";
@@ -32,6 +35,7 @@ public class ServerFactory : WebApplicationFactory<Program>
         builder.UseSetting("ConnectionStrings:sqlite", $"Data Source={_dbPath}");
         builder.UseSetting("ConnectionStrings:netrtsdb", "");
         builder.UseSetting("NetRts:AutoTick", AutoTick.ToString());
+        builder.UseSetting("NetRts:Rules", Rules);
         builder.UseSetting("NetRts:StartDelayMs", "0");
         builder.UseSetting("NetRts:MinTickIntervalMs", "10");
         builder.UseSetting("NetRts:MaxLongPollSeconds", "5");

@@ -9,6 +9,17 @@ public sealed class NetRtsOptions
     public string? PublicUrl { get; set; }
 
     /// <summary>
+    /// The rule set new matches are played under, by name (<see cref="NetRts.Engine.GameRules.Named"/>):
+    /// "classic" (the default) or "spring-draft" for a test server. The pick-up game always plays classic.
+    /// </summary>
+    public string Rules { get; set; } = "classic";
+
+    /// <summary>The rule set named by <see cref="Rules"/>.</summary>
+    public NetRts.Engine.RuleSet RuleSet => NetRts.Engine.GameRules.Named.TryGetValue(Rules, out var rules)
+        ? rules
+        : throw new InvalidOperationException($"NetRts:Rules is '{Rules}'; known rule sets: {string.Join(", ", NetRts.Engine.GameRules.Named.Keys)}.");
+
+    /// <summary>
     /// Azure resource ID of the Application Insights resource the server exports to
     /// (/subscriptions/…/resourceGroups/…/providers/microsoft.insights/components/…). When set, admins
     /// get links to its portal pages and saved log queries on their account page.
