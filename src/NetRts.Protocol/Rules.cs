@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace NetRts.Protocol;
 
 /// <summary>Static game data so bots can be data driven instead of hard-coding numbers.</summary>
@@ -8,6 +10,24 @@ public sealed record RulesDto
     public IReadOnlyList<UpgradeStatsDto> Upgrades { get; init; } = [];
     public required EconomyRulesDto Economy { get; init; }
     public IReadOnlyList<string> Notes { get; init; } = [];
+
+    /// <summary>
+    /// Each Command Center you already own (finished or under construction) adds this percent of the base
+    /// cost to your next one. Left out when 0.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int ExtraCommandCenterCostPercent { get; init; }
+
+    /// <summary>Percent of a destroyed enemy building's cost you bank as grubs. Left out when 0.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int SpoilsPercent { get; init; }
+
+    /// <summary>
+    /// A deposit below its starting amount regrows this many millionths of what it holds every tick, never
+    /// past its starting amount; one mined to 0 is gone. Left out when 0 (no regrowth).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int RegrowPartsPerMillion { get; init; }
 }
 
 public sealed record UnitStatsDto

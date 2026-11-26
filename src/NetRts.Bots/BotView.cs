@@ -57,6 +57,15 @@ public sealed class BotView
 
     public int UnitCost(UnitType type) => Rules.Units.First(u => u.Type == type).Cost;
 
+    /// <summary>What <paramref name="type"/> costs us now: each Command Center we own makes the next one dearer.</summary>
+    public int BuildingCost(BuildingType type)
+    {
+        var cost = Rules.Buildings.First(b => b.Type == type).Cost;
+        return type == BuildingType.CommandCenter
+            ? cost * (100 + Rules.ExtraCommandCenterCostPercent * MyBuildings.Count(b => b.Type == BuildingType.CommandCenter)) / 100
+            : cost;
+    }
+
     /// <summary>
     /// The enemy unit to deal with first: within <paramref name="radius"/> of one of our buildings, nearest
     /// the Command Center (ties: the first listed, and the server lists units by id). Null when the base is safe.

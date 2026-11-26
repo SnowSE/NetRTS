@@ -425,7 +425,7 @@ public sealed partial class BlockBot
                     : Outcome.Fail(w => $"you don't know where more {w.Ore} is yet, and {look.Text(w)}");
             }
 
-            if (turn.CheckBudget(view.Rules.Buildings.First(b => b.Type == type).Cost) is Attempt.TooExpensive(var cost, var have))
+            if (turn.CheckBudget(view.BuildingCost(type)) is Attempt.TooExpensive(var cost, var have))
             {
                 return CantAfford(w => $"a {name(w)}", cost, have);
             }

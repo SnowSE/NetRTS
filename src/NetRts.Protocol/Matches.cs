@@ -221,6 +221,10 @@ public sealed record PlayerMatchStatsDto
     /// <summary>Ore workers brought home that didn't fit in storage.</summary>
     public int OreWasted { get; init; }
 
+    /// <summary>Grubs taken as spoils from destroyed enemy buildings (only in rules with spoils).</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int Spoils { get; init; }
+
     /// <summary>Enemy units killed by this player's guard towers.</summary>
     public int TowerKills { get; init; }
 

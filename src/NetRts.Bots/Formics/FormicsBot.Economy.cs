@@ -398,7 +398,7 @@ public sealed partial class FormicsBot
     /// <summary>Orders the building if it can be paid for; false when it can't (yet).</summary>
     private bool Place(HiveTick hive, BuildingType type, (int X, int Y) site, int helpers = 0)
     {
-        var cost = hive.View.Rules.Buildings.First(b => b.Type == type).Cost;
+        var cost = hive.View.BuildingCost(type);
         if (Budget(hive) < cost)
         {
             hive.Reserved = cost; // fighters leave this much for it

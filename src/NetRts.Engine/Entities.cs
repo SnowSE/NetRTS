@@ -55,6 +55,9 @@ internal sealed class PlayerState(Guid id, int slot, string name, RuleSet rules)
     public int PeakWorkers { get; set; }
     public int PeakResources { get; set; } = rules.StartingResources;
     public int OreWasted { get; set; }
+
+    /// <summary>Grubs banked from destroying enemy buildings (<see cref="RuleSet.SpoilsPercent"/>).</summary>
+    public int Spoils { get; set; }
     public int TowerKills { get; set; }
     public int SerumKills { get; set; }
     public int CommandsQueued { get; set; }
@@ -234,5 +237,8 @@ internal sealed class DepositEntity : Entity
 
     public int Initial { get; }
     public int Remaining => Hp;
+
+    /// <summary>Regrowth below one whole grub, in millionths, carried to the next tick.</summary>
+    public long RegrowCarry { get; set; }
     public override int MaxHp => Initial;
 }

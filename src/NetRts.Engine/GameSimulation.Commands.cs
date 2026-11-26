@@ -174,9 +174,10 @@ public sealed partial class GameSimulation
             return Error("MISSING_PREREQUISITE", $"{type} requires the {upgrade} upgrade.");
         }
 
-        if (player.Resources < stats.Cost)
+        var cost = BuildingCost(player, type);
+        if (player.Resources < cost)
         {
-            return Error("INSUFFICIENT_RESOURCES", $"{type} costs {stats.Cost}; you have {player.Resources}.");
+            return Error("INSUFFICIENT_RESOURCES", $"{type} costs {cost}; you have {player.Resources}.");
         }
 
         return null;
@@ -264,7 +265,7 @@ public sealed partial class GameSimulation
             return (null, Error("CANNOT_RESEARCH", $"{building.Type} cannot research; use a TechLab."));
         }
 
-        if (request.Upgrade is not { } upgrade || !Enum.IsDefined(upgrade))
+        if (request.Upgrade is not { } upgrade || !Rules.Upgrades.ContainsKey(upgrade))
         {
             return (null, Error("MISSING_UPGRADE", "Research needs a valid upgrade."));
         }

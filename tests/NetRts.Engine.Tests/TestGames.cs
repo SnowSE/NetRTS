@@ -11,8 +11,8 @@ internal static class TestGames
     /// A 64x64 two-player game. Slot 0's base is at (7,7); everything within 9 tiles of it is
     /// guaranteed rock-free, and (8..16, 8..16) is also clear of ore — a safe sandbox for scenarios.
     /// </summary>
-    public static GameSimulation New(int seed = 1, int maxTicks = 1800, int queueCapacity = 500, int commandsPerTick = 100) =>
-        new(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks, QueueCapacity = queueCapacity, CommandsPerTick = commandsPerTick },
+    public static GameSimulation New(int seed = 1, int maxTicks = 1800, int queueCapacity = 500, int commandsPerTick = 100, RuleSet? rules = null) =>
+        new(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks, QueueCapacity = queueCapacity, CommandsPerTick = commandsPerTick, Rules = rules ?? GameRules.Classic },
             [new PlayerSeat(P1, "alpha"), new PlayerSeat(P2, "bravo")]);
 
     public static CommandRequest Move(int x, int y, params int[] unitIds) =>

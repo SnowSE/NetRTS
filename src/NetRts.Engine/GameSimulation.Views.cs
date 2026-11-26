@@ -156,6 +156,7 @@ public sealed partial class GameSimulation
             PeakWorkers = p.PeakWorkers,
             PeakResources = p.PeakResources,
             OreWasted = p.OreWasted,
+            Spoils = p.Spoils,
             TowerKills = p.TowerKills,
             SerumTaken = p.SerumUntilTick >= 0,
             SerumKills = p.SerumKills,

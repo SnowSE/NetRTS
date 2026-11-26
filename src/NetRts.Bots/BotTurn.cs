@@ -130,7 +130,7 @@ public sealed class BotTurn(BotView view, BotMemory memory, bool reserveUnits = 
             return new Attempt.AlreadyGoingUp(type);
         }
 
-        if (CheckBudget(stats.Cost) is { } tooExpensive)
+        if (CheckBudget(View.BuildingCost(type)) is { } tooExpensive)
         {
             return tooExpensive;
         }
@@ -154,7 +154,7 @@ public sealed class BotTurn(BotView view, BotMemory memory, bool reserveUnits = 
         Add(new CommandRequest { Type = CommandType.Build, UnitIds = [builder.Id], BuildingType = type, X = site.X, Y = site.Y });
         Claim(builder.Id);
         Memory.AddPendingSite(site, type, Tick, builder.Id);
-        Budget -= View.Rules.Buildings.First(b => b.Type == type).Cost;
+        Budget -= View.BuildingCost(type);
         return new Attempt.Done(builder.Id);
     }
 

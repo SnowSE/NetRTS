@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>netrts-sim</AssemblyName>
+    <RootNamespace>NetRts.Sim</RootNamespace>
+    <Description>Plays house bots against each other in-process under rule variants and compares how the games go.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\NetRts.Engine\NetRts.Engine.csproj" />
+    <ProjectReference Include="..\NetRts.Bots\NetRts.Bots.csproj" />
+  </ItemGroup>
+
+</Project>

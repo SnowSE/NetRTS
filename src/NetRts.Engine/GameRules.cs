@@ -100,6 +100,22 @@ public sealed record RuleSet
         }
     }
 
+    /// <summary>These rules with one unit's stats changed.</summary>
+    public RuleSet WithUnit(UnitType type, Func<UnitStats, UnitStats> change) =>
+        this with { Units = Replace(Units, type, change(Units[type])) };
+
+    /// <summary>These rules with one building's stats changed.</summary>
+    public RuleSet WithBuilding(BuildingType type, Func<BuildingStats, BuildingStats> change) =>
+        this with { Buildings = Replace(Buildings, type, change(Buildings[type])) };
+
+    /// <summary>These rules with one upgrade added or changed.</summary>
+    public RuleSet WithUpgrade(UpgradeType type, UpgradeStats stats) =>
+        this with { Upgrades = Replace(Upgrades, type, stats) };
+
+    // A copy keeps the original order (and so the published order); a new key goes last.
+    private static Dictionary<TKey, TValue> Replace<TKey, TValue>(IReadOnlyDictionary<TKey, TValue> source, TKey key, TValue value)
+        where TKey : notnull => new(source) { [key] = value };
+
     /// <summary>What a Command Center costs a player who owns <paramref name="owned"/> already.</summary>
     public int CommandCenterCost(int owned) =>
         Buildings[BuildingType.CommandCenter].Cost * (100 + ExtraHqCostPercent * owned) / 100;
@@ -157,6 +173,9 @@ public sealed record RuleSet
             MaxProductionQueue = MaxProductionQueue,
         },
         Notes = Notes,
+        ExtraCommandCenterCostPercent = ExtraHqCostPercent,
+        SpoilsPercent = SpoilsPercent,
+        RegrowPartsPerMillion = RegrowPartsPerMillion,
     };
 }
 

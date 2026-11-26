@@ -59,12 +59,13 @@ public sealed partial class GameSimulation
             if (target is not null && tower.Cooldown == 0)
             {
                 attacks.Add(new Attack(tower, tower.Owner, target, DamageAgainst(tower, target)));
-                tower.Cooldown = tower.Stats.AttackCooldown;
+                tower.Cooldown = TowerCooldown(tower);
                 _towerShots.Add(new TowerShot(tower.Id, tower.Owner, tower.Position, target.Id, target.Position));
             }
         }
 
         LandShells(attacks);
+        RegrowDeposits();
 
         var killers = new Dictionary<int, Attack>();
         foreach (var attack in attacks)
@@ -670,7 +671,7 @@ public sealed partial class GameSimulation
             return;
         }
 
-        player.Resources -= Rules.Buildings[type].Cost;
+        player.Resources -= BuildingCost(player, type);
         var placed = AddBuilding(unit.Owner, type, site, completed: false);
         foreach (var standing in _units.Where(u => u.Position == site).ToList())
         {
@@ -729,6 +730,7 @@ public sealed partial class GameSimulation
 
                 killer.Destruction += building.Stats.Cost;
                 AddEvent(killer, "BuildingDestroyed", $"Destroyed enemy {building.Type} {building.Id}", building.Id);
+                TakeSpoils(killer, building);
             }
         }
     }
@@ -795,6 +797,56 @@ public sealed partial class GameSimulation
         foreach (var p in _players)
         {
             p.Events.Add(new GameEventDto { Tick = Tick, Kind = "MatchEnded", Message = message });
+        }
+    }
+
+    /// <summary>What <paramref name="type"/> costs <paramref name="player"/> now: extra Command Centers cost more.</summary>
+    private int BuildingCost(PlayerState player, BuildingType type) => type == BuildingType.CommandCenter
+        ? Rules.CommandCenterCost(_buildings.Count(b => b.Owner == player.Slot && b.Type == BuildingType.CommandCenter))
+        : Rules.Buildings[type].Cost;
+
+    private int TowerCooldown(BuildingEntity tower) => _players[tower.Owner].Upgrades.Contains(UpgradeType.RapidFire)
+        ? Math.Max(1, tower.Stats.AttackCooldown - Rules.RapidFireCooldownCut)
+        : tower.Stats.AttackCooldown;
+
+    /// <summary>Pays the destroyer of an enemy building its share of the building's cost, as far as storage allows.</summary>
+    private void TakeSpoils(PlayerState killer, BuildingEntity building)
+    {
+        var spoils = building.Stats.Cost * Rules.SpoilsPercent / 100;
+        if (spoils <= 0 || killer.Eliminated)
+        {
+            return;
+        }
+
+        var banked = Math.Min(spoils, Math.Max(0, StorageCapacity(killer.Slot) - killer.Resources));
+        killer.Resources += banked;
+        killer.OreWasted += spoils - banked;
+        killer.Spoils += banked;
+    }
+
+    /// <summary>
+    /// Grub patches below their starting amount regrow in proportion to what they hold (whole grubs; the
+    /// fraction is carried to the next tick), never past the starting amount.
+    /// </summary>
+    private void RegrowDeposits()
+    {
+        if (Rules.RegrowPartsPerMillion <= 0)
+        {
+            return;
+        }
+
+        foreach (var deposit in _deposits)
+        {
+            if (deposit.Remaining >= deposit.Initial)
+            {
+                deposit.RegrowCarry = 0;
+                continue;
+            }
+
+            deposit.RegrowCarry += (long)deposit.Remaining * Rules.RegrowPartsPerMillion;
+            var grown = (int)(deposit.RegrowCarry / 1_000_000);
+            deposit.RegrowCarry %= 1_000_000;
+            deposit.Hp = Math.Min(deposit.Initial, deposit.Hp + grown);
         }
     }
 }
