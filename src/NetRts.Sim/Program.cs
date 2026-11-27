@@ -62,7 +62,10 @@ static IEnumerable<IEnumerable<string>> Combinations(IReadOnlyList<string> items
 static Game Play(string variant, RuleSet rules, string[] bots, int seed, int ticks)
 {
     var seats = bots.Select((b, i) => new PlayerSeat(new Guid(seed, (short)i, 1, new byte[8]), b)).ToList();
-    var sim = new GameSimulation(new Guid(seed, 0, 0, new byte[8]), new GameConfig { Seed = seed, MaxTicks = ticks, Rules = rules }, seats);
+    // Like the server: 64x64 up to four players, more room (the minimum plus some, to a multiple of 8) beyond.
+    var size = bots.Length <= 4 ? 64 : Math.Max(64, (MapGenerator.MinSizeFor(bots.Length) + 16 + 7) / 8 * 8);
+    var sim = new GameSimulation(new Guid(seed, 0, 0, new byte[8]),
+        new GameConfig { Seed = seed, MaxTicks = ticks, Rules = rules, MapWidth = size, MapHeight = size }, seats);
     var strategies = bots.Select(HouseBots.Create).ToArray();
     var map = sim.Map.ToDto();
     var rulesDto = rules.ToDto();
