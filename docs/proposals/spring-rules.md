@@ -53,8 +53,9 @@ patches.
 13. **Trebuchet:** cheaper siege path: drop or halve Siege Engineering (simulations decide).
 14. **Fortify:** make it worth buying (bigger armor per tier and/or tower bonus; simulations decide).
 15. **Extra headquarters:** each one costs more by how many you own (finished or under construction):
-    cost = base x (1 + 0.25 x HQs you own now), counting finished ones and sites already started. With the
-    base 400: 2nd 500, 3rd 600, 4th 700. Integer math: base x (4 + owned) / 4. Confirmed by the user.
+    counting finished ones and sites already started. Changed 2026-11-26 from a flat +25% of the base
+    (400, 500, 600, 700) to compounding: each costs 25% more than the one before, cost = base x 1.25^owned,
+    rounded down: 400, 500, 625, 781, 976. Integer math: base x 125^owned / 100^owned.
 16. **Grub regrowth:** a patch never holds more than it started with. Below that it regrows at a rate
     proportional to what it holds now (small patches crawl, nearly full ones recover fast), capped at the
     starting amount. A patch mined to 0 never comes back, so it can still be removed at 0 as today. Integer

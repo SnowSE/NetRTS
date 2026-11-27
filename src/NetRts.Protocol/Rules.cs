@@ -15,11 +15,22 @@ public sealed record RulesDto
     public IReadOnlyList<string> Notes { get; init; } = [];
 
     /// <summary>
-    /// Each Command Center you already own (finished or under construction) adds this percent of the base
-    /// cost to your next one. Left out when 0.
+    /// Each Command Center you already own (finished or under construction) makes the next one cost this
+    /// percent more than the one before: with 25, 400, 500, 625, 781... (see <see cref="CommandCenterCost"/>).
+    /// Left out when 0.
     /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int ExtraCommandCenterCostPercent { get; init; }
+
+    /// <summary>
+    /// What a Command Center costs someone who owns <paramref name="owned"/> already:
+    /// <c>baseCost × (1 + percent/100)^owned</c>, rounded down (whole-number math, so every bot and the server agree).
+    /// </summary>
+    public static int CommandCenterCost(int baseCost, int percent, int owned)
+    {
+        var cost = baseCost * System.Numerics.BigInteger.Pow(100 + percent, owned) / System.Numerics.BigInteger.Pow(100, owned);
+        return cost > int.MaxValue ? int.MaxValue : (int)cost;
+    }
 
     /// <summary>Percent of a destroyed enemy building's cost you bank as grubs. Left out when 0.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]

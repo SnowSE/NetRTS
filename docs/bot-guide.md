@@ -404,7 +404,7 @@ plays either. Commands don't change; the new mechanics show up as extra fields, 
 | `farm` (`grubs`, `replantCost`, `gatherPerTick`), building `Farm` | 300, 75, 1; Farm costs 100 | A finished farm holds `farm.grubs`, dug like a patch from the cells around it at `gatherPerTick` (+ Harvesting). Its `grubs` field in state says how many are left. Dug out, it stays standing and its workers move on (event `FarmEmpty`); **Gather** on your own empty farm replants it for `replantCost` when the worker gets there (event `FarmReplanted`). You can't dig an enemy's farm. |
 | GuardTower `attackCooldown`, upgrade `RapidFire` | 3 (cost 150); RapidFire 150 | Towers fire every 3 ticks; RapidFire brings it to 2. |
 | `spoilsPercent` | 50 | Destroying an enemy building banks half its cost for you (storage permitting). |
-| `extraCommandCenterCostPercent` | 25 | Each Command Center you own (finished or started) adds 25% of the base cost to the next: 400, 500, 600... |
+| `extraCommandCenterCostPercent` | 25 | Each Command Center you own (finished or started) makes the next 25% dearer than the one before: `400 × 1.25^owned`, rounded down, so 400, 500, 625, 781, 976... |
 | `regrowPartsPerMillion` | 200 | A patch below its starting amount regrows 0.02% of what it holds each tick, never past its start. One dug to 0 is gone. |
 | `shellSplashPercent`, SiegeEngineering | 50; 100 grubs, 30 ticks | Shells also hit enemies on the 8 tiles around where they land, for half damage (before armor). |
 | Fortify | +2 armor per tier | |

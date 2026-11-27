@@ -62,7 +62,7 @@ public sealed class BotView
     {
         var cost = Rules.Buildings.First(b => b.Type == type).Cost;
         return type == BuildingType.CommandCenter
-            ? cost * (100 + Rules.ExtraCommandCenterCostPercent * MyBuildings.Count(b => b.Type == BuildingType.CommandCenter)) / 100
+            ? RulesDto.CommandCenterCost(cost, Rules.ExtraCommandCenterCostPercent, MyBuildings.Count(b => b.Type == BuildingType.CommandCenter))
             : cost;
     }
 

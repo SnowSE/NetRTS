@@ -76,7 +76,7 @@ public sealed record RuleSet
     /// <summary>Percent of a destroyed building's cost paid to whoever destroyed it, as grubs (storage permitting).</summary>
     public int SpoilsPercent { get; init; }
 
-    /// <summary>Each Command Center you already own (finished or started) adds this percent of its base cost.</summary>
+    /// <summary>Each Command Center you already own (finished or started) makes the next cost this percent more than the one before.</summary>
     public int ExtraHqCostPercent { get; init; }
 
     /// <summary>
@@ -121,7 +121,8 @@ public sealed record RuleSet
             var options = (SpoilsPercent, ExtraHqCostPercent, RegrowPartsPerMillion, RapidFireCooldownCut, ShellSplashPercent);
             if (options != (0, 0, 0, 1, 0))
             {
-                json = [.. json, .. System.Text.Encoding.UTF8.GetBytes(options.ToString())];
+                // ";hq^": extra Command Centers compound (400, 500, 625...); the first draft added a flat share of the base.
+                json = [.. json, .. System.Text.Encoding.UTF8.GetBytes(options.ToString() + (ExtraHqCostPercent > 0 ? ";hq^" : ""))];
             }
 
             return $"{GameSimulation.Revision}-{Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(json))[..12]}";
@@ -146,7 +147,7 @@ public sealed record RuleSet
 
     /// <summary>What a Command Center costs a player who owns <paramref name="owned"/> already.</summary>
     public int CommandCenterCost(int owned) =>
-        Buildings[BuildingType.CommandCenter].Cost * (100 + ExtraHqCostPercent * owned) / 100;
+        RulesDto.CommandCenterCost(Buildings[BuildingType.CommandCenter].Cost, ExtraHqCostPercent, owned);
 
     public RulesDto ToDto() => new()
     {
@@ -390,7 +391,7 @@ public static class GameRules
                 "Digging: at most minersPerEdge workers dig from one cell at once, shared by every patch or farm beside it; others there wait their turn (activity Waiting). A worker leaving to drop off gives up its spot. A worker bumped away from its patch looks within its vision for a cell with a free spot, and goes idle if there is none.",
                 "Farms: a finished farm holds farm.grubs, dug like a patch at farm.gatherPerTick (plus Harvesting). An empty farm stays standing; its workers move on. Gather on your own empty farm replants it when the worker gets there, for farm.replantCost.",
                 "Destroying an enemy building banks spoilsPercent of its cost for you (storage permitting). Spoils count in your bank, not in economy (grubs gathered).",
-                "Each Command Center you own (finished or under construction) adds extraCommandCenterCostPercent of the base cost to your next one.",
+                "Each Command Center you own (finished or under construction) makes the next cost extraCommandCenterCostPercent more than the one before: base x (1 + percent/100)^owned, rounded down (400, 500, 625, 781, 976...).",
                 "A deposit below its starting amount regrows regrowPartsPerMillion millionths of what it holds every tick, never past its starting amount. One mined to 0 is gone.",
             ],
         };

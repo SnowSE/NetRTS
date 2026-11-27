@@ -186,4 +186,16 @@ public class RuleSetTests
         var winner = sim.GetResult()!.Players.SingleOrDefault(p => p.Winner);
         Assert.Equal(winnerSlot, winner?.Slot);
     }
+
+    [Theory]
+    [InlineData(0, 400)]
+    [InlineData(1, 500)]
+    [InlineData(2, 625)]
+    [InlineData(3, 781)]
+    [InlineData(4, 976)]
+    public void Extra_command_centers_compound(int owned, int cost)
+    {
+        Assert.Equal(cost, (GameRules.Classic with { Name = "test", ExtraHqCostPercent = 25 }).CommandCenterCost(owned));
+        Assert.Equal(400, GameRules.Classic.CommandCenterCost(owned));
+    }
 }
