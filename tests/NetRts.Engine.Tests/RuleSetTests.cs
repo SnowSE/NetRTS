@@ -150,4 +150,40 @@ public class RuleSetTests
         Assert.Contains(GameRules.SpringDraft.ToDto().Upgrades, u => u.Type == UpgradeType.RapidFire);
         Assert.DoesNotContain(GameRules.ToDto().Upgrades, u => u.Type == UpgradeType.RapidFire);
     }
+
+    private static readonly RuleSet NetWorth = GameRules.Classic with { Name = "test", ScoreNetWorth = true };
+
+    [Fact]
+    public void Net_worth_scoring_counts_the_bank_instead_of_everything_ever_gathered()
+    {
+        var sim = TestGames.New(rules: NetWorth);
+        sim.SetResources(0, 300);
+        sim.SetGathered(0, 5000);
+
+        var score = sim.GetPlayerView(0).Players[0].Score;
+
+        Assert.Equal(300, score.Bank);
+        Assert.Equal(5000, score.Economy);
+        Assert.Equal(score.Destruction + score.Survival + 300, score.Total);
+        Assert.Null(TestGames.New().GetPlayerView(0).Players[0].Score.Bank);
+    }
+
+    [Theory]
+    [InlineData(false, null)]
+    [InlineData(true, 1)]
+    public void Equal_totals_at_the_tick_limit_go_to_whoever_gathered_more_under_net_worth_scoring(bool netWorth, int? winnerSlot)
+    {
+        var sim = TestGames.New(maxTicks: 3, rules: netWorth ? NetWorth : null);
+        sim.SetGathered(0, 100);
+        sim.SetGathered(1, 200);
+        if (!netWorth)
+        {
+            sim.SetGathered(0, 200);   // classic counts it, so keep the totals equal
+        }
+
+        sim.Run(3);
+
+        var winner = sim.GetResult()!.Players.SingleOrDefault(p => p.Winner);
+        Assert.Equal(winnerSlot, winner?.Slot);
+    }
 }

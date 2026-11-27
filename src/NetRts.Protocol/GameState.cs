@@ -121,7 +121,14 @@ public sealed record ScoreDto
     /// <summary>Resource value of your surviving units and completed buildings.</summary>
     public int Survival { get; init; }
 
-    public int Total => Destruction + Economy + Survival;
+    /// <summary>
+    /// Grubs in your bank now, under rules that score what you own (<c>scoreNetWorth</c>): then the total is
+    /// destruction + survival + bank, and economy (grubs ever gathered) only breaks ties. Left out otherwise.
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Bank { get; init; }
+
+    public int Total => Destruction + Survival + (Bank ?? Economy);
 }
 
 public sealed record PositionDto(int X, int Y);

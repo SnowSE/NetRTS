@@ -504,6 +504,7 @@ public sealed partial class GameSimulation
         Economy = p.Gathered,
         Survival = _units.Where(u => u.Owner == p.Slot).Sum(u => u.Stats.Cost)
                    + _buildings.Where(b => b.Owner == p.Slot && b.Completed).Sum(b => b.Stats.Cost),
+        Bank = Rules.ScoreNetWorth ? p.Resources : null,
     };
 
     private void AddEvent(PlayerState player, string kind, string message, int? entityId = null, long? commandId = null, bool spectator = true)

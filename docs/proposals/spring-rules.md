@@ -75,7 +75,7 @@ patches.
     Destroying one pays spoils like any building. Replaces the compost booster (confirm with user). Cost, size,
     gather rate and replant cost from simulations: a farm must be worth less per worker than a fresh patch,
     and worth it once home patches run dry.
-19. **Scoring at the tick limit** (recommended 2026-11-26, not yet decided): score = destruction + survival +
+19. **Scoring at the tick limit** (decided 2026-11-26, `ScoreNetWorth` in the spring draft): score = destruction + survival +
     grubs in the bank (what you destroyed plus what you own), with grubs ever gathered only as the tiebreak.
     Economy counts every grub twice once it is spent (gathered, then again as the unit or building it bought),
     so a bot that digs and sits wins on the clock; 15 of 46 tick-limit games in prod flip without it.

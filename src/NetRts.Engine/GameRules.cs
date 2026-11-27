@@ -97,6 +97,12 @@ public sealed record RuleSet
     /// <summary>Workers that dig from one cell at once (needs <see cref="CellCapacity"/>); the rest wait. 0 = no limit.</summary>
     public int MinersPerEdge { get; init; }
 
+    /// <summary>
+    /// Score what a player owns: destruction + survival + grubs in the bank, with grubs ever gathered only as the
+    /// tiebreak at the tick limit. Off (classic): destruction + grubs ever gathered + survival.
+    /// </summary>
+    public bool ScoreNetWorth { get; init; }
+
     /// <summary>The farm's numbers when <see cref="Buildings"/> has <see cref="BuildingType.Farm"/>.</summary>
     public FarmRules? Farm { get; init; }
 
@@ -202,6 +208,7 @@ public sealed record RuleSet
         ShellSplashPercent = ShellSplashPercent,
         CellCapacity = CellCapacity,
         MinersPerEdge = MinersPerEdge,
+        ScoreNetWorth = ScoreNetWorth,
         Farm = Farm is { } farm ? new FarmRulesDto { Grubs = farm.Grubs, ReplantCost = farm.ReplantCost, GatherPerTick = farm.GatherPerTick } : null,
     };
 
@@ -282,6 +289,10 @@ public static class GameRules
     private static readonly BuildingStats SpringFarm = new(Cost: 100, BuildWork: 30, MaxHp: 300, Armor: 0, Vision: 3, Damage: 0, Range: 0, AttackCooldown: 0,
         StorageBonus: 0, IsDropOff: false, Produces: [], CanResearch: false, Requires: []);
 
+    private const string TickLimitNote = "At the tick limit the highest total score wins; equal scores are a draw.";
+
+    private const string ScoreNote = "Score: destruction (value of enemy assets destroyed) + economy (ore banked) + survival (value of your living units and finished buildings).";
+
     private const string SharedTilesNote = "Units may share tiles. Buildings, resource deposits and rock block movement.";
 
     private static readonly IReadOnlyDictionary<UpgradeType, UpgradeStats> ClassicUpgrades = new Dictionary<UpgradeType, UpgradeStats>
@@ -315,8 +326,8 @@ public static class GameRules
         "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then. They can't fire inside MinRange.",
         "Idle combat units fight back against enemies already in range. Attack-move (Attack with a position) engages anything seen en route.",
         "A player with no Command Center (finished or under construction) is eliminated.",
-        "At the tick limit the highest total score wins; equal scores are a draw.",
-        "Score: destruction (value of enemy assets destroyed) + economy (ore banked) + survival (value of your living units and finished buildings).",
+        TickLimitNote,
+        ScoreNote,
     ];
 
     /// <summary>The rules every match has been played under so far, and the default.</summary>
@@ -365,17 +376,20 @@ public static class GameRules
             RegrowPartsPerMillion = 200,
             ShellSplashPercent = 50,
             MinersPerEdge = 2,
+            ScoreNetWorth = true,
             Notes =
             [
                 .. ClassicNotes.Select(n => n switch
                 {
                     siegeNote => "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then, and every enemy on the 8 tiles around it for shellSplashPercent of the damage (before armor). They can't fire inside MinRange.",
+                    TickLimitNote => "At the tick limit the highest total score wins; equal totals go to whoever gathered more grubs (economy), and only then is it a draw.",
+                    ScoreNote => "Score: destruction (value of enemy assets destroyed) + survival (value of your living units and finished buildings) + bank (grubs you hold now). Economy (grubs ever gathered) is still reported, but only breaks ties.",
                     SharedTilesNote => "Units walk through each other, but a cell holds cellCapacity points: a unit standing in it (for any reason) takes its occupancy. First in keeps the cell; a unit that stops where there isn't room is bumped to the nearest cell that has it. Ties between players take turns, starting one player further round each time. Buildings, resource deposits and rock block movement.",
                     _ => n,
                 }),
                 "Digging: at most minersPerEdge workers dig from one cell at once, shared by every patch or farm beside it; others there wait their turn (activity Waiting). A worker leaving to drop off gives up its spot. A worker bumped away from its patch looks within its vision for a cell with a free spot, and goes idle if there is none.",
                 "Farms: a finished farm holds farm.grubs, dug like a patch at farm.gatherPerTick (plus Harvesting). An empty farm stays standing; its workers move on. Gather on your own empty farm replants it when the worker gets there, for farm.replantCost.",
-                "Destroying an enemy building banks spoilsPercent of its cost for you (storage permitting). Spoils are not economy score.",
+                "Destroying an enemy building banks spoilsPercent of its cost for you (storage permitting). Spoils count in your bank, not in economy (grubs gathered).",
                 "Each Command Center you own (finished or under construction) adds extraCommandCenterCostPercent of the base cost to your next one.",
                 "A deposit below its starting amount regrows regrowPartsPerMillion millionths of what it holds every tick, never past its starting amount. One mined to 0 is gone.",
             ],

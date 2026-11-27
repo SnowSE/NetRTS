@@ -50,6 +50,13 @@ public sealed record RulesDto
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int MinersPerEdge { get; init; }
 
+    /// <summary>
+    /// Scores count what you own: destruction + survival + grubs in the bank, with grubs ever gathered
+    /// (economy) only breaking ties at the tick limit. Left out when false (classic: destruction + economy + survival).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public bool ScoreNetWorth { get; init; }
+
     /// <summary>Farm numbers; left out when these rules have no farms.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public FarmRulesDto? Farm { get; init; }

@@ -23,6 +23,8 @@ public sealed partial class GameSimulation
 
     internal int Resources(int slot) => _players[slot].Resources;
 
+    internal void SetGathered(int slot, int amount) => _players[slot].Gathered = amount;
+
     internal void GrantUpgrade(int slot, UpgradeType upgrade) => _players[slot].Upgrades.Add(upgrade);
 
     internal void SetHp(int entityId, int hp) => _entities[entityId].Hp = hp;

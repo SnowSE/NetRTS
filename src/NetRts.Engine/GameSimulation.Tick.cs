@@ -866,8 +866,11 @@ public sealed partial class GameSimulation
 
         if (Tick >= TickLimit)
         {
-            var totals = standing.Select(p => (Player: p, Total: ScoreOf(p).Total)).OrderByDescending(t => t.Total).ToList();
-            End(MatchEndReason.TimeLimit, totals[0].Total > totals[1].Total ? totals[0].Player : null);
+            // Under net-worth scoring, equal totals go to whoever gathered more; classic calls them a draw.
+            var totals = standing.Select(p => (Player: p, Total: ScoreOf(p).Total, Tiebreak: Rules.ScoreNetWorth ? p.Gathered : 0))
+                .OrderByDescending(t => t.Total).ThenByDescending(t => t.Tiebreak).ToList();
+            var clear = (totals[0].Total, totals[0].Tiebreak).CompareTo((totals[1].Total, totals[1].Tiebreak)) > 0;
+            End(MatchEndReason.TimeLimit, clear ? totals[0].Player : null);
         }
     }
 

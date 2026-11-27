@@ -408,6 +408,7 @@ plays either. Commands don't change; the new mechanics show up as extra fields, 
 | `regrowPartsPerMillion` | 200 | A patch below its starting amount regrows 0.02% of what it holds each tick, never past its start. One dug to 0 is gone. |
 | `shellSplashPercent`, SiegeEngineering | 50; 100 grubs, 30 ticks | Shells also hit enemies on the 8 tiles around where they land, for half damage (before armor). |
 | Fortify | +2 armor per tier | |
+| `scoreNetWorth` | true | Score = destruction + survival + **bank** (grubs you hold now; the score's `bank` field), not grubs ever gathered. `economy` is still reported, and breaks ties at the tick limit. |
 
 ## Scoring and victory
 

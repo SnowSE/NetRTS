@@ -262,4 +262,4 @@ export class Commentary {
   }
 }
 
-const total = (score) => score.total ?? score.destruction + score.economy + score.survival;
+const total = (score) => score.total ?? score.destruction + score.survival + (score.bank ?? score.economy);

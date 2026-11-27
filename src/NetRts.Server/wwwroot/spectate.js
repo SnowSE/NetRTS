@@ -1,5 +1,5 @@
 // Spectate view: #/match/{id} or #/match/{name}
-import { api, html, setHtml, esc, slotVar, displayName, playerLabel, fmt, outcomeText, mountScope, playerNames, totalOf, rankPlayers, matchup } from './util.js';
+import { api, html, setHtml, esc, slotVar, displayName, playerLabel, fmt, outcomeText, mountScope, playerNames, totalOf, countedPart, rankPlayers, matchup } from './util.js';
 import { GAME, SNOW, say, ORE, unitName, upgradeName, badgerize, hqName, housingName } from './lore.js';
 import { MapView, unitPath } from './mapview.js';
 import { loadText, saveText } from './storage.js';
@@ -573,7 +573,7 @@ export function mountSpectate(root, matchKey) {
         <th scope="row">
           <span class="pname">${displayName(p.name)}</span>
           ${winnerId && p.playerId === winnerId ? html`<span class="badge won">${say('Winner', 'Top Badger')}</span>` : ''}
-          ${score ? html`<span class="breakdown">D ${fmt(score.destruction)} · E ${fmt(score.economy)} · S ${fmt(score.survival)}</span>` : ''}
+          ${score ? html`<span class="breakdown">D ${fmt(score.destruction)} · ${countedPart(score).short} ${fmt(countedPart(score).value)} · S ${fmt(score.survival)}</span>` : ''}
         </th>
         <td class="num board-score">${fmt(total)}</td>
         <td class="num x">${num(p.resources)}</td>
@@ -628,7 +628,7 @@ export function mountSpectate(root, matchKey) {
         ${p.pending ? html`<p class="counts">${say('Waiting for the match to start', 'Waiting for the opening whistle')}</p>` : ''}
         ${score ? html`<dl class="stats">
           <div><dt>Destruction</dt><dd>${fmt(score.destruction)}</dd></div>
-          <div><dt>Economy</dt><dd>${fmt(score.economy)}</dd></div>
+          <div><dt>${countedPart(score).label}</dt><dd>${fmt(countedPart(score).value)}</dd></div>
           <div><dt>Survival</dt><dd>${fmt(score.survival)}</dd></div>
           <div class="total"><dt>Total</dt><dd>${fmt(totalOf(score))}</dd></div>
         </dl>` : ''}
@@ -888,8 +888,8 @@ export function mountSpectate(root, matchKey) {
                 <span class="go-name">${playerLabel(r.p)}</span>
                 <span class="go-total"><span class="visually-hidden">Score </span><span data-count="${r.total}">${fmt(r.total)}</span></span>
               </div>
-              ${r.score ? html`<div class="go-bar" title="Destruction ${fmt(r.score.destruction)} · Economy ${fmt(r.score.economy)} · Survival ${fmt(r.score.survival)}">
-                <span class="seg d" style="width:${pct(r.score.destruction)}"></span><span class="seg e" style="width:${pct(r.score.economy)}"></span><span class="seg s" style="width:${pct(r.score.survival)}"></span>
+              ${r.score ? html`<div class="go-bar" title="Destruction ${fmt(r.score.destruction)} · ${countedPart(r.score).label} ${fmt(countedPart(r.score).value)} · Survival ${fmt(r.score.survival)}">
+                <span class="seg d" style="width:${pct(r.score.destruction)}"></span><span class="seg e" style="width:${pct(countedPart(r.score).value)}"></span><span class="seg s" style="width:${pct(r.score.survival)}"></span>
               </div>` : ''}
               ${typeof r.p.unitsKilled === 'number' ? html`<div class="go-chips">
                 ${chip(r.p.unitsKilled, say('kills', 'bowled over'))}${chip(r.p.unitsProduced, say('built', 'trained'))}${chip(r.p.unitsLost, 'lost')}${chip(r.p.buildingsDestroyed, say('razed', 'flattened'))}

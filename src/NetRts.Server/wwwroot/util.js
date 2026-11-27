@@ -285,7 +285,15 @@ export function playerNames(summary, state) {
 }
 
 /** A score's total (older results have only the three parts); 0 for no score. */
-export const totalOf = (score) => (score ? score.total ?? score.destruction + score.economy + score.survival : 0);
+export const totalOf = (score) => (score ? score.total ?? score.destruction + score.survival + (score.bank ?? score.economy) : 0);
+
+/**
+ * The score's middle part: grubs ever gathered (economy) under classic scoring, or the grubs in the bank
+ * when the match's rules score what you own (scoreNetWorth; economy then only breaks ties).
+ */
+export const countedPart = (score) => (score?.bank != null
+  ? { label: 'Bank', short: 'B', value: score.bank }
+  : { label: 'Economy', short: 'E', value: score?.economy ?? 0 });
 
 /**
  * Players in scoreboard order: those still in first, then by total score, then by slot. scoreOf finds a
@@ -293,8 +301,9 @@ export const totalOf = (score) => (score ? score.total ?? score.destruction + sc
  */
 export function rankPlayers(players, scoreOf = (p) => p.score) {
   return (players || [])
-    .map((p) => ({ p, total: totalOf(scoreOf(p)) }))
-    .sort((a, b) => (Number(!!a.p.eliminated) - Number(!!b.p.eliminated)) || (b.total - a.total) || (a.p.slot - b.p.slot))
+    .map((p) => ({ p, total: totalOf(scoreOf(p)), gathered: scoreOf(p)?.economy ?? 0 }))
+    // Equal totals: whoever gathered more (the tiebreak under net-worth scoring), then seat order.
+    .sort((a, b) => (Number(!!a.p.eliminated) - Number(!!b.p.eliminated)) || (b.total - a.total) || (b.gathered - a.gathered) || (a.p.slot - b.p.slot))
     .map((r, i) => ({ ...r, rank: i + 1 }));
 }
 
