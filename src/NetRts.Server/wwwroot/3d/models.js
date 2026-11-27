@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 import { col, K, Builder, box, cyl, ball, cone, dome, prism, foundation, windows, flag } from './kit.js';
 import { HQ_MODELS, HOUSING_MODELS } from './campus.js';
+import { farm } from './farm.js';
 
 // ---------------------------------------------------------------- units
 
@@ -708,6 +709,7 @@ export function buildModels(badger) {
     TechLab: () => makerspace(badger),
     GuardTower: badger ? bellTower : watchTower,
     SiegeWorkshop: badger ? washburn : siegeShed,
+    Farm: () => farm(badger),
   };
   const slotOf = (slot) => ((slot % 16) + 16) % 16;
   return {

@@ -123,6 +123,15 @@ internal sealed class UnitEntity : Entity
     /// <summary>Where the last mined deposit was, so workers can move on to a neighboring one.</summary>
     public Point? LastDepositPosition { get; set; }
 
+    /// <summary>The cell beside its patch or farm a worker digs from (rules with a cell limit only).</summary>
+    public Point? GatherSpot { get; set; }
+
+    /// <summary>
+    /// When this unit took its place in its cell (rules with a cell limit only): 0 while it doesn't hold one
+    /// (walking, or not yet placed). Lower is earlier, so it is also the order of the line to dig.
+    /// </summary>
+    public long SettledSeq { get; set; }
+
     public int Carrying { get; set; }
     public int Cooldown { get; set; }
     public int MovePoints { get; set; }
@@ -143,6 +152,7 @@ internal sealed class UnitEntity : Entity
         TargetId = null;
         BuildType = null;
         OrderCommandId = null;
+        GatherSpot = null;
 
         // Keep MovePoints: a unit re-ordered every tick would otherwise never bank a whole tile.
         Path = [];
@@ -175,6 +185,9 @@ internal sealed class BuildingEntity : Entity
     public bool Completed { get; private set; }
     public int Work { get; private set; }
     public int Cooldown { get; set; }
+
+    /// <summary>Grubs left in a farm (<see cref="BuildingType.Farm"/>); 0 for other buildings.</summary>
+    public int Grubs { get; set; }
 
     public List<ProductionItem> Production { get; } = [];
 

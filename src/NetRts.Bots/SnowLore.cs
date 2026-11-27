@@ -21,6 +21,7 @@ public static class SnowLore
         [BuildingType.TechLab] = "GRSC Makerspace",
         [BuildingType.GuardTower] = "The Bell Tower",
         [BuildingType.SiegeWorkshop] = "Washburn Welding Shop",
+        [BuildingType.Farm] = "Compost Heap",
     };
 
     /// <summary>Units keep their API names, except the siege unit.</summary>

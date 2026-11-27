@@ -75,6 +75,7 @@ public sealed partial class FormicsBot : IBotStrategy, ISerumTaker
             turn.FinishAbandonedSites(site => hive.IsDangerous(site.X, site.Y));
         }
 
+        Replant(hive);
         GatherWorkers(hive);
 
         return turn.Commands.Count <= MaxCommands ? turn.Commands : [.. turn.Commands.Take(MaxCommands)];

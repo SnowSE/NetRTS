@@ -12,6 +12,12 @@ public sealed record MatchSettingsDto
 
     /// <summary>Grubs on the map, as a percentage of the usual deposits: 25 to 400 (default 100).</summary>
     public int? GrubPercent { get; init; }
+
+    /// <summary>
+    /// The rule set to play under, by name: "classic" or "spring-draft" (default: the server's). Bots read
+    /// a match's rules from GET /api/v1/matches/{id}/rules.
+    /// </summary>
+    public string? Rules { get; init; }
 }
 
 public sealed record CreateMatchRequest
@@ -59,6 +65,9 @@ public sealed record MatchSummaryDto
 
     /// <summary>Grubs on the map as a percentage of the usual deposits; null for the usual 100.</summary>
     public int? GrubPercent { get; init; }
+
+    /// <summary>The rule set the match is played under ("classic", "spring-draft"); its numbers are at GET /api/v1/matches/{id}/rules.</summary>
+    public string? Rules { get; init; }
     public DateTimeOffset CreatedAt { get; init; }
     public IReadOnlyList<MatchPlayerDto> Players { get; init; } = [];
     public MatchOutcomeDto? Outcome { get; init; }

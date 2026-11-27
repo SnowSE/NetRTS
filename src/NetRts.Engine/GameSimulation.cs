@@ -100,6 +100,7 @@ public sealed partial class GameSimulation
         Map = MapGenerator.Generate(config.MapWidth, config.MapHeight, config.Seed, seats.Count, config.GrubPercent);
         _buildingAt = new int[Map.Width * Map.Height];
         _depositAt = new int[Map.Width * Map.Height];
+        _cellLoad = new int[Map.Width * Map.Height];
 
         foreach (var spawn in Map.Deposits)
         {
@@ -116,7 +117,7 @@ public sealed partial class GameSimulation
             AddBuilding(slot, BuildingType.CommandCenter, start, completed: true);
             for (var i = 0; i < Rules.StartingWorkers; i++)
             {
-                var spot = FindFreeTileNear(start) ?? start;
+                var spot = FindFreeTileNear(start, Rules.Units[UnitType.Worker].Occupancy) ?? start;
                 AddUnit(slot, UnitType.Worker, spot);
             }
 
@@ -141,7 +142,7 @@ public sealed partial class GameSimulation
 
         foreach (var type in kit.Units)
         {
-            AddUnit(slot, type, FindFreeTileNear(start) ?? start);
+            AddUnit(slot, type, FindFreeTileNear(start, Rules.Units[type].Occupancy) ?? start);
         }
     }
 
@@ -421,6 +422,11 @@ public sealed partial class GameSimulation
         var unit = new UnitEntity(_nextEntityId++, owner, type, Rules.Units[type], position);
         _units.Add(unit);
         _entities[unit.Id] = unit;
+        if (Crowding && HasRoom(position, unit))
+        {
+            Settle(unit);
+        }
+
         return unit;
     }
 
@@ -430,12 +436,25 @@ public sealed partial class GameSimulation
         _buildings.Add(building);
         _entities[building.Id] = building;
         _buildingAt[Index(position)] = building.Id;
+        if (completed)
+        {
+            Planted(building);
+        }
+
         return building;
     }
 
-    /// <summary>Nearest open tile around <paramref name="center"/>, searched ring by ring in a fixed order.</summary>
-    private Point? FindFreeTileNear(Point center, int maxRadius = 8)
+    /// <summary>
+    /// Nearest open tile around <paramref name="center"/>, searched ring by ring in a fixed order. With a cell
+    /// limit, the nearest with room for <paramref name="occupancy"/> points, or none.
+    /// </summary>
+    private Point? FindFreeTileNear(Point center, int occupancy = 0, int maxRadius = 8)
     {
+        if (Crowding && occupancy > 0)
+        {
+            return RingTiles(center, maxRadius).Where(p => Passable(p) && Room(p) >= occupancy).Cast<Point?>().FirstOrDefault();
+        }
+
         foreach (var p in RingTiles(center, maxRadius))
         {
             if (Passable(p) && !_units.Any(u => u.Position == p))

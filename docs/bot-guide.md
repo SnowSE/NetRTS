@@ -388,6 +388,27 @@ already in range; workers never attack unless ordered.
 **Each tick runs in this order:** your queued commands → production & research → unit behavior
 and movement → shells due this tick land → combat → deaths → elimination & victory checks.
 
+### Rule sets (the spring 2027 draft)
+
+Everything above is the **classic** rule set. A match can be played under another one: pass its name as
+the match setting `rules` when you create a match or exhibition (`"settings": { "rules": "spring-draft" }`).
+**`GET /api/v1/rulesets`** lists them (and which one the server uses when a match doesn't say), the match
+summary's `rules` says which one a match plays, and **`GET /api/v1/matches/{id}/rules`** returns that match's
+numbers in the same shape as `GET /api/v1/rules`. Read the match's rules, not the server's, and your bot
+plays either. Commands don't change; the new mechanics show up as extra fields, left out under classic:
+
+| Field in the rules | Spring draft | What it does |
+|---|---|---|
+| `cellCapacity`, each unit's `occupancy` | 9; Worker 2, Soldier 1, Archer 1, Scout 2, Trebuchet 9 | Units walk through each other, but a unit standing in a cell (idle, digging, building, shooting, waiting) takes its occupancy of the cell's 9 points. First in keeps the cell; a unit that stops where there isn't room is bumped to the nearest cell that has some. When players' units arrive together and don't all fit, they take turns, one per player, starting one player further round each time that happens. New units appear in the nearest cell with room. |
+| `minersPerEdge` | 2 | At most 2 workers dig from one cell beside a patch or farm at once (the cell's limit, shared by every patch it touches); others there wait (`activity: "Waiting"`). A worker leaving to drop off gives up its spot at once. Workers sent to a patch pick a cell with a free spot. A worker bumped from beside its patch looks within its vision for a free spot, and goes idle (with a `CommandFailed` event) if there is none. |
+| `farm` (`grubs`, `replantCost`, `gatherPerTick`), building `Farm` | 300, 75, 1; Farm costs 100 | A finished farm holds `farm.grubs`, dug like a patch from the cells around it at `gatherPerTick` (+ Harvesting). Its `grubs` field in state says how many are left. Dug out, it stays standing and its workers move on (event `FarmEmpty`); **Gather** on your own empty farm replants it for `replantCost` when the worker gets there (event `FarmReplanted`). You can't dig an enemy's farm. |
+| GuardTower `attackCooldown`, upgrade `RapidFire` | 3 (cost 150); RapidFire 150 | Towers fire every 3 ticks; RapidFire brings it to 2. |
+| `spoilsPercent` | 50 | Destroying an enemy building banks half its cost for you (storage permitting). |
+| `extraCommandCenterCostPercent` | 25 | Each Command Center you own (finished or started) adds 25% of the base cost to the next: 400, 500, 600... |
+| `regrowPartsPerMillion` | 200 | A patch below its starting amount regrows 0.02% of what it holds each tick, never past its start. One dug to 0 is gone. |
+| `shellSplashPercent`, SiegeEngineering | 50; 100 grubs, 30 ticks | Shells also hit enemies on the 8 tiles around where they land, for half damage (before armor). |
+| Fortify | +2 armor per tier | |
+
 ## Scoring and victory
 
 - **Elimination** — a player with no Command Center (finished or under construction) is out. The

@@ -151,6 +151,36 @@ public static class MatchEndpoints
             .ProducesErrors()
             .WithSummary("Terrain and start positions (public knowledge).");
 
+        matches.MapGet("/{matchId:guid}/rules", async (Guid matchId, ClaimsPrincipal user, MatchManager manager, LeagueMatchManager leagues, NetRtsDb db,
+                IOptions<NetRtsOptions> options, CancellationToken ct) =>
+            {
+                var league = leagues.Find(matchId) is not null;
+                matchId = HeatOfCaller(matchId, user, leagues);
+                if (manager.Get(matchId) is { } host)
+                {
+                    return Results.Ok(host.RulesDto);
+                }
+
+                if (league)
+                {
+                    return Results.Ok(options.Value.RuleSet.ToDto());   // its rounds are played under the server's rules
+                }
+
+                var record = await Archived(db, matchId, ct);
+                if (record is null)
+                {
+                    return ApiErrors.NotFound("Match");
+                }
+
+                var rules = record.RulesVersion is null ? GameRules.Classic : GameRules.ByVersion(record.RulesVersion);
+                return rules is null
+                    ? ApiErrors.Error(404, "RULES_RETIRED", "This match was played under draft rules that have since changed.")
+                    : Results.Ok(rules.ToDto());
+            })
+            .Produces<RulesDto>()
+            .ProducesErrors()
+            .WithSummary("The rules this match is played under: what GET /api/v1/rules says, for this match's rule set (see the match's settings.rules).");
+
         matches.MapGet("/{matchId:guid}/state", GetState)
             .RequireAuthorization()
             .Produces<GameStateDto>()

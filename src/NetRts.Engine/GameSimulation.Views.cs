@@ -220,6 +220,7 @@ public sealed partial class GameSimulation
             : [],
         Research = revealQueues && b.Research is not null ? ToResearchDto(b) : null,
         Rally = revealQueues && b.Rally is { } r ? new PositionDto(r.X, r.Y) : null,
+        Grubs = b.Type == BuildingType.Farm && b.Completed ? b.Grubs : null,
     };
 
     private ResearchDto ToResearchDto(BuildingEntity b) =>

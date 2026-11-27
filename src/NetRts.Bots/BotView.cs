@@ -125,7 +125,7 @@ public sealed class BotView
     /// <summary>A worker to borrow for construction: not carrying much, closest to the site, and not one <paramref name="skip"/> rules out.</summary>
     public UnitDto? PickBuilder((int X, int Y) site, Func<int, bool>? skip = null) =>
         Workers
-            .Where(w => w.Activity is UnitActivity.Gathering or UnitActivity.Moving or UnitActivity.Idle && w.Carrying < 6 && skip?.Invoke(w.Id) != true)
+            .Where(w => w.Activity is UnitActivity.Gathering or UnitActivity.Waiting or UnitActivity.Moving or UnitActivity.Idle && w.Carrying < 6 && skip?.Invoke(w.Id) != true)
             .OrderBy(w => Dist(w.X, w.Y, site.X, site.Y)).ThenBy(w => w.Id)
             .FirstOrDefault();
 

@@ -117,7 +117,7 @@ public sealed partial class FormicsBot
         var standing = hive.View.MyBuildings.Where(b => b.Type is BuildingType.CommandCenter or BuildingType.ResourceDepot).Select(b => (b.X, b.Y)).ToList();
         OreSpot? best = null;
         var bestScore = int.MaxValue;
-        foreach (var spot in hive.Ore.Spots)
+        foreach (var spot in hive.Ore.Spots.Concat(Farms(hive)))
         {
             if (spot.Id == 0 || spot.Remaining <= 0)
             {
@@ -138,10 +138,50 @@ public sealed partial class FormicsBot
         return best;
     }
 
+    /// <summary>Our farms with grubs in them, as piles to dig.</summary>
+    private static IEnumerable<OreSpot> Farms(HiveTick hive) =>
+        hive.View.MyBuildings.Where(b => b.Type == BuildingType.Farm && b.Grubs > 0).Select(b => new OreSpot(b.X, b.Y, b.Grubs!.Value) { Id = b.Id });
+
+    /// <summary>Whether the rules have farms and the piles beside our drop-offs are running low, so farms are worth it.</summary>
+    private bool FarmsWanted(HiveTick hive)
+    {
+        if (hive.View.Rules.Farm is null || hive.DropOffs.Count == 0)
+        {
+            return false;
+        }
+
+        var nearby = hive.Ore.Spots.Where(s => s.Id != 0 && hive.DropOffs.Any(d => Cheb(d.X, d.Y, s.X, s.Y) <= 8)).Sum(s => s.Remaining);
+        return nearby < _tune.FarmsBelowOre * _grubScale;
+    }
+
+    /// <summary>Sends a worker to replant a dug-out farm, one a tick, while farms are worth it.</summary>
+    private void Replant(HiveTick hive)
+    {
+        var view = hive.View;
+        if (view.Rules.Farm is not { } farm || Budget(hive) < farm.ReplantCost || !FarmsWanted(hive))
+        {
+            return;
+        }
+
+        var empty = view.MyBuildings.FirstOrDefault(b => b.Type == BuildingType.Farm && b.Grubs == 0
+                                                         && !view.Workers.Any(w => w.TargetId == b.Id));
+        var worker = empty is null ? null : view.Workers
+            .Where(w => !hive.Turn.IsClaimed(w.Id) && !_memory.IsBuilder(w.Id) && w.Activity != UnitActivity.Building && w.Carrying == 0)
+            .MinBy(w => Cheb(w.X, w.Y, empty.X, empty.Y));
+        if (empty is null || worker is null)
+        {
+            return;
+        }
+
+        hive.Turn.Claim(worker.Id);
+        hive.Turn.Add(new CommandRequest { Type = CommandType.Gather, UnitIds = [worker.Id], TargetId = empty.Id });
+        SpendBudget(hive, farm.ReplantCost);
+    }
+
     private void GatherWorkers(HiveTick hive)
     {
         var view = hive.View;
-        var assigned = view.Workers.Where(w => w.TargetId is not null && w.Activity is UnitActivity.Gathering or UnitActivity.Moving or UnitActivity.Returning)
+        var assigned = view.Workers.Where(w => w.TargetId is not null && w.Activity is UnitActivity.Gathering or UnitActivity.Waiting or UnitActivity.Moving or UnitActivity.Returning)
             .GroupBy(w => w.TargetId!.Value).ToDictionary(g => g.Key, g => g.Count());
         var standing = view.MyBuildings.Where(b => b.Type is BuildingType.CommandCenter or BuildingType.ResourceDepot).Select(b => (b.X, b.Y)).ToList();
         var spots = hive.Ore.Spots.Where(s => s.Id != 0).ToDictionary(s => s.Id);
@@ -253,7 +293,18 @@ public sealed partial class FormicsBot
             return PlaceNearBase(hive, BuildingType.Barracks);
         }
 
-        // 4. Storage, when the bank is nearly full.
+        // 4. Farms beside the Command Center, once the piles near our drop-offs run low.
+        if (FarmsWanted(hive) && Have(BuildingType.Farm) < Math.Min(_tune.MaxFarms, workers / 5))
+        {
+            var home = view.CommandCenter!;
+            var (fx, fy) = EnemyDirection(hive, home.X, home.Y);
+            if (FindSite(hive, home.X - (fx * 2), home.Y - (fy * 2), home.X, home.Y) is { } field)
+            {
+                return Place(hive, BuildingType.Farm, field);
+            }
+        }
+
+        // 5. Storage, when the bank is nearly full.
         var you = view.State.You;
         if (you.Resources > you.StorageCapacity - 250 && Have(BuildingType.ResourceDepot) < 12)
         {

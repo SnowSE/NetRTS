@@ -39,6 +39,8 @@ export const BUILDING_NAME = {
   GuardTower: 'The Bell Tower',
   // Richfield campus: the Washburn Building houses the technical shops, welding among them.
   SiegeWorkshop: 'Washburn Welding Shop',
+  // Spring rules: grubs grown on purpose. A placeholder until the campus has a better name for it.
+  Farm: 'Compost Heap',
 };
 
 /** Units keep their API names, except the siege unit: Snow College's old Snap-on tool truck, now with a cannon on the roof. */
@@ -97,7 +99,8 @@ export function buildingRole(type) {
     Barracks: say('Trains soldiers, archers and scouts.', 'Housing: trains soldiers, archers and scouts.'),
     ResourceDepot: `A drop-off point for ${ore} near the diggings; stores 750 more.`,
     TechLab: say('Researches upgrades: weapons, armor, mobility and harvesting.', 'Classes: researches upgrades for weapons, armor, mobility and harvesting.'),
-    GuardTower: 'Defense: fires at enemies within 5 tiles (10 damage each tick).',
+    GuardTower: 'Defense: fires at enemies in range.',
+    Farm: say(`Grows ${ore} for workers to dig beside it. Replant it when it's dug out.`, `Grows ${ore} for workers to dig beside it. Turn it over (replant) when it's dug out.`),
     SiegeWorkshop: say('Builds trebuchets. Needs a Tech Lab and Siege Engineering.',
       'Welding shop: builds Snow Mobiles. Needs the Makerspace and Welding Technology.'),
   }[type] ?? '';
@@ -108,7 +111,7 @@ export function badgerize(text) {
   if (!SNOW) return String(text ?? '');
   return String(text ?? '')
     .replace(/\bhouse-(\w+)/g, (m, bot) => BOT_NICKNAME[bot] ?? m)
-    .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower|SiegeWorkshop)\b/g, (m) => BUILDING_NAME[m])
+    .replace(/\b(CommandCenter|Barracks|ResourceDepot|TechLab|GuardTower|SiegeWorkshop|Farm)\b/g, (m) => BUILDING_NAME[m])
     .replace(/\b((?:Weapons|Mobility|Harvesting|Fortify)[12]|Armor[123]|SiegeEngineering|RapidFire)\b/g, (m) => UPGRADE_NAME[m])
     .replace(/\bTrebuchet\b/g, UNIT_NAME.Trebuchet)
     .replace(/\bDeposit\b/g, 'Grub patch')

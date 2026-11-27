@@ -11,10 +11,10 @@ import { playerColors, cssVar } from './util.js';
 import { SNOW, buildingName } from './lore.js';
 import { towerShotsOf } from './towershots.js';
 
-const CLASSIC_GLYPH = { CommandCenter: 'C', Barracks: 'B', ResourceDepot: 'D', TechLab: 'T', GuardTower: 'G', SiegeWorkshop: 'S' };
+const CLASSIC_GLYPH = { CommandCenter: 'C', Barracks: 'B', ResourceDepot: 'D', TechLab: 'T', GuardTower: 'G', SiegeWorkshop: 'S', Farm: 'F' };
 // Snow College letters: HQs and housing by the first letter of their campus name, then Co-op Store,
 // Makerspace, The Bell Tower and the Washburn welding shop.
-const SNOW_GLYPH = { ResourceDepot: 'C', TechLab: 'M', GuardTower: 'T', SiegeWorkshop: 'W' };
+const SNOW_GLYPH = { ResourceDepot: 'C', TechLab: 'M', GuardTower: 'T', SiegeWorkshop: 'W', Farm: 'H' };
 const glyph = (b) => (!SNOW ? CLASSIC_GLYPH[b.type]
   : b.type === 'CommandCenter' || b.type === 'Barracks' ? buildingName(b.type, b.owner)[0] : SNOW_GLYPH[b.type]);
 const unitIcon = (...args) => (SNOW ? snowUnitIcon : classicUnitIcon)(...args);

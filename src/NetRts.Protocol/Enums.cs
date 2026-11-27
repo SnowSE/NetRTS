@@ -21,6 +21,9 @@ public enum BuildingType
     TechLab,
     GuardTower,
     SiegeWorkshop,
+
+    /// <summary>Grows grubs for workers to dig; replanted when empty. Only in rule sets that list it.</summary>
+    Farm,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<UpgradeType>))]
@@ -98,6 +101,12 @@ public enum UnitActivity
     Gathering,
     Returning,
     Building,
+
+    /// <summary>
+    /// Beside a grub patch or farm, waiting for a free digging spot (only under rules with
+    /// <c>minersPerEdge</c>).
+    /// </summary>
+    Waiting,
 }
 
 [JsonConverter(typeof(JsonStringEnumConverter<MatchEndReason>))]

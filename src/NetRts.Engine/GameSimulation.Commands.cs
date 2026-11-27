@@ -98,6 +98,11 @@ public sealed partial class GameSimulation
                     return (null, Error("MISSING_TARGET", "Gather needs the targetId of a resource deposit."));
                 }
 
+                if (_entities.GetValueOrDefault(depositId) is BuildingEntity building && Rules.Farm is not null)
+                {
+                    return ValidateFarmGather(player, units, building, strict);
+                }
+
                 // Deposits are static and neutral, so a bot may send workers to one it saw earlier.
                 if (_entities.GetValueOrDefault(depositId) is not DepositEntity deposit)
                 {
@@ -112,6 +117,11 @@ public sealed partial class GameSimulation
                 if (request.BuildingType is not { } type || !Enum.IsDefined(type))
                 {
                     return (null, Error("MISSING_BUILDING_TYPE", "Build needs a valid buildingType."));
+                }
+
+                if (!Rules.Buildings.ContainsKey(type))
+                {
+                    return (null, Error("MISSING_BUILDING_TYPE", $"There is no {type} in this match's rules."));
                 }
 
                 if (position is not { } site)

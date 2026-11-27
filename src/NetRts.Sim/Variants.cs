@@ -17,6 +17,16 @@ internal static class Variants
     private static RuleSet SiegeFree(RuleSet rules) =>
         rules.WithBuilding(BuildingType.SiegeWorkshop, s => s with { RequiresUpgrade = null });
 
+    private static RuleSet NoFarms(RuleSet rules) => rules with
+    {
+        Farm = null,
+        Buildings = rules.Buildings.Where(kv => kv.Key != BuildingType.Farm).ToDictionary(kv => kv.Key, kv => kv.Value),
+    };
+
+    private static RuleSet Farm(RuleSet rules, int grubs, int replant, int gather) => rules with { Farm = new FarmRules(grubs, replant, gather) };
+
+    private static RuleSet NoCells(RuleSet rules) => rules with { CellCapacity = 0, MinersPerEdge = 0 };
+
     public static IReadOnlyDictionary<string, RuleSet> All { get; } = new Dictionary<string, RuleSet>
     {
         ["classic"] = Classic,
@@ -46,9 +56,18 @@ internal static class Variants
 
         ["splash50"] = Classic with { ShellSplashPercent = 50 },
 
+        ["cells"] = Classic.WithCells(9, GameRules.SpringOccupancy),
+        ["cells-dig2"] = Classic.WithCells(9, GameRules.SpringOccupancy) with { MinersPerEdge = 2 },
+        ["gather3"] = Classic.WithCells(9, GameRules.SpringOccupancy) with { MinersPerEdge = 2, GatherPerTick = 3 },
+
         ["spring"] = GameRules.SpringDraft,
         ["spring-spoils25"] = GameRules.SpringDraft with { SpoilsPercent = 25 },
         ["spring-regrow50"] = GameRules.SpringDraft with { RegrowPartsPerMillion = 50 },
         ["spring-nosplash"] = GameRules.SpringDraft with { ShellSplashPercent = 0 },
+        ["spring-nocells"] = NoCells(GameRules.SpringDraft),
+        ["spring-nofarms"] = NoFarms(GameRules.SpringDraft),
+        ["spring-farm500"] = Farm(GameRules.SpringDraft, 500, 75, 1),
+        ["spring-farm-fast"] = Farm(GameRules.SpringDraft, 300, 75, 2),
+        ["spring-farm-dear"] = Farm(GameRules.SpringDraft, 300, 150, 1),
     };
 }

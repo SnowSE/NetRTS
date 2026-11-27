@@ -14,7 +14,8 @@ public sealed record UnitStats(
     int Speed,
     BuildingType ProducedAt,
     int MinRange = 0,
-    int ShotTicks = 0);
+    int ShotTicks = 0,
+    int Occupancy = 0);
 
 public sealed record BuildingStats(
     int Cost,
@@ -34,6 +35,9 @@ public sealed record BuildingStats(
 
 public sealed record UpgradeStats(int Cost, int ResearchTicks, UpgradeType? Requires, string Effect);
 
+/// <summary>A farm holds <paramref name="Grubs"/> when finished or replanted, and gives them up <paramref name="GatherPerTick"/> at a time.</summary>
+public sealed record FarmRules(int Grubs, int ReplantCost, int GatherPerTick);
+
 /// <summary>
 /// One complete set of game rules: every balance number plus the optional mechanics a match can be played
 /// under. A match runs under exactly one (<see cref="GameConfig.Rules"/>); <see cref="GameRules.Classic"/>
@@ -42,6 +46,9 @@ public sealed record UpgradeStats(int Cost, int ResearchTicks, UpgradeType? Requ
 public sealed record RuleSet
 {
     public required string Name { get; init; }
+
+    /// <summary>What people call it, e.g. "Spring 2027 draft". Not part of <see cref="Version"/>.</summary>
+    public string Title { get; init; } = "";
 
     public int StartingResources { get; init; } = GameRules.StartingResources;
     public int StartingWorkers { get; init; } = GameRules.StartingWorkers;
@@ -80,6 +87,18 @@ public sealed record RuleSet
 
     /// <summary>Percent of a shell's damage (before armor) dealt on the 8 tiles around where it lands. 0 = none.</summary>
     public int ShellSplashPercent { get; init; }
+
+    /// <summary>
+    /// Points one cell holds; a unit standing in it takes <see cref="UnitStats.Occupancy"/>. 0 = no limit (units
+    /// share tiles freely).
+    /// </summary>
+    public int CellCapacity { get; init; }
+
+    /// <summary>Workers that dig from one cell at once (needs <see cref="CellCapacity"/>); the rest wait. 0 = no limit.</summary>
+    public int MinersPerEdge { get; init; }
+
+    /// <summary>The farm's numbers when <see cref="Buildings"/> has <see cref="BuildingType.Farm"/>.</summary>
+    public FarmRules? Farm { get; init; }
 
     /// <summary>Ticks the <see cref="UpgradeType.RapidFire"/> upgrade takes off guard tower cooldowns (never below 1).</summary>
     public int RapidFireCooldownCut { get; init; } = 1;
@@ -140,6 +159,7 @@ public sealed record RuleSet
             ProducedAt = kv.Value.ProducedAt,
             MinRange = kv.Value.MinRange,
             ShotTicks = kv.Value.ShotTicks,
+            Occupancy = kv.Value.Occupancy,
         }).ToList(),
         Buildings = Buildings.Select(kv => new BuildingStatsDto
         {
@@ -180,7 +200,21 @@ public sealed record RuleSet
         SpoilsPercent = SpoilsPercent,
         RegrowPartsPerMillion = RegrowPartsPerMillion,
         ShellSplashPercent = ShellSplashPercent,
+        CellCapacity = CellCapacity,
+        MinersPerEdge = MinersPerEdge,
+        Farm = Farm is { } farm ? new FarmRulesDto { Grubs = farm.Grubs, ReplantCost = farm.ReplantCost, GatherPerTick = farm.GatherPerTick } : null,
     };
+
+    /// <summary>These rules with cells that hold <paramref name="capacity"/> points and each unit type's share of one.</summary>
+    public RuleSet WithCells(int capacity, IReadOnlyDictionary<UnitType, int> occupancy) => this with
+    {
+        CellCapacity = capacity,
+        Units = Units.ToDictionary(kv => kv.Key, kv => kv.Value with { Occupancy = occupancy[kv.Key] }),
+    };
+
+    /// <summary>These rules with farms: <paramref name="stats"/> for the building, <paramref name="farm"/> for what it grows.</summary>
+    public RuleSet WithFarms(BuildingStats stats, FarmRules farm) =>
+        this with { Buildings = Replace(Buildings, BuildingType.Farm, stats), Farm = farm };
 }
 
 /// <summary>All balance numbers live here so they can be published to bots via GET /api/v1/rules.</summary>
@@ -235,6 +269,21 @@ public static class GameRules
             RequiresUpgrade: UpgradeType.SiegeEngineering),
     };
 
+    /// <summary>The spring rules' share of a 9-point cell each unit takes.</summary>
+    public static readonly IReadOnlyDictionary<UnitType, int> SpringOccupancy = new Dictionary<UnitType, int>
+    {
+        [UnitType.Worker] = 2,
+        [UnitType.Soldier] = 1,
+        [UnitType.Archer] = 1,
+        [UnitType.Scout] = 2,
+        [UnitType.Trebuchet] = 9,
+    };
+
+    private static readonly BuildingStats SpringFarm = new(Cost: 100, BuildWork: 30, MaxHp: 300, Armor: 0, Vision: 3, Damage: 0, Range: 0, AttackCooldown: 0,
+        StorageBonus: 0, IsDropOff: false, Produces: [], CanResearch: false, Requires: []);
+
+    private const string SharedTilesNote = "Units may share tiles. Buildings, resource deposits and rock block movement.";
+
     private static readonly IReadOnlyDictionary<UpgradeType, UpgradeStats> ClassicUpgrades = new Dictionary<UpgradeType, UpgradeStats>
     {
         [UpgradeType.Weapons1] = new(150, 40, null, $"+{WeaponsBonusPerTier} damage for all units and guard towers"),
@@ -259,7 +308,7 @@ public static class GameRules
     [
         "Coordinates are (x, y) with (0, 0) at the top-left. tile = y * mapWidth + x.",
         "Attack range and adjacency use Chebyshev distance (diagonals count as 1). Vision uses Euclidean distance.",
-        "Units may share tiles. Buildings, resource deposits and rock block movement.",
+        SharedTilesNote,
         "Damage dealt = max(1, attacker damage - target armor). All attacks in a tick land simultaneously.",
         "Unit costs are paid when production is queued; building costs when the first worker starts construction.",
         "Ore beyond your storage capacity is lost. Storage = sum of StorageBonus of your completed buildings.",
@@ -274,6 +323,7 @@ public static class GameRules
     public static RuleSet Classic { get; } = new()
     {
         Name = "classic",
+        Title = "Classic",
         Units = ClassicUnits,
         Buildings = ClassicBuildings,
         Upgrades = ClassicUpgrades,
@@ -301,21 +351,30 @@ public static class GameRules
             .WithUpgrade(UpgradeType.SiegeEngineering, ClassicUpgrades[UpgradeType.SiegeEngineering] with { Cost = 100, ResearchTicks = 30 })
             .WithUpgrade(UpgradeType.RapidFire, new UpgradeStats(150, 40, null, "Guard towers fire every 2 ticks instead of 3"))
             .WithUpgrade(UpgradeType.Fortify1, ClassicUpgrades[UpgradeType.Fortify1] with { Effect = "+2 armor for all completed buildings" })
-            .WithUpgrade(UpgradeType.Fortify2, ClassicUpgrades[UpgradeType.Fortify2] with { Effect = "+2 more building armor" });
+            .WithUpgrade(UpgradeType.Fortify2, ClassicUpgrades[UpgradeType.Fortify2] with { Effect = "+2 more building armor" })
+            .WithCells(9, SpringOccupancy)
+            .WithFarms(SpringFarm, new FarmRules(Grubs: 300, ReplantCost: 75, GatherPerTick: 1));
         const string siegeNote = "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then. They can't fire inside MinRange.";
         return rules with
         {
             Name = "spring-draft",
+            Title = "Spring 2027 (draft)",
             FortifyBonusPerTier = 2,
             SpoilsPercent = 50,
             ExtraHqCostPercent = 25,
             RegrowPartsPerMillion = 200,
             ShellSplashPercent = 50,
+            MinersPerEdge = 2,
             Notes =
             [
-                .. ClassicNotes.Select(n => n == siegeNote
-                    ? "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then, and every enemy on the 8 tiles around it for shellSplashPercent of the damage (before armor). They can't fire inside MinRange."
-                    : n),
+                .. ClassicNotes.Select(n => n switch
+                {
+                    siegeNote => "Siege units (ShotTicks > 0) lob shells at a tile: they land ShotTicks later and hit every enemy on that tile then, and every enemy on the 8 tiles around it for shellSplashPercent of the damage (before armor). They can't fire inside MinRange.",
+                    SharedTilesNote => "Units walk through each other, but a cell holds cellCapacity points: a unit standing in it (for any reason) takes its occupancy. First in keeps the cell; a unit that stops where there isn't room is bumped to the nearest cell that has it. Ties between players take turns, starting one player further round each time. Buildings, resource deposits and rock block movement.",
+                    _ => n,
+                }),
+                "Digging: at most minersPerEdge workers dig from one cell at once, shared by every patch or farm beside it; others there wait their turn (activity Waiting). A worker leaving to drop off gives up its spot. A worker bumped away from its patch looks within its vision for a cell with a free spot, and goes idle if there is none.",
+                "Farms: a finished farm holds farm.grubs, dug like a patch at farm.gatherPerTick (plus Harvesting). An empty farm stays standing; its workers move on. Gather on your own empty farm replants it when the worker gets there, for farm.replantCost.",
                 "Destroying an enemy building banks spoilsPercent of its cost for you (storage permitting). Spoils are not economy score.",
                 "Each Command Center you own (finished or under construction) adds extraCommandCenterCostPercent of the base cost to your next one.",
                 "A deposit below its starting amount regrows regrowPartsPerMillion millionths of what it holds every tick, never past its starting amount. One mined to 0 is gone.",

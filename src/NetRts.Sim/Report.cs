@@ -14,8 +14,8 @@ internal static class Report
 
         text.AppendLine(CultureInfo.InvariantCulture, $"{options.Players}-player games, {options.Seeds} seeds, tick limit {options.Ticks}, bots: {string.Join(", ", options.Bots)}");
         text.AppendLine();
-        text.AppendLine("| variant | games | eliminated | tick limit | mean end | median end | leader at 300 wins | tick-limit flips w/o economy | economy share of score | tower kill share | towers / player | trebuchets / game | spoils / player | HQs / player |");
-        text.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+        text.AppendLine("| variant | games | eliminated | tick limit | mean end | median end | leader at 300 wins | tick-limit flips w/o economy | economy share of score | tower kill share | towers / player | trebuchets / game | spoils / player | HQs / player | gathered / player | farms / player |");
+        text.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var (name, list) in byVariant)
         {
             var seats = list.SelectMany(g => g.Seats).ToList();
@@ -34,7 +34,9 @@ internal static class Report
                 $"| {Avg(seats.Select(s => Built(s, BuildingType.GuardTower)))} " +
                 $"| {Avg(list.Select(g => g.Seats.Sum(s => Trained(s, UnitType.Trebuchet))))} " +
                 $"| {Avg(seats.Select(s => s.Stats.Spoils))} " +
-                $"| {Avg(seats.Select(s => Built(s, BuildingType.CommandCenter)))} |");
+                $"| {Avg(seats.Select(s => Built(s, BuildingType.CommandCenter)))} " +
+                $"| {Avg(seats.Select(s => s.Score.Economy), "0")} " +
+                $"| {Avg(seats.Select(s => Built(s, BuildingType.Farm)))} |");
         }
 
         text.AppendLine();

@@ -173,6 +173,10 @@ public sealed record BuildingDto
 
     /// <summary>Where newly trained units go (own buildings only).</summary>
     public PositionDto? Rally { get; init; }
+
+    /// <summary>Grubs left to dig in a completed farm (0 = needs replanting); left out for other buildings.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public int? Grubs { get; init; }
 }
 
 public sealed record RememberedBuildingDto

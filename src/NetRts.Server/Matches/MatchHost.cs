@@ -39,6 +39,9 @@ public sealed class MatchHost
 {
     private RulesDto? _rulesDto;   // what the house bots read; made once
 
+    /// <summary>The numbers of the rules this match is played under (GET /api/v1/matches/{id}/rules).</summary>
+    public RulesDto RulesDto => _rulesDto ??= Rules.ToDto();
+
     /// <summary>A pause lifts itself after this long, so nobody can stall a match (or hold its slot) forever.</summary>
     public static readonly TimeSpan MaxPause = TimeSpan.FromMinutes(5);
 
@@ -657,6 +660,7 @@ public sealed class MatchHost
                 MapHeight = Settings.MapHeight,
                 Seed = Settings.Seed,
                 GrubPercent = Settings.GrubPercent == 100 ? null : Settings.GrubPercent,
+                Rules = Rules.Name,
                 CreatedAt = new DateTimeOffset(CreatedAt, TimeSpan.Zero),
                 Players = _seats.Select((s, i) => new MatchPlayerDto
                 {
@@ -791,7 +795,7 @@ public sealed class MatchHost
 
             try
             {
-                var commands = bot.Decide(new BotContext(_sim!.GetPlayerView(slot), _map!, _rulesDto ??= Rules.ToDto()));
+                var commands = bot.Decide(new BotContext(_sim!.GetPlayerView(slot), _map!, RulesDto));
                 var boosted = ServerBotBoosted(slot, bot);
                 if (commands.Count > 0)
                 {

@@ -55,6 +55,7 @@ export function buildingWork(b, { queue = 'all' } = {}) {
       : html`${say('Producing', 'Training')} ${q.map((p) => `${unitName(p.unitType)} ${p.percent}%`).join(', ')}`);
   }
   if (b.research) lines.push(html`${say('Researching', 'Studying')} ${upgradeName(b.research.upgrade)} ${b.research.percent}%`);
+  if (b.grubs != null) lines.push(b.grubs > 0 ? html`${fmt(b.grubs)} ${ORE} left to dig` : html`Dug out: Gather it to replant`);
   return lines;
 }
 
@@ -64,7 +65,7 @@ export function buildingStats(type, rules) {
   if (!r) return [];
   return [
     ['Armor', r.armor],
-    r.damage ? ['Attack', `${r.damage} damage, range ${r.range}`] : null,
+    r.damage ? ['Attack', `${r.damage} damage every ${r.attackCooldown > 1 ? `${r.attackCooldown} ticks` : 'tick'}, range ${r.range}`] : null,
     r.storageBonus ? ['Stores', `${fmt(r.storageBonus)} ${ORE}`] : null,
     r.produces?.length ? ['Trains', r.produces.map((t) => unitName(t)).join(', ')] : null,
     r.canResearch ? ['Classes', say('researches upgrades', 'teaches the classes')] : null,

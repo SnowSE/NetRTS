@@ -37,6 +37,7 @@ public sealed partial class GameSimulation
 
         // Decisions this tick are made against what each player could see at the start of it.
         var attacks = new List<Attack>();
+        ChooseDiggers();
         foreach (var unit in _units.ToList())
         {
             if (unit.Cooldown > 0)
@@ -46,6 +47,8 @@ public sealed partial class GameSimulation
 
             UpdateUnit(unit, attacks);
         }
+
+        ResolveCells();
 
         _towerShots.Clear();
         foreach (var tower in _buildings.Where(b => b.Completed && b.Stats.Damage > 0).ToList())
@@ -197,7 +200,7 @@ public sealed partial class GameSimulation
             {
                 var item = building.Production[0];
                 item.Progress = Math.Min(item.Progress + 1, Rules.Units[item.Type].BuildTicks);
-                if (item.Progress >= Rules.Units[item.Type].BuildTicks && FindFreeTileNear(building.Position) is { } spawn)
+                if (item.Progress >= Rules.Units[item.Type].BuildTicks && FindFreeTileNear(building.Position, Rules.Units[item.Type].Occupancy) is { } spawn)
                 {
                     building.Production.RemoveAt(0);
                     var unit = AddUnit(building.Owner, item.Type, spawn);
@@ -234,6 +237,11 @@ public sealed partial class GameSimulation
         }
 
         var depositId = _depositAt[Index(rally)];
+        if (depositId == 0 && _buildingAt[Index(rally)] is var farmId and not 0 && _entities[farmId] is BuildingEntity { Type: BuildingType.Farm } farm && farm.Owner == unit.Owner)
+        {
+            depositId = farmId;
+        }
+
         if (unit.Type == UnitType.Worker && depositId != 0)
         {
             unit.Order = OrderKind.Gather;
@@ -518,7 +526,7 @@ public sealed partial class GameSimulation
                 break;
             }
 
-            unit.Position = next;
+            Place(unit, next);
             unit.Path.RemoveAt(0);
             unit.MovePoints -= Rules.MovePointsPerTile;
             if (unit.Position.Chebyshev(goal) <= range)
@@ -539,57 +547,107 @@ public sealed partial class GameSimulation
     private void UpdateGatherer(UnitEntity unit)
     {
         var player = _players[unit.Owner];
-        var deposit = unit.TargetId is { } id ? _entities.GetValueOrDefault(id) as DepositEntity : null;
+        var source = HarvestSource(unit);
 
-        if (deposit is null && unit.Carrying == 0)
+        if (source is null && unit.Carrying == 0)
         {
             // Our patch ran dry: move on to the nearest other deposit near where it was.
-            deposit = unit.LastDepositPosition is { } last
-                ? _deposits.Where(d => d.Position.Chebyshev(last) <= 6)
-                           .OrderBy(d => d.Position.Chebyshev(unit.Position)).ThenBy(d => d.Id)
-                           .FirstOrDefault()
-                : null;
-
-            if (deposit is null)
+            source = unit.LastDepositPosition is { } last ? NextSource(unit, last) : null;
+            if (source is null)
             {
                 unit.ClearOrder();
                 return;
             }
 
-            unit.TargetId = deposit.Id;
+            unit.TargetId = source.Id;
         }
 
-        if (deposit is null || unit.Carrying >= Rules.WorkerCarryCapacity)
+        if (source is null || unit.Carrying >= Rules.WorkerCarryCapacity)
         {
+            unit.GatherSpot = null;
             ReturnCargo(unit, player);
             return;
         }
 
-        if (unit.Position.Chebyshev(deposit.Position) <= 1)
+        if (Crowding)
         {
-            unit.ClearPath();
-            unit.Activity = UnitActivity.Gathering;
-            var take = Math.Min(Rules.GatherPerTick + player.HarvestingBonus,
-                Math.Min(deposit.Remaining, Rules.WorkerCarryCapacity - unit.Carrying));
-            deposit.Hp -= take;
-            unit.Carrying += take;
-            unit.LastDepositPosition = deposit.Position;
-            if (deposit.Remaining <= 0)
+            ApproachAndDig(unit, player, source);
+            return;
+        }
+
+        if (unit.Position.Chebyshev(source.Position) <= 1)
+        {
+            Dig(unit, player, source);
+            return;
+        }
+
+        unit.Activity = UnitActivity.Moving;
+        if (StepToward(unit, source.Position, 1) == StepResult.Stuck)
+        {
+            unit.ClearOrder();
+        }
+    }
+
+    /// <summary>What a gatherer digs: its patch, or its own finished farm.</summary>
+    private Entity? HarvestSource(UnitEntity unit) => unit.TargetId is { } id
+        ? _entities.GetValueOrDefault(id) switch
+        {
+            DepositEntity deposit => deposit,
+            BuildingEntity { Type: BuildingType.Farm, Completed: true } farm when farm.Owner == unit.Owner => farm,
+            _ => null,
+        }
+        : null;
+
+    /// <summary>Where a worker whose patch ran dry goes next: the nearest deposit within 6 of it (with a cell limit, one with a free spot first).</summary>
+    private Entity? NextSource(UnitEntity unit, Point last)
+    {
+        if (Crowding && FreeSpotNear(unit, last, 6) is { } free)
+        {
+            unit.GatherSpot = free.Spot;
+            return free.Source;
+        }
+
+        return _deposits.Where(d => d.Position.Chebyshev(last) <= 6)
+            .OrderBy(d => d.Position.Chebyshev(unit.Position)).ThenBy(d => d.Id)
+            .FirstOrDefault();
+    }
+
+    /// <summary>One tick of digging beside <paramref name="source"/>; at an empty farm, replanting it instead.</summary>
+    private void Dig(UnitEntity unit, PlayerState player, Entity source)
+    {
+        unit.ClearPath();
+        if (source is BuildingEntity { Grubs: 0 } empty)
+        {
+            Replant(unit, player, empty);
+            return;
+        }
+
+        unit.Activity = UnitActivity.Gathering;
+        var rate = source is BuildingEntity ? Rules.Farm!.GatherPerTick : Rules.GatherPerTick;
+        var take = Math.Min(rate + player.HarvestingBonus,
+            Math.Min(source is DepositEntity d ? d.Remaining : ((BuildingEntity)source).Grubs, Rules.WorkerCarryCapacity - unit.Carrying));
+        unit.Carrying += take;
+        unit.LastDepositPosition = source.Position;
+        if (source is BuildingEntity farm)
+        {
+            farm.Grubs -= take;
+            if (farm.Grubs == 0)
             {
-                _deposits.Remove(deposit);
-                _entities.Remove(deposit.Id);
-                _depositAt[Index(deposit.Position)] = 0;
-                player.DepositsExhausted++;
-                AddEvent(player, "DepositDepleted", $"Deposit {deposit.Id} at {deposit.Position} is exhausted", deposit.Id);
+                FarmEmptied(player, farm);
             }
 
             return;
         }
 
-        unit.Activity = UnitActivity.Moving;
-        if (StepToward(unit, deposit.Position, 1) == StepResult.Stuck)
+        var deposit = (DepositEntity)source;
+        deposit.Hp -= take;
+        if (deposit.Remaining <= 0)
         {
-            unit.ClearOrder();
+            _deposits.Remove(deposit);
+            _entities.Remove(deposit.Id);
+            _depositAt[Index(deposit.Position)] = 0;
+            player.DepositsExhausted++;
+            AddEvent(player, "DepositDepleted", $"Deposit {deposit.Id} at {deposit.Position} is exhausted", deposit.Id);
         }
     }
 
@@ -655,6 +713,7 @@ public sealed partial class GameSimulation
                 unit.Activity = UnitActivity.Building;
                 if (building.AddWork(1))
                 {
+                    Planted(building);
                     player.BuildingsCompleted[building.Type] = player.BuildingsCompleted.GetValueOrDefault(building.Type) + 1;
                     if (building.Type == BuildingType.Barracks)
                     {
@@ -702,7 +761,7 @@ public sealed partial class GameSimulation
         var placed = AddBuilding(unit.Owner, type, site, completed: false);
         foreach (var standing in _units.Where(u => u.Position == site).ToList())
         {
-            standing.Position = FindFreeTileNear(site) ?? standing.Position;
+            Place(standing, FindFreeTileNear(site, standing.Stats.Occupancy) ?? standing.Position);
             standing.ClearPath();
         }
 
@@ -715,6 +774,7 @@ public sealed partial class GameSimulation
     {
         foreach (var unit in _units.Where(u => u.Dead).ToList())
         {
+            Unsettle(unit);
             _units.Remove(unit);
             _entities.Remove(unit.Id);
             var owner = _players[unit.Owner];
@@ -769,6 +829,7 @@ public sealed partial class GameSimulation
         _shells.RemoveAll(s => s.Attacker.Owner == player.Slot);
         foreach (var unit in _units.Where(u => u.Owner == player.Slot).ToList())
         {
+            Unsettle(unit);
             _units.Remove(unit);
             _entities.Remove(unit.Id);
         }

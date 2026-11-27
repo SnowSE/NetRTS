@@ -40,7 +40,7 @@ const GROUPS = [
     title: 'Playing a match',
     keys: [
       'POST /api/v1/matches', 'GET /api/v1/matches', 'GET /api/v1/matches/named/{name}', 'POST /api/v1/matches/{matchId}/join',
-      'POST /api/v1/matches/{matchId}/leave', 'GET /api/v1/matches/{matchId}/map', 'GET /api/v1/matches/{matchId}/state',
+      'POST /api/v1/matches/{matchId}/leave', 'GET /api/v1/matches/{matchId}/map', 'GET /api/v1/matches/{matchId}/rules', 'GET /api/v1/matches/{matchId}/state',
       'POST /api/v1/matches/{matchId}/commands', 'DELETE /api/v1/matches/{matchId}/commands', 'POST /api/v1/matches/{matchId}/surrender',
       'POST /api/v1/matches/{matchId}/speed', 'POST /api/v1/matches/{matchId}/step',
     ],
@@ -62,7 +62,7 @@ const GROUPS = [
   {
     title: 'Players, ladders and rules',
     keys: [
-      'GET /api/v1/rules', 'GET /api/v1/bots', 'GET /api/v1/leaderboard', 'GET /api/v1/players/{playerId}', 'GET /api/v1/achievements',
+      'GET /api/v1/rules', 'GET /api/v1/rulesets', 'GET /api/v1/bots', 'GET /api/v1/leaderboard', 'GET /api/v1/players/{playerId}', 'GET /api/v1/achievements',
       'GET /api/v1/players/{playerId}/achievements', 'GET /api/v1/people', 'GET /api/v1/people/{slug}',
     ],
   },

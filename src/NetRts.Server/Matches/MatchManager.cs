@@ -598,7 +598,13 @@ public sealed partial class MatchManager(
             throw new MatchException(400, "INVALID_SETTINGS", "maxTicks must be between 10 and 20000.");
         }
 
-        return new MatchSettings(width, height, dto?.Seed ?? Random.Shared.Next(), interval, maxTicks, GrubPercent: grubs);
+        RuleSet? rules = null;
+        if (dto?.Rules is { } name && !GameRules.Named.TryGetValue(name, out rules))
+        {
+            throw new MatchException(400, "INVALID_SETTINGS", $"rules must be one of: {string.Join(", ", GameRules.Named.Keys)}.");
+        }
+
+        return new MatchSettings(width, height, dto?.Seed ?? Random.Shared.Next(), interval, maxTicks, GrubPercent: grubs, Rules: rules);
     }
 }
 

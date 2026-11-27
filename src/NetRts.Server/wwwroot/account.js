@@ -3,6 +3,7 @@
 import { api, html, setHtml, playerLabel, verifiedBadge, fmt } from './util.js';
 import { GAME, say } from './lore.js';
 import { earnedHtml } from './achievements.js';
+import { rulesField, fillRules, chosenRules } from './rulesets.js';
 
 const CATEGORIES = ['Practice', 'Preseason', 'Season', 'Championship'];
 const SIGN_IN = '/auth/discord?returnUrl=' + encodeURIComponent('/#/account');
@@ -137,6 +138,7 @@ export function mountAccount(root, onAccount) {
             <input id="hm-tick" name="tickIntervalMs" type="number" min="100" max="10000" step="50" value="1000" inputmode="numeric"></div>
           <div class="field"><label for="hm-ticks">Tick limit</label>
             <input id="hm-ticks" name="maxTicks" type="number" min="10" max="20000" value="1800" inputmode="numeric"></div>
+          ${rulesField('hm-rules')}
         </div>
         <div class="form-row">
           <div class="field"><label for="hm-formics">Formics <span class="muted small">(optional)</span></label>
@@ -297,6 +299,7 @@ export function mountAccount(root, onAccount) {
       load();
     }));
 
+    fillRules($('hm-rules'), () => alive);
     $('host').addEventListener('submit', (ev) => act(ev, async (form) => {
       const name = form.get('name').trim();
       const formics = Math.max(0, Math.floor(Number(form.get('formics')) || 0));
@@ -309,6 +312,7 @@ export function mountAccount(root, onAccount) {
           settings: {
             tickIntervalMs: Number(form.get('tickIntervalMs')) || undefined,
             maxTicks: Number(form.get('maxTicks')) || undefined,
+            rules: chosenRules(form),
           },
         },
       });

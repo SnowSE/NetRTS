@@ -154,4 +154,10 @@ internal sealed record FormicsTuning
 
     /// <summary>Enemies this close to one of our buildings are a threat.</summary>
     public int DefenseRadius { get; init; } = 9;
+
+    /// <summary>Where the rules have farms: build them once the piles near our drop-offs hold less than this (scaled by the map's grubs).</summary>
+    public int FarmsBelowOre { get; init; } = 1500;
+
+    /// <summary>At most this many farms (and one per five workers).</summary>
+    public int MaxFarms { get; init; } = 4;
 }

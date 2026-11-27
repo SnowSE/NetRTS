@@ -2,6 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace NetRts.Protocol;
 
+/// <summary>A rule set a match can be played under (GET /api/v1/rulesets): pass its name as the match setting <c>rules</c>.</summary>
+public sealed record RuleSetInfoDto(string Name, string Title, string Version, bool IsDefault);
+
 /// <summary>Static game data so bots can be data driven instead of hard-coding numbers.</summary>
 public sealed record RulesDto
 {
@@ -32,6 +35,35 @@ public sealed record RulesDto
     /// <summary>Percent of a shell's damage (before armor) dealt to enemies on the 8 tiles around where it lands. Left out when 0.</summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public int ShellSplashPercent { get; init; }
+
+    /// <summary>
+    /// Points one cell holds. A unit standing in a cell takes its type's <c>occupancy</c>; a unit that stops
+    /// where there isn't room is bumped to the nearest cell that has it. Left out when 0 (units share tiles freely).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int CellCapacity { get; init; }
+
+    /// <summary>
+    /// Workers that can dig from one cell at once, shared by every patch or farm beside it; the rest wait.
+    /// Left out when 0 (no limit).
+    /// </summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int MinersPerEdge { get; init; }
+
+    /// <summary>Farm numbers; left out when these rules have no farms.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public FarmRulesDto? Farm { get; init; }
+}
+
+/// <summary>A farm holds <see cref="Grubs"/> when finished or replanted; workers dig it like a patch, at <see cref="GatherPerTick"/>.</summary>
+public sealed record FarmRulesDto
+{
+    public int Grubs { get; init; }
+
+    /// <summary>What a worker sent to Gather an empty farm pays to replant it.</summary>
+    public int ReplantCost { get; init; }
+
+    public int GatherPerTick { get; init; }
 }
 
 public sealed record UnitStatsDto
@@ -65,6 +97,10 @@ public sealed record UnitStatsDto
     public int Speed { get; init; }
 
     public BuildingType ProducedAt { get; init; }
+
+    /// <summary>Points of a cell's <c>cellCapacity</c> this unit takes while it stands there. Left out when the rules have no cell limit.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
+    public int Occupancy { get; init; }
 }
 
 public sealed record BuildingStatsDto

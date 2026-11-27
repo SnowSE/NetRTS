@@ -30,6 +30,11 @@ public sealed partial class GameSimulation
     internal void RemoveEntity(int entityId)
     {
         var entity = _entities[entityId];
+        if (entity is UnitEntity unit)
+        {
+            Unsettle(unit);
+        }
+
         entity.Hp = 0;
         _units.RemoveAll(u => u.Id == entityId);
         _buildings.RemoveAll(b => b.Id == entityId);
@@ -62,6 +67,44 @@ public sealed partial class GameSimulation
 
     internal int CommandCenterId(int slot) =>
         _buildings.First(b => b.Owner == slot && b.Type == BuildingType.CommandCenter).Id;
+
+    internal void SetFarmGrubs(int farmId, int grubs) => ((BuildingEntity)_entities[farmId]).Grubs = grubs;
+
+    internal int FarmGrubs(int farmId) => ((BuildingEntity)_entities[farmId]).Grubs;
+
+    /// <summary>
+    /// What's wrong with the cell bookkeeping, or null: every cell's load must be what its standing units add up
+    /// to, within <see cref="RuleSet.CellCapacity"/>, and no cell may have more diggers than <see cref="RuleSet.MinersPerEdge"/>.
+    /// </summary>
+    internal string? CellProblem()
+    {
+        var load = new int[_cellLoad.Length];
+        foreach (var unit in _units.Where(u => u.SettledSeq != 0))
+        {
+            load[Index(unit.Position)] += unit.Stats.Occupancy;
+            if (!_standing[Index(unit.Position)].Contains(unit))
+            {
+                return $"unit {unit.Id} holds a place at {unit.Position} but isn't listed there";
+            }
+        }
+
+        for (var i = 0; i < load.Length; i++)
+        {
+            if (load[i] != _cellLoad[i])
+            {
+                return $"cell {i} has load {_cellLoad[i]} but its units add up to {load[i]}";
+            }
+
+            if (load[i] > Rules.CellCapacity)
+            {
+                return $"cell {i} holds {load[i]} points, over {Rules.CellCapacity}";
+            }
+        }
+
+        var crowded = _units.Where(u => u.Activity == UnitActivity.Gathering && u.GatherSpot == u.Position)
+            .GroupBy(u => u.Position).FirstOrDefault(g => g.Count() > Rules.MinersPerEdge);
+        return crowded is null ? null : $"{crowded.Count()} workers dig from {crowded.Key}";
+    }
 
     internal void Run(int ticks)
     {

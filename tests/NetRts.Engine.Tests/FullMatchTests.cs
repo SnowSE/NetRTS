@@ -9,12 +9,15 @@ public class FullMatchTests
 {
     /// <param name="surrenderAt">Slot 1 surrenders at this tick.</param>
     /// <param name="boostAt">Slot 0 takes its boost at this tick, and sends every command boosted.</param>
-    internal static GameSimulation Play(string bot0, string bot1, int seed, int maxTicks = 1800, int? surrenderAt = null, int? boostAt = null, int? endAt = null, int grubPercent = 100)
+    /// <param name="rules">The rules (default classic).</param>
+    /// <param name="afterTick">Called after every tick.</param>
+    internal static GameSimulation Play(string bot0, string bot1, int seed, int maxTicks = 1800, int? surrenderAt = null, int? boostAt = null, int? endAt = null, int grubPercent = 100,
+        RuleSet? rules = null, Action<GameSimulation>? afterTick = null)
     {
-        var sim = new GameSimulation(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks, GrubPercent = grubPercent },
+        var sim = new GameSimulation(Guid.NewGuid(), new GameConfig { Seed = seed, MaxTicks = maxTicks, GrubPercent = grubPercent, Rules = rules ?? GameRules.Classic },
             [new PlayerSeat(Guid.NewGuid(), bot0), new PlayerSeat(Guid.NewGuid(), bot1)]);
         var bots = new[] { HouseBots.Create(bot0), HouseBots.Create(bot1) };
-        var rules = GameRules.ToDto();
+        var rulesDto = sim.Rules.ToDto();
         var map = sim.Map.ToDto();
 
         while (sim.Status == MatchStatus.Active)
@@ -26,7 +29,7 @@ public class FullMatchTests
 
             for (var slot = 0; slot < 2; slot++)
             {
-                var commands = bots[slot].Decide(new BotContext(sim.GetPlayerView(slot), map, rules));
+                var commands = bots[slot].Decide(new BotContext(sim.GetPlayerView(slot), map, rulesDto));
                 if (commands.Count > 0)
                 {
                     sim.Submit(slot, commands, boosted: slot == 0 && boostAt is not null);
@@ -45,6 +48,7 @@ public class FullMatchTests
             }
 
             sim.Step();
+            afterTick?.Invoke(sim);
         }
 
         return sim;
@@ -133,6 +137,22 @@ public class FullMatchTests
         Assert.Equal(original.StateHash(), replay.StateHash());
         Assert.Equal(original.Outcome!.Reason, replay.Outcome!.Reason);
         Assert.Equal(original.Outcome.WinnerId, replay.Outcome.WinnerId);
+    }
+
+    [Theory]
+    [InlineData("formics", "balanced", 31)]
+    [InlineData("rusher", "economist", 32)]
+    public void Spring_rules_matches_keep_every_cell_within_its_limit_and_replay_exactly(string bot0, string bot1, int seed)
+    {
+        string? problem = null;
+        var original = Play(bot0, bot1, seed, rules: GameRules.SpringDraft, afterTick: s => problem ??= s.CellProblem() is { } p ? $"tick {s.Tick}: {p}" : null);
+
+        Assert.Null(problem);
+        Assert.Equal(MatchStatus.Completed, original.Status);
+        Assert.All(original.GetResult()!.Players, p => Assert.True(p.Score.Economy > 0));
+        var replay = GameSimulation.FromReplay(original.GetReplay(), rules: GameRules.SpringDraft);
+        Assert.Equal(original.Tick, replay.Tick);
+        Assert.Equal(original.StateHash(), replay.StateHash());
     }
 
     [Fact]

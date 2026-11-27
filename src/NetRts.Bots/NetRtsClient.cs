@@ -90,6 +90,10 @@ public sealed class NetRtsClient : IDisposable
         }
     }
 
+    /// <summary>The rules a match is played under (a match can pick its rule set; GET /api/v1/rules is the server's default).</summary>
+    public Task<RulesDto> GetMatchRulesAsync(Guid matchId, CancellationToken ct = default) =>
+        Send<RulesDto>(HttpMethod.Get, $"api/v1/matches/{matchId}/rules", null, ct);
+
     public Task<MapDto> GetMapAsync(Guid matchId, CancellationToken ct = default) =>
         Send<MapDto>(HttpMethod.Get, $"api/v1/matches/{matchId}/map", null, ct);
 
@@ -175,8 +179,8 @@ public static class BotLoop
         ArgumentNullException.ThrowIfNull(client);
         ArgumentNullException.ThrowIfNull(strategy);
 
-        var rules = await client.GetRulesAsync(ct).ConfigureAwait(false);
         var state = await client.WaitForStartAsync(matchId, ct).ConfigureAwait(false);
+        var rules = await client.GetMatchRulesAsync(matchId, ct).ConfigureAwait(false);
         var map = await client.GetMapAsync(matchId, ct).ConfigureAwait(false);
         log?.Invoke($"Playing match {matchId} as slot {state.You.Slot} on a {map.Width}x{map.Height} map.");
 

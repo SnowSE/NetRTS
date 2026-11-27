@@ -10,6 +10,7 @@ import { mountTrophyRoom, mountPerson } from './people.js';
 import { mountHistory } from './history.js';
 import { mountColab } from './colab.js';
 import { mountApiDocs } from './apidocs.js';
+import { rulesField, fillRules, chosenRules } from './rulesets.js';
 
 const main = document.getElementById('main');
 const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
@@ -266,6 +267,7 @@ function mountHome(root) {
                   ${GRUBS.map((g) => html`<option value="${g.percent}" ${g.percent === 100 ? html`selected` : ''}>${g.label}</option>`)}
                 </select>
               </div>
+              ${rulesField('launch-rules')}
             </div>
             <div><button class="btn" type="submit" id="launch-btn">${say('Start match', 'Let them brawl')}</button></div>
             <p class="error" id="launch-error" role="alert" hidden></p>
@@ -312,6 +314,7 @@ Authorization: Bearer &lt;apiKey&gt;
 
   // ---- exhibition form
   let bots = [];
+  fillRules($('launch-rules'), () => alive);
   const desc = $('bot-desc'), errEl = $('launch-error'), btn = $('launch-btn'), countsEl = $('bot-counts'), totalEl = $('bot-total');
   const MAX_SEATS = 16;
   const counts = new Map();   // bot name -> how many copies take a seat
@@ -363,7 +366,7 @@ Authorization: Bearer &lt;apiKey&gt;
     try {
       const summary = await api('/api/v1/exhibitions', {
         method: 'POST',
-        body: { bots: seats, settings: { tickIntervalMs: speed, grubPercent: grubs, ...(size ? { mapWidth: size, mapHeight: size } : {}) } },
+        body: { bots: seats, settings: { tickIntervalMs: speed, grubPercent: grubs, rules: chosenRules(form), ...(size ? { mapWidth: size, mapHeight: size } : {}) } },
       });
       location.hash = `#/match/${summary.matchId}`;
     } catch (e) {

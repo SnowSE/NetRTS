@@ -45,6 +45,10 @@ public static partial class PlayerEndpoints
         api.MapGet("/rules", (IOptions<NetRtsOptions> options) => options.Value.RuleSet.ToDto())
             .WithSummary("Every unit, building and upgrade stat, plus the core rules new matches on this server are played under.");
 
+        api.MapGet("/rulesets", (IOptions<NetRtsOptions> options) =>
+                GameRules.Named.Values.Select(r => new RuleSetInfoDto(r.Name, r.Title, r.Version, r.Name == options.Value.RuleSet.Name)).ToList())
+            .WithSummary("The rule sets a new match can be played under (the match setting rules); isDefault marks the one this server uses when a match doesn't say.");
+
         api.MapGet("/bots", () => HouseBots.All)
             .WithSummary("House bots you can play against or watch.");
     }
