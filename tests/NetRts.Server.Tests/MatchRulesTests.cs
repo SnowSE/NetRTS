@@ -56,4 +56,15 @@ public class MatchRulesTests(ServerFactory factory) : IClassFixture<ServerFactor
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
         Assert.Contains("INVALID_SETTINGS", await response.Content.ReadAsStringAsync(Ct));
     }
+
+    [Fact]
+    public async Task One_rule_sets_numbers_can_be_read_by_name()
+    {
+        var http = factory.CreateClient();
+
+        var spring = await http.GetFromJsonAsync<RulesDto>("/api/v1/rulesets/spring-draft", NetRtsClient.JsonOptions, Ct);
+
+        Assert.Equal(9, spring!.CellCapacity);
+        Assert.Equal(HttpStatusCode.NotFound, (await http.GetAsync("/api/v1/rulesets/chess", Ct)).StatusCode);
+    }
 }

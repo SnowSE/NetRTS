@@ -83,6 +83,9 @@ export const housingName = (slot) => bySlot(HOUSING_NAME, slot);
 /** A house bot's nickname, or null in the original brand. */
 export const nickname = (bot) => (SNOW ? BOT_NICKNAME[bot] ?? null : null);
 
+/** A building type's name without a leading "The", to put after "a" or "slower": Bell Tower, not The Bell Tower. */
+export const plainBuildingName = (type) => buildingName(type).replace(/^The /, '');
+
 /** A building's display name; in the Snow theme HQs and housing are named per team when the owner slot is known. */
 export function buildingName(type, owner) {
   if (!SNOW) return spaced(type);

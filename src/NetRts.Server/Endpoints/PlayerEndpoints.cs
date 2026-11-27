@@ -49,6 +49,14 @@ public static partial class PlayerEndpoints
                 GameRules.Named.Values.Select(r => new RuleSetInfoDto(r.Name, r.Title, r.Version, r.Name == options.Value.RuleSet.Name)).ToList())
             .WithSummary("The rule sets a new match can be played under (the match setting rules); isDefault marks the one this server uses when a match doesn't say.");
 
+        api.MapGet("/rulesets/{name}", (string name) =>
+                GameRules.Named.TryGetValue(name, out var rules)
+                    ? Results.Ok(rules.ToDto())
+                    : ApiErrors.Error(404, "RULESET_NOT_FOUND", $"No rule set named {name}; see GET /api/v1/rulesets."))
+            .Produces<RulesDto>()
+            .ProducesErrors()
+            .WithSummary("One rule set's numbers, in the shape of GET /api/v1/rules (e.g. to compare classic with spring-draft).");
+
         api.MapGet("/bots", () => HouseBots.All)
             .WithSummary("House bots you can play against or watch.");
     }

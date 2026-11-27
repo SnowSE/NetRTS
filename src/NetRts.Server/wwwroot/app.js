@@ -1,6 +1,6 @@
 // Spectator UI: hash router + home view.
 import { api, html, raw, setHtml, botAndOwner, verifiedBadge, fmt, esc, matchRow, botLabel, SKILL_TITLE } from './util.js';
-import { GAME, SNOW, say, nickname, CATEGORIES } from './lore.js';
+import { GAME, SNOW, say, nickname, CATEGORIES, ORE, plainBuildingName } from './lore.js';
 import { mountSpectate } from './spectate.js';
 import { mountAccount } from './account.js';
 import { mountLeague } from './league.js';
@@ -10,7 +10,7 @@ import { mountTrophyRoom, mountPerson } from './people.js';
 import { mountHistory } from './history.js';
 import { mountColab } from './colab.js';
 import { mountApiDocs } from './apidocs.js';
-import { rulesField, fillRules, chosenRules } from './rulesets.js';
+import { rulesField, fillRules, chosenRules, ruleSets, rolloutLine, springIsDefault } from './rulesets.js';
 
 const main = document.getElementById('main');
 const SKILL_TH = html`<th scope="col"><abbr title="${SKILL_TITLE}">Skill</abbr></th>`;
@@ -34,6 +34,7 @@ function route() {
   const blocks = hash.match(/^#\/blocks(?:\/(edit|match)\/([A-Za-z0-9-]{1,64})|\/(import)\?program=([A-Za-z0-9_-]*))?\/?$/);
   const pickup = hash.match(/^#\/pickup(\/screen)?\/?$/);
   const stats = /^#\/stats\/?$/.test(hash);
+  const spring = /^#\/spring-rules\/?$/.test(hash);
   const section = m ? 'match' : account ? 'account' : recaps ? 'recaps' : achievements || bot || trophyRoom || person ? 'achievements' : colab ? 'colab' : apiDocs ? 'api' : blocks ? 'blocks' : pickup ? 'pickup' : stats ? 'stats' : 'home';
   document.querySelectorAll('.topbar nav a[data-section]').forEach((a) => {
     if (a.dataset.section === section) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
@@ -69,6 +70,9 @@ function route() {
     teardown = pickup[1]
       ? mountLazy(() => import('./pickup/screen.js'), (m) => m.mountScreen(main))
       : mountLazy(() => import('./pickup/index.js'), (m) => m.mountPickup(main));
+  } else if (spring) {
+    // What changes with the spring rules, from the two rule sets.
+    teardown = mountLazy(() => import('./spring.js'), (m) => m.mountSpring(main));
   } else if (stats) {
     // Stats: every match to explore, the records and how the server held up.
     teardown = mountLazy(() => import('./stats/index.js'), (m) => m.mountStats(main));
@@ -188,6 +192,9 @@ const GRUBS = [
   { percent: 400, label: 'Gold rush · 4×' },
 ];
 
+/** The spring rules in a sentence, for the home page notice. */
+const rulesPitch = () => `Less room in each cell, ${ORE} that grow back, farms, a slower ${plainBuildingName('GuardTower')} and a score that counts what you own.`;
+
 function mountHome(root) {
   document.title = GAME;
   setHtml(root, html`
@@ -218,6 +225,15 @@ function mountHome(root) {
         <p class="promo-more small"><a href="https://youtu.be/sVGlA3aRt90" target="_blank" rel="noopener">Watch the longer introduction</a> <span class="muted">· 2:00, on YouTube</span></p>
       </div>
     </div>
+
+    <section class="rules-notice" aria-labelledby="rules-h">
+      <div>
+        <p class="kicker" id="rules-kicker">Coming in spring 2027</p>
+        <h2 id="rules-h">New rules</h2>
+        <p id="rules-when">${rulesPitch()}</p>
+      </div>
+      <a class="btn" href="#/spring-rules">See what changes</a>
+    </section>
 
     <div class="board">
       <div>
@@ -315,6 +331,11 @@ Authorization: Bearer &lt;apiKey&gt;
   // ---- exhibition form
   let bots = [];
   fillRules($('launch-rules'), () => alive);
+  ruleSets().then((sets) => {
+    if (!alive) return;
+    $('rules-when').textContent = `${rolloutLine(sets)} ${rulesPitch()}`;
+    if (springIsDefault(sets)) $('rules-kicker').textContent = 'New this spring';
+  }).catch(() => {});
   const desc = $('bot-desc'), errEl = $('launch-error'), btn = $('launch-btn'), countsEl = $('bot-counts'), totalEl = $('bot-total');
   const MAX_SEATS = 16;
   const counts = new Map();   // bot name -> how many copies take a seat

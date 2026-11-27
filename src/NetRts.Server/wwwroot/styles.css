@@ -1758,3 +1758,19 @@ a.owner:hover { text-decoration: underline; }
   .apidocs-bar .segmented { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; }
   .apidocs-bar .segmented label { padding: 8px 6px; }
 }
+
+/* The spring rules: the home page notice and #/spring-rules. */
+.rules-notice { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 28px; border: 2px solid var(--ink); background: var(--panel); padding: 18px 22px; margin: 0 0 32px; }
+.rules-notice > div { flex: 1 1 420px; min-width: 0; }
+.rules-notice h2 { margin: 2px 0 6px; }
+.rules-notice p { margin: 0; }
+.kicker { margin: 0; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.spring-page { max-width: 880px; display: grid; gap: 32px; }
+.spring-page header { display: grid; gap: 10px; }
+.spring-page header p { margin: 0; }
+.spring-page section h2 { margin-bottom: 12px; }
+.spring-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+.spring-list li { border: 1px solid var(--line); background: var(--panel); padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.spring-list h3 { font-size: 1.05rem; }
+.spring-list p { margin: 0; }
+.spring-bot { margin: 0; padding-left: 20px; display: grid; gap: 8px; }
