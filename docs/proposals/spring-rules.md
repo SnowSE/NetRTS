@@ -4,6 +4,7 @@ Status: **built, being tuned** (interview started 2026-11-02; rounds 3 and 4 dec
 
 > Built on branch `spring-rules`; test server https://netrts-spring.azurewebsites.net runs the `spring-draft` rule set.
 > Tune with `netrts-sim` (see `src/NetRts.Sim`).
+> Images explaining the changes to students: [`docs/spring-rules/`](../spring-rules/README.md).
 
 ## Where things stand today
 

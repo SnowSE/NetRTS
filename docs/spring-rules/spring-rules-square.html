@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spring rules: dark square</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#ffffff}a:hover{color:#d6e0f0}
+</style>
+</head>
+<body>
+<div style="width: 1080px; height: 1080px; box-sizing: border-box; background: #0c1f3d; color: #ffffff; font-family: Inter, system-ui, sans-serif; padding: 64px; display: flex; flex-direction: column; gap: 36px">
+  <div style="display: flex; flex-direction: column; gap: 12px">
+    <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 20px; letter-spacing: 0.14em; color: #f08a3c">BADGER BRAWL</div>
+    <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 92px; line-height: 0.95">Spring 2027<br>rules</h1>
+  </div>
+  <div style="flex-grow: 1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(6, minmax(0, 1fr)); grid-auto-flow: column; column-gap: 44px; row-gap: 8px">
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">01</div><div style="font-size: 19px; line-height: 1.4">A cell holds <b>9 points</b>. Worker 2, Soldier 1, Archer 1, Scout 2, Snow Mobile 9.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">02</div><div style="font-size: 19px; line-height: 1.4"><b>First in keeps the cell.</b> Late arrivals are bumped next door.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">03</div><div style="font-size: 19px; line-height: 1.4"><b>Two dig</b> from each cell beside a patch; two wait.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">04</div><div style="font-size: 19px; line-height: 1.4"><b>Patches grow back</b>, up to where they started.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">05</div><div style="font-size: 19px; line-height: 1.4"><b>Compost Heaps</b> grow 300 grubs. Replant for 75.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">06</div><div style="font-size: 19px; line-height: 1.4"><b>Spoils:</b> flatten a building, bank half its cost.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">07</div><div style="font-size: 19px; line-height: 1.4"><b>Each HQ</b> costs 25% more: 400, 500, 625, 781.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">08</div><div style="font-size: 19px; line-height: 1.4"><b>Bell Tower</b> fires every 3 ticks; Campanology makes it 2.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">09</div><div style="font-size: 19px; line-height: 1.4"><b>Construction classes</b> give +2 building armor each.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">10</div><div style="font-size: 19px; line-height: 1.4"><b>Snow Mobiles</b> sooner, and their shells splash.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">11</div><div style="font-size: 19px; line-height: 1.4"><b>At the clock</b>, score destruction + survival + grubs in the bank.</div></div>
+    <div style="display: flex; gap: 16px; align-items: baseline"><div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 30px; color: #f08a3c; width: 44px; flex-shrink: 0">12</div><div style="font-size: 19px; line-height: 1.4"><b>Same API.</b> Read GET /matches/{id}/rules.</div></div>
+  </div>
+  <div style="display: flex; justify-content: space-between; gap: 24px; border-top: 1px solid #2c4a7a; padding-top: 22px; font-size: 17px; line-height: 1.5; color: #d6e0f0">
+    <div>Try them now: pick <b style="color: #ffffff">Spring 2027</b> under Rules.</div>
+    <div style="color: #9fb2d1; white-space: nowrap">Draft · numbers may change</div>
+  </div>
+</div>
+</body>
+</html>

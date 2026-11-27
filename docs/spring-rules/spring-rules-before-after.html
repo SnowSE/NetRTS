@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Spring rules: before and after</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=Inter:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#10294f}a:hover{color:#0a1a33}
+</style>
+</head>
+<body>
+<div style="width: 1600px; height: 900px; box-sizing: border-box; background: #ffffff; font-family: Inter, system-ui, sans-serif; color: #10294f; display: flex">
+  <div style="width: 440px; flex-shrink: 0; box-sizing: border-box; background: #10294f; color: #ffffff; padding: 64px 48px; display: flex; flex-direction: column; gap: 22px">
+    <div style="font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 19px; letter-spacing: 0.06em; color: #d0661a">BADGER BRAWL · SPRING 2027</div>
+    <h1 style="margin: 0; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 64px; line-height: 1.02">What changes this spring</h1>
+    <p style="margin: 0; font-size: 20px; line-height: 1.5; color: #d6e0f0">Twelve rules, before and after. Your bot keeps the same API and commands: read each match's numbers from GET /matches/{id}/rules.</p>
+    <div style="flex-grow: 1"></div>
+    <div style="border-top: 1px solid #2c4a7a; padding-top: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 17px; line-height: 1.5; color: #d6e0f0">
+      <div><b style="color: #ffffff">Try them now:</b> pick Spring 2027 under Rules when you start a match.</div>
+      <div><b style="color: #ffffff">The default</b> after the next regular season match.</div>
+      <div style="color: #9fb2d1">Draft · numbers may change</div>
+    </div>
+  </div>
+  <div style="flex-grow: 1; padding: 44px 56px; display: flex; flex-direction: column">
+    <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; padding: 0 0 12px; border-bottom: 2px solid #10294f; font-family: 'Space Grotesk', sans-serif; font-weight: 700; font-size: 16px; letter-spacing: 0.1em">
+      <div>RULE</div>
+      <div style="color: #56627a">NOW</div>
+      <div style="color: #a14a0c">SPRING 2027</div>
+    </div>
+    <div style="flex-grow: 1; display: grid; grid-template-rows: repeat(12, minmax(0, 1fr))">
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Room in a cell</div><div style="color: #56627a">As many units as you like</div><div>9 points: Worker 2, Soldier 1, Archer 1, Scout 2, Snow Mobile 9</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Stopping</div><div style="color: #56627a">Stack anywhere</div><div>First in keeps the cell; latecomers are bumped next door</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Digging</div><div style="color: #56627a">Any number on a patch</div><div>2 dig from each cell beside a patch; 2 more wait</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Grub patches</div><div style="color: #56627a">Only shrink</div><div>Regrow slowly, never past their start; dug to 0 they're gone</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Farms</div><div style="color: #56627a">None</div><div>Compost Heap: 100 to build, 300 grubs, 1 a tick, replant for 75</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Flattening a building</div><div style="color: #56627a">Nothing back</div><div>Bank half its cost as spoils</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Extra HQs</div><div style="color: #56627a">400 each</div><div>400, 500, 625, 781: each 25% more than the last</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Bell Tower</div><div style="color: #56627a">125, fires every tick</div><div>150, every 3 ticks; Campanology makes it every 2</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Construction classes</div><div style="color: #56627a">+1 building armor each</div><div>+2 building armor each</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Welding Technology</div><div style="color: #56627a">200 grubs, 60 ticks</div><div>100 grubs, 30 ticks</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; border-bottom: 1px solid #dfe6f1; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Snow Mobile shells</div><div style="color: #56627a">Hit one cell</div><div>Also half damage on the 8 cells around it</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 220px minmax(0, 1fr) minmax(0, 1.5fr); column-gap: 28px; align-items: center; font-size: 17px; line-height: 1.35">
+        <div style="font-weight: 600">Score at the clock</div><div style="color: #56627a">Destruction + every grub dug + survival</div><div>Destruction + survival + grubs in the bank; grubs dug break ties</div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>
