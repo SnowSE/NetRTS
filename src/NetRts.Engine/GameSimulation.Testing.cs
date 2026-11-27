@@ -75,11 +75,16 @@ public sealed partial class GameSimulation
     internal int FarmGrubs(int farmId) => ((BuildingEntity)_entities[farmId]).Grubs;
 
     /// <summary>
-    /// What's wrong with the cell bookkeeping, or null: every cell's load must be what its standing units add up
-    /// to, within <see cref="RuleSet.CellCapacity"/>, and no cell may have more diggers than <see cref="RuleSet.MinersPerEdge"/>.
+    /// What's wrong with the cell bookkeeping, or null: every unit holds a place, every cell's load must be what
+    /// its units add up to, within <see cref="RuleSet.CellCapacity"/>, and no cell may have more diggers than <see cref="RuleSet.MinersPerEdge"/>.
     /// </summary>
     internal string? CellProblem()
     {
+        if (_units.FirstOrDefault(u => u.SettledSeq == 0) is { } loose)
+        {
+            return $"unit {loose.Id} at {loose.Position} holds no place";
+        }
+
         var load = new int[_cellLoad.Length];
         foreach (var unit in _units.Where(u => u.SettledSeq != 0))
         {

@@ -96,6 +96,13 @@ patches.
     (`NetRts:Rules=spring-draft`) and classic becomes the opt-out.
 24. **No badges** (answers H): spectators just see more units, more spread out.
 
+## Round 5 (2026-11-27)
+
+25. **Marching armies spread out** (replaces decision 3 and 20's "walking units hold none"): every unit, walking or
+    standing, holds its share of the cell it ends each tick in. A walker that ends a tick in a full cell is
+    bumped to the nearest cell with room, toward where it's going, and keeps its route when it can. Found in a
+    16-Formics prod test, where armies of 20-29 soldiers marched in one cell.
+
 ## Open questions (round 2)
 
 Recommendations in italics.

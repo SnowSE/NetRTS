@@ -63,17 +63,20 @@ public class CellTests
     }
 
     [Fact]
-    public void Units_walk_through_a_full_cell()
+    public void A_marching_army_spreads_out_and_never_crowds_a_cell()
     {
         var sim = Spring();
-        Spawn(sim, 0, UnitType.Soldier, 9, 12, 12);
-        var scout = sim.SpawnUnit(0, UnitType.Scout, 12, 9);
+        var army = Enumerable.Range(0, 18).Select(i => sim.SpawnUnit(0, UnitType.Soldier, 9 + (i % 2), 9)).ToArray();
 
-        sim.SubmitOne(0, TestGames.Move(12, 15, scout)).AssertAccepted();
-        sim.Run(4);
+        sim.SubmitOne(0, TestGames.Move(16, 16, army)).AssertAccepted();
+        for (var tick = 0; tick < 20; tick++)
+        {
+            sim.Step();
+            Assert.Null(sim.CellProblem());
+            Assert.All(Units(sim).GroupBy(u => (u.X, u.Y)), g => Assert.True(g.Count() <= 9, $"tick {sim.Tick}: {g.Count()} soldiers on {g.Key}"));
+        }
 
-        Assert.Equal((12, 15), (sim.Find(scout)!.Value.X, sim.Find(scout)!.Value.Y));
-        Assert.Null(sim.CellProblem());
+        Assert.All(Units(sim), u => Assert.True(Math.Max(Math.Abs(u.X - 16), Math.Abs(u.Y - 16)) <= 2, $"soldier at ({u.X},{u.Y}) should be near the destination"));
     }
 
     [Fact]

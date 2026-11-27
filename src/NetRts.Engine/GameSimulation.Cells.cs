@@ -4,9 +4,10 @@ namespace NetRts.Engine;
 
 /// <summary>
 /// Cell limits (<see cref="RuleSet.CellCapacity"/>) and digging spots (<see cref="RuleSet.MinersPerEdge"/>).
-/// Units walk through each other; a unit that stops takes its <see cref="UnitStats.Occupancy"/> of its cell
-/// if there is room, and is bumped to the nearest cell with room if there isn't. Nothing here runs under
-/// rules without a cell limit.
+/// Every unit, walking or standing, takes its <see cref="UnitStats.Occupancy"/> of the cell it ends each tick
+/// in: one that moved takes a place there if there is room, and is bumped to the nearest cell with room if
+/// there isn't (a walker toward where it's going), so marching armies spread out. A unit that stays where it
+/// is keeps its place. Nothing here runs under rules without a cell limit.
 /// </summary>
 public sealed partial class GameSimulation
 {
@@ -60,7 +61,7 @@ public sealed partial class GameSimulation
     }
 
     /// <summary>
-    /// After everyone has moved: each unit standing still without a place takes one, or is bumped. Within a cell
+    /// After everyone has moved: each unit without a place (it moved, or was just placed) takes one, or is bumped. Within a cell
     /// the lowest id goes first; when players' units don't all fit, they take turns, starting one player further
     /// round the table each time that happens. The bumped are placed after every cell has seated its own.
     /// </summary>
@@ -72,7 +73,7 @@ public sealed partial class GameSimulation
         }
 
         var bumped = new List<UnitEntity>();
-        var arrivals = _units.Where(u => !u.Dead && u.SettledSeq == 0 && u.Path.Count == 0)
+        var arrivals = _units.Where(u => !u.Dead && u.SettledSeq == 0)
             .GroupBy(u => Index(u.Position))
             .OrderBy(g => g.Key);
         foreach (var cell in arrivals)
@@ -126,14 +127,30 @@ public sealed partial class GameSimulation
     /// <summary>Moves a unit that found no room to the nearest cell that has some, and lets it carry on from there.</summary>
     private void Bump(UnitEntity unit)
     {
-        if (NearestRoom(unit) is not { } cell)
+        var walking = unit.Path.Count > 0;
+        if (NearestRoom(unit, walking ? unit.Path[^1] : null) is not { } cell)
         {
             return; // nowhere near: it stays put without a place and tries again next tick
         }
 
         Place(unit, cell);
-        unit.ClearPath();
         Settle(unit);
+        if (walking)
+        {
+            // Sidestepped: keep the route if its next step is still one step away (or this is it), else plan again.
+            if (unit.Path[0] == cell)
+            {
+                unit.Path.RemoveAt(0);
+            }
+            else if (unit.Path[0].Chebyshev(cell) > 1)
+            {
+                unit.ClearPath();
+            }
+
+            return;
+        }
+
+        unit.ClearPath();
         if (unit.Order == OrderKind.Gather && unit.Carrying < Rules.WorkerCarryCapacity)
         {
             FindPlaceToDig(unit);
@@ -142,9 +159,10 @@ public sealed partial class GameSimulation
 
     /// <summary>
     /// The nearest cell (by steps over open ground, in a fixed order) with room for the unit; among the nearest,
-    /// one where it can get on with its order (dig, build, shoot its target) if there is one.
+    /// for a walker the one nearest <paramref name="toward"/> (where it's going), for anyone else one where it
+    /// can get on with its order (dig, build, shoot its target) if there is one.
     /// </summary>
-    private Point? NearestRoom(UnitEntity unit, int maxSteps = 8)
+    private Point? NearestRoom(UnitEntity unit, Point? toward, int maxSteps = 8)
     {
         var seen = new HashSet<Point> { unit.Position };
         var ring = new List<Point> { unit.Position };
@@ -169,7 +187,9 @@ public sealed partial class GameSimulation
             var open = next.Where(p => Room(p) >= unit.Stats.Occupancy).ToList();
             if (open.Count > 0)
             {
-                return open.FirstOrDefault(p => CanWorkFrom(unit, p), open[0]);
+                return toward is { } goal
+                    ? open.MinBy(p => (p.Chebyshev(goal), p.DistanceSquared(goal)))
+                    : open.FirstOrDefault(p => CanWorkFrom(unit, p), open[0]);
             }
 
             ring = next;

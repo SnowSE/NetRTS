@@ -24,8 +24,8 @@ function changes(c, s) {
   const farm = s.farm;
   return [
     ['Space', [
-      [`A cell holds ${s.cellCapacity} points`, `Each unit takes room while it stands in a cell: ${room}. Units still walk through each other.`],
-      ['First in keeps the cell', 'A unit that stops where there isn’t room is bumped to the nearest cell that has some. When two players’ units arrive together and don’t all fit, they take turns, one each.'],
+      [`A cell holds ${s.cellCapacity} points`, `Every unit takes room in the cell it’s in, walking or standing: ${room}.`],
+      ['First in keeps the cell', 'A unit that ends a tick where there isn’t room is bumped to the nearest cell that has some, so armies spread out on the march. When two players’ units arrive together and don’t all fit, they take turns, one each.'],
       [`${s.minersPerEdge} dig from each cell`, `${s.minersPerEdge} workers dig from each cell beside a patch, and others there wait their turn. A worker bumped away looks within sight for a free spot, and stops if there isn’t one.`],
     ]],
     [say('Ore', 'Grubs'), [
