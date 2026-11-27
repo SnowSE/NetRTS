@@ -14,7 +14,7 @@ internal static class Report
 
         text.AppendLine(CultureInfo.InvariantCulture, $"{options.Players}-player games, {options.Seeds} seeds, tick limit {options.Ticks}, bots: {string.Join(", ", options.Bots)}");
         text.AppendLine();
-        text.AppendLine("| variant | games | eliminated | tick limit | mean end | median end | leader at 300 wins | tick-limit flips w/o economy | economy share of score | tower kill share | towers / player | trebuchets / game | spoils / player | HQs / player | gathered / player | farms / player |");
+        text.AppendLine("| variant | games | eliminated | tick limit | mean end | median end | leader at 300 wins | tick-limit flips w/o economy | economy (or bank) share of score | tower kill share | towers / player | trebuchets / game | spoils / player | HQs / player | gathered / player | farms / player |");
         text.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach (var (name, list) in byVariant)
         {
@@ -29,7 +29,7 @@ internal static class Report
                 $"| {Median(list.Select(g => g.Ticks))} " +
                 $"| {Pct(decided.Count(g => g.Winner == g.LeaderAt300), decided.Count)} " +
                 $"| {Pct(timeLimit.Count(g => g.Seats.MaxBy(s => s.Score.Destruction + s.Score.Survival)!.Slot != g.Winner), timeLimit.Count)} " +
-                $"| {Pct(seats.Sum(s => (long)s.Score.Economy), score)} " +
+                $"| {Pct(seats.Sum(s => (long)(s.Score.Bank ?? s.Score.Economy)), score)} " +
                 $"| {Pct(seats.Sum(s => s.Stats.TowerKills), seats.Sum(s => s.UnitsKilled))} " +
                 $"| {Avg(seats.Select(s => Built(s, BuildingType.GuardTower)))} " +
                 $"| {Avg(list.Select(g => g.Seats.Sum(s => Trained(s, UnitType.Trebuchet))))} " +
