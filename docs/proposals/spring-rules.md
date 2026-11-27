@@ -1,6 +1,6 @@
 # Plan: spring-semester rule changes (cell occupancy, mining slots, trebuchet blast)
 
-Status: **building** (interview started 2026-11-02; round 3 decisions 2026-11-26). Target: spring semester 2027.
+Status: **built, being tuned** (interview started 2026-11-02; rounds 3 and 4 decided 2026-11-26). Target: spring semester 2027.
 
 > Built on branch `spring-rules`; test server https://netrts-spring.azurewebsites.net runs the `spring-draft` rule set.
 > Tune with `netrts-sim` (see `src/NetRts.Sim`).
@@ -75,8 +75,24 @@ patches.
     Destroying one pays spoils like any building. Replaces the compost booster (confirm with user). Cost, size,
     gather rate and replant cost from simulations: a farm must be worth less per worker than a fresh patch,
     and worth it once home patches run dry.
-19. **Scoring at the tick limit** (recommended, not yet decided): destruction + survival, economy only as a
-    tiebreak or at reduced weight; 15 of 46 tick-limit games flip without economy.
+19. **Scoring at the tick limit** (recommended 2026-11-26, not yet decided): score = destruction + survival +
+    grubs in the bank (what you destroyed plus what you own), with grubs ever gathered only as the tiebreak.
+    Economy counts every grub twice once it is spent (gathered, then again as the unit or building it bought),
+    so a bot that digs and sits wins on the clock; 15 of 46 tick-limit games in prod flip without it.
+
+## Round 4 decisions (2026-11-26)
+
+20. **Any unit in a cell takes up space** (answers A): idle, digging, building, shooting or waiting. Built as:
+    a unit that is standing still holds its share; units walking through hold none until they stop.
+21. **Builders count like any worker** (answers B): 2 points, so 4 can stand in a cell.
+22. **Ties take turns like dealing cards** (answers C): when units from several players stop in one cell
+    on the same tick and don't all fit, they go in one per player in player order (lowest id first within a
+    player), starting from the player whose turn it is; each such collision moves the starting player one
+    further round the table (a match-wide counter, not per cell).
+23. **Rollout** (answers G): opt in for the rest of fall 2026 (the match setting `rules`, the rules picker
+    on the exhibition and host forms); after the next regular season match the server default switches
+    (`NetRts:Rules=spring-draft`) and classic becomes the opt-out.
+24. **No badges** (answers H): spectators just see more units, more spread out.
 
 ## Open questions (round 2)
 
@@ -171,3 +187,22 @@ game under every variant. Formics game lengths are bimodal (~700 or ~1,300 ticks
   direction, nothing breaks.
 - Test server: https://netrts-spring.azurewebsites.net (rg-netrts-spring, B1, NetRts__Rules=spring-draft, SQLite
   in /home, no Discord settings so nothing posts to the real server).
+- Round 4 (cells, digging spots, farms; 4-player mirrors, 48 games each; mean length / tick-limit games / grubs
+  gathered per player):
+
+  | variant | Formics | Economist | Balanced |
+  |---|---|---|---|
+  | classic | 1,065 / 0% / 17,929 | 1,248 / 17% / 10,394 | 1,332 / 8% / 9,968 |
+  | cells (classic + 9-point cells) | 1,057 / 8% / 17,316 | 1,233 / 8% / 10,238 | 1,415 / 25% / 9,731 |
+  | cells + 2 diggers per cell | 1,300 / 25% / 17,291 | 1,358 / 17% / 10,244 | 1,517 / 17% / 9,828 |
+  | spring without cells | 915 / 0% / 21,214 | 981 / 0% / 9,888 | 1,139 / 0% / 10,018 |
+  | spring without farms | 1,065 / 0% / 17,438 | 885 / 0% / 9,752 | 1,299 / 0% / 10,204 |
+  | **spring (everything)** | **1,031 / 0% / 18,130** | **885 / 0% / 9,752** | **1,299 / 0% / 10,204** |
+
+  The cell limit and the digging limit cost the house bots only 1-4% of their income (workers spread round
+  the patches on their own), but on classic towers they make games longer and more of them reach the clock.
+  With the rest of the spring rules (slower towers, spoils) no game reaches the clock. Formics builds 1.3
+  farms a game once its home patches run low, for about 4% more grubs; farm variants (500-grub crops, 2 a
+  tick, replanting at 150) are all within noise of 300 / 1 / 75, so those stay. Raising the dig rate to 3 to
+  make up for the digging limit isn't needed. The leader at tick 300 wins less often under spring rules (8-42%
+  vs 42-67% classic): less snowballing. Economist and Balanced never build farms, so their farm rows match.
