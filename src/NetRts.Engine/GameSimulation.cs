@@ -65,6 +65,8 @@ public sealed partial class GameSimulation
     private readonly Dictionary<int, Entity> _entities = [];
     private readonly int[] _buildingAt;
     private readonly int[] _depositAt;
+    private readonly bool[] _blocked;        // rock, a building or a deposit: what units can't walk through
+    private readonly PathSearch _paths;
     private readonly List<GameEventDto> _spectatorEvents = [];
     private readonly List<ReplayCommandDto> _replayCommands = [];
     private readonly List<ReplaySurrenderDto> _replaySurrenders = [];
@@ -101,13 +103,20 @@ public sealed partial class GameSimulation
         _buildingAt = new int[Map.Width * Map.Height];
         _depositAt = new int[Map.Width * Map.Height];
         _cellLoad = new int[Map.Width * Map.Height];
+        _blocked = new bool[Map.Width * Map.Height];
+        for (var i = 0; i < _blocked.Length; i++)
+        {
+            _blocked[i] = Map.IsRock(i % Map.Width, i / Map.Width);
+        }
+
+        _paths = new PathSearch(Map.Width, Map.Height, _blocked);
 
         foreach (var spawn in Map.Deposits)
         {
             var deposit = new DepositEntity(_nextEntityId++, spawn.Position, spawn.Amount);
             _deposits.Add(deposit);
             _entities[deposit.Id] = deposit;
-            _depositAt[Index(spawn.Position)] = deposit.Id;
+            SetDepositAt(spawn.Position, deposit.Id);
         }
 
         for (var slot = 0; slot < seats.Count; slot++)
@@ -404,15 +413,31 @@ public sealed partial class GameSimulation
 
     private int Index(Point p) => p.Y * Map.Width + p.X;
 
-    private bool Passable(int x, int y)
-    {
-        if (!Map.InBounds(x, y) || Map.IsRock(x, y))
-        {
-            return false;
-        }
+    private bool Passable(int x, int y) => Map.InBounds(x, y) && !_blocked[y * Map.Width + x];
 
-        var i = y * Map.Width + x;
-        return _buildingAt[i] == 0 && _depositAt[i] == 0;
+    /// <summary>Puts a building on a tile, or clears it (id 0).</summary>
+    private void SetBuildingAt(Point p, int id)
+    {
+        _buildingAt[Index(p)] = id;
+        Reblock(p);
+    }
+
+    /// <summary>Puts a deposit on a tile, or clears it (id 0).</summary>
+    private void SetDepositAt(Point p, int id)
+    {
+        _depositAt[Index(p)] = id;
+        Reblock(p);
+    }
+
+    private void Reblock(Point p)
+    {
+        var i = Index(p);
+        var blocked = Map.IsRock(p) || _buildingAt[i] != 0 || _depositAt[i] != 0;
+        if (blocked != _blocked[i])
+        {
+            _blocked[i] = blocked;
+            _paths.BlockedChanged();
+        }
     }
 
     private bool Passable(Point p) => Passable(p.X, p.Y);
@@ -435,7 +460,7 @@ public sealed partial class GameSimulation
         var building = new BuildingEntity(_nextEntityId++, owner, type, Rules.Buildings[type], position, completed);
         _buildings.Add(building);
         _entities[building.Id] = building;
-        _buildingAt[Index(position)] = building.Id;
+        SetBuildingAt(position, building.Id);
         if (completed)
         {
             Planted(building);

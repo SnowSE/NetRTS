@@ -507,7 +507,9 @@ public sealed partial class GameSimulation
                         || !Passable(unit.Path[0]);
         if (needsPath)
         {
-            unit.Path = Pathfinder.FindPath(Map.Width, Map.Height, Passable, unit.Position, goal, range);
+            // A unit already as close as it can get (its goal walled off, and a bot sending the same order
+            // every tick) would otherwise search everywhere it can reach, every tick, to find that out.
+            unit.Path = _paths.CanGetCloser(unit.Position, goal, range) ? _paths.Find(unit.Position, goal, range) : [];
             unit.PathGoal = goal;
             unit.PathRange = range;
             if (unit.Path.Count == 0)
@@ -645,7 +647,7 @@ public sealed partial class GameSimulation
         {
             _deposits.Remove(deposit);
             _entities.Remove(deposit.Id);
-            _depositAt[Index(deposit.Position)] = 0;
+            SetDepositAt(deposit.Position, 0);
             player.DepositsExhausted++;
             AddEvent(player, "DepositDepleted", $"Deposit {deposit.Id} at {deposit.Position} is exhausted", deposit.Id);
         }
@@ -802,7 +804,7 @@ public sealed partial class GameSimulation
         {
             _buildings.Remove(building);
             _entities.Remove(building.Id);
-            _buildingAt[Index(building.Position)] = 0;
+            SetBuildingAt(building.Position, 0);
             var owner = _players[building.Owner];
             owner.BuildingsLost++;
             AddEvent(owner, "BuildingLost", $"{building.Type} {building.Id} was destroyed at {building.Position}", building.Id, spectator: false);
@@ -838,7 +840,7 @@ public sealed partial class GameSimulation
         {
             _buildings.Remove(building);
             _entities.Remove(building.Id);
-            _buildingAt[Index(building.Position)] = 0;
+            SetBuildingAt(building.Position, 0);
         }
 
         var message = $"{player.Name} {reason}";

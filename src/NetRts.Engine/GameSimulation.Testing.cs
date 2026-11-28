@@ -15,7 +15,7 @@ public sealed partial class GameSimulation
         var deposit = new DepositEntity(_nextEntityId++, new Point(x, y), amount);
         _deposits.Add(deposit);
         _entities[deposit.Id] = deposit;
-        _depositAt[Index(deposit.Position)] = deposit.Id;
+        SetDepositAt(deposit.Position, deposit.Id);
         return deposit.Id;
     }
 
@@ -42,7 +42,7 @@ public sealed partial class GameSimulation
         _buildings.RemoveAll(b => b.Id == entityId);
         if (entity is BuildingEntity)
         {
-            _buildingAt[Index(entity.Position)] = 0;
+            SetBuildingAt(entity.Position, 0);
         }
 
         _entities.Remove(entityId);
